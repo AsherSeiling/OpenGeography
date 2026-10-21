@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import {
   Button,
   Dialog,
@@ -219,7 +220,7 @@ function DefineProjectionDialog({ layer, onClose }: { layer: string; onClose: ()
 // ---------- Select By Attributes ----------
 
 function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: string; onClose: () => void }) {
-  const layers = useApp((s) => s.order.map((id) => s.layers[id]).filter(Boolean));
+  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter(Boolean)));
   const [layer, setLayer] = useState(initialLayer);
   const [where, setWhere] = useState("");
   const [mode, setMode] = useState<"new" | "add">("new");

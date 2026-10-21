@@ -28,26 +28,44 @@ function add(id: PaneId, position?: Parameters<DockviewApi["addPanel"]>[0]["posi
 }
 
 /**
- * Default layout from the sketch: Contents on the left; Map with the
- * Attribute Table beside it; the Model below; Properties/Geoprocessing right.
+ * Default layout from the sketch:
+ *   Contents | Map | Attribute table | Properties/Geoprocessing
+ *            |  Model (spans map + table)  |
  */
 export function defaultLayout() {
   if (!dock) return;
   dock.clear();
   add("map");
-  add("contents", { referencePanel: "map", direction: "left" });
-  add("properties", { referencePanel: "map", direction: "right" });
-  add("tools", { referencePanel: "properties", direction: "within" });
-  add("table", { referencePanel: "map", direction: "right" });
   add("model", { referencePanel: "map", direction: "below" });
+  add("table", { referencePanel: "map", direction: "right" });
+  add("contents", { direction: "left" }); // whole-height column on the far left
+  add("properties", { direction: "right" }); // whole-height column on the far right
+  add("tools", { referencePanel: "properties", direction: "within" });
   dock.getPanel("properties")?.api.setActive();
   dock.getPanel("map")?.api.setActive();
-  // Initial sizes: narrow side columns, map gets most of the width.
-  const total = dock.width;
-  dock.getPanel("contents")?.group.api.setSize({ width: 240 });
-  dock.getPanel("properties")?.group.api.setSize({ width: 300 });
-  dock.getPanel("table")?.group.api.setSize({ width: Math.max(320, total * 0.25) });
-  dock.getPanel("model")?.group.api.setSize({ height: Math.max(240, dock.height * 0.36) });
+  applyDefaultSizes();
+}
+
+/**
+ * Narrow side columns, map gets most of the top row, Model gets ~40% of the
+ * height. Waits until the dock has a real size (sizes applied while it is
+ * 0×0 are distributed wrongly).
+ */
+function applyDefaultSizes(tries = 0) {
+  if (!dock) return;
+  if ((dock.width < 200 || dock.height < 200) && tries < 60) {
+    requestAnimationFrame(() => applyDefaultSizes(tries + 1));
+    return;
+  }
+  const W = dock.width;
+  const H = dock.height;
+  const contents = 230;
+  const properties = 300;
+  const center = W - contents - properties;
+  dock.getPanel("contents")?.group.api.setSize({ width: contents });
+  dock.getPanel("properties")?.group.api.setSize({ width: properties });
+  dock.getPanel("table")?.group.api.setSize({ width: Math.round(Math.max(300, center * 0.34)) });
+  dock.getPanel("model")?.group.api.setSize({ height: Math.round(Math.max(220, H * 0.4)) });
 }
 
 /** Show a pane, re-opening it in a sensible place if it was closed. */
@@ -60,8 +78,8 @@ export function showPane(id: PaneId) {
   }
   const anchor: Record<PaneId, Parameters<DockviewApi["addPanel"]>[0]["position"]> = {
     map: undefined,
-    contents: dock.getPanel("map") ? { referencePanel: "map", direction: "left" } : undefined,
-    properties: dock.getPanel("map") ? { referencePanel: "map", direction: "right" } : undefined,
+    contents: { direction: "left" },
+    properties: { direction: "right" },
     tools: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : undefined,
     table: dock.getPanel("map") ? { referencePanel: "map", direction: "right" } : undefined,
     model: dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,

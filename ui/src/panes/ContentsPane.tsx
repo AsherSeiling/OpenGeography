@@ -10,8 +10,9 @@ import {
   Warning16Filled,
   ZoomFitRegular,
 } from "@fluentui/react-icons";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { exportLayer, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
+import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
 import { showPane } from "./panes";
@@ -48,9 +49,25 @@ export function ContentsPane() {
   const mapCrs = useApp((s) => s.mapCrs);
   const selection = useApp((s) => s.selection);
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
-  const [drag, setDrag] = useState<string | null>(null);
-  const [dropAt, setDropAt] = useState<number | null>(null);
   const app = useApp.getState;
+  const treeRef = useRef<HTMLDivElement>(null);
+
+  // Drop a dragged layer on another row to move it above that row.
+  useEffect(() => {
+    const el = treeRef.current;
+    if (!el) return;
+    const onDrop = (e: Event) => {
+      const { payload } = (e as CustomEvent<DropDetail>).detail;
+      const row = (e.target as HTMLElement).closest("[data-index]") as HTMLElement | null;
+      if (payload.kind !== "layer" || !row) return;
+      const to = Number(row.dataset.index);
+      const order = app().order;
+      const from = order.indexOf(payload.id);
+      if (from >= 0 && from !== to) app().moveLayer(payload.id, from < to ? to - 1 : to);
+    };
+    el.addEventListener("gis-drop", onDrop);
+    return () => el.removeEventListener("gis-drop", onDrop);
+  }, [app]);
 
   const select = (id: string) => {
     app().setActiveLayer(id);
@@ -60,7 +77,7 @@ export function ContentsPane() {
   return (
     <div className="contents" onClick={() => setMenu(null)}>
       <div className="contents-head">Drawing Order</div>
-      <div className="tree">
+      <div className="tree" ref={treeRef}>
         <div className="tree-map" onClick={pickMapCrs} title="Click to change the map's coordinate system">
           <MapRegular />
           <span>Map</span>
@@ -73,6 +90,7 @@ export function ContentsPane() {
             Add data from the <b>Map</b> tab, or drag files onto the window.
           </div>
         )}
+        {order.length > 0 && <div className="tree-hint">Drag a layer onto the Model to use it as an input, or onto another layer to reorder.</div>}
         {order.map((id, i) => {
           const info = layers[id];
           if (!info) return null;
@@ -80,30 +98,16 @@ export function ContentsPane() {
           return (
             <div
               key={id}
-              className={`tree-layer ${active === id ? "active" : ""} ${dropAt === i ? "drop-before" : ""} ${info.temporary ? "temp" : ""}`}
-              draggable
-              onDragStart={(e) => {
-                setDrag(id);
-                e.dataTransfer.setData("application/gis-layer", id);
-                e.dataTransfer.effectAllowed = "copyMove";
-              }}
-              onDragOver={(e) => {
-                if (!drag) return;
-                e.preventDefault();
-                setDropAt(i);
-              }}
-              onDragEnd={() => {
-                setDrag(null);
-                setDropAt(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (drag && drag !== id) app().moveLayer(drag, order.indexOf(drag) < i ? i - 1 : i);
-                setDrag(null);
-                setDropAt(null);
+              className={`tree-layer ${active === id ? "active" : ""} ${info.temporary ? "temp" : ""}`}
+              data-drop="layer"
+              data-index={i}
+              onPointerDown={(e) => {
+                if ((e.target as HTMLElement).closest("input, svg.warn")) return;
+                startDrag(e, { kind: "layer", id, label: info.name });
               }}
               onClick={(e) => {
                 e.stopPropagation();
+                if (justDragged()) return;
                 select(id);
               }}
               onDoubleClick={() => showPane("properties")}

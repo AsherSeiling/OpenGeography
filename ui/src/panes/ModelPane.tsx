@@ -1,10 +1,11 @@
 import { Button, Toolbar, ToolbarDivider, Tooltip } from "@fluentui/react-components";
 import { ArrowRedoRegular, ArrowUndoRegular, DeleteRegular, EraserRegular, Play20Filled, ZoomFitRegular } from "@fluentui/react-icons";
-import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type Connection, type Edge } from "@xyflow/react";
+import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow, type Connection, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useStore } from "zustand";
 import { runModel } from "../actions";
+import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
 import { nodeTypes } from "../nodes/ModelNodes";
 import { outputKind, specs, useModel, useRun } from "../store/model";
@@ -59,14 +60,39 @@ function ModelCanvas() {
     return port.kind === "table" || outputKind(c.source) !== "table";
   }, []);
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const pos = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    const tool = e.dataTransfer.getData("application/gis-tool");
-    const layer = e.dataTransfer.getData("application/gis-layer");
-    if (tool) selectNode(useModel.getState().addNode(tool, pos));
-    else if (layer) selectNode(useModel.getState().addNode("input_layer", pos, { layer }));
-  };
+  // Tools and layers dragged in from the Geoprocessing and Contents panes.
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const onDrop = (e: Event) => {
+      const { payload, clientX, clientY } = (e as CustomEvent<DropDetail>).detail;
+      const pos = flow.screenToFlowPosition({ x: clientX - 60, y: clientY - 20 });
+      if (payload.kind === "tool") selectNode(useModel.getState().addNode(payload.id, pos));
+      else selectNode(useModel.getState().addNode("input_layer", pos, { layer: payload.id }));
+    };
+    el.addEventListener("gis-drop", onDrop);
+    return () => el.removeEventListener("gis-drop", onDrop);
+  });
+
+  // Fit the graph into view once the pane has a real size, and whenever a
+  // model is loaded into an empty canvas.
+  const fittedFor = useRef(0);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const fit = () => {
+      const n = useModel.getState().nodes.length;
+      if (el.clientWidth > 80 && el.clientHeight > 80 && n > 0 && fittedFor.current === 0) {
+        fittedFor.current = n;
+        requestAnimationFrame(() => flow.fitView({ padding: 0.25, maxZoom: 1.2 }));
+      }
+      if (n === 0) fittedFor.current = 0;
+    };
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    fit();
+    return () => ro.disconnect();
+  }, [flow, nodes.length]);
 
   const deleteSelected = () => {
     const ids = useModel.getState().nodes.filter((n) => n.selected).map((n) => n.id);
@@ -108,14 +134,21 @@ function ModelCanvas() {
           />
         </Tooltip>
         <span className="model-hint">
-          {nodes.length === 0
-            ? "Drag layers from Contents and tools from Geoprocessing here, then connect outputs to inputs."
-            : hasErrors
+          {hasErrors
               ? "Some steps failed — select a red step to see the error in Properties."
               : ""}
         </span>
       </Toolbar>
-      <div className="model-canvas" ref={wrap} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+      <div className="model-canvas" ref={wrap} data-drop="model">
+        {nodes.length === 0 && (
+          <div className="model-empty">
+            <div>
+              Drag a layer here from <b>Contents</b> (it becomes a blue input), then tools from <b>Geoprocessing</b>.
+              <br />
+              Connect each green <b>Output</b> to the next tool's input, end with <b>Add to Map</b>, and click Run.
+            </div>
+          </div>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -133,12 +166,10 @@ function ModelCanvas() {
           onPaneClick={() => useApp.getState().properties?.kind === "node" && useApp.getState().setProperties(null)}
           deleteKeyCode={["Delete", "Backspace"]}
           defaultEdgeOptions={{ type: "smoothstep" }}
-          fitView
           minZoom={0.2}
         >
           <Background gap={16} size={1} color="#d8d8d8" />
           <Controls showInteractive={false} position="bottom-left" />
-          <MiniMap pannable zoomable position="bottom-right" style={{ width: 140, height: 90 }} />
         </ReactFlow>
       </div>
     </div>

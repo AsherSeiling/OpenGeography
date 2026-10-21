@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import {
   Button,
   Checkbox,
@@ -280,7 +281,7 @@ function NodeProperties({ id }: { id: string }) {
 
 function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolParam; value: unknown }) {
   const set = (v: unknown) => useModel.getState().setParam(nodeId, p.id, v);
-  const layers = useApp((s) => s.order.map((lid) => s.layers[lid]).filter((l) => l && !l.temporary));
+  const layers = useApp(useShallow((s) => s.order.map((lid) => s.layers[lid]).filter((l) => l && !l.temporary)));
   const label = `${p.label}${p.optional ? " (optional)" : ""}`;
   const fields = p.fieldOf ? fieldsForPort(nodeId, p.fieldOf) : [];
   switch (p.kind) {

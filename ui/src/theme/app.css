@@ -166,11 +166,12 @@ body { font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", s
 .mnode-title { font-weight: 600; white-space: nowrap; }
 .mnode-sub { font-size: 11px; opacity: 0.75; white-space: nowrap; }
 .mnode-flag { font-size: 10.5px; display: flex; align-items: center; gap: 3px; opacity: 0.8; padding-left: 72px; }
-.mnode-out { position: relative; margin-left: 18px; background: var(--model-out); border: 1.5px solid var(--model-out-b); border-radius: 999px; padding: 4px 14px; font-size: 11px; color: #1b1b1b; opacity: 0.55; white-space: nowrap; }
+.mnode-out { position: relative; margin-left: 18px; background: var(--model-out); border: 1.5px solid var(--model-out-b); border-radius: 999px; padding: 4px 14px; font-size: 11px; color: #1b1b1b; opacity: 0.8; white-space: nowrap; }
 .mnode-out::before { content: ""; position: absolute; left: -19px; top: 50%; width: 18px; border-top: 1.5px solid #8a8a8a; }
 .mnode-out.ready { opacity: 1; }
-.port-label { position: absolute; left: 0; height: 16px; display: flex; align-items: center; font-size: 10.5px; opacity: 0.85; padding-left: 8px; white-space: nowrap; }
-.port { width: 9px !important; height: 9px !important; border: 1.5px solid #555 !important; background: #fff !important; }
+.port-label { position: absolute; left: 0; height: 16px; display: flex; align-items: center; font-size: 11px; padding-left: 10px; white-space: nowrap; color: #3a3a3a; }
+.port { width: 12px !important; height: 12px !important; border: 2px solid #4d4d4d !important; background: #fff !important; }
+.port:hover, .react-flow__handle.connectingto { transform: translate(-50%, -50%) scale(1.35) !important; border-color: #0078d4 !important; }
 .port.in.vector { background: #b9d4f0 !important; }
 .port.out { background: #c5e5bd !important; }
 .badge { position: absolute; top: -8px; right: -8px; font-size: 16px; background: var(--pane); border-radius: 50%; }
@@ -231,3 +232,16 @@ body { font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", s
 .sb-msg { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
 .sb-crs { border: 1px solid transparent; background: none; font: inherit; color: var(--accent); cursor: default; padding: 1px 6px; }
 .sb-crs:hover { background: var(--accent-hover); border-color: var(--border); }
+
+/* ---------- In-app drag and drop ---------- */
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 2000000; pointer-events: none; background: var(--pane); border: 1px solid var(--accent); color: var(--text); padding: 3px 10px; border-radius: 2px; box-shadow: 0 3px 10px rgba(0,0,0,.2); font: 12px "Segoe UI", system-ui, sans-serif; white-space: nowrap; }
+body.dragging, body.dragging * { cursor: grabbing !important; user-select: none; }
+.model-canvas.drop-over { outline: 2px dashed var(--accent); outline-offset: -4px; background: rgba(43, 87, 154, 0.04); }
+.tree-layer.drop-over { border-top-color: var(--accent); }
+.tools-hint, .tree-hint { color: var(--muted); font-size: 11px; padding: 0 2px; }
+.tree-hint { padding: 2px 8px 4px 22px; }
+.tool-item.input svg { color: var(--model-data-b); }
+.tool-item.output svg { color: var(--model-out-b); }
+.tool-empty { padding: 2px 6px 6px; font-size: 11px; }
+.model-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 13px; text-align: center; line-height: 1.6; z-index: 4; }
+.model-canvas { position: relative; }
