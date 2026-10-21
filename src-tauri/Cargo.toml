@@ -1,0 +1,22 @@
+[package]
+name = "gis-studio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Node-based open-source GIS"
+
+[features]
+# Compile DuckDB from source (used by CI installers).
+bundled = ["engine/bundled"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+engine = { path = "../crates/engine" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+percent-encoding = "2"

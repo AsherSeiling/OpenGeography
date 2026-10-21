@@ -1,0 +1,13 @@
+[package]
+name = "devserver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Serves the engine over HTTP so the UI can run in a normal browser for development and testing"
+
+[dependencies]
+engine = { path = "../engine" }
+tiny_http = "0.12"
+serde_json = "1"
+serde = "1"
+anyhow = "1"

@@ -1,0 +1,210 @@
+//! IPC commands. Each runs on a blocking worker thread so the UI never waits
+//! on DuckDB. Errors are returned to the UI as plain strings.
+
+use engine::crs::Suggestion;
+use engine::graph::{Graph, NodeResult};
+use engine::layers::LayerInfo;
+use engine::nodes::ToolSpec;
+use engine::table::{RowsPage, RowsQuery};
+use engine::Engine;
+use serde::Serialize;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, State};
+
+type Eng<'a> = State<'a, Arc<Engine>>;
+type Res<T> = Result<T, String>;
+
+async fn blocking<T, F>(engine: &Arc<Engine>, f: F) -> Res<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&Engine) -> anyhow::Result<T> + Send + 'static,
+{
+    let e = engine.clone();
+    tauri::async_runtime::spawn_blocking(move || f(&e))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("{e:#}"))
+}
+
+/// Build low-zoom tiles in the background after data changes.
+fn prewarm(engine: &Arc<Engine>, ids: Vec<String>) {
+    let e = engine.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        for id in ids {
+            let _ = e.prewarm(&id, 8, &[]);
+        }
+    });
+}
+
+#[tauri::command]
+pub async fn import_files(engine: Eng<'_>, paths: Vec<PathBuf>) -> Res<Vec<LayerInfo>> {
+    let out = blocking(&engine, move |e| {
+        let mut all = Vec::new();
+        for p in paths {
+            all.extend(e.import(&p)?);
+        }
+        Ok(all)
+    })
+    .await?;
+    prewarm(&engine, out.iter().map(|l| l.id.clone()).collect());
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn list_layers(engine: Eng<'_>) -> Res<Vec<LayerInfo>> {
+    blocking(&engine, |e| Ok(e.list_layers())).await
+}
+
+#[tauri::command]
+pub async fn remove_layer(engine: Eng<'_>, id: String) -> Res<()> {
+    blocking(&engine, move |e| e.remove_layer(&id)).await
+}
+
+#[tauri::command]
+pub async fn rename_layer(engine: Eng<'_>, id: String, name: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.rename_layer(&id, &name)).await
+}
+
+#[tauri::command]
+pub async fn define_projection(engine: Eng<'_>, id: String, crs: String, crs_name: Option<String>) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.define_projection(&id, &crs, crs_name)).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
+#[tauri::command]
+pub async fn suggest_crs(engine: Eng<'_>, id: String) -> Res<Vec<Suggestion>> {
+    blocking(&engine, move |e| e.suggest_crs(&id)).await
+}
+
+#[tauri::command]
+pub async fn validate_crs(engine: Eng<'_>, crs: String) -> Res<()> {
+    blocking(&engine, move |e| e.validate_crs(&crs)).await
+}
+
+#[tauri::command]
+pub async fn transform_point(engine: Eng<'_>, x: f64, y: f64, from: String, to: String) -> Res<(f64, f64)> {
+    blocking(&engine, move |e| e.transform_point(x, y, &from, &to)).await
+}
+
+#[tauri::command]
+pub async fn get_rows(engine: Eng<'_>, id: String, query: RowsQuery) -> Res<RowsPage> {
+    blocking(&engine, move |e| e.rows(&id, &query)).await
+}
+
+#[tauri::command]
+pub async fn select_where(engine: Eng<'_>, id: String, filter: String) -> Res<Vec<i64>> {
+    blocking(&engine, move |e| e.select_where(&id, &filter)).await
+}
+
+#[derive(Serialize)]
+pub struct LayerHits {
+    layer: String,
+    fids: Vec<i64>,
+}
+
+#[tauri::command]
+pub async fn identify(engine: Eng<'_>, ids: Vec<String>, lon: f64, lat: f64, zoom: f64) -> Res<Vec<LayerHits>> {
+    blocking(&engine, move |e| {
+        let mut out = Vec::new();
+        for id in ids {
+            let fids = e.identify(&id, lon, lat, zoom)?;
+            if !fids.is_empty() {
+                out.push(LayerHits { layer: id, fids });
+            }
+        }
+        Ok(out)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn select_box(engine: Eng<'_>, ids: Vec<String>, bbox: [f64; 4]) -> Res<Vec<LayerHits>> {
+    blocking(&engine, move |e| {
+        ids.into_iter()
+            .map(|id| Ok(LayerHits { fids: e.select_box(&id, bbox)?, layer: id }))
+            .collect()
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn get_feature(engine: Eng<'_>, id: String, fid: i64) -> Res<Vec<(String, Option<String>)>> {
+    blocking(&engine, move |e| e.feature(&id, fid)).await
+}
+
+#[tauri::command]
+pub async fn layer_extent(engine: Eng<'_>, id: String, fids: Option<Vec<i64>>) -> Res<Option<[f64; 4]>> {
+    blocking(&engine, move |e| e.extent(&id, fids)).await
+}
+
+#[tauri::command]
+pub async fn unique_values(engine: Eng<'_>, id: String, field: String, limit: Option<usize>) -> Res<Vec<(String, i64)>> {
+    blocking(&engine, move |e| e.unique_values(&id, &field, limit.unwrap_or(100))).await
+}
+
+#[tauri::command]
+pub async fn quantile_breaks(engine: Eng<'_>, id: String, field: String, classes: usize) -> Res<Vec<f64>> {
+    blocking(&engine, move |e| e.quantile_breaks(&id, &field, classes)).await
+}
+
+#[tauri::command]
+pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<ToolSpec>> {
+    blocking(&engine, |e| Ok(e.tool_specs())).await
+}
+
+#[tauri::command]
+pub async fn run_graph(app: AppHandle, engine: Eng<'_>, graph: Graph, target: Option<String>) -> Res<Vec<NodeResult>> {
+    let results = blocking(&engine, move |e| {
+        e.run_graph(&graph, target.as_deref(), &mut |r| {
+            let _ = app.emit("model-status", r);
+        })
+    })
+    .await?;
+    prewarm(&engine, results.iter().filter_map(|r| r.layer.as_ref().map(|l| l.id.clone())).collect());
+    Ok(results)
+}
+
+#[tauri::command]
+pub async fn preview_output(engine: Eng<'_>, output: String, crs: Option<String>, name: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.preview_output(&output, crs, &name)).await
+}
+
+#[tauri::command]
+pub async fn clear_model_cache(engine: Eng<'_>) -> Res<()> {
+    blocking(&engine, |e| e.clear_model_cache()).await
+}
+
+#[tauri::command]
+pub async fn generate_test_layer(engine: Eng<'_>, kind: String, count: u64, bbox: [f64; 4]) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.generate_test_layer(&kind, count, bbox)).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
+#[tauri::command]
+pub async fn save_project(engine: Eng<'_>, dir: PathBuf, ui_state: String) -> Res<()> {
+    blocking(&engine, move |e| e.save_project(&dir, &ui_state)).await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenedProject {
+    ui_state: String,
+    layers: Vec<LayerInfo>,
+}
+
+#[tauri::command]
+pub async fn open_project(engine: Eng<'_>, dir: PathBuf) -> Res<OpenedProject> {
+    blocking(&engine, move |e| {
+        let ui_state = e.open_project(&dir)?;
+        Ok(OpenedProject { ui_state, layers: e.list_layers() })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn new_project(engine: Eng<'_>) -> Res<()> {
+    blocking(&engine, |e| e.new_project()).await
+}

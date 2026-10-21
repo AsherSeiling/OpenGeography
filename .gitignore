@@ -1,0 +1,8 @@
+target/
+node_modules/
+dist/
+*.duckdb
+*.duckdb.wal
+.DS_Store
+.claude/settings.local.json
+src-tauri/gen/

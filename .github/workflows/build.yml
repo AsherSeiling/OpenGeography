@@ -1,0 +1,44 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Linux packages for Tauri
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      # CI compiles DuckDB from source (engine/bundled) instead of using a
+      # local prebuilt libduckdb, so remove the developer-machine paths.
+      - name: Use bundled DuckDB
+        shell: bash
+        run: rm -f .cargo/config.toml
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc -p tsconfig.json
+      - run: cargo test -p engine --features engine/bundled --release
+      - name: Map performance gate
+        run: cargo run --release -p engine --features engine/bundled --bin bench_tiles -- 300000 2000000
+      - name: Build installer
+        run: npx tauri build -- --features bundled
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            target/release/bundle/**/*.dmg
+            target/release/bundle/**/*.msi
+            target/release/bundle/**/*.exe
+            target/release/bundle/**/*.deb
+            target/release/bundle/**/*.AppImage
