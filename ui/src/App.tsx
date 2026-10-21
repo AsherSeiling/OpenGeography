@@ -109,13 +109,18 @@ export function App() {
   };
 
   return (
-    <FluentProvider theme={dark ? officeDark : officeLight} className={`app ${dark ? "dark" : ""}`}>
-      <Ribbon />
-      <div className="dock">
-        <DockviewReact components={components} onReady={onReady} theme={dark ? themeDark : themeLight} defaultRenderer="always" />
+    // The layout class goes on our own div, not the FluentProvider: Fluent
+    // copies the provider's className onto its popup containers, and a
+    // full-height white "app" container would cover the whole window.
+    <FluentProvider theme={dark ? officeDark : officeLight} style={{ height: "100%" }}>
+      <div className={`app ${dark ? "dark" : ""}`}>
+        <Ribbon />
+        <div className="dock">
+          <DockviewReact components={components} onReady={onReady} theme={dark ? themeDark : themeLight} defaultRenderer="always" />
+        </div>
+        <StatusBar />
+        <Dialogs />
       </div>
-      <StatusBar />
-      <Dialogs />
     </FluentProvider>
   );
 }

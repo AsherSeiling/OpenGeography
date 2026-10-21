@@ -208,3 +208,10 @@ pub async fn open_project(engine: Eng<'_>, dir: PathBuf) -> Res<OpenedProject> {
 pub async fn new_project(engine: Eng<'_>) -> Res<()> {
     blocking(&engine, |e| e.new_project()).await
 }
+
+/// Messages from the UI (startup report, uncaught errors), printed to the
+/// app's stderr so problems in release builds can be diagnosed.
+#[tauri::command]
+pub fn frontend_log(level: String, message: String) {
+    eprintln!("[ui:{level}] {message}");
+}

@@ -45,6 +45,7 @@ fn main() {
             commands::save_project,
             commands::open_project,
             commands::new_project,
+            commands::frontend_log,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GIS Studio");

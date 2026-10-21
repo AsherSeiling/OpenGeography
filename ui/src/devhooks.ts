@@ -8,3 +8,4 @@ import { useApp } from "./store/store";
 if (import.meta.env.DEV) {
   (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap };
 }
+
