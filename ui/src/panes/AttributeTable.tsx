@@ -5,6 +5,7 @@
 import { Button, Dropdown, Input, Menu, MenuDivider, MenuItem, MenuList, MenuPopover, Option, ToggleButton, Tooltip } from "@fluentui/react-components";
 import {
   AddRegular,
+  ArrowExportRegular,
   ArrowSortDown16Regular,
   ArrowSortDownRegular,
   ArrowSortUp16Regular,
@@ -21,7 +22,7 @@ import {
 } from "@fluentui/react-icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDialog, zoomToSelection } from "../actions";
+import { exportLayer, useDialog, zoomToSelection } from "../actions";
 import { api, errorText, type LayerInfo, type RowsPage } from "../ipc/api";
 import { displayInfo, useApp } from "../store/store";
 
@@ -375,6 +376,9 @@ export function AttributeTable() {
         <Tooltip content="Clear Selection" relationship="label">
           <Button size="small" icon={<DismissCircleRegular />} disabled={!nsel} onClick={() => useApp.getState().setSelection(owner, [])} />
         </Tooltip>
+        <Tooltip content={nsel ? `Export (${nsel} selected or all)` : "Export features"} relationship="label">
+          <Button size="small" icon={<ArrowExportRegular />} onClick={() => exportLayer(owner)} />
+        </Tooltip>
         <ToggleButton size="small" checked={onlySelected} onClick={() => setOnlySelected(!onlySelected)}>
           {onlySelected ? "Selected" : "All rows"}
         </ToggleButton>
@@ -475,7 +479,8 @@ export function AttributeTable() {
       </div>
       <div className="attr-foot">
         <span>
-          {nsel.toLocaleString()} of {info.featureCount.toLocaleString()} selected
+          {nsel.toLocaleString()} of {(layers[owner]?.definitionQuery && !readOnly ? (layers[owner]?.queryCount ?? 0) : info.featureCount).toLocaleString()} selected
+          {layers[owner]?.definitionQuery && !readOnly ? " (definition query)" : ""}
           {filter || onlySelected ? ` · ${total.toLocaleString()} shown` : ""}
         </span>
         <span className="muted">{readOnly ? "Read-only" : "Double-click or type to edit · Enter/Tab to move · Ctrl+Z to undo"}</span>

@@ -31,6 +31,9 @@ pub struct RowsPage {
 
 fn where_clause(info: &LayerInfo, filter: &Option<String>, fids: &Option<Vec<i64>>) -> String {
     let mut parts = Vec::new();
+    if let Some(q) = info.definition_query.as_ref().filter(|q| !q.trim().is_empty()) {
+        parts.push(format!("({q})"));
+    }
     if let Some(f) = filter.as_ref().filter(|f| !f.trim().is_empty()) {
         parts.push(format!("({f})"));
     }
@@ -41,7 +44,6 @@ fn where_clause(info: &LayerInfo, filter: &Option<String>, fids: &Option<Vec<i64
             parts.push(format!("__fid IN ({})", ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")));
         }
     }
-    let _ = info;
     if parts.is_empty() { String::new() } else { format!("WHERE {}", parts.join(" AND ")) }
 }
 
@@ -94,9 +96,10 @@ pub fn identify(conn: &Connection, info: &LayerInfo, lon: f64, lat: f64, zoom: f
     let sql = format!(
         "SELECT __fid FROM {t}
          WHERE ST_Intersects(__g, ST_MakeEnvelope({x0}, {y0}, {x1}, {y1}))
-           AND ST_DWithin(__g, ST_Point({x}, {y}), {tol})
+           AND ST_DWithin(__g, ST_Point({x}, {y}), {tol}){d}
          ORDER BY ST_Distance(__g, ST_Point({x}, {y})), __fid DESC LIMIT 25",
         t = ident(&info.table),
+        d = info.def_and(),
         x0 = x - tol, y0 = y - tol, x1 = x + tol, y1 = y + tol
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -112,8 +115,9 @@ pub fn select_box(conn: &Connection, info: &LayerInfo, bbox: [f64; 4]) -> Result
     let (x0, y0) = lonlat_to_merc(bbox[0], bbox[1]);
     let (x1, y1) = lonlat_to_merc(bbox[2], bbox[3]);
     let mut stmt = conn.prepare(&format!(
-        "SELECT __fid FROM {} WHERE ST_Intersects(__g, ST_MakeEnvelope({x0}, {y0}, {x1}, {y1})) ORDER BY __fid",
-        ident(&info.table)
+        "SELECT __fid FROM {} WHERE ST_Intersects(__g, ST_MakeEnvelope({x0}, {y0}, {x1}, {y1})){} ORDER BY __fid",
+        ident(&info.table),
+        info.def_and()
     ))?;
     let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)

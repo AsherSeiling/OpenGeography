@@ -132,7 +132,11 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             }
             json!(out)
         }
-        "copy_layer" => json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?)?),
+        "copy_layer" => {
+            let fids: Option<Vec<i64>> = de(a, "fids")?;
+            json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?, fids.as_deref())?)
+        }
+        "set_definition_query" => json!(e.set_definition_query(&s(a, "id")?, a["query"].as_str())?),
         "rename_layer" => json!(e.rename_layer(&s(a, "id")?, &s(a, "name")?)?),
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),
         "suggest_crs" => json!(e.suggest_crs(&s(a, "id")?)?),

@@ -3,6 +3,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
+import { showPane } from "./panes/panes";
 import { graphPayload, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle } from "./store/store";
 
@@ -20,7 +21,8 @@ export type DialogState =
   | { kind: "calcField"; layer: string; owner: string; field?: string }
   | { kind: "calcGeometry"; layer: string; owner: string; field?: string }
   | { kind: "renameField"; layer: string; field: string }
-  | { kind: "tiger" };
+  | { kind: "tiger" }
+  | { kind: "export"; owner: string };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,
@@ -72,7 +74,9 @@ const shown = (id: string) => displayInfo(useApp.getState(), id);
 
 export async function zoomToLayer(id: string) {
   const info = shown(id);
-  zoomToExtent(info?.extent ?? null);
+  // With a definition query, zoom to the matching features only.
+  const filtered = useApp.getState().layers[id]?.definitionQuery && info && !info.resultOf;
+  zoomToExtent(filtered ? await api.layerExtent(info!.id) : (info?.extent ?? null));
 }
 
 export async function zoomToSelection() {
@@ -118,35 +122,74 @@ export function pickMapCrs() {
   });
 }
 
-export async function exportLayer(owner: string) {
-  // Exports what the layer shows, i.e. its node-tree result when it has one.
+/** Open the Export Features dialog (all or selected features). */
+export function exportLayer(owner: string) {
+  useDialog.getState().show({ kind: "export", owner });
+}
+
+const EXPORT_FORMATS: Record<string, string> = { gpkg: "GPKG", shp: "ESRI Shapefile", geojson: "GeoJSON", json: "GeoJSON", parquet: "PARQUET", csv: "CSV", fgb: "FlatGeobuf" };
+
+/** Write what a layer shows (its node result if any, after its definition
+ * query) to a file; `selectedOnly` writes just the selected features. */
+export async function runExport(owner: string, selectedOnly: boolean) {
   const info = shown(owner);
   if (!info) return;
+  const fids = selectedOnly ? (useApp.getState().selection[owner] ?? []) : null;
   const path = await save({
-    title: `Export ${info.name}`,
-    defaultPath: `${info.name}.gpkg`,
+    title: `Export ${selectedOnly ? `${fids!.length.toLocaleString()} selected features of ` : ""}${info.name}`,
+    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.gpkg`,
     filters: [
       { name: "GeoPackage", extensions: ["gpkg"] },
       { name: "Shapefile", extensions: ["shp"] },
       { name: "GeoJSON", extensions: ["geojson"] },
+      { name: "FlatGeobuf", extensions: ["fgb"] },
       { name: "GeoParquet", extensions: ["parquet"] },
       { name: "CSV", extensions: ["csv"] },
     ],
   });
   if (!path) return;
-  const ext = path.split(".").pop()?.toLowerCase();
-  const format = { gpkg: "GPKG", shp: "ESRI Shapefile", geojson: "GeoJSON", json: "GeoJSON", parquet: "PARQUET", csv: "CSV", fgb: "FlatGeobuf" }[ext ?? ""] ?? "GPKG";
+  const format = EXPORT_FORMATS[path.split(".").pop()?.toLowerCase() ?? ""] ?? "GPKG";
   const res = await busy(`Exporting ${info.name}`, () =>
     api.runGraph({
       nodes: [
-        { id: "in", tool: "input_layer", params: { layer: info.id } },
+        { id: "in", tool: "input_layer", params: fids ? { layer: info.id, fids } : { layer: info.id } },
         { id: "out", tool: "export", params: { path, format } },
       ],
       edges: [{ source: "in", target: "out", targetHandle: "in" }],
     }),
   );
   const out = res?.find((r) => r.id === "out");
-  if (out) status(out.error ? `Export failed: ${out.error}` : (out.message ?? "Exported"));
+  const n = res?.find((r) => r.id === "in")?.rows;
+  if (out) status(out.error ? `Export failed: ${out.error}` : `Exported ${n?.toLocaleString() ?? ""} feature(s) to ${path}`);
+}
+
+/** Copy the selected features into a new layer. */
+export async function layerFromSelection(owner: string) {
+  const s = useApp.getState();
+  const info = shown(owner);
+  const fids = s.selection[owner] ?? [];
+  if (!info || !fids.length) {
+    status("Select some features first.");
+    return;
+  }
+  const created = await busy("Creating layer from selection", () => api.copyLayer(info.id, `${s.layers[owner]?.name ?? info.name} selection`, fids));
+  if (!created) return;
+  useApp.getState().addLayers([created]);
+  status(`Created "${created.name}" with ${created.featureCount.toLocaleString()} feature(s)`);
+}
+
+/** Show a layer's Definition Query tab in Properties. */
+export function openDefinitionQuery(owner: string) {
+  useApp.getState().set({ activeLayer: owner, properties: { kind: "layer", id: owner }, propsTab: "query" });
+  showPane("properties");
+}
+
+export async function setDefinitionQuery(owner: string, query: string | null) {
+  const info = await api.setDefinitionQuery(owner, query); // throws on a bad query
+  useApp.getState().updateLayer(info);
+  useApp.getState().setSelection(owner, []);
+  status(query ? `Definition query on ${info.name}: ${info.queryCount?.toLocaleString()} of ${info.featureCount.toLocaleString()} features` : `Definition query cleared on ${info.name}`);
+  return info;
 }
 
 export async function selectByAttributes(layer: string, where: string, mode: "new" | "add") {

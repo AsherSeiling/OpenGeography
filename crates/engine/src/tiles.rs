@@ -31,7 +31,8 @@ pub fn build_tile(conn: &Connection, info: &LayerInfo, z: u32, x: u32, y: u32, f
     let env = tile_envelope_sql(z, x, y);
     let px = pixel_size(z);
 
-    let count: i64 = conn.query_row(&format!("SELECT count(*) FROM {t} WHERE ST_Intersects(__g, {env})"), [], |r| r.get(0))?;
+    let d = info.def_and();
+    let count: i64 = conn.query_row(&format!("SELECT count(*) FROM {t} WHERE ST_Intersects(__g, {env}){d}"), [], |r| r.get(0))?;
     if count == 0 {
         return Ok(Vec::new());
     }
@@ -55,7 +56,7 @@ pub fn build_tile(conn: &Connection, info: &LayerInfo, z: u32, x: u32, y: u32, f
     };
 
     let sql = format!(
-        "WITH cand AS (SELECT * FROM {t} WHERE ST_Intersects(__g, {env})),
+        "WITH cand AS (SELECT * FROM {t} WHERE ST_Intersects(__g, {env}){d}),
          big AS (SELECT {cols}, {simplify} AS g FROM cand WHERE __sz >= {small}),
          sm AS (SELECT {any_cols}, any_value(__g) AS g FROM cand WHERE __sz < {small}
                 GROUP BY floor(__x0 / {cell}), floor(__y0 / {cell})),

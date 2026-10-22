@@ -16,8 +16,8 @@ import {
 } from "@fluentui/react-components";
 import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@fluentui/react-icons";
 import { save } from "@tauri-apps/plugin-dialog";
-import { useState } from "react";
-import { previewNode, runModel, useDialog } from "../actions";
+import { useEffect, useState } from "react";
+import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
 import { api, errorText, type ToolParam } from "../ipc/api";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
@@ -35,7 +35,15 @@ export function PropertiesPane() {
 
 function LayerProperties({ id }: { id: string }) {
   const info = useApp((s) => s.layers[id]);
-  const [tab, setTab] = useState<"symbology" | "general" | "crs">("symbology");
+  const [tab, setTab] = useState<"symbology" | "general" | "crs" | "query">("symbology");
+  // Another part of the app asked for a specific tab (e.g. Definition Query).
+  const requested = useApp((s) => s.propsTab);
+  useEffect(() => {
+    if (requested) {
+      setTab(requested as never);
+      useApp.getState().set({ propsTab: null });
+    }
+  }, [requested]);
   if (!info) return null;
   const isTable = info.geomType === "Table";
   return (
@@ -44,15 +52,20 @@ function LayerProperties({ id }: { id: string }) {
       <TabList size="small" selectedValue={isTable && tab === "symbology" ? "general" : tab} onTabSelect={(_, d) => setTab(d.value as never)}>
         {!isTable && <Tab value="symbology">Symbology</Tab>}
         <Tab value="general">General</Tab>
+        <Tab value="query">Definition Query{info.definitionQuery ? " •" : ""}</Tab>
         {!isTable && <Tab value="crs">Coordinate System</Tab>}
       </TabList>
       <div className="props-body">
-        {tab === "general" || isTable ? (
+        {tab === "query" ? (
+          <DefinitionQuery id={id} />
+        ) : tab === "general" || isTable ? (
           <dl className="kv">
             <dt>Type</dt>
             <dd>{info.geomType === "Table" ? "Table" : `${info.geomType} features`}</dd>
             <dt>Records</dt>
-            <dd>{info.featureCount.toLocaleString()}</dd>
+            <dd>
+              {info.definitionQuery ? `${(info.queryCount ?? 0).toLocaleString()} of ${info.featureCount.toLocaleString()} (definition query)` : info.featureCount.toLocaleString()}
+            </dd>
             <dt>Fields</dt>
             <dd>{info.fields.map((f) => `${f.name} (${f.type.toLowerCase()})`).join(", ") || "—"}</dd>
             <dt>Source</dt>
@@ -231,6 +244,97 @@ function Symbology({ id }: { id: string }) {
           <Slider min={1} max={14} step={0.5} value={style.radius} onChange={(_, d) => setStyle({ radius: d.value })} />
         </Field>
       )}
+    </div>
+  );
+}
+
+/** Limit a layer to features matching an SQL expression, everywhere in the app. */
+function DefinitionQuery({ id }: { id: string }) {
+  const info = useApp((s) => s.layers[id]);
+  const hasResult = useApp((s) => !!s.results[id] && !s.showOriginal[id]);
+  const [text, setText] = useState(info.definitionQuery ?? "");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [valueField, setValueField] = useState<string>("");
+  const [values, setValues] = useState<[string, number][]>([]);
+  useEffect(() => setText(info.definitionQuery ?? ""), [info.definitionQuery]);
+  const field = info.fields.find((f) => f.name === valueField);
+  const numeric = field && /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/i.test(field.type);
+  const insert = (t: string) => setText((x) => (x && !x.endsWith(" ") ? `${x} ${t}` : `${x}${t}`));
+  const quoteField = (f: string) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(f) ? f : `"${f}"`);
+  const apply = async (q: string | null) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await setDefinitionQuery(id, q);
+      if (!q) setText("");
+    } catch (e) {
+      setErr(errorText(e));
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="stack">
+      <div className="muted">
+        Only features matching this expression are part of the layer: drawn on the map, listed in the table, selectable, exported, and used as tool input. The data itself isn't changed.
+      </div>
+      {info.definitionQuery && (
+        <MessageBar intent="info">
+          <MessageBarBody>
+            Showing {(info.queryCount ?? 0).toLocaleString()} of {info.featureCount.toLocaleString()} features.
+          </MessageBarBody>
+        </MessageBar>
+      )}
+      {hasResult && (
+        <MessageBar intent="warning">
+          <MessageBarBody>This layer shows its node-tree result. The query filters the tree's Layer Input: run the tree to update the result.</MessageBarBody>
+        </MessageBar>
+      )}
+      <div>
+        <div className="muted small">Fields:</div>
+        <div className="field-chips">
+          {info.fields.map((f) => (
+            <button key={f.name} className="chip" title={f.type} onClick={() => insert(quoteField(f.name))}>{f.name}</button>
+          ))}
+          {["=", "<>", ">", "<", ">=", "<=", "AND", "OR", "NOT", "IN ()", "LIKE '%'", "IS NULL"].map((op) => (
+            <button key={op} className="chip op" onClick={() => insert(op)}>{op}</button>
+          ))}
+        </div>
+      </div>
+      <Field label="Values of a field (click to insert)">
+        <Dropdown
+          value={valueField}
+          placeholder="Choose a field…"
+          onOptionSelect={async (_, d) => {
+            setValueField(d.optionValue!);
+            try {
+              setValues(await api.uniqueValues(id, d.optionValue!, 200));
+            } catch (e) {
+              setErr(errorText(e));
+            }
+          }}
+        >
+          {info.fields.map((f) => (
+            <Option key={f.name} value={f.name}>{f.name}</Option>
+          ))}
+        </Dropdown>
+      </Field>
+      {values.length > 0 && (
+        <div className="value-list">
+          {values.map(([v, n]) => (
+            <button key={v} className="chip" onClick={() => insert(numeric ? v : `'${v.replace(/'/g, "''")}'`)} title={`${n.toLocaleString()} feature(s)`}>
+              {v || "<empty>"} <span className="muted">({n.toLocaleString()})</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <Field label="Expression" validationMessage={err ?? undefined} validationState={err ? "error" : "none"} hint="SQL, e.g. COUNTY = '109' AND POP2020 > 1000">
+        <Textarea value={text} onChange={(_, d) => setText(d.value)} rows={4} className="mono" />
+      </Field>
+      <div className="btn-row">
+        <Button appearance="primary" size="small" disabled={busy || !text.trim()} onClick={() => apply(text)}>Apply</Button>
+        <Button size="small" disabled={busy || !info.definitionQuery} onClick={() => apply(null)}>Clear</Button>
+      </div>
     </div>
   );
 }

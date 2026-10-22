@@ -2,6 +2,8 @@
 // and the "Tell me" search all read from it.
 import {
   AddCircleRegular,
+  FilterRegular,
+  LayerDiagonalAddRegular,
   CalculatorRegular,
   GlobeDesktopRegular,
   RulerRegular,
@@ -40,6 +42,8 @@ import type { ReactElement } from "react";
 import {
   addData,
   exportLayer,
+  layerFromSelection,
+  openDefinitionQuery,
   newProject,
   openProject,
   pickMapCrs,
@@ -103,6 +107,8 @@ const list: Command[] = [
 
   // Data tab
   { id: "defineProjection", label: "Define Projection", icon: <GlobeRegular />, run: () => active() && useDialog.getState().show({ kind: "defineProjection", layer: active()!.id }), enabled: () => !!active() },
+  { id: "definitionQuery", label: "Definition Query", icon: <FilterRegular />, run: () => active() && openDefinitionQuery(active()!.id), enabled: () => !!active(), tip: "Limit the layer to features matching an expression" },
+  { id: "layerFromSelection", label: "Layer From Selection", icon: <LayerDiagonalAddRegular />, run: () => active() && layerFromSelection(active()!.id), enabled: () => !!active() && (app().selection[active()!.id]?.length ?? 0) > 0, tip: "Copy the selected features into a new layer" },
   { id: "exportLayer", label: "Export Features", icon: <ArrowExportRegular />, run: () => active() && exportLayer(active()!.id), enabled: () => !!active() },
   { id: "tiger", label: "Sample Data (TIGER)", icon: <GlobeDesktopRegular />, run: () => useDialog.getState().show({ kind: "tiger" }), tip: "Download Census boundaries, roads and water for any state or county" },
   { id: "addField", label: "Add Field", icon: <TableAddRegular />, run: () => active() && useDialog.getState().show({ kind: "addField", layer: active()!.id }), enabled: canEditActive },

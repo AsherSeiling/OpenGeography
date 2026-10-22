@@ -62,6 +62,8 @@ interface AppState {
   selection: Record<string, number[]>;
   activeLayer: string | null;
   properties: PropertiesTarget;
+  /** Tab to show in layer Properties next time (e.g. "query"). */
+  propsTab: string | null;
   mapCrs: MapCrs | null;
   tool: MapTool;
   basemap: Basemap;
@@ -99,6 +101,7 @@ export const useApp = create<AppState>((set, get) => ({
   selection: {},
   activeLayer: null,
   properties: null,
+  propsTab: null,
   mapCrs: null,
   tool: "pan",
   basemap: "usgsTopo",

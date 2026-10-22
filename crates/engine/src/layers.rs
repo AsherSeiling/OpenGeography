@@ -48,11 +48,26 @@ pub struct LayerInfo {
     /// The UI draws the result in place of that layer.
     #[serde(default)]
     pub result_of: Option<String>,
+    /// Definition query: an SQL filter limiting which features the layer has
+    /// (on the map, in the table, for selection, export and tools).
+    #[serde(default)]
+    pub definition_query: Option<String>,
+    /// Number of features passing the definition query.
+    #[serde(default)]
+    pub query_count: Option<i64>,
 }
 
 impl LayerInfo {
     pub fn has_geometry(&self) -> bool {
         self.geom_type != "Table"
+    }
+
+    /// `AND (<definition query>)`, or empty when the layer has none.
+    pub fn def_and(&self) -> String {
+        match self.definition_query.as_deref().map(str::trim) {
+            Some(q) if !q.is_empty() => format!(" AND ({q})"),
+            _ => String::new(),
+        }
     }
 }
 
@@ -208,6 +223,8 @@ pub fn build_layer(conn: &Connection, id: &str, src: &ImportSource) -> Result<La
         warnings: src.warnings.clone(),
         overviews: vec![],
         result_of: None,
+        definition_query: None,
+        query_count: None,
     };
     refresh_display(conn, &mut info)?;
     Ok(info)
@@ -385,7 +402,8 @@ pub fn unique_values(conn: &Connection, info: &LayerInfo, field: &str, limit: us
         bail!("Field '{field}' not found");
     }
     let mut stmt = conn.prepare(&format!(
-        "SELECT CAST({f} AS VARCHAR) v, count(*) n FROM {t} GROUP BY 1 ORDER BY n DESC, v LIMIT {limit}",
+        "SELECT CAST({f} AS VARCHAR) v, count(*) n FROM {t} WHERE TRUE{d} GROUP BY 1 ORDER BY n DESC, v LIMIT {limit}",
+        d = info.def_and(),
         f = ident(field),
         t = ident(&info.table)
     ))?;
@@ -400,10 +418,11 @@ pub fn quantile_breaks(conn: &Connection, info: &LayerInfo, field: &str, classes
     }
     let qs: Vec<String> = (1..classes).map(|i| format!("{}", i as f64 / classes as f64)).collect();
     let sql = format!(
-        "SELECT to_json(quantile_cont(TRY_CAST({f} AS DOUBLE), [{}]))::VARCHAR FROM {t}",
+        "SELECT to_json(quantile_cont(TRY_CAST({f} AS DOUBLE), [{}]))::VARCHAR FROM {t} WHERE TRUE{d}",
         qs.join(","),
         f = ident(field),
-        t = ident(&info.table)
+        t = ident(&info.table),
+        d = info.def_and()
     );
     let json: Option<String> = conn.query_row(&sql, [], |r| r.get(0))?;
     Ok(json.map(|j| serde_json::from_str(&j)).transpose()?.unwrap_or_default())
@@ -417,8 +436,9 @@ pub fn features_extent(conn: &Connection, info: &LayerInfo, fids: Option<&[i64]>
     let filter = match fids {
         Some(f) if !f.is_empty() => format!("WHERE __fid IN ({})", f.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",")),
         Some(_) => return Ok(None),
-        None => String::new(),
+        None => "WHERE TRUE".to_string(),
     };
+    let filter = format!("{filter}{}", info.def_and());
     let r: Option<(f64, f64, f64, f64)> = conn.query_row(
         &format!("SELECT min(ST_XMin(__g)), min(ST_YMin(__g)), max(ST_XMax(__g)), max(ST_YMax(__g)) FROM {} {filter}", ident(&info.table)),
         [],

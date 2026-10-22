@@ -316,3 +316,5 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .attr-foot > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .attr-foot > .muted { flex: 1; text-align: right; min-width: 0; }
 .tiger-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; max-height: 260px; overflow: auto; }
+.tree-query { color: #0063b1; flex: none; cursor: pointer; font-size: 15px; }
+.value-list { display: flex; flex-wrap: wrap; gap: 3px; max-height: 140px; overflow: auto; border: 1px solid var(--border); padding: 4px; }

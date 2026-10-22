@@ -62,8 +62,15 @@ pub async fn remove_layer(engine: Eng<'_>, id: String) -> Res<()> {
 }
 
 #[tauri::command]
-pub async fn copy_layer(engine: Eng<'_>, id: String, name: String) -> Res<LayerInfo> {
-    let info = blocking(&engine, move |e| e.copy_layer(&id, &name)).await?;
+pub async fn copy_layer(engine: Eng<'_>, id: String, name: String, fids: Option<Vec<i64>>) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.copy_layer(&id, &name, fids.as_deref())).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
+#[tauri::command]
+pub async fn set_definition_query(engine: Eng<'_>, id: String, query: Option<String>) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.set_definition_query(&id, query.as_deref())).await?;
     prewarm(&engine, vec![info.id.clone()]);
     Ok(info)
 }

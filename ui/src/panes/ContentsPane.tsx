@@ -1,6 +1,8 @@
 import { Menu, MenuDivider, MenuItem, MenuList, MenuPopover, Tooltip } from "@fluentui/react-components";
 import {
   ArrowExportRegular,
+  FilterRegular,
+  LayerDiagonalAddRegular,
   FlowchartRegular,
   DeleteRegular,
   EditRegular,
@@ -12,7 +14,7 @@ import {
   ZoomFitRegular,
 } from "@fluentui/react-icons";
 import { useEffect, useRef, useState } from "react";
-import { exportLayer, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
+import { exportLayer, layerFromSelection, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
@@ -132,6 +134,16 @@ export function ContentsPane() {
               <Swatch info={(results[id] && !showOriginal[id] ? results[id] : info)} style={styles[id]} />
               <span className="tree-name">{info.name}</span>
               {nsel > 0 && <span className="sel-count" title="Selected features">{nsel.toLocaleString()}</span>}
+              {info.definitionQuery && (
+                <FilterRegular
+                  className="tree-query"
+                  title={`Definition query: ${info.definitionQuery} (${(info.queryCount ?? 0).toLocaleString()} of ${info.featureCount.toLocaleString()})`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDefinitionQuery(id);
+                  }}
+                />
+              )}
               {results[id] && (
                 <FlowchartRegular
                   className={`tree-result ${showOriginal[id] ? "off" : ""}`}
@@ -165,6 +177,7 @@ export function ContentsPane() {
 function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; onClose: () => void }) {
   const info = useApp((s) => s.layers[id]);
   const hasResult = useApp((s) => !!s.results[id]);
+  const nsel = useApp((s) => s.selection[id]?.length ?? 0);
   const showingOriginal = useApp((s) => !!s.showOriginal[id]);
   const target = { getBoundingClientRect: () => ({ x, y, left: x, top: y, right: x, bottom: y, width: 0, height: 0, toJSON: () => null }) };
   const dlg = useDialog.getState().show;
@@ -183,8 +196,10 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
             </MenuItem>
           )}
           <MenuDivider />
+          <MenuItem icon={<FilterRegular />} onClick={() => openDefinitionQuery(id)}>Definition Query…</MenuItem>
           <MenuItem icon={<GlobeRegular />} onClick={() => dlg({ kind: "defineProjection", layer: id })}>Define Projection…</MenuItem>
           <MenuItem icon={<ArrowExportRegular />} onClick={() => exportLayer(id)}>Export Features…</MenuItem>
+          <MenuItem icon={<LayerDiagonalAddRegular />} disabled={!nsel} onClick={() => layerFromSelection(id)}>Create Layer From Selection{nsel ? ` (${nsel.toLocaleString()})` : ""}</MenuItem>
           <MenuItem icon={<EditRegular />} onClick={() => dlg({ kind: "rename", layer: id })}>Rename…</MenuItem>
           <MenuDivider />
           <MenuItem icon={<DeleteRegular />} onClick={() => removeLayer(id)}>Remove</MenuItem>

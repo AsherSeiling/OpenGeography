@@ -219,13 +219,39 @@ impl Engine {
         Ok(out)
     }
 
-    /// Copy a layer (typically a node-tree result) into a new, independent layer.
-    pub fn copy_layer(&self, id: &str, name: &str) -> Result<LayerInfo> {
+    /// Set or clear (empty/None) a layer's definition query. The query is
+    /// checked first; a bad query leaves the layer unchanged.
+    pub fn set_definition_query(&self, id: &str, query: Option<&str>) -> Result<LayerInfo> {
+        let q = query.map(str::trim).filter(|q| !q.is_empty()).map(String::from);
+        let mut info = self.layer(id)?;
+        self.with_conn(|conn| {
+            info.query_count = match &q {
+                Some(q) => Some(
+                    conn.query_row(&format!("SELECT count(*) FROM {} WHERE ({q})", ident(&info.table)), [], |r| r.get(0))
+                        .map_err(|e| anyhow!("{}", e.to_string().split("\n\nLINE").next().unwrap_or("Invalid query")))?,
+                ),
+                None => None,
+            };
+            info.definition_query = q;
+            info.version += 1;
+            self.save_meta(conn, &info)?;
+            Ok(info)
+        })
+    }
+
+    /// Copy a layer (typically a node-tree result) into a new, independent
+    /// layer. Respects its definition query; `fids` copies only those features.
+    pub fn copy_layer(&self, id: &str, name: &str, fids: Option<&[i64]>) -> Result<LayerInfo> {
         let src_info = self.layer(id)?;
         let hidden = if src_info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
+        let only = match fids {
+            Some([]) => " AND FALSE".to_string(),
+            Some(ids) => format!(" AND __fid IN ({})", ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")),
+            None => String::new(),
+        };
         let src = ImportSource {
             name: name.to_string(),
-            select: format!("SELECT * EXCLUDE ({hidden}) FROM {}", ident(&src_info.table)),
+            select: format!("SELECT * EXCLUDE ({hidden}) FROM {} WHERE TRUE{}{only}", ident(&src_info.table), src_info.def_and()),
             crs: src_info.crs.clone(),
             crs_name: src_info.crs_name.clone(),
             warnings: vec![],

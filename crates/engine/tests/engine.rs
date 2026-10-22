@@ -258,7 +258,7 @@ fn layer_tree_output_replaces_display_and_can_be_saved_as_new_layer() {
     let again = e.run_graph(&g, None, &mut |_| {}).unwrap();
     assert_eq!(again.iter().find(|r| r.id == "out").unwrap().layer.as_ref().unwrap().id, result.id);
     // Save as a new independent layer.
-    let copy = e.copy_layer(&result.id, "Filtered points").unwrap();
+    let copy = e.copy_layer(&result.id, "Filtered points", None).unwrap();
     assert!(copy.result_of.is_none());
     assert_eq!(copy.feature_count, result.feature_count);
     assert_eq!(copy.crs, l.crs);
@@ -381,4 +381,51 @@ fn tiger_sample_data_downloads() {
     }
     let blocks = &layers[2];
     assert!(blocks.feature_count > 1000, "blocks {}", blocks.feature_count);
+}
+
+#[test]
+fn definition_query_and_selected_only_export() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 1000, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+
+    // Bad queries are rejected and leave the layer alone.
+    assert!(e.set_definition_query(&l.id, Some("no_such_field = 1")).is_err());
+    assert!(e.layer(&l.id).unwrap().definition_query.is_none());
+
+    let l = e.set_definition_query(&l.id, Some("class < 3")).unwrap();
+    let n = l.query_count.unwrap();
+    assert!(n > 0 && n < 1000);
+    // Table, selection, tools and copies all see only matching features.
+    assert_eq!(e.rows(&l.id, &RowsQuery { limit: 10, ..Default::default() }).unwrap().total, n);
+    assert_eq!(e.select_box(&l.id, [-99.0, 34.0, -96.0, 37.0]).unwrap().len() as i64, n);
+    assert!(e.select_where(&l.id, "class >= 3").unwrap().is_empty());
+    let g = graph(json!({
+        "nodes": [{"id": "in", "tool": "input_layer", "params": {"layer": l.id}}],
+        "edges": []
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert_eq!(res[0].rows, Some(n));
+    assert_eq!(e.copy_layer(&l.id, "Copy", None).unwrap().feature_count, n);
+
+    // Export only selected features (respecting the query too).
+    let sel = e.select_where(&l.id, "value < 300").unwrap();
+    let out = dir.path().join("sel.gpkg");
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id, "fids": sel}},
+            {"id": "x", "tool": "export", "params": {"path": out.to_str().unwrap(), "format": "GPKG"}}
+        ],
+        "edges": [{"source": "in", "target": "x", "targetHandle": "in"}]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert!(res.iter().all(|r| r.status == Status::Done), "{res:?}");
+    let back = Engine::new().unwrap().import(&out).unwrap().remove(0);
+    assert_eq!(back.feature_count as usize, sel.len());
+    assert_eq!(e.copy_layer(&l.id, "Selection", Some(&sel)).unwrap().feature_count as usize, sel.len());
+
+    // Clearing restores everything.
+    let l = e.set_definition_query(&l.id, None).unwrap();
+    assert!(l.query_count.is_none());
+    assert_eq!(e.rows(&l.id, &RowsQuery { limit: 1, ..Default::default() }).unwrap().total, 1000);
 }

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, useDialog } from "../actions";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, utmFor, type CrsEntry } from "../crs/crs";
 import { api, errorText } from "../ipc/api";
+import { ExportDialog } from "./ExportDialog";
 import { TigerDialog } from "./TigerDialog";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
 import { benchmarkFlight, getMap, type FlightResult } from "../map/mapController";
@@ -55,6 +56,8 @@ export function Dialogs() {
       return <RenameFieldDialog layer={dialog.layer} field={dialog.field} onClose={close} />;
     case "tiger":
       return <TigerDialog onClose={close} />;
+    case "export":
+      return <ExportDialog owner={dialog.owner} onClose={close} />;
   }
 }
 

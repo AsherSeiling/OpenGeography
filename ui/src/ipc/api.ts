@@ -46,6 +46,8 @@ export interface LayerInfo {
   warnings: string[];
   /** Set on a layer's node-tree result: the layer it is drawn in place of. */
   resultOf?: string | null;
+  definitionQuery?: string | null;
+  queryCount?: number | null;
 }
 
 export type PortKind = "vector" | "table";
@@ -123,7 +125,8 @@ export const api = {
   tigerCounties: (state: string) => invoke<[string, string][]>("tiger_counties", { state }),
   tigerImport: (datasets: string[], state: string, county: string | null, label: string) =>
     invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label }),
-  copyLayer: (id: string, name: string) => invoke<LayerInfo>("copy_layer", { id, name }),
+  copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
+  setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),
   addField: (id: string, name: string, ty: FieldType) => invoke<LayerInfo>("add_field", { id, name, ty }),
   deleteField: (id: string, name: string) => invoke<LayerInfo>("delete_field", { id, name }),
   renameField: (id: string, old: string, newName: string) => invoke<LayerInfo>("rename_field", { id, old, new: newName }),
