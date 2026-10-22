@@ -10,7 +10,7 @@ impl Tool for Export {
             category: "Output",
             role: Role::Output,
             description: "Write the result to a file. The coordinate system is written with it.",
-            inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Table }],
+            inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Any }],
             output: None,
             params: vec![
                 Param::new("path", "Output file", ParamKind::SavePath),
@@ -29,6 +29,11 @@ impl Tool for Export {
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let path = p.req_str("path", "Output file")?;
+        if let Some(src) = &i.raster {
+            let ds = gdal::Dataset::open(src)?;
+            crate::raster::translate(&ds, std::path::Path::new(&path), &["-of", "GTiff", "-co", "COMPRESS=DEFLATE", "-co", "TILED=YES"].map(String::from))?;
+            return Ok(Output::Done(format!("Wrote {path} (GeoTIFF)")));
+        }
         let fmt = p.str("format").unwrap_or_else(|| "GPKG".into());
         let src = format!("SELECT * FROM {}", ident(&i.table));
         let sql = match fmt.as_str() {

@@ -14,7 +14,7 @@ export interface AddItem {
   description: string;
   tool: string;
   params?: Record<string, unknown>;
-  kind: "input" | "tool" | "output" | "qgis";
+  kind: "input" | "tool" | "output";
 }
 
 /** Everything that can be added to the open tree. */
@@ -22,7 +22,6 @@ export function useAddItems(): AddItem[] {
   const specs = useRun((s) => s.specs);
   const owner = useModel((s) => s.layer);
   const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
-  const qgis = useRun((s) => s.qgisAlgorithms);
   return useMemo(() => {
     const items: AddItem[] = [
       { key: "layer:empty", label: "Layer", category: "Input", description: "A layer input. Choose a layer in it, or drop one from Contents onto it.", tool: "input_layer", kind: "input" },
@@ -34,11 +33,8 @@ export function useAddItems(): AddItem[] {
       if (s.role === "data" || s.id === "layer_output" || s.id === "add_to_map") continue;
       items.push({ key: `tool:${s.id}`, label: s.name, category: s.role === "output" ? "Save to File" : s.category, description: s.description, tool: s.id, kind: s.role === "output" ? "output" : "tool" });
     }
-    for (const a of qgis) {
-      items.push({ key: `qgis:${a.id}`, label: a.name, category: `QGIS: ${a.group}`, description: `${a.provider} · ${a.id}`, tool: "qgis", params: { algorithm: a.id }, kind: "qgis" });
-    }
     return items;
-  }, [specs, owner, layers, qgis]);
+  }, [specs, owner, layers]);
 }
 
 const CATEGORY_ORDER = ["Input", "Extract", "Overlay", "Proximity", "Analysis", "Generalize", "General", "Tables", "Coordinate Systems", "Sampling", "Raster", "Save to File"];
@@ -53,7 +49,7 @@ export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPic
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(items.map((i) => i.category)));
-    const rank = (c: string) => (c.startsWith("QGIS") ? 100 : CATEGORY_ORDER.indexOf(c) < 0 ? 50 : CATEGORY_ORDER.indexOf(c));
+    const rank = (c: string) => (CATEGORY_ORDER.indexOf(c) < 0 ? 50 : CATEGORY_ORDER.indexOf(c));
     return cats.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   }, [items]);
 

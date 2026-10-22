@@ -9,7 +9,7 @@ pub fn handle(engine: &Engine, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     match tile(engine, req) {
         Ok(body) => Response::builder()
             .status(200)
-            .header("Content-Type", "application/x-protobuf")
+            .header("Content-Type", if body.starts_with(b"\x89PNG") { "image/png" } else { "application/x-protobuf" })
             .header("Access-Control-Allow-Origin", "*")
             .body(body)
             .unwrap(),
@@ -27,7 +27,7 @@ fn tile(engine: &Engine, req: &Request<Vec<u8>>) -> anyhow::Result<Vec<u8>> {
     let ["tiles", layer, z, x, y] = parts.as_slice() else {
         anyhow::bail!("bad tile path {}", uri.path());
     };
-    let y = y.trim_end_matches(".pbf");
+    let y = y.trim_end_matches(".pbf").trim_end_matches(".png");
     let mut fields = Vec::new();
     for pair in uri.query().unwrap_or("").split('&') {
         if let Some(v) = pair.strip_prefix("fields=") {

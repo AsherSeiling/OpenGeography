@@ -112,6 +112,7 @@ const list: Command[] = [
   { id: "definitionQuery", label: "Definition Query", icon: <FilterRegular />, run: () => active() && openDefinitionQuery(active()!.id), enabled: () => !!active(), tip: "Limit the layer to features matching an expression" },
   { id: "layerFromSelection", label: "Layer From Selection", icon: <LayerDiagonalAddRegular />, run: () => active() && layerFromSelection(active()!.id), enabled: () => !!active() && (app().selection[active()!.id]?.length ?? 0) > 0, tip: "Copy the selected features into a new layer" },
   { id: "exportLayer", label: "Export Features", icon: <ArrowExportRegular />, run: () => active() && exportLayer(active()!.id), enabled: () => !!active() },
+  { id: "elevation", label: "Elevation (3DEP)", icon: <MountainTrailRegular />, run: () => useDialog.getState().show({ kind: "elevation" }), tip: "Download USGS 3DEP elevation for the map view or a layer's area" },
   { id: "tiger", label: "Sample Data (TIGER)", icon: <GlobeDesktopRegular />, run: () => useDialog.getState().show({ kind: "tiger" }), tip: "Download Census boundaries, roads and water for any state or county" },
   { id: "addField", label: "Add Field", icon: <TableAddRegular />, run: () => active() && useDialog.getState().show({ kind: "addField", layer: active()!.id }), enabled: canEditActive },
   { id: "calcField", label: "Calculate Field", icon: <CalculatorRegular />, run: () => active() && useDialog.getState().show({ kind: "calcField", layer: active()!.id, owner: active()!.id }), enabled: canEditActive },

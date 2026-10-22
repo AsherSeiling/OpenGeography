@@ -23,7 +23,8 @@ export type DialogState =
   | { kind: "renameField"; layer: string; field: string }
   | { kind: "tiger" }
   | { kind: "export"; owner: string }
-  | { kind: "nodeQuery"; nodeId: string; param: string };
+  | { kind: "nodeQuery"; nodeId: string; param: string }
+  | { kind: "elevation" };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,
@@ -47,7 +48,7 @@ async function busy<T>(label: string, f: () => Promise<T>): Promise<T | undefine
 // ---------- data ----------
 
 const DATA_FILTERS = [
-  { name: "GIS data", extensions: ["shp", "gpkg", "geojson", "json", "kml", "kmz", "fgb", "gml", "gpx", "csv", "tsv", "txt", "parquet", "zip"] },
+  { name: "GIS data", extensions: ["shp", "gpkg", "geojson", "json", "kml", "kmz", "fgb", "gml", "gpx", "csv", "tsv", "txt", "parquet", "zip", "tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2"] },
   { name: "All files", extensions: ["*"] },
 ];
 
@@ -138,8 +139,8 @@ export async function runExport(owner: string, selectedOnly: boolean) {
   const fids = selectedOnly ? (useApp.getState().selection[owner] ?? []) : null;
   const path = await save({
     title: `Export ${selectedOnly ? `${fids!.length.toLocaleString()} selected features of ` : ""}${info.name}`,
-    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.gpkg`,
-    filters: [
+    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.${info.geomType === "Raster" ? "tif" : "gpkg"}`,
+    filters: info.geomType === "Raster" ? [{ name: "GeoTIFF", extensions: ["tif"] }] : [
       { name: "GeoPackage", extensions: ["gpkg"] },
       { name: "Shapefile", extensions: ["shp"] },
       { name: "GeoJSON", extensions: ["geojson"] },

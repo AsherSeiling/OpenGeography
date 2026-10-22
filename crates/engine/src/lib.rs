@@ -8,9 +8,11 @@ pub mod graph;
 pub mod layers;
 pub mod measure;
 pub mod nodes;
+pub mod raster;
 pub mod table;
 pub mod tiger;
 pub mod tiles;
+pub mod tnm;
 
 use anyhow::{anyhow, Result};
 use db::{ident, lit, Pool};
@@ -128,6 +130,9 @@ impl Engine {
     // ---------- layers ----------
 
     pub fn import(&self, path: &Path) -> Result<Vec<LayerInfo>> {
+        if raster::is_raster_path(path) {
+            return Ok(vec![self.import_raster(path, None)?]);
+        }
         let pool = self.pool.read();
         let conn = pool.get()?;
         let mut out = Vec::new();
@@ -141,6 +146,35 @@ impl Engine {
         Ok(out)
     }
 
+    /// Add a raster file as a layer (copied into the raster store).
+    pub fn import_raster(&self, path: &Path, name: Option<&str>) -> Result<LayerInfo> {
+        let stored = raster::import(path)?;
+        let id = self.alloc_id();
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("raster");
+        let info = layers::raster_layer(&id, name.unwrap_or(stem), &stored, Some(path.display().to_string()))?;
+        self.with_conn(|c| self.save_meta(c, &info))?;
+        Ok(info)
+    }
+
+    /// Download USGS 3DEP elevation for a lon/lat box as a raster layer.
+    pub fn download_elevation(&self, bbox: [f64; 4], resolution: f64, area_label: &str) -> Result<LayerInfo> {
+        let (path, res) = tnm::download_elevation(bbox, resolution)?;
+        let id = self.alloc_id();
+        let name = format!("Elevation (3DEP {res} m) — {area_label}");
+        let info = layers::raster_layer(&id, &name, &path, Some("USGS 3DEP elevation (The National Map)".into()))?;
+        self.with_conn(|c| self.save_meta(c, &info))?;
+        Ok(info)
+    }
+
+    /// Raster value at a lon/lat (identify on rasters).
+    pub fn raster_value(&self, id: &str, lon: f64, lat: f64) -> Result<Option<f64>> {
+        let info = self.layer(id)?;
+        match &info.raster {
+            Some(r) => raster::sample(r, lon, lat),
+            None => Ok(None),
+        }
+    }
+
     pub fn remove_layer(&self, id: &str) -> Result<()> {
         let rid = result_id(id);
         if self.layers.read().contains_key(&rid) {
@@ -149,7 +183,9 @@ impl Engine {
         let info = self.layer(id)?;
         let pool = self.pool.read();
         let conn = pool.get()?;
-        conn.execute_batch(&format!("DROP TABLE IF EXISTS {}", ident(&info.table)))?;
+        if !info.is_raster() {
+            conn.execute_batch(&format!("DROP TABLE IF EXISTS {}", ident(&info.table)))?;
+        }
         for z in layers::OVERVIEW_LEVELS {
             conn.execute_batch(&format!("DROP TABLE IF EXISTS {}", ident(&layers::overview_table(&info.table, z))))?;
         }
@@ -243,6 +279,9 @@ impl Engine {
     /// layer. Respects its definition query; `fids` copies only those features.
     pub fn copy_layer(&self, id: &str, name: &str, fids: Option<&[i64]>) -> Result<LayerInfo> {
         let src_info = self.layer(id)?;
+        if let Some(r) = &src_info.raster {
+            return self.import_raster(Path::new(&r.path), Some(name));
+        }
         let hidden = if src_info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
         let only = match fids {
             Some([]) => " AND FALSE".to_string(),
@@ -311,9 +350,13 @@ impl Engine {
         if let Some(t) = self.tile_cache.lock().get(&key) {
             return Ok(t.clone());
         }
-        let pool = self.pool.read();
-        let conn = pool.get()?;
-        let t = Arc::new(tiles::build_tile(&conn, &info, z, x, y, fields)?);
+        let t = if let Some(r) = &info.raster {
+            Arc::new(if info.crs.is_some() { raster::render_tile(r, z, x, y)? } else { Vec::new() })
+        } else {
+            let pool = self.pool.read();
+            let conn = pool.get()?;
+            Arc::new(tiles::build_tile(&conn, &info, z, x, y, fields)?)
+        };
         self.tile_cache.lock().put(key, t.clone());
         Ok(t)
     }
@@ -529,6 +572,17 @@ impl Host for Engine {
         info.crs_name = if crs == base.crs { base.crs_name.clone() } else { None };
         info.result_of = Some(owner.to_string());
         self.save_meta(conn, &info)?;
+        Ok(info)
+    }
+
+    fn set_result_raster(&self, owner: &str, path: &str) -> Result<LayerInfo> {
+        let base = self.layer(owner)?;
+        let id = result_id(owner);
+        let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
+        let mut info = layers::raster_layer(&id, &base.name, Path::new(path), base.source.clone())?;
+        info.version = prev_version + 1;
+        info.result_of = Some(owner.to_string());
+        self.with_conn(|c| self.save_meta(c, &info))?;
         Ok(info)
     }
 

@@ -303,3 +303,17 @@ pub async fn tiger_import(engine: Eng<'_>, datasets: Vec<String>, state: String,
     prewarm(&engine, out.iter().map(|l| l.id.clone()).collect());
     Ok(out)
 }
+
+// ---------- rasters ----------
+
+#[tauri::command]
+pub async fn download_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64, label: String) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.download_elevation(bbox, resolution, &label)).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
+#[tauri::command]
+pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
+    blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
+}

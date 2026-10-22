@@ -14,7 +14,20 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 }
 
 export type Extent = [number, number, number, number];
-export type GeomType = "Point" | "Line" | "Polygon" | "Mixed" | "Table";
+export type GeomType = "Point" | "Line" | "Polygon" | "Mixed" | "Table" | "Raster";
+
+export interface RasterInfo {
+  path: string;
+  width: number;
+  height: number;
+  bands: number;
+  dataType: string;
+  nodata: number | null;
+  min: number;
+  max: number;
+  kind: "elevation" | "rgb";
+  pixelSize: number;
+}
 
 export interface TigerDataset {
   id: string;
@@ -48,10 +61,11 @@ export interface LayerInfo {
   resultOf?: string | null;
   definitionQuery?: string | null;
   overviews: number[];
+  raster?: RasterInfo | null;
   queryCount?: number | null;
 }
 
-export type PortKind = "vector" | "table";
+export type PortKind = "vector" | "table" | "raster" | "any";
 export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "savePath" | "query";
 
 export interface ToolParam {
@@ -126,6 +140,8 @@ export const api = {
   tigerCounties: (state: string) => invoke<[string, string][]>("tiger_counties", { state }),
   tigerImport: (datasets: string[], state: string, county: string | null, label: string) =>
     invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label }),
+  downloadElevation: (bbox: Extent, resolution: number, label: string) => invoke<LayerInfo>("download_elevation", { bbox, resolution, label }),
+  rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),
   addField: (id: string, name: string, ty: FieldType) => invoke<LayerInfo>("add_field", { id, name, ty }),
@@ -172,7 +188,8 @@ const TILE_BASE = !IN_TAURI ? DEV_SERVER : navigator.userAgent.includes("Windows
 
 export function tileUrl(layer: LayerInfo, fields: string[]): string {
   const f = fields.length ? `&fields=${encodeURIComponent(fields.join(","))}` : "";
-  return `${TILE_BASE}/tiles/${layer.id}/{z}/{x}/{y}.pbf?v=${layer.version}${f}`;
+  const ext = layer.geomType === "Raster" ? "png" : "pbf";
+  return `${TILE_BASE}/tiles/${layer.id}/{z}/{x}/{y}.${ext}?v=${layer.version}${f}`;
 }
 
 export function errorText(e: unknown): string {

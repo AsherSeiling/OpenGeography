@@ -37,12 +37,12 @@ export function openLayerProperties(layer: string, section?: PropsSection) {
   useLayerProps.getState().open(layer, section);
 }
 
-const SECTIONS: { id: PropsSection; label: string; icon: ReactElement; vector?: boolean }[] = [
+const SECTIONS: { id: PropsSection; label: string; icon: ReactElement; vector?: boolean; table?: boolean }[] = [
   { id: "general", label: "General", icon: <InfoRegular /> },
   { id: "source", label: "Source", icon: <DocumentRegular /> },
   { id: "symbology", label: "Symbology", icon: <PaintBrushRegular />, vector: true },
-  { id: "query", label: "Definition Query", icon: <FilterRegular /> },
-  { id: "fields", label: "Fields", icon: <TableRegular /> },
+  { id: "query", label: "Definition Query", icon: <FilterRegular />, table: true },
+  { id: "fields", label: "Fields", icon: <TableRegular />, table: true },
   { id: "crs", label: "Coordinate System", icon: <GlobeRegular />, vector: true },
 ];
 
@@ -58,6 +58,7 @@ export function LayerPropertiesWindow() {
   }, [layer, info]);
   if (!layer || !info) return null;
   const isTable = info.geomType === "Table";
+  const isRaster = info.geomType === "Raster";
 
   const startDrag = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("button")) return;
@@ -85,7 +86,7 @@ export function LayerPropertiesWindow() {
       </div>
       <div className="lp-body">
         <nav className="lp-nav">
-          {SECTIONS.filter((s) => !(s.vector && isTable)).map((s) => (
+          {SECTIONS.filter((s) => !(s.vector && isTable) && !(isRaster && (s.table || s.id === "symbology"))).map((s) => (
             <button key={s.id} className={`lp-nav-item ${section === s.id ? "on" : ""}`} onClick={() => useLayerProps.setState({ section: s.id })}>
               {s.icon}
               <span>{s.label}</span>
@@ -184,6 +185,19 @@ function Source({ id }: { id: string }) {
         <>
           <dt>Map overviews</dt>
           <dd>Zoom levels {info.overviews.join(", ")} (for fast zoomed-out drawing)</dd>
+        </>
+      )}
+      {info.raster && (
+        <>
+          <dt>Raster</dt>
+          <dd>
+            {info.raster.width.toLocaleString()} × {info.raster.height.toLocaleString()} cells, {info.raster.bands} band(s), {info.raster.dataType}
+            <br />
+            Cell size {info.raster.pixelSize.toPrecision(4)} · values {info.raster.min.toFixed(2)} – {info.raster.max.toFixed(2)}
+            {info.raster.nodata !== null ? ` · no-data ${info.raster.nodata}` : ""}
+          </dd>
+          <dt>Stored at</dt>
+          <dd className="wrap mono">{info.raster.path}</dd>
         </>
       )}
       {info.warnings.length > 0 && (

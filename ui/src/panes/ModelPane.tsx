@@ -67,8 +67,12 @@ function ModelCanvas() {
     const target = useModel.getState().nodes.find((n) => n.id === c.target);
     const port = target && specs()[target.data.tool]?.inputs.find((p) => p.id === c.targetHandle);
     if (!port) return false;
-    // Vector inputs need features with geometry; tables go into table ports only.
-    return port.kind === "table" || outputKind(c.source) !== "table";
+    // Vector inputs need features; raster inputs need rasters; tables take anything but rasters.
+    const k = outputKind(c.source);
+    if (port.kind === "any") return true;
+    if (port.kind === "raster") return k === "raster" || k === undefined;
+    if (k === "raster") return false;
+    return port.kind === "table" || k !== "table";
   }, []);
 
   // Tools and layers dragged in from the Geoprocessing and Contents panes.

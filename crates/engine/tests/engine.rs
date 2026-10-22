@@ -449,3 +449,108 @@ fn every_catalog_crs_is_usable() {
     std::fs::write(std::env::temp_dir().join("unusable_crs.txt"), bad.join("\n")).unwrap();
     assert!(bad.is_empty(), "{} of {} unusable, e.g. {:?}", bad.len(), list.len(), &bad[..bad.len().min(8)]);
 }
+
+/// A synthetic DEM: a round hill (0–100 m) on a 200×200 grid of 30 m cells in UTM 14N.
+fn write_test_dem(path: &Path) {
+    let drv = gdal::DriverManager::get_driver_by_name("GTiff").unwrap();
+    let mut ds = drv.create_with_band_type::<f32, _>(path, 200, 200, 1).unwrap();
+    ds.set_geo_transform(&[600_000.0, 30.0, 0.0, 3_900_000.0, 0.0, -30.0]).unwrap();
+    ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(32614).unwrap()).unwrap();
+    let mut data = vec![0f32; 200 * 200];
+    for r in 0..200 {
+        for c in 0..200 {
+            let d = (((r as f32 - 100.0).powi(2) + (c as f32 - 100.0).powi(2)).sqrt() / 100.0).min(1.0);
+            data[r * 200 + c] = 100.0 * (1.0 - d);
+        }
+    }
+    let mut buf = gdal::raster::Buffer::new((200, 200), data);
+    ds.rasterband(1).unwrap().write((0, 0), (200, 200), &mut buf).unwrap();
+}
+
+#[test]
+fn rasters_contours_hillshade_slope() {
+    let dir = tempfile::tempdir().unwrap();
+    let dem = dir.path().join("hill.tif");
+    write_test_dem(&dem);
+    let e = Engine::new().unwrap();
+    let l = e.import(&dem).unwrap().remove(0);
+    assert_eq!(l.geom_type, "Raster");
+    assert_eq!(l.crs.as_deref(), Some("EPSG:32614"));
+    let r = l.raster.clone().unwrap();
+    assert!(r.max > 99.0 && r.min < 1.0, "stats {} {}", r.min, r.max);
+
+    // A map tile over the raster is a PNG.
+    let ext = l.extent.unwrap();
+    let (lon, lat) = ((ext[0] + ext[2]) / 2.0, (ext[1] + ext[3]) / 2.0);
+    let z = 12u32;
+    let n = 2f64.powi(z as i32);
+    let x = ((lon + 180.0) / 360.0 * n) as u32;
+    let y = ((1.0 - (lat.to_radians().tan() + 1.0 / lat.to_radians().cos()).ln() / std::f64::consts::PI) / 2.0 * n) as u32;
+    let png = e.tile(&l.id, z, x, y, &[]).unwrap();
+    assert_eq!(&png[1..4], b"PNG");
+    // Identify gives the elevation at the summit.
+    assert!(e.raster_value(&l.id, lon, lat).unwrap().unwrap() > 90.0);
+
+    // Contours every 10 m: 9 rings (10..90), each with an ELEV value.
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+            {"id": "c", "tool": "contours", "params": {"interval": 10, "base": 0, "index_every": 5}},
+            {"id": "h", "tool": "hillshade", "params": {"azimuth": 315, "altitude": 45, "z": 1}},
+            {"id": "s", "tool": "slope", "params": {"units": "degrees"}},
+            {"id": "out", "tool": "layer_output", "params": {"layer": l.id}}
+        ],
+        "edges": [
+            {"source": "in", "target": "c", "targetHandle": "in"},
+            {"source": "in", "target": "h", "targetHandle": "in"},
+            {"source": "in", "target": "s", "targetHandle": "in"},
+            {"source": "h", "target": "out", "targetHandle": "in"}
+        ]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    for r in &res {
+        assert!(matches!(r.status, Status::Done | Status::Cached), "{}: {:?}", r.id, r.error);
+    }
+    let c = res.iter().find(|r| r.id == "c").unwrap();
+    assert!(c.rows.unwrap() >= 9, "contours {:?}", c.rows);
+    assert_eq!(c.crs.as_deref(), Some("EPSG:32614"));
+    // The Output shows the hillshade raster in place of the DEM.
+    let out = res.iter().find(|r| r.id == "out").unwrap().layer.clone().unwrap();
+    assert_eq!(out.geom_type, "Raster");
+    assert_eq!(out.result_of.as_deref(), Some(l.id.as_str()));
+    // Contours feeding a vector tool works (Buffer the contour lines).
+    let g2 = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+            {"id": "c", "tool": "contours", "params": {"interval": 25}},
+            {"id": "b", "tool": "buffer", "params": {"distance": 10, "units": "m"}}
+        ],
+        "edges": [
+            {"source": "in", "target": "c", "targetHandle": "in"},
+            {"source": "c", "target": "b", "targetHandle": "in"}
+        ]
+    }));
+    let res2 = e.run_graph(&g2, None, &mut |_| {}).unwrap();
+    assert!(res2.iter().all(|r| matches!(r.status, Status::Done | Status::Cached)), "{res2:?}");
+    // A raster into a vector port is a clear error.
+    let g3 = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+            {"id": "b", "tool": "buffer", "params": {"distance": 10}}
+        ],
+        "edges": [{"source": "in", "target": "b", "targetHandle": "in"}]
+    }));
+    let r3 = e.run_graph(&g3, None, &mut |_| {}).unwrap();
+    assert!(r3[1].error.as_ref().unwrap().contains("raster"));
+}
+
+/// Needs internet (USGS 3DEP); run with --ignored.
+#[test]
+#[ignore]
+fn download_3dep_elevation() {
+    let e = Engine::new().unwrap();
+    let l = e.download_elevation([-97.47, 35.17, -97.43, 35.21], 10.0, "Norman, OK").unwrap();
+    let r = l.raster.unwrap();
+    assert!(r.min > 300.0 && r.max < 420.0, "elevation range {} {}", r.min, r.max);
+    assert!(l.crs.unwrap().contains("32614"));
+}

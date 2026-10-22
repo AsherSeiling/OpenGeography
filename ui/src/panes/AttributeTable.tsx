@@ -322,6 +322,12 @@ export function AttributeTable() {
   };
 
   if (!info || !owner) return <div className="empty-hint pad">No layers. Add data to see its attributes here.</div>;
+  if (info.geomType === "Raster")
+    return (
+      <div className="empty-hint pad">
+        <b>{info.name}</b> is a raster ({info.raster?.width.toLocaleString()} × {info.raster?.height.toLocaleString()} cells, values {info.raster?.min.toFixed(1)} – {info.raster?.max.toFixed(1)}). Rasters have no attribute table; use Identify on the map to read values, or Contour in the Model to make lines from it.
+      </div>
+    );
 
   const width = FID_W + fields.reduce((n, f) => n + colW(f.name), 0);
   const nsel = selected?.length ?? 0;

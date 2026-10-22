@@ -58,6 +58,8 @@ fn main() {
             commands::tiger_datasets,
             commands::tiger_counties,
             commands::tiger_import,
+            commands::download_elevation,
+            commands::raster_value,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GIS Studio");

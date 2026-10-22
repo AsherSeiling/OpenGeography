@@ -17,7 +17,7 @@ interface Group {
 const TABS: Record<string, Group[]> = {
   Map: [
     { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }] },
-    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "tiger" }, { custom: <BasemapGallery /> }] },
+    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "tiger" }, { cmd: "elevation" }, { custom: <BasemapGallery /> }] },
     {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
@@ -34,7 +34,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Tools", items: [{ custom: <ToolGallery /> }] },
   ],
   Data: [
-    { label: "Add", items: [{ cmd: "addData" }, { cmd: "tiger" }] },
+    { label: "Add", items: [{ cmd: "addData" }, { cmd: "tiger" }, { cmd: "elevation" }] },
     { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
     { label: "Coordinate Systems", items: [{ cmd: "defineProjection" }, { cmd: "mapCrs" }] },
     { label: "Export", items: [{ cmd: "exportLayer" }, { cmd: "layerFromSelection" }] },

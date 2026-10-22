@@ -23,6 +23,7 @@ import { defineProjection, generateTestData, selectByAttributes, useDialog } fro
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
 import { STATES } from "./TigerDialog";
 import { api, errorText } from "../ipc/api";
+import { ElevationDialog } from "./ElevationDialog";
 import { ExportDialog } from "./ExportDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
@@ -60,6 +61,8 @@ export function Dialogs() {
       return <TigerDialog onClose={close} />;
     case "export":
       return <ExportDialog owner={dialog.owner} onClose={close} />;
+    case "elevation":
+      return <ElevationDialog onClose={close} />;
     case "nodeQuery":
       return <NodeQueryDialog nodeId={dialog.nodeId} param={dialog.param} onClose={close} />;
   }

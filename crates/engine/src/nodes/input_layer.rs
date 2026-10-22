@@ -22,6 +22,9 @@ impl Tool for InputLayer {
     fn build(&self, ctx: &Ctx, _inputs: &Inputs, p: &Params) -> Result<Output> {
         let id = p.req_str("layer", "Layer")?;
         let info = ctx.layers.get(&id).ok_or_else(|| anyhow!("Layer no longer exists"))?;
+        if let Some(r) = &info.raster {
+            return Ok(Output::Raster { path: r.path.clone(), crs: info.crs.clone() });
+        }
         let hidden = if info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
         // Respects the layer's definition query; `fids` limits to a selection.
         let only = match p.0.get("fids").and_then(|v| v.as_array()) {

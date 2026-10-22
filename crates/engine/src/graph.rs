@@ -76,6 +76,8 @@ pub trait Host {
     fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo>;
     /// Create or replace the node-tree result of layer `owner`.
     fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo>;
+    /// Create or replace a raster node-tree result of layer `owner`.
+    fn set_result_raster(&self, owner: &str, path: &str) -> Result<LayerInfo>;
 }
 
 #[derive(Default)]
@@ -86,7 +88,7 @@ pub struct Cache {
 
 impl Cache {
     pub fn clear(&mut self, conn: &Connection) {
-        for rel in self.entries.values() {
+        for rel in self.entries.values().filter(|r| r.raster.is_none()) {
             let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS {0}; DROP VIEW IF EXISTS {0};", ident(&rel.table)));
         }
         self.entries.clear();
@@ -188,8 +190,13 @@ pub fn run(
                 Some(e) if failed.contains(&e.source) => problem = Some((Status::Skipped, "An upstream step failed".into())),
                 Some(e) => match outputs.get(&e.source) {
                     Some((h, rel)) => {
-                        if port.kind == crate::nodes::PortKind::Vector && !rel.has_geom {
-                            problem = Some((Status::Error, format!("'{}' needs features with geometry, but got a table", port.label)));
+                        use crate::nodes::PortKind;
+                        match port.kind {
+                            PortKind::Vector if rel.raster.is_some() => problem = Some((Status::Error, format!("'{}' needs features, but got a raster", port.label))),
+                            PortKind::Vector if !rel.has_geom => problem = Some((Status::Error, format!("'{}' needs features with geometry, but got a table", port.label))),
+                            PortKind::Table if rel.raster.is_some() => problem = Some((Status::Error, format!("'{}' needs a table or features, but got a raster", port.label))),
+                            PortKind::Raster if rel.raster.is_none() => problem = Some((Status::Error, format!("'{}' needs a raster", port.label))),
+                            _ => {}
                         }
                         input_hashes.push(format!("{}={h}", port.id));
                         inputs.insert(port.id, rel.clone());
@@ -222,9 +229,9 @@ pub fn run(
         if spec.role != Role::Output {
             if let Some(rel) = cache.entries.get(&hash) {
                 let mut r = NodeResult::new(&id, Status::Cached);
-                r.output = Some(rel.table.clone());
+                r.output = Some(rel.raster.clone().unwrap_or_else(|| rel.table.clone()));
                 r.crs = rel.crs.clone();
-                r.rows = count(conn, &rel.table).ok();
+                r.rows = if rel.raster.is_some() { None } else { count(conn, &rel.table).ok() };
                 outputs.insert(id.clone(), (hash, rel.clone()));
                 finish(r, on_status, &mut results);
                 continue;
@@ -242,7 +249,7 @@ pub fn run(
                     let kind = if view { "VIEW" } else { "TABLE" };
                     conn.execute_batch(&format!("CREATE OR REPLACE {kind} {} AS {sql}", ident(&table)))?;
                     let has_geom = has_geom_column(conn, &table)?;
-                    let rel = Rel { table: table.clone(), crs: crs.clone(), has_geom };
+                    let rel = Rel { table: table.clone(), crs: crs.clone(), has_geom, raster: None };
                     cache.entries.insert(hash.clone(), rel.clone());
                     outputs.insert(id.clone(), (hash.clone(), rel));
                     r.rows = count(conn, &table).ok();
@@ -259,6 +266,18 @@ pub fn run(
                     let info = host.set_result(conn, &owner, &sql, crs)?;
                     r.rows = Some(info.feature_count);
                     r.message = Some(format!("{} now shows this result", info.name));
+                    r.layer = Some(info);
+                }
+                Output::Raster { path, crs } => {
+                    let rel = Rel { table: String::new(), crs: crs.clone(), has_geom: false, raster: Some(path.clone()) };
+                    cache.entries.insert(hash.clone(), rel.clone());
+                    outputs.insert(id.clone(), (hash.clone(), rel));
+                    r.output = Some(path);
+                    r.crs = crs;
+                }
+                Output::ResultRaster { owner, path } => {
+                    let info = host.set_result_raster(&owner, &path)?;
+                    r.message = Some(format!("{} now shows this raster", info.name));
                     r.layer = Some(info);
                 }
                 Output::Done(msg) => r.message = Some(msg),

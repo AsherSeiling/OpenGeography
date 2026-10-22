@@ -377,10 +377,11 @@ select.qe-val { width: 160px; }
 .addmenu-item svg { flex: none; font-size: 15px; color: #c9a227; }
 .addmenu-item.input svg { color: var(--model-data-b); }
 .addmenu-item.output svg { color: var(--model-out-b); }
-.addmenu-item.qgis svg { color: #589632; }
 .addmenu-item.on { background: var(--accent-hover); }
 .addmenu-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .addmenu-catlabel { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .react-flow__edge.splice-target path { stroke: #0078d4 !important; stroke-width: 3px !important; }
 .bnode-drop { margin: 4px 8px 0; padding: 6px; border: 1.5px dashed #9cc2ea; border-radius: 4px; color: #4a7fb8; font-size: 11px; text-align: center; }
 .react-flow__node.drop-over .bnode, .bnode.drop-over { outline: 2px dashed var(--accent); }
+.socket.raster { background: #b48ad6 !important; border-radius: 2px !important; }
+.socket.any { background: #e0e0e0 !important; }

@@ -17,6 +17,7 @@ mod filter;
 mod input_layer;
 mod intersect;
 mod layer_output;
+mod raster_tools;
 mod project;
 mod spatial_join;
 mod erase;
@@ -48,6 +49,10 @@ pub enum PortKind {
     Vector,
     /// Any table, with or without geometry.
     Table,
+    /// A raster (grid of values, e.g. elevation).
+    Raster,
+    /// Anything (outputs like Export or the layer Output).
+    Any,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -149,6 +154,8 @@ pub struct Rel {
     pub table: String,
     pub crs: Option<String>,
     pub has_geom: bool,
+    /// Raster file, for raster outputs (then `table` is empty).
+    pub raster: Option<String>,
 }
 
 pub enum Output {
@@ -158,6 +165,10 @@ pub enum Output {
     Layer { name: String, sql: String, crs: Option<String> },
     /// The result of a layer's own node tree, drawn in place of that layer.
     Result { owner: String, sql: String, crs: Option<String> },
+    /// A raster file produced by the step.
+    Raster { path: String, crs: Option<String> },
+    /// A layer's node-tree result that is a raster.
+    ResultRaster { owner: String, path: String },
     /// Side effect done (e.g. file written).
     Done(String),
 }
@@ -226,6 +237,10 @@ impl<'a> Ctx<'a> {
         )?;
         Ok(d.unwrap_or(2))
     }
+}
+
+pub fn need_raster(rel: &Rel) -> Result<&str> {
+    rel.raster.as_deref().ok_or_else(|| anyhow!("This input must be a raster (e.g. an elevation layer)"))
 }
 
 pub fn need_crs(rel: &Rel) -> Result<&str> {
@@ -300,6 +315,10 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(near::Near),
         Box::new(fishnet::Fishnet),
         Box::new(summary_statistics::SummaryStatistics),
+        Box::new(raster_tools::Contours),
+        Box::new(raster_tools::Hillshade),
+        Box::new(raster_tools::Slope),
+        Box::new(raster_tools::ClipRaster),
         Box::new(layer_output::LayerOutput),
         Box::new(add_to_map::AddToMap),
         Box::new(export::Export),

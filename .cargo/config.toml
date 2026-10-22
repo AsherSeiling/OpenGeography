@@ -6,3 +6,5 @@
 [env]
 DUCKDB_LIB_DIR = "/opt/homebrew/lib"
 DUCKDB_INCLUDE_DIR = "/opt/homebrew/include"
+# GDAL (rasters) from Homebrew: brew install gdal
+PKG_CONFIG_PATH = "/opt/homebrew/lib/pkgconfig"

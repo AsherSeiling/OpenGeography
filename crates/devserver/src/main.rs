@@ -35,8 +35,10 @@ fn main() -> Result<()> {
                     }
                     if let Some(rest) = url.strip_prefix("/tiles/") {
                         let resp = match tile(&engine, rest) {
-                            Ok(b) => Response::from_data(b)
-                                .with_header(Header::from_bytes("Content-Type", "application/x-protobuf").unwrap()),
+                            Ok(b) => {
+                                let ct = if b.starts_with(b"\x89PNG") { "image/png" } else { "application/x-protobuf" };
+                                Response::from_data(b).with_header(Header::from_bytes("Content-Type", ct).unwrap())
+                            }
                             Err(e) => Response::from_data(e.to_string().into_bytes()).with_status_code(404),
                         };
                         let _ = req.respond(resp.with_header(cors));
@@ -74,7 +76,7 @@ fn tile(engine: &Engine, rest: &str) -> Result<Vec<u8>> {
         .find_map(|kv| kv.strip_prefix("fields="))
         .map(|v| v.replace("%2C", ",").split(',').filter(|s| !s.is_empty()).map(String::from).collect())
         .unwrap_or_default();
-    Ok(engine.tile(layer, z.parse()?, x.parse()?, y.trim_end_matches(".pbf").parse()?, &fields)?.as_ref().clone())
+    Ok(engine.tile(layer, z.parse()?, x.parse()?, y.trim_end_matches(".pbf").trim_end_matches(".png").parse()?, &fields)?.as_ref().clone())
 }
 
 fn s(a: &Value, k: &str) -> Result<String> {
@@ -132,6 +134,11 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             }
             json!(out)
         }
+        "download_elevation" => {
+            let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?)?;
+            json!(l)
+        }
+        "raster_value" => json!(e.raster_value(&s(a, "id")?, f(a, "lon")?, f(a, "lat")?)?),
         "copy_layer" => {
             let fids: Option<Vec<i64>> = de(a, "fids")?;
             json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?, fids.as_deref())?)

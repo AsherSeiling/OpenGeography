@@ -129,17 +129,8 @@ export const useModel = create<ModelState>()(
   ),
 );
 
-export interface QgisAlgorithm {
-  id: string;
-  name: string;
-  group: string;
-  provider: string;
-}
-
 interface RunState {
   specs: Record<string, ToolSpec>;
-  /** Algorithms from an installed QGIS (empty if QGIS isn't installed). */
-  qgisAlgorithms: QgisAlgorithm[];
   results: Record<string, NodeResult>;
   running: boolean;
   setSpecs: (s: ToolSpec[]) => void;
@@ -149,7 +140,6 @@ interface RunState {
 
 export const useRun = create<RunState>((set) => ({
   specs: {},
-  qgisAlgorithms: [],
   results: {},
   running: false,
   setSpecs: (list) => set({ specs: Object.fromEntries(list.map((s) => [s.id, s])) }),
@@ -183,7 +173,7 @@ function upstream(nodeId: string, port?: string): string | undefined {
 }
 
 /** Does a node output features (vector) or a plain table? Undefined = unknown yet. */
-export function outputKind(nodeId: string, seen = new Set<string>()): "vector" | "table" | undefined {
+export function outputKind(nodeId: string, seen = new Set<string>()): "vector" | "table" | "raster" | undefined {
   if (seen.has(nodeId)) return undefined;
   seen.add(nodeId);
   const node = useModel.getState().nodes.find((n) => n.id === nodeId);
@@ -192,9 +182,10 @@ export function outputKind(nodeId: string, seen = new Set<string>()): "vector" |
   if (!spec) return undefined;
   if (spec.role === "data") {
     const layer = useApp.getState().layers[String(node.data.params.layer ?? "")];
-    return layer ? (layer.geomType === "Table" ? "table" : "vector") : undefined;
+    return layer ? (layer.geomType === "Table" ? "table" : layer.geomType === "Raster" ? "raster" : "vector") : undefined;
   }
   if (spec.output === "vector") return "vector";
+  if (spec.output === "raster") return "raster";
   const first = spec.inputs[0];
   const src = first && upstream(nodeId, first.id);
   return src ? outputKind(src, seen) : undefined;
@@ -223,6 +214,8 @@ export function outputFields(nodeId: string, seen = new Set<string>()): Field[] 
       return add(p.field ? from("in").filter((f) => f.name === p.field) : [], "COUNT", "BIGINT");
     case "buffer":
       return p.dissolve ? [] : from("in");
+    case "contours":
+      return [{ name: "ID", type: "INTEGER" }, { name: "ELEV", type: "DOUBLE" }, ...(Number(p.index_every) > 0 ? [{ name: "INDEX", type: "INTEGER" }] : [])];
     case "intersect":
       return [...from("a"), ...from("b")];
     case "spatial_join":

@@ -1,0 +1,416 @@
+//! Raster layers (GeoTIFF, IMG, ASCII grid, …) through GDAL: import into a
+//! raster store with overviews, map tiles (reprojected and colored on the
+//! fly), and processing: contours, hillshade, slope, clip.
+//!
+//! Processing calls GDAL's own utilities (gdalwarp, gdal_translate, gdaldem,
+//! gdal_contour) through the C API, so results match those tools exactly.
+
+use anyhow::{anyhow, bail, Context, Result};
+use gdal::cpl::CslStringList;
+use gdal::Dataset;
+use serde::{Deserialize, Serialize};
+use std::ffi::CString;
+use std::path::{Path, PathBuf};
+use std::ptr::{null, null_mut};
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RasterInfo {
+    /// File in the raster store.
+    pub path: String,
+    pub width: usize,
+    pub height: usize,
+    pub bands: usize,
+    pub data_type: String,
+    pub nodata: Option<f64>,
+    pub min: f64,
+    pub max: f64,
+    /// "elevation" (one band, colored + shaded) or "rgb" (imagery).
+    pub kind: String,
+    /// Pixel size in the raster's own units.
+    pub pixel_size: f64,
+}
+
+pub const EXTENSIONS: &[&str] = &["tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2", "nc", "bil", "flt", "adf", "grd"];
+
+pub fn is_raster_path(path: &Path) -> bool {
+    path.extension().and_then(|e| e.to_str()).map(|e| EXTENSIONS.contains(&e.to_lowercase().as_str())).unwrap_or(false)
+}
+
+/// Where imported and generated rasters live.
+pub fn store_dir() -> PathBuf {
+    let base = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
+    let dir = if cfg!(target_os = "macos") {
+        base.join("Library/Application Support/GIS Studio/rasters")
+    } else if cfg!(windows) {
+        std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or(base).join("GIS Studio/rasters")
+    } else {
+        base.join(".local/share/gis-studio/rasters")
+    };
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+/// A new, unique file path in the raster store.
+pub fn new_store_path(stem: &str, ext: &str) -> PathBuf {
+    let n = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let safe: String = stem.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    store_dir().join(format!("{safe}_{n:x}.{ext}"))
+}
+
+fn cstr(s: &str) -> Result<CString> {
+    Ok(CString::new(s)?)
+}
+
+fn argv(args: &[String]) -> Result<CslStringList> {
+    let mut l = CslStringList::new();
+    for a in args {
+        l.add_string(a)?;
+    }
+    Ok(l)
+}
+
+fn last_error(what: &str) -> anyhow::Error {
+    let msg = unsafe { std::ffi::CStr::from_ptr(gdal_sys::CPLGetLastErrorMsg()) }.to_string_lossy().to_string();
+    anyhow!("{what} failed{}", if msg.is_empty() { String::new() } else { format!(": {msg}") })
+}
+
+/// gdal_translate.
+pub fn translate(src: &Dataset, dest: &Path, args: &[String]) -> Result<()> {
+    let list = argv(args)?;
+    let d = cstr(dest.to_str().ok_or_else(|| anyhow!("bad path"))?)?;
+    unsafe {
+        let opts = gdal_sys::GDALTranslateOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        let mut usage = 0;
+        let out = gdal_sys::GDALTranslate(d.as_ptr(), src.c_dataset(), opts, &mut usage);
+        gdal_sys::GDALTranslateOptionsFree(opts);
+        if out.is_null() {
+            return Err(last_error("Raster copy"));
+        }
+        gdal_sys::GDALClose(out);
+    }
+    Ok(())
+}
+
+/// gdalwarp. With an empty `dest` and "-of MEM", returns the in-memory result.
+pub fn warp(src: &Dataset, dest: &str, args: &[String]) -> Result<Dataset> {
+    let list = argv(args)?;
+    let d = cstr(dest)?;
+    unsafe {
+        let opts = gdal_sys::GDALWarpAppOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        let mut srcs = [src.c_dataset()];
+        let mut usage = 0;
+        let out = gdal_sys::GDALWarp(d.as_ptr(), null_mut(), 1, srcs.as_mut_ptr(), opts, &mut usage);
+        gdal_sys::GDALWarpAppOptionsFree(opts);
+        if out.is_null() {
+            return Err(last_error("Raster warp"));
+        }
+        Ok(Dataset::from_c_dataset(out))
+    }
+}
+
+/// gdaldem (hillshade, slope, aspect, …).
+pub fn dem(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()> {
+    let list = argv(args)?;
+    let d = cstr(dest.to_str().ok_or_else(|| anyhow!("bad path"))?)?;
+    let m = cstr(mode)?;
+    unsafe {
+        let opts = gdal_sys::GDALDEMProcessingOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        let mut usage = 0;
+        let out = gdal_sys::GDALDEMProcessing(d.as_ptr(), src.c_dataset(), m.as_ptr(), null(), opts, &mut usage);
+        gdal_sys::GDALDEMProcessingOptionsFree(opts);
+        if out.is_null() {
+            return Err(last_error(&format!("gdaldem {mode}")));
+        }
+        gdal_sys::GDALClose(out);
+    }
+    Ok(())
+}
+
+/// CRS of a raster as "AUTH:CODE" when it has one, else WKT.
+pub fn crs_of(ds: &Dataset) -> (Option<String>, Option<String>) {
+    match ds.spatial_ref() {
+        Ok(sr) => {
+            let name = sr.name();
+            let id = match (sr.auth_name(), sr.auth_code()) {
+                (Some(a), Ok(c)) => Some(format!("{a}:{c}")),
+                _ => sr.to_wkt().ok(),
+            };
+            (id, name)
+        }
+        Err(_) => (None, None),
+    }
+}
+
+/// Lon/lat bounds of a raster.
+pub fn extent_lonlat(ds: &Dataset) -> Result<[f64; 4]> {
+    let (w, h) = ds.raster_size();
+    let gt = ds.geo_transform()?;
+    let corners = [(0.0, 0.0), (w as f64, 0.0), (0.0, h as f64), (w as f64, h as f64)];
+    let src = ds.spatial_ref()?;
+    let mut dst = gdal::spatial_ref::SpatialRef::from_epsg(4326)?;
+    dst.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+    let mut src = src;
+    src.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+    let tr = gdal::spatial_ref::CoordTransform::new(&src, &dst)?;
+    let mut xs: Vec<f64> = corners.iter().map(|(c, r)| gt[0] + c * gt[1] + r * gt[2]).collect();
+    let mut ys: Vec<f64> = corners.iter().map(|(c, r)| gt[3] + c * gt[4] + r * gt[5]).collect();
+    tr.transform_coords(&mut xs, &mut ys, &mut [])?;
+    let f = |v: &[f64], max: bool| v.iter().cloned().fold(if max { f64::MIN } else { f64::MAX }, if max { f64::max } else { f64::min });
+    Ok([f(&xs, false), f(&ys, false), f(&xs, true), f(&ys, true)])
+}
+
+/// Read size, bands, statistics etc. of a raster file.
+pub fn describe(path: &Path) -> Result<RasterInfo> {
+    let ds = Dataset::open(path).with_context(|| format!("GDAL could not open {}", path.display()))?;
+    let (w, h) = ds.raster_size();
+    let n = ds.raster_count();
+    if n == 0 {
+        bail!("{} has no raster bands", path.display());
+    }
+    let b = ds.rasterband(1)?;
+    let dt = format!("{:?}", b.band_type());
+    let stats = b.get_statistics(true, true)?.ok_or_else(|| anyhow!("No statistics for {}", path.display()))?;
+    let gt = ds.geo_transform()?;
+    let rgb = n >= 3 && dt.contains("UInt8");
+    Ok(RasterInfo {
+        path: path.display().to_string(),
+        width: w,
+        height: h,
+        bands: n,
+        data_type: dt,
+        nodata: b.no_data_value(),
+        min: stats.min,
+        max: stats.max,
+        kind: if rgb { "rgb".into() } else { "elevation".into() },
+        pixel_size: gt[1].abs(),
+    })
+}
+
+/// Copy a raster into the store as a tiled, compressed GeoTIFF with overviews.
+pub fn import(src_path: &Path) -> Result<PathBuf> {
+    let src = Dataset::open(src_path).with_context(|| format!("GDAL could not open {}", src_path.display()))?;
+    let stem = src_path.file_stem().and_then(|s| s.to_str()).unwrap_or("raster");
+    let dest = new_store_path(stem, "tif");
+    translate(&src, &dest, &["-of", "GTiff", "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=IF_SAFER"].map(String::from))?;
+    build_overviews(&dest)?;
+    Ok(dest)
+}
+
+pub fn build_overviews(path: &Path) -> Result<()> {
+    let mut ds = Dataset::open_ex(path, gdal::DatasetOptions { open_flags: gdal::GdalOpenFlags::GDAL_OF_UPDATE | gdal::GdalOpenFlags::GDAL_OF_RASTER, ..Default::default() })?;
+    let (w, h) = ds.raster_size();
+    let mut levels = Vec::new();
+    let mut f = 2;
+    while w.max(h) / f >= 256 {
+        levels.push(f as i32);
+        f *= 2;
+    }
+    if !levels.is_empty() {
+        ds.build_overviews("AVERAGE", &levels, &[])?;
+    }
+    Ok(())
+}
+
+// ---------- map tiles ----------
+
+/// Hypsometric color ramp (low → high).
+const RAMP: [[f32; 3]; 6] = [
+    [70.0, 120.0, 80.0],
+    [118.0, 166.0, 98.0],
+    [204.0, 206.0, 138.0],
+    [214.0, 178.0, 120.0],
+    [170.0, 130.0, 100.0],
+    [245.0, 245.0, 245.0],
+];
+
+fn ramp(t: f32) -> [f32; 3] {
+    let t = t.clamp(0.0, 1.0) * (RAMP.len() - 1) as f32;
+    let i = (t.floor() as usize).min(RAMP.len() - 2);
+    let f = t - i as f32;
+    let (a, b) = (RAMP[i], RAMP[i + 1]);
+    [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]
+}
+
+/// One 256×256 Web Mercator PNG tile of a raster.
+pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32) -> Result<Vec<u8>> {
+    const N: usize = 256;
+    let world = 20037508.342789244;
+    let size = 2.0 * world / 2f64.powi(z as i32);
+    let (x0, y1) = (-world + x as f64 * size, world - y as f64 * size);
+    let (x1, y0) = (x0 + size, y1 - size);
+    let src = Dataset::open(&info.path)?;
+    let rgb = info.kind == "rgb";
+    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", "EPSG:3857", "-r", "bilinear", "-dstalpha"].map(String::from).to_vec();
+    args.extend(["-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(), "-ts".into(), N.to_string(), N.to_string()]);
+    if rgb {
+        args.extend(["-b", "1", "-b", "2", "-b", "3"].map(String::from));
+    } else {
+        args.extend(["-b", "1", "-ot", "Float32"].map(String::from));
+    }
+    let tile = warp(&src, "", &args)?;
+    let nb = tile.raster_count();
+    let alpha: Vec<f32> = tile.rasterband(nb)?.read_as::<f32>((0, 0), (N, N), (N, N), None)?.data().to_vec();
+    let mut rgba = vec![0u8; N * N * 4];
+    if rgb {
+        let bands: Vec<Vec<f32>> = (1..=3).map(|i| tile.rasterband(i).and_then(|b| b.read_as::<f32>((0, 0), (N, N), (N, N), None)).map(|b| b.data().to_vec())).collect::<Result<_, _>>()?;
+        for i in 0..N * N {
+            for c in 0..3 {
+                rgba[i * 4 + c] = bands[c][i].clamp(0.0, 255.0) as u8;
+            }
+            rgba[i * 4 + 3] = alpha[i].clamp(0.0, 255.0) as u8;
+        }
+    } else {
+        let v: Vec<f32> = tile.rasterband(1)?.read_as::<f32>((0, 0), (N, N), (N, N), None)?.data().to_vec();
+        let (lo, hi) = (info.min as f32, info.max as f32);
+        let span = (hi - lo).max(1e-6);
+        // Ground size of a tile pixel (meters) for shading.
+        let lat = (2.0 * ((y0 + y1) / 2.0 / 6378137.0).exp().atan() - std::f64::consts::FRAC_PI_2).cos();
+        let px = (size / N as f64 * lat) as f32;
+        let at = |r: isize, c: isize| v[(r.clamp(0, N as isize - 1) as usize) * N + c.clamp(0, N as isize - 1) as usize];
+        let (az, alt) = (315f32.to_radians(), 45f32.to_radians());
+        for r in 0..N as isize {
+            for c in 0..N as isize {
+                let i = r as usize * N + c as usize;
+                if alpha[i] < 1.0 || (info.nodata.map(|nd| (v[i] - nd as f32).abs() < 1e-6).unwrap_or(false)) {
+                    continue;
+                }
+                // Horn slope/aspect for hillshading.
+                let dzdx = ((at(r - 1, c + 1) + 2.0 * at(r, c + 1) + at(r + 1, c + 1)) - (at(r - 1, c - 1) + 2.0 * at(r, c - 1) + at(r + 1, c - 1))) / (8.0 * px);
+                let dzdy = ((at(r + 1, c - 1) + 2.0 * at(r + 1, c) + at(r + 1, c + 1)) - (at(r - 1, c - 1) + 2.0 * at(r - 1, c) + at(r - 1, c + 1))) / (8.0 * px);
+                let slope = (dzdx * dzdx + dzdy * dzdy).sqrt().atan();
+                let aspect = dzdy.atan2(-dzdx);
+                let shade = (alt.sin() * slope.cos() + alt.cos() * slope.sin() * (az - std::f32::consts::FRAC_PI_2 - aspect).cos()).max(0.0);
+                let col = ramp((v[i] - lo) / span);
+                let k = 0.55 + 0.6 * shade;
+                for ch in 0..3 {
+                    rgba[i * 4 + ch] = (col[ch] * k).clamp(0.0, 255.0) as u8;
+                }
+                rgba[i * 4 + 3] = 255;
+            }
+        }
+    }
+    let mut out = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut out, N as u32, N as u32);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut w = enc.write_header()?;
+        w.write_image_data(&rgba)?;
+    }
+    Ok(out)
+}
+
+/// Value of band 1 at a lon/lat (for identify).
+pub fn sample(info: &RasterInfo, lon: f64, lat: f64) -> Result<Option<f64>> {
+    let ds = Dataset::open(&info.path)?;
+    let mut src = gdal::spatial_ref::SpatialRef::from_epsg(4326)?;
+    src.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+    let mut dst = ds.spatial_ref()?;
+    dst.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+    let tr = gdal::spatial_ref::CoordTransform::new(&src, &dst)?;
+    let (mut xs, mut ys) = ([lon], [lat]);
+    tr.transform_coords(&mut xs, &mut ys, &mut [])?;
+    let gt = ds.geo_transform()?;
+    let col = ((xs[0] - gt[0]) / gt[1]).floor();
+    let row = ((ys[0] - gt[3]) / gt[5]).floor();
+    let (w, h) = ds.raster_size();
+    if col < 0.0 || row < 0.0 || col >= w as f64 || row >= h as f64 {
+        return Ok(None);
+    }
+    let v = ds.rasterband(1)?.read_as::<f64>((col as isize, row as isize), (1, 1), (1, 1), None)?.data()[0];
+    Ok(if info.nodata.map(|nd| (v - nd).abs() < 1e-9).unwrap_or(false) { None } else { Some(v) })
+}
+
+// ---------- processing ----------
+
+/// Contour lines (gdal_contour) written to a GeoPackage; returns its path.
+/// Lines get ID and ELEV fields; ELEV is in the raster's value units.
+pub fn contours(src_path: &Path, interval: f64, base: f64) -> Result<PathBuf> {
+    if interval <= 0.0 {
+        bail!("Contour interval must be greater than zero");
+    }
+    let ds = Dataset::open(src_path)?;
+    let band = ds.rasterband(1)?;
+    let nodata = band.no_data_value();
+    let out = new_store_path("contours", "gpkg");
+    unsafe {
+        let drv = gdal_sys::GDALGetDriverByName(cstr("GPKG")?.as_ptr());
+        let p = cstr(out.to_str().unwrap())?;
+        let vds = gdal_sys::GDALCreate(drv, p.as_ptr(), 0, 0, 0, gdal_sys::GDALDataType::GDT_Unknown, null_mut());
+        if vds.is_null() {
+            return Err(last_error("Creating contour output"));
+        }
+        let srs = gdal_sys::OSRNewSpatialReference(gdal_sys::GDALGetProjectionRef(ds.c_dataset()));
+        let layer = gdal_sys::GDALDatasetCreateLayer(vds, cstr("contours")?.as_ptr(), srs, gdal_sys::OGRwkbGeometryType::wkbLineString, null_mut());
+        for (name, ty) in [("ID", gdal_sys::OGRFieldType::OFTInteger), ("ELEV", gdal_sys::OGRFieldType::OFTReal)] {
+            let f = gdal_sys::OGR_Fld_Create(cstr(name)?.as_ptr(), ty);
+            gdal_sys::OGR_L_CreateField(layer, f, 1);
+            gdal_sys::OGR_Fld_Destroy(f);
+        }
+        let mut opts = vec![format!("LEVEL_INTERVAL={interval}"), format!("LEVEL_BASE={base}"), "ID_FIELD=0".into(), "ELEV_FIELD=1".into()];
+        if let Some(nd) = nodata {
+            opts.push(format!("NODATA={nd}"));
+        }
+        let list = argv(&opts)?;
+        let err = gdal_sys::GDALContourGenerateEx(band.c_rasterband(), layer, list.as_ptr(), None, null_mut());
+        gdal_sys::OSRDestroySpatialReference(srs);
+        gdal_sys::GDALClose(vds);
+        if err != gdal_sys::CPLErr::CE_None {
+            return Err(last_error("Contour generation"));
+        }
+    }
+    Ok(out)
+}
+
+/// Hillshade (gdaldem hillshade) as a new raster.
+pub fn hillshade(src_path: &Path, azimuth: f64, altitude: f64, z_factor: f64, multidirectional: bool) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let out = new_store_path("hillshade", "tif");
+    let mut args: Vec<String> = vec!["-of".into(), "GTiff".into(), "-co".into(), "COMPRESS=DEFLATE".into(), "-z".into(), z_factor.to_string(), "-compute_edges".into()];
+    if multidirectional {
+        args.push("-multidirectional".into());
+    } else {
+        args.extend(["-az".into(), azimuth.to_string(), "-alt".into(), altitude.to_string()]);
+    }
+    if geographic(&ds) {
+        args.extend(["-s".into(), "111120".into()]); // degrees → meters
+    }
+    dem(&ds, &out, "hillshade", &args)?;
+    build_overviews(&out)?;
+    Ok(out)
+}
+
+/// Slope (gdaldem slope) in degrees or percent.
+pub fn slope(src_path: &Path, percent: bool) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let out = new_store_path("slope", "tif");
+    let mut args: Vec<String> = vec!["-of".into(), "GTiff".into(), "-co".into(), "COMPRESS=DEFLATE".into(), "-compute_edges".into()];
+    if percent {
+        args.push("-p".into());
+    }
+    if geographic(&ds) {
+        args.extend(["-s".into(), "111120".into()]);
+    }
+    dem(&ds, &out, "slope", &args)?;
+    build_overviews(&out)?;
+    Ok(out)
+}
+
+/// Crop a raster to a lon/lat box.
+pub fn clip_to_extent(src_path: &Path, bbox: [f64; 4]) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let out = new_store_path("clip", "tif");
+    let args: Vec<String> = vec![
+        "-of".into(), "GTiff".into(), "-co".into(), "COMPRESS=DEFLATE".into(), "-co".into(), "TILED=YES".into(),
+        "-projwin_srs".into(), "EPSG:4326".into(), "-projwin".into(),
+        bbox[0].to_string(), bbox[3].to_string(), bbox[2].to_string(), bbox[1].to_string(),
+    ];
+    translate(&ds, &out, &args)?;
+    build_overviews(&out)?;
+    Ok(out)
+}
+
+fn geographic(ds: &Dataset) -> bool {
+    ds.spatial_ref().map(|s| s.is_geographic()).unwrap_or(false)
+}

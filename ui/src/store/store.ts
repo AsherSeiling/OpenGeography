@@ -44,7 +44,7 @@ export function defaultStyle(info: LayerInfo): LayerStyle {
     fill,
     stroke: info.geomType === "Polygon" ? "#4d4d4d" : fill,
     strokeWidth: info.geomType === "Line" ? 1.5 : 0.7,
-    opacity: info.geomType === "Polygon" ? 0.75 : 1,
+    opacity: info.geomType === "Polygon" ? 0.75 : 1, // rasters draw fully opaque
     radius: 3.5,
   };
 }

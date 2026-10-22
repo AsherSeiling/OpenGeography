@@ -55,11 +55,19 @@ pub struct LayerInfo {
     /// Number of features passing the definition query.
     #[serde(default)]
     pub query_count: Option<i64>,
+    /// Set for raster layers (geom_type "Raster").
+    #[serde(default)]
+    pub raster: Option<crate::raster::RasterInfo>,
 }
 
 impl LayerInfo {
+    /// Vector features (points, lines, polygons).
     pub fn has_geometry(&self) -> bool {
-        self.geom_type != "Table"
+        self.geom_type != "Table" && self.geom_type != "Raster"
+    }
+
+    pub fn is_raster(&self) -> bool {
+        self.raster.is_some()
     }
 
     /// `AND (<definition query>)`, or empty when the layer has none.
@@ -229,6 +237,7 @@ pub fn build_layer(conn: &Connection, id: &str, src: &ImportSource) -> Result<La
         result_of: None,
         definition_query: None,
         query_count: None,
+        raster: None,
     };
     refresh_display(conn, &mut info)?;
     Ok(info)
@@ -363,6 +372,9 @@ pub fn tile_source(info: &LayerInfo, z: u32) -> String {
 /// Refresh a layer's field list, record count and extent after its rows or
 /// columns changed (without rebuilding display columns or overviews).
 pub fn refresh_meta(conn: &Connection, info: &mut LayerInfo) -> Result<()> {
+    if info.is_raster() {
+        return Ok(());
+    }
     let t = ident(&info.table);
     info.feature_count = conn.query_row(&format!("SELECT count(*) FROM {t}"), [], |r| r.get(0))?;
     info.fields = columns_of(conn, &format!("SELECT * FROM {t}"))?
@@ -453,4 +465,39 @@ pub fn features_extent(conn: &Connection, info: &LayerInfo, fids: Option<&[i64]>
         let (e, n) = merc_to_lonlat(x1, y1);
         [w, s, e, n]
     }))
+}
+
+/// Layer metadata for a raster file already in the raster store.
+pub fn raster_layer(id: &str, name: &str, path: &std::path::Path, source: Option<String>) -> Result<LayerInfo> {
+    let r = crate::raster::describe(path)?;
+    let ds = gdal::Dataset::open(path)?;
+    let (crs, crs_name) = crate::raster::crs_of(&ds);
+    let extent = crate::raster::extent_lonlat(&ds).ok();
+    let gt = ds.geo_transform()?;
+    let (w, h) = ds.raster_size();
+    let mut warnings = vec![];
+    if crs.is_none() {
+        warnings.push("This raster has no coordinate system and can't be drawn.".into());
+    }
+    Ok(LayerInfo {
+        id: id.into(),
+        name: name.into(),
+        table: String::new(),
+        geom_type: "Raster".into(),
+        crs,
+        crs_name,
+        feature_count: (w * h) as i64,
+        extent,
+        native_extent: Some([gt[0], gt[3] + gt[5] * h as f64, gt[0] + gt[1] * w as f64, gt[3]]),
+        fields: vec![],
+        source,
+        version: 1,
+        temporary: false,
+        warnings,
+        overviews: vec![],
+        result_of: None,
+        definition_query: None,
+        query_count: None,
+        raster: Some(r),
+    })
 }

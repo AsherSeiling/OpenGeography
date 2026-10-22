@@ -29,7 +29,7 @@ function withSelection(expr: ExpressionSpecification | string): ExpressionSpecif
 }
 
 export function layerIds(id: string): string[] {
-  return [`${id}-fill`, `${id}-line`, `${id}-circle`];
+  return [`${id}-raster`, `${id}-fill`, `${id}-line`, `${id}-circle`];
 }
 
 export function buildLayers(id: string, geom: GeomType, style: LayerStyle): LayerSpecification[] {
@@ -37,6 +37,9 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle): Laye
   const common = { source, "source-layer": "layer" } as const;
   const fill = colorExpr(style, style.fill);
   const out: LayerSpecification[] = [];
+  if (geom === "Raster") {
+    return [{ id: `${id}-raster`, type: "raster", source, paint: { "raster-opacity": style.opacity, "raster-resampling": "linear" } }];
+  }
   if (geom === "Polygon" || geom === "Mixed") {
     out.push({
       id: `${id}-fill`,

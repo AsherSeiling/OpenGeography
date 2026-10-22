@@ -113,11 +113,23 @@ export function MapView() {
       const info = shown(id)!;
       const style = styles[id];
       const url = tileUrl(info, styleFields(style));
-      const src = map.getSource(`src-${id}`) as VectorTileSource | undefined;
+      const src = map.getSource(`src-${id}`) as (VectorTileSource & { type: string }) | undefined;
       if (!src) {
-        map.addSource(`src-${id}`, { type: "vector", tiles: [url], minzoom: 0, maxzoom: 16 });
+        map.addSource(
+          `src-${id}`,
+          info.geomType === "Raster" ? { type: "raster", tiles: [url], tileSize: 256, minzoom: 0, maxzoom: 18 } : { type: "vector", tiles: [url], minzoom: 0, maxzoom: 16 },
+        );
       } else if ((src.tiles ?? [])[0] !== url) {
-        src.setTiles([url]);
+        // Switching between raster and vector (e.g. a node result) needs a new source.
+        if ((String(src.type) === "raster") !== (info.geomType === "Raster")) {
+          for (const lid of layerIds(id)) if (map.getLayer(lid)) map.removeLayer(lid);
+          map.removeSource(`src-${id}`);
+          delete applied.current[id];
+          map.addSource(
+            `src-${id}`,
+            info.geomType === "Raster" ? { type: "raster", tiles: [url], tileSize: 256, minzoom: 0, maxzoom: 18 } : { type: "vector", tiles: [url], minzoom: 0, maxzoom: 16 },
+          );
+        } else src.setTiles([url]);
       }
       const key = JSON.stringify([info.geomType, style]);
       if (applied.current[id] !== key) {
@@ -172,6 +184,15 @@ export function MapView() {
         } else {
           const top = hits[0];
           if (!top) {
+            // No features here: report raster values under the click instead.
+            const rasters = s.order.filter((id) => s.visible[id]).map((id) => displayInfo(s, id)).filter((l) => l?.geomType === "Raster");
+            for (const r of rasters) {
+              const v = await api.rasterValue(r!.id, e.lngLat.lng, e.lngLat.lat);
+              if (v !== null) {
+                setIdentify({ x: e.point.x, y: e.point.y, layer: r!.id, fid: -1, attrs: [["Value", v.toFixed(2)], ["Band 1 range", `${r!.raster!.min.toFixed(1)} – ${r!.raster!.max.toFixed(1)}`]], more: 0 });
+                return;
+              }
+            }
             setIdentify(null);
             s.setStatus("No features here");
             return;

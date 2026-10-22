@@ -24,6 +24,19 @@ import { showPane } from "./panes";
 
 export function Swatch({ info, style }: { info: LayerInfo; style?: LayerStyle }) {
   if (info.geomType === "Table") return <TableRegular className="swatch-icon" />;
+  if (info.geomType === "Raster")
+    return (
+      <svg className="swatch" viewBox="0 0 16 16">
+        <defs>
+          <linearGradient id="rg" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#467850" />
+            <stop offset="0.5" stopColor="#cccc8a" />
+            <stop offset="1" stopColor="#f5f5f5" />
+          </linearGradient>
+        </defs>
+        <rect x="1.5" y="2.5" width="13" height="11" fill="url(#rg)" stroke="#555" strokeWidth="0.8" />
+      </svg>
+    );
   const fill = style?.fill ?? "#999";
   const stroke = style?.stroke ?? "#444";
   if (info.geomType === "Point")
