@@ -16,6 +16,7 @@ mod export;
 mod filter;
 mod input_layer;
 mod intersect;
+mod layer_output;
 mod project;
 mod spatial_join;
 
@@ -70,11 +71,13 @@ pub struct Param {
     pub field_of: Option<&'static str>,
     pub optional: bool,
     pub help: &'static str,
+    /// Set by the UI, not shown to the user.
+    pub hidden: bool,
 }
 
 impl Param {
     pub fn new(id: &'static str, label: &'static str, kind: ParamKind) -> Self {
-        Self { id, label, kind, default: Value::Null, options: vec![], field_of: None, optional: false, help: "" }
+        Self { id, label, kind, default: Value::Null, options: vec![], field_of: None, optional: false, help: "", hidden: false }
     }
     pub fn default(mut self, v: impl Into<Value>) -> Self {
         self.default = v.into();
@@ -90,6 +93,10 @@ impl Param {
     }
     pub fn optional(mut self) -> Self {
         self.optional = true;
+        self
+    }
+    pub fn hidden(mut self) -> Self {
+        self.hidden = true;
         self
     }
     pub fn help(mut self, h: &'static str) -> Self {
@@ -135,6 +142,8 @@ pub enum Output {
     Select { sql: String, crs: Option<String>, view: bool },
     /// Create/replace a map layer.
     Layer { name: String, sql: String, crs: Option<String> },
+    /// The result of a layer's own node tree, drawn in place of that layer.
+    Result { owner: String, sql: String, crs: Option<String> },
     /// Side effect done (e.g. file written).
     Done(String),
 }
@@ -259,6 +268,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(attribute_join::AttributeJoin),
         Box::new(calculate_field::CalculateField),
         Box::new(calculate_geometry::CalculateGeometry),
+        Box::new(layer_output::LayerOutput),
         Box::new(add_to_map::AddToMap),
         Box::new(export::Export),
     ]

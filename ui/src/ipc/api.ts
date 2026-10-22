@@ -36,6 +36,8 @@ export interface LayerInfo {
   version: number;
   temporary: boolean;
   warnings: string[];
+  /** Set on a layer's node-tree result: the layer it is drawn in place of. */
+  resultOf?: string | null;
 }
 
 export type PortKind = "vector" | "table";
@@ -50,6 +52,7 @@ export interface ToolParam {
   fieldOf: string | null;
   optional: boolean;
   help: string;
+  hidden: boolean;
 }
 
 export interface ToolSpec {
@@ -108,6 +111,7 @@ export const api = {
   listLayers: () => invoke<LayerInfo[]>("list_layers"),
   removeLayer: (id: string) => invoke<void>("remove_layer", { id }),
   renameLayer: (id: string, name: string) => invoke<LayerInfo>("rename_layer", { id, name }),
+  copyLayer: (id: string, name: string) => invoke<LayerInfo>("copy_layer", { id, name }),
   defineProjection: (id: string, crs: string, crsName: string | null) =>
     invoke<LayerInfo>("define_projection", { id, crs, crsName }),
   suggestCrs: (id: string) => invoke<{ crs: string; reason: string }[]>("suggest_crs", { id }),

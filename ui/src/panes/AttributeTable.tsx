@@ -11,7 +11,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDialog, zoomToSelection } from "../actions";
 import { api, errorText, type RowsPage } from "../ipc/api";
-import { useApp } from "../store/store";
+import { displayInfo, useApp } from "../store/store";
 
 const PAGE = 200;
 const ROW_H = 24;
@@ -22,9 +22,13 @@ export function AttributeTable() {
   const order = useApp((s) => s.order);
   const layers = useApp((s) => s.layers);
   const active = useApp((s) => s.activeLayer);
-  const id = active && layers[active] ? active : order[0];
-  const info = id ? layers[id] : undefined;
-  const selected = useApp((s) => (id ? s.selection[id] : undefined));
+  const owner = active && layers[active] ? active : order[0];
+  const results = useApp((s) => s.results);
+  const showOriginal = useApp((s) => s.showOriginal);
+  // Rows come from what the layer currently shows (node-tree result or original).
+  const info = owner ? displayInfo({ layers, results, showOriginal }, owner) : undefined;
+  const id = info?.id;
+  const selected = useApp((s) => (owner ? s.selection[owner] : undefined));
   const [sort, setSort] = useState<{ field: string; desc: boolean } | null>(null);
   const [filterText, setFilterText] = useState("");
   const [filter, setFilter] = useState("");
@@ -94,6 +98,7 @@ export function AttributeTable() {
 
   const clickRow = (i: number, fid: number, e: React.MouseEvent) => {
     const s = useApp.getState();
+    const id = owner;
     if (!id) return;
     if (e.shiftKey && anchor.current !== null) {
       const [a, b] = [Math.min(anchor.current, i), Math.max(anchor.current, i)];
@@ -120,19 +125,19 @@ export function AttributeTable() {
   return (
     <div className="attr">
       <div className="attr-bar">
-        <Dropdown size="small" value={info.name} onOptionSelect={(_, d) => useApp.getState().setActiveLayer(d.optionValue!)} style={{ minWidth: 140 }}>
+        <Dropdown size="small" value={info.name + (info.resultOf ? " (node result)" : "")} onOptionSelect={(_, d) => useApp.getState().setActiveLayer(d.optionValue!)} style={{ minWidth: 140 }}>
           {order.map((lid) => (
             <Option key={lid} value={lid}>{layers[lid]?.name ?? lid}</Option>
           ))}
         </Dropdown>
         <Tooltip content="Select By Attributes" relationship="label">
-          <Button size="small" icon={<SelectAllOnRegular />} onClick={() => useDialog.getState().show({ kind: "selectByAttributes", layer: info.id })} />
+          <Button size="small" icon={<SelectAllOnRegular />} onClick={() => useDialog.getState().show({ kind: "selectByAttributes", layer: owner! })} />
         </Tooltip>
         <Tooltip content="Zoom To Selection" relationship="label">
           <Button size="small" icon={<ZoomFitRegular />} disabled={!nsel} onClick={zoomToSelection} />
         </Tooltip>
         <Tooltip content="Clear Selection" relationship="label">
-          <Button size="small" icon={<DismissCircleRegular />} disabled={!nsel} onClick={() => useApp.getState().setSelection(info.id, [])} />
+          <Button size="small" icon={<DismissCircleRegular />} disabled={!nsel} onClick={() => useApp.getState().setSelection(owner!, [])} />
         </Tooltip>
         <ToggleButton size="small" checked={onlySelected} onClick={() => setOnlySelected(!onlySelected)}>
           {onlySelected ? "Showing selected" : "Show selected"}

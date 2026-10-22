@@ -3,26 +3,57 @@ import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type Edge
 import { create } from "zustand";
 import { temporal } from "zundo";
 import type { Field, NodeResult, ToolSpec } from "../ipc/api";
-import { useApp } from "./store";
+import { displayInfo, useApp } from "./store";
 
 export interface ModelNodeData extends Record<string, unknown> {
   tool: string;
   params: Record<string, unknown>;
+  /** The tree's own Layer Input / Output nodes: always present, not deletable. */
+  fixed?: boolean;
 }
 
 export type ModelNode = Node<ModelNodeData>;
 
-interface ModelState {
+export interface Tree {
   nodes: ModelNode[];
   edges: Edge[];
+}
+
+interface ModelState {
+  /** Layer whose node tree is open; null when no layer is selected. */
+  layer: string | null;
+  /** Saved trees of the other layers (the open one lives in nodes/edges). */
+  trees: Record<string, Tree>;
+  nodes: ModelNode[];
+  edges: Edge[];
+  openTree: (layer: string | null) => void;
   onNodesChange: (c: NodeChange<ModelNode>[]) => void;
   onEdgesChange: (c: EdgeChange[]) => void;
   connect: (c: Connection) => void;
   addNode: (tool: string, position: { x: number; y: number }, params?: Record<string, unknown>) => string;
   setParam: (nodeId: string, key: string, value: unknown) => void;
   removeNodes: (ids: string[]) => void;
-  load: (nodes: ModelNode[], edges: Edge[]) => void;
+  load: (trees: Record<string, Tree>, layer: string | null) => void;
+  allTrees: () => Record<string, Tree>;
 }
+
+/** A new layer's tree: its Layer Input connected straight to its Output. */
+export function defaultTree(layer: string): Tree {
+  const inId = `in-${layer}`;
+  const outId = `out-${layer}`;
+  return {
+    nodes: [
+      { id: inId, type: "data", position: { x: 0, y: 40 }, deletable: false, data: { tool: "input_layer", params: { layer }, fixed: true } },
+      { id: outId, type: "output", position: { x: 560, y: 40 }, deletable: false, data: { tool: "layer_output", params: { layer }, fixed: true } },
+    ],
+    edges: [{ id: `e-${layer}`, source: inId, sourceHandle: "out", target: outId, targetHandle: "in" }],
+  };
+}
+
+const strip = (t: Tree): Tree => ({
+  nodes: t.nodes.map(({ id, type, position, data }) => ({ id, type, position, data, ...(data.fixed ? { deletable: false } : {}) })),
+  edges: t.edges.map(({ id, source, target, sourceHandle, targetHandle }) => ({ id, source, target, sourceHandle, targetHandle })),
+});
 
 let counter = 1;
 const newId = () => `n${Date.now().toString(36)}${counter++}`;
@@ -30,8 +61,24 @@ const newId = () => `n${Date.now().toString(36)}${counter++}`;
 export const useModel = create<ModelState>()(
   temporal(
     (set, get) => ({
+      layer: null,
+      trees: {},
       nodes: [],
       edges: [],
+      openTree: (layer) => {
+        const s = get();
+        if (layer === s.layer) return;
+        const trees = { ...s.trees };
+        if (s.layer && useApp.getState().layers[s.layer]) trees[s.layer] = strip({ nodes: s.nodes, edges: s.edges });
+        else if (s.layer) delete trees[s.layer];
+        const next = layer ? (trees[layer] ?? defaultTree(layer)) : { nodes: [], edges: [] };
+        set({ layer, trees, nodes: next.nodes, edges: next.edges });
+        useModel.temporal.getState().clear(); // undo history is per tree
+      },
+      allTrees: () => {
+        const s = get();
+        return s.layer ? { ...s.trees, [s.layer]: strip({ nodes: s.nodes, edges: s.edges }) } : s.trees;
+      },
       onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
       onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
       connect: (c) =>
@@ -58,12 +105,17 @@ export const useModel = create<ModelState>()(
         });
         useApp.getState().set({ dirty: true });
       },
-      removeNodes: (ids) =>
+      removeNodes: (all) => {
+        const ids = all.filter((id) => !get().nodes.find((n) => n.id === id)?.data.fixed);
         set({
           nodes: get().nodes.filter((n) => !ids.includes(n.id)),
           edges: get().edges.filter((e) => !ids.includes(e.source) && !ids.includes(e.target)),
-        }),
-      load: (nodes, edges) => set({ nodes, edges }),
+        });
+      },
+      load: (trees, layer) => {
+        set({ trees, layer: null, nodes: [], edges: [] });
+        get().openTree(layer);
+      },
     }),
     {
       limit: 100,
@@ -99,8 +151,18 @@ export const specs = () => useRun.getState().specs;
 
 export function graphPayload() {
   const { nodes, edges } = useModel.getState();
+  const app = useApp.getState();
   return {
-    nodes: nodes.map((n) => ({ id: n.id, tool: n.data.tool, params: n.data.params })),
+    nodes: nodes.map((n) => {
+      // Other layers brought into this tree contribute what they show
+      // (their own node-tree result, if any). The tree's own Layer Input
+      // always reads the original data.
+      if (n.data.tool === "input_layer" && !n.data.fixed && typeof n.data.params.layer === "string") {
+        const shown = displayInfo(app, n.data.params.layer);
+        return { id: n.id, tool: n.data.tool, params: { ...n.data.params, layer: shown?.id ?? n.data.params.layer } };
+      }
+      return { id: n.id, tool: n.data.tool, params: n.data.params };
+    }),
     edges: edges.map((e) => ({ source: e.source, target: e.target, targetHandle: e.targetHandle ?? "" })),
   };
 }

@@ -1,11 +1,10 @@
 // User-level actions shared by the ribbon, context menus and shortcuts.
 import { open, save } from "@tauri-apps/plugin-dialog";
-import type { Edge } from "@xyflow/react";
 import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
-import { graphPayload, useModel, useRun, type ModelNode } from "./store/model";
-import { defaultStyle, useApp, type LayerStyle } from "./store/store";
+import { graphPayload, useModel, useRun, type Tree } from "./store/model";
+import { defaultStyle, displayInfo, useApp, type LayerStyle } from "./store/store";
 
 // ---------- dialogs ----------
 
@@ -64,8 +63,10 @@ export async function addData(paths?: string[]) {
   if (noCrs.length) useDialog.getState().show({ kind: "defineProjection", layer: noCrs[0].id });
 }
 
+const shown = (id: string) => displayInfo(useApp.getState(), id);
+
 export async function zoomToLayer(id: string) {
-  const info = useApp.getState().layers[id];
+  const info = shown(id);
   zoomToExtent(info?.extent ?? null);
 }
 
@@ -74,7 +75,7 @@ export async function zoomToSelection() {
   let ext: [number, number, number, number] | null = null;
   for (const [id, fids] of Object.entries(sel)) {
     if (!fids.length) continue;
-    const e = await api.layerExtent(id, fids);
+    const e = await api.layerExtent(shown(id)?.id ?? id, fids);
     if (!e) continue;
     ext = ext ? [Math.min(ext[0], e[0]), Math.min(ext[1], e[1]), Math.max(ext[2], e[2]), Math.max(ext[3], e[3])] : e;
   }
@@ -112,8 +113,9 @@ export function pickMapCrs() {
   });
 }
 
-export async function exportLayer(id: string) {
-  const info = useApp.getState().layers[id];
+export async function exportLayer(owner: string) {
+  // Exports what the layer shows, i.e. its node-tree result when it has one.
+  const info = shown(owner);
   if (!info) return;
   const path = await save({
     title: `Export ${info.name}`,
@@ -132,7 +134,7 @@ export async function exportLayer(id: string) {
   const res = await busy(`Exporting ${info.name}`, () =>
     api.runGraph({
       nodes: [
-        { id: "in", tool: "input_layer", params: { layer: id } },
+        { id: "in", tool: "input_layer", params: { layer: info.id } },
         { id: "out", tool: "export", params: { path, format } },
       ],
       edges: [{ source: "in", target: "out", targetHandle: "in" }],
@@ -143,7 +145,7 @@ export async function exportLayer(id: string) {
 }
 
 export async function selectByAttributes(layer: string, where: string, mode: "new" | "add") {
-  const fids = await busy("Selecting", () => api.selectWhere(layer, where));
+  const fids = await busy("Selecting", () => api.selectWhere(shown(layer)?.id ?? layer, where));
   if (!fids) return false;
   useApp.getState().setSelection(layer, fids, mode);
   status(`Selected ${fids.length.toLocaleString()} feature(s)`);
@@ -165,11 +167,12 @@ export async function generateTestData(kind: "points" | "polygons", count: numbe
 export async function runModel(target?: string) {
   const run = useRun.getState();
   if (run.running) return;
-  const graph = graphPayload();
-  if (!graph.nodes.length) {
-    status("The model is empty. Add tools from the Analysis tab or the Geoprocessing pane.");
+  const owner = useModel.getState().layer;
+  if (!owner) {
+    status("Select a layer in Contents to open and run its node tree.");
     return;
   }
+  const graph = graphPayload();
   run.set({ running: true, results: target ? run.results : {} });
   const t0 = performance.now();
   const res = await busy(target ? "Running to selected step" : "Running model", () => api.runGraph(graph, target));
@@ -182,9 +185,25 @@ export async function runModel(target?: string) {
   const errors = res.filter((r) => r.status === "error");
   status(
     errors.length
-      ? `Model finished with ${errors.length} error(s). Click a red step to see why.`
-      : `Model finished in ${((performance.now() - t0) / 1000).toFixed(1)}s (${res.filter((r) => r.status === "cached").length} step(s) reused from cache)`,
+      ? `Node tree finished with ${errors.length} error(s). Click a red step to see why.`
+      : `${useApp.getState().layers[owner]?.name ?? "Layer"} updated in ${((performance.now() - t0) / 1000).toFixed(1)}s (${res.filter((r) => r.status === "cached").length} step(s) reused from cache)`,
   );
+}
+
+/** Copy a layer's node-tree result into a new, independent layer. */
+export async function saveResultAsLayer(owner: string) {
+  const s = useApp.getState();
+  const result = s.results[owner];
+  if (!result) {
+    status("Run the node tree first, then save its result.");
+    return;
+  }
+  const name = prompt("Name for the new layer:", `${s.layers[owner]?.name ?? "Layer"} result`);
+  if (!name) return;
+  const info = await busy("Saving result as a new layer", () => api.copyLayer(result.id, name.trim()));
+  if (!info) return;
+  useApp.getState().addLayers([info]);
+  status(`Saved "${info.name}" as a new layer`);
 }
 
 export async function previewNode(nodeId: string) {
@@ -212,7 +231,8 @@ interface UiStateV1 {
   mapCrs: { id: string; name: string } | null;
   basemap: string;
   camera: { center: [number, number]; zoom: number } | null;
-  model: { nodes: ModelNode[]; edges: Edge[] };
+  /** Node tree per layer id. */
+  trees: Record<string, Tree>;
   dock: unknown;
 }
 
@@ -235,10 +255,7 @@ function uiState(): UiStateV1 {
     mapCrs: s.mapCrs,
     basemap: s.basemap,
     camera: map ? { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() } : null,
-    model: {
-      nodes: m.nodes.map(({ id, type, position, data }) => ({ id, type, position, data })),
-      edges: m.edges.map(({ id, source, target, sourceHandle, targetHandle }) => ({ id, source, target, sourceHandle, targetHandle })),
-    },
+    trees: m.allTrees(),
     dock: dockSerializer?.() ?? null,
   };
 }
@@ -273,11 +290,14 @@ export async function openProject() {
 }
 
 function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string | null) {
-  const byId = Object.fromEntries(layers.filter((l) => !l.temporary).map((l) => [l.id, l]));
+  const byId = Object.fromEntries(layers.filter((l) => !l.temporary && !l.resultOf).map((l) => [l.id, l]));
+  const results = Object.fromEntries(layers.filter((l) => l.resultOf && byId[l.resultOf]).map((l) => [l.resultOf!, l]));
   const order = (ui.order ?? []).filter((id) => byId[id]);
   for (const l of Object.values(byId)) if (!order.includes(l.id)) order.unshift(l.id);
   useApp.setState({
     layers: byId,
+    results,
+    showOriginal: {},
     order,
     visible: { ...Object.fromEntries(order.map((id) => [id, true])), ...(ui.visible ?? {}) },
     styles: Object.fromEntries(order.map((id) => [id, ui.styles?.[id] ?? defaultStyle(byId[id])])),
@@ -289,8 +309,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
     projectDir: dir,
     dirty: false,
   });
-  useModel.getState().load(ui.model?.nodes ?? [], ui.model?.edges ?? []);
-  useModel.temporal.getState().clear();
+  useModel.getState().load(ui.trees ?? {}, order[0] ?? null);
   useRun.getState().set({ results: {} });
   if (ui.camera) getMap()?.jumpTo(ui.camera);
   if (ui.dock) dockRestorer?.(ui.dock);

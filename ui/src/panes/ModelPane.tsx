@@ -15,6 +15,10 @@ let addAtCenter: ((tool: string, params?: Record<string, unknown>) => void) | nu
 
 /** Add a tool node in the middle of the visible model canvas. */
 export function addToolToModel(tool: string, params?: Record<string, unknown>) {
+  if (!useModel.getState().layer) {
+    useApp.getState().setStatus("Select a layer in Contents first: tools go into that layer's node tree.");
+    return;
+  }
   if (addAtCenter) addAtCenter(tool, params);
   else useModel.getState().addNode(tool, { x: 80, y: 80 }, params);
 }
@@ -29,6 +33,8 @@ export function ModelPane() {
 
 function ModelCanvas() {
   const nodes = useModel((s) => s.nodes);
+  const treeLayer = useModel((s) => s.layer);
+  const treeName = useApp((s) => (treeLayer ? s.layers[treeLayer]?.name : undefined));
   const edges = useModel((s) => s.edges);
   const running = useRun((s) => s.running);
   const results = useRun((s) => s.results);
@@ -67,8 +73,10 @@ function ModelCanvas() {
     const onDrop = (e: Event) => {
       const { payload, clientX, clientY } = (e as CustomEvent<DropDetail>).detail;
       const pos = flow.screenToFlowPosition({ x: clientX - 60, y: clientY - 20 });
+      const owner = useModel.getState().layer;
+      if (!owner) return;
       if (payload.kind === "tool") selectNode(useModel.getState().addNode(payload.id, pos));
-      else selectNode(useModel.getState().addNode("input_layer", pos, { layer: payload.id }));
+      else if (payload.id !== owner) selectNode(useModel.getState().addNode("input_layer", pos, { layer: payload.id }));
     };
     el.addEventListener("gis-drop", onDrop);
     return () => el.removeEventListener("gis-drop", onDrop);
@@ -77,14 +85,19 @@ function ModelCanvas() {
   // Fit the graph into view once the pane has a real size, and whenever a
   // model is loaded into an empty canvas.
   const fittedFor = useRef(0);
+  const fittedTree = useRef<string | null>(null);
   useEffect(() => {
+    if (fittedTree.current !== treeLayer) {
+      fittedTree.current = treeLayer;
+      fittedFor.current = 0; // new tree: fit it into view
+    }
     const el = wrap.current;
     if (!el) return;
     const fit = () => {
       const n = useModel.getState().nodes.length;
       if (el.clientWidth > 80 && el.clientHeight > 80 && n > 0 && fittedFor.current === 0) {
         fittedFor.current = n;
-        requestAnimationFrame(() => flow.fitView({ padding: 0.25, maxZoom: 1.2 }));
+        requestAnimationFrame(() => flow.fitView({ padding: 0.2, maxZoom: 1 }));
       }
       if (n === 0) fittedFor.current = 0;
     };
@@ -92,7 +105,7 @@ function ModelCanvas() {
     ro.observe(el);
     fit();
     return () => ro.disconnect();
-  }, [flow, nodes.length]);
+  }, [flow, nodes.length, treeLayer]);
 
   const deleteSelected = () => {
     const ids = useModel.getState().nodes.filter((n) => n.selected).map((n) => n.id);
@@ -105,7 +118,11 @@ function ModelCanvas() {
   return (
     <div className="model">
       <Toolbar size="small" className="model-bar">
-        <Button appearance="primary" size="small" icon={<Play20Filled />} disabled={running || !nodes.length} onClick={() => runModel()}>
+        <span className="model-title" title="Each layer has its own node tree. Select a layer in Contents to switch.">
+          {treeName ? <>Node tree: <b>{treeName}</b></> : "No layer selected"}
+        </span>
+        <ToolbarDivider />
+        <Button appearance="primary" size="small" icon={<Play20Filled />} disabled={running || !treeLayer} onClick={() => runModel()}>
           {running ? "Running…" : "Run"}
         </Button>
         <ToolbarDivider />
@@ -140,12 +157,21 @@ function ModelCanvas() {
         </span>
       </Toolbar>
       <div className="model-canvas" ref={wrap} data-drop="model">
-        {nodes.length === 0 && (
+        {!treeLayer && (
           <div className="model-empty">
             <div>
-              Drag a layer here from <b>Contents</b> (it becomes a blue input), then tools from <b>Geoprocessing</b>.
+              Select a layer in <b>Contents</b> to open its node tree.
               <br />
-              Connect each green <b>Output</b> to the next tool's input, end with <b>Add to Map</b>, and click Run.
+              Each layer has its own tree, from its <b>Layer Input</b> to its <b>Output</b>.
+            </div>
+          </div>
+        )}
+        {treeLayer && nodes.length <= 2 && (
+          <div className="model-empty top">
+            <div>
+              Drag tools from <b>Geoprocessing</b> between <b>Layer Input</b> and <b>Output</b>, connect them, and click Run.
+              <br />
+              Drag another layer from <b>Contents</b> to use it too (e.g. as Clip features).
             </div>
           </div>
         )}

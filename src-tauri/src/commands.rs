@@ -62,6 +62,13 @@ pub async fn remove_layer(engine: Eng<'_>, id: String) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn copy_layer(engine: Eng<'_>, id: String, name: String) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.copy_layer(&id, &name)).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
+#[tauri::command]
 pub async fn rename_layer(engine: Eng<'_>, id: String, name: String) -> Res<LayerInfo> {
     blocking(&engine, move |e| e.rename_layer(&id, &name)).await
 }

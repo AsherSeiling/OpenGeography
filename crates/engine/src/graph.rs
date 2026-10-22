@@ -74,6 +74,8 @@ pub trait Host {
     fn layers(&self) -> HashMap<String, LayerInfo>;
     /// Create or replace the layer owned by `node_id`.
     fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo>;
+    /// Create or replace the node-tree result of layer `owner`.
+    fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo>;
 }
 
 #[derive(Default)]
@@ -251,6 +253,12 @@ pub fn run(
                     let info = host.upsert_layer(conn, &id, &name, &sql, crs)?;
                     r.rows = Some(info.feature_count);
                     r.message = Some(format!("Added '{}' to the map", info.name));
+                    r.layer = Some(info);
+                }
+                Output::Result { owner, sql, crs } => {
+                    let info = host.set_result(conn, &owner, &sql, crs)?;
+                    r.rows = Some(info.feature_count);
+                    r.message = Some(format!("{} now shows this result", info.name));
                     r.layer = Some(info);
                 }
                 Output::Done(msg) => r.message = Some(msg),

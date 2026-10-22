@@ -24,7 +24,7 @@ import { defineProjection, generateTestData, selectByAttributes, useDialog } fro
 import { crsName, FAVORITES, loadCatalog, searchCatalog, utmFor, type CrsEntry } from "../crs/crs";
 import { api, errorText } from "../ipc/api";
 import { benchmarkFlight, getMap, type FlightResult } from "../map/mapController";
-import { useApp } from "../store/store";
+import { displayInfo, useApp } from "../store/store";
 
 export function Dialogs() {
   const dialog = useDialog((s) => s.dialog);
@@ -225,7 +225,7 @@ function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: str
   const [where, setWhere] = useState("");
   const [mode, setMode] = useState<"new" | "add">("new");
   const [err, setErr] = useState<string | null>(null);
-  const info = layers.find((l) => l.id === layer);
+  const info = useApp((s) => displayInfo(s, layer));
   const insert = (t: string) => setWhere((w) => (w && !w.endsWith(" ") ? `${w} ${t}` : `${w}${t}`));
   return (
     <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
@@ -265,7 +265,7 @@ function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: str
               disabled={!where.trim() || !info}
               onClick={async () => {
                 try {
-                  await api.selectWhere(layer, `(${where}) AND FALSE`);
+                  await api.selectWhere(info!.id, `(${where}) AND FALSE`);
                 } catch (e) {
                   setErr(errorText(e).split("\n")[0]);
                   return;

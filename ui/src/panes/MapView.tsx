@@ -6,7 +6,7 @@ import { create } from "zustand";
 import { api, errorText, tileUrl } from "../ipc/api";
 import { setMap } from "../map/mapController";
 import { BASEMAPS, buildLayers, layerIds, styleFields } from "../map/style";
-import { drawableLayerIds, useApp } from "../store/store";
+import { displayInfo, drawableLayerIds, ownerOf, useApp } from "../store/store";
 
 // MapLibre 6 ships its tile-decoding worker as a separate module; Vite bundles it.
 setWorkerUrl(workerUrl);
@@ -90,11 +90,15 @@ export function MapView() {
   const order = useApp((s) => s.order);
   const visible = useApp((s) => s.visible);
   const styles = useApp((s) => s.styles);
+  const results = useApp((s) => s.results);
+  const showOriginal = useApp((s) => s.showOriginal);
   const applied = useRef<Record<string, string>>({});
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    const wanted = new Set(order.filter((id) => layers[id] && layers[id].geomType !== "Table" && layers[id].crs));
+    // Each Contents layer draws what it currently shows: its node-tree result or its original data.
+    const shown = (id: string) => displayInfo({ layers, results, showOriginal }, id);
+    const wanted = new Set(order.filter((id) => { const l = shown(id); return l && l.geomType !== "Table" && l.crs; }));
     // Remove layers that are gone.
     for (const id of Object.keys(applied.current)) {
       if (!wanted.has(id)) {
@@ -106,7 +110,7 @@ export function MapView() {
     // Add/update bottom-up so order matches the Contents pane.
     for (const id of [...order].reverse()) {
       if (!wanted.has(id)) continue;
-      const info = layers[id];
+      const info = shown(id)!;
       const style = styles[id];
       const url = tileUrl(info, styleFields(style));
       const src = map.getSource(`src-${id}`) as VectorTileSource | undefined;
@@ -127,7 +131,7 @@ export function MapView() {
         map.moveLayer(lid);
       }
     }
-  }, [layers, order, visible, styles, ready]);
+  }, [layers, results, showOriginal, order, visible, styles, ready]);
 
   // Selection highlight via feature-state (no tile rebuilds).
   const selection = useApp((s) => s.selection);
@@ -163,7 +167,7 @@ export function MapView() {
         if (tool === "select") {
           const mode = e.originalEvent.shiftKey ? "add" : e.originalEvent.ctrlKey || e.originalEvent.metaKey ? "toggle" : "new";
           if (mode === "new") s.clearSelection();
-          for (const h of hits) s.setSelection(h.layer, [h.fids[0]], mode === "new" ? "add" : mode);
+          for (const h of hits) s.setSelection(ownerOf(h.layer), [h.fids[0]], mode === "new" ? "add" : mode);
           s.setStatus(hits.length ? `Selected ${hits.length} feature(s)` : "No features here");
         } else {
           const top = hits[0];
@@ -173,7 +177,7 @@ export function MapView() {
             return;
           }
           const attrs = await api.getFeature(top.layer, top.fids[0]);
-          s.setSelection(top.layer, [top.fids[0]]);
+          s.setSelection(ownerOf(top.layer), [top.fids[0]]);
           setIdentify({ x: e.point.x, y: e.point.y, layer: top.layer, fid: top.fids[0], attrs, more: top.fids.length - 1 });
         }
       } catch (err) {
@@ -209,7 +213,7 @@ export function MapView() {
         if (mode === "new") s.clearSelection();
         let n = 0;
         for (const h of hits) {
-          s.setSelection(h.layer, h.fids, "add");
+          s.setSelection(ownerOf(h.layer), h.fids, "add");
           n += h.fids.length;
         }
         s.setStatus(`Selected ${n.toLocaleString()} feature(s)`);
@@ -237,7 +241,7 @@ export function MapView() {
 }
 
 function IdentifyPopup({ result, onClose }: { result: IdentifyResult; onClose: () => void }) {
-  const layer = useApp((s) => s.layers[result.layer]);
+  const layer = useApp((s) => s.layers[ownerOf(result.layer)]);
   return (
     <div className="identify" style={{ left: Math.min(result.x + 12, 9999), top: result.y + 12 }} onMouseDown={(e) => e.stopPropagation()}>
       <div className="identify-head">

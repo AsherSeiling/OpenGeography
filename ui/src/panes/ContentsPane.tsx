@@ -1,6 +1,7 @@
 import { Menu, MenuDivider, MenuItem, MenuList, MenuPopover, Tooltip } from "@fluentui/react-components";
 import {
   ArrowExportRegular,
+  FlowchartRegular,
   DeleteRegular,
   EditRegular,
   GlobeRegular,
@@ -48,6 +49,8 @@ export function ContentsPane() {
   const active = useApp((s) => s.activeLayer);
   const mapCrs = useApp((s) => s.mapCrs);
   const selection = useApp((s) => s.selection);
+  const results = useApp((s) => s.results);
+  const showOriginal = useApp((s) => s.showOriginal);
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const app = useApp.getState;
   const treeRef = useRef<HTMLDivElement>(null);
@@ -125,9 +128,19 @@ export function ContentsPane() {
                 onChange={(e) => app().setVisible(id, e.target.checked)}
                 aria-label={`Show ${info.name}`}
               />
-              <Swatch info={info} style={styles[id]} />
+              <Swatch info={(results[id] && !showOriginal[id] ? results[id] : info)} style={styles[id]} />
               <span className="tree-name">{info.name}</span>
               {nsel > 0 && <span className="sel-count" title="Selected features">{nsel.toLocaleString()}</span>}
+              {results[id] && (
+                <FlowchartRegular
+                  className={`tree-result ${showOriginal[id] ? "off" : ""}`}
+                  title={showOriginal[id] ? "Showing original data (node result hidden) — click to show the result" : "Showing this layer's node-tree result — click to show the original data"}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    app().setShowOriginal(id, !showOriginal[id]);
+                  }}
+                />
+              )}
               {(!info.crs && info.geomType !== "Table") || info.warnings.length ? (
                 <Tooltip content={info.warnings.join(" ") || "No coordinate system"} relationship="description">
                   <Warning16Filled
@@ -150,6 +163,8 @@ export function ContentsPane() {
 
 function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; onClose: () => void }) {
   const info = useApp((s) => s.layers[id]);
+  const hasResult = useApp((s) => !!s.results[id]);
+  const showingOriginal = useApp((s) => !!s.showOriginal[id]);
   const target = { getBoundingClientRect: () => ({ x, y, left: x, top: y, right: x, bottom: y, width: 0, height: 0, toJSON: () => null }) };
   const dlg = useDialog.getState().show;
   if (!info) return null;
@@ -160,6 +175,12 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<ZoomFitRegular />} disabled={!info.extent} onClick={() => zoomToLayer(id)}>Zoom To Layer</MenuItem>
           <MenuItem icon={<TableRegular />} onClick={() => { useApp.getState().setActiveLayer(id); showPane("table"); }}>Attribute Table</MenuItem>
           <MenuItem icon={<PaintBrushRegular />} disabled={info.geomType === "Table"} onClick={() => showPane("properties")}>Symbology…</MenuItem>
+          <MenuItem icon={<FlowchartRegular />} onClick={() => showPane("model")}>Edit Node Tree</MenuItem>
+          {hasResult && (
+            <MenuItem icon={<FlowchartRegular />} onClick={() => useApp.getState().setShowOriginal(id, !showingOriginal)}>
+              {showingOriginal ? "Show Node Result" : "Show Original Data"}
+            </MenuItem>
+          )}
           <MenuDivider />
           <MenuItem icon={<GlobeRegular />} onClick={() => dlg({ kind: "defineProjection", layer: id })}>Define Projection…</MenuItem>
           <MenuItem icon={<ArrowExportRegular />} onClick={() => exportLayer(id)}>Export Features…</MenuItem>

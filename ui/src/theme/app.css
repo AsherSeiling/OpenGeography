@@ -282,3 +282,12 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .bnode-row.out .socket { right: 0 !important; }
 .socket:hover { border-color: #0078d4 !important; transform: translate(-50%, -50%) scale(1.3); }
 .bnode-row.out .socket:hover { transform: translate(50%, -50%) scale(1.3); }
+.bnode-layer { padding: 3px 12px 0; color: #444; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnode.fixed .bnode-head::after { content: "fixed"; font-weight: 400; font-size: 10px; color: rgba(0,0,0,.45); margin-left: auto; padding-left: 6px; }
+.bnode.fixed .bnode-head .badge { order: 2; }
+.bsave { text-align: center; margin-top: 2px; }
+.bsave:disabled { opacity: .5; }
+.model-title { padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.model-empty.top { align-items: flex-start; padding-top: 14px; }
+.tree-result { color: #b8860b; flex: none; cursor: pointer; font-size: 15px; }
+.tree-result.off { color: var(--muted); opacity: .6; }

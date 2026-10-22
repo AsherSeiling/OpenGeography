@@ -51,6 +51,10 @@ export function defaultStyle(info: LayerInfo): LayerStyle {
 
 interface AppState {
   layers: Record<string, LayerInfo>;
+  /** Node-tree result per layer id; drawn in place of the layer. */
+  results: Record<string, LayerInfo>;
+  /** Layers whose original data is shown instead of their node-tree result. */
+  showOriginal: Record<string, boolean>;
   /** Draw order, top layer first (as in the Contents pane). */
   order: string[];
   visible: Record<string, boolean>;
@@ -71,6 +75,7 @@ interface AppState {
   updateLayer: (info: LayerInfo) => void;
   removeLayer: (id: string) => void;
   setVisible: (id: string, v: boolean) => void;
+  setShowOriginal: (id: string, v: boolean) => void;
   moveLayer: (id: string, toIndex: number) => void;
   setStyle: (id: string, style: LayerStyle) => void;
   setSelection: (id: string, fids: number[], mode?: "new" | "add" | "toggle") => void;
@@ -86,6 +91,8 @@ interface AppState {
 
 export const useApp = create<AppState>((set, get) => ({
   layers: {},
+  results: {},
+  showOriginal: {},
   order: [],
   visible: {},
   styles: {},
@@ -101,8 +108,11 @@ export const useApp = create<AppState>((set, get) => ({
   dirty: false,
   status: "Ready",
 
-  addLayers: (infos) =>
+  addLayers: (all) =>
     set((s) => {
+      const results = { ...s.results };
+      for (const r of all.filter((i) => i.resultOf)) results[r.resultOf!] = r;
+      const infos = all.filter((i) => !i.resultOf);
       const layers = { ...s.layers };
       const visible = { ...s.visible };
       const styles = { ...s.styles };
@@ -120,10 +130,16 @@ export const useApp = create<AppState>((set, get) => ({
       const first = infos.find((i) => i.crs && i.geomType !== "Table");
       const mapCrs = s.mapCrs ?? (first ? { id: first.crs!, name: first.crsName ?? first.crs! } : null);
       const activeLayer = s.activeLayer ?? infos[0]?.id ?? null;
-      return { layers, order, visible, styles, mapCrs, activeLayer, dirty: true };
+      return { layers, results, order, visible, styles, mapCrs, activeLayer, dirty: true };
     }),
 
   updateLayer: (info) => {
+    if (info.resultOf) {
+      const owner = info.resultOf;
+      // The layer now shows a different feature set: old selection ids no longer apply.
+      set((s) => ({ results: { ...s.results, [owner]: info }, selection: { ...s.selection, [owner]: [] }, dirty: true }));
+      return;
+    }
     if (!get().layers[info.id]) return get().addLayers([info]);
     set((s) => ({ layers: { ...s.layers, [info.id]: info }, dirty: true }));
   },
@@ -132,8 +148,10 @@ export const useApp = create<AppState>((set, get) => ({
     set((s) => {
       const { [id]: _l, ...layers } = s.layers;
       const { [id]: _sel, ...selection } = s.selection;
+      const { [id]: _res, ...results } = s.results;
       return {
         layers,
+        results,
         selection,
         order: s.order.filter((x) => x !== id),
         activeLayer: s.activeLayer === id ? (s.order.find((x) => x !== id) ?? null) : s.activeLayer,
@@ -143,6 +161,8 @@ export const useApp = create<AppState>((set, get) => ({
     }),
 
   setVisible: (id, v) => set((s) => ({ visible: { ...s.visible, [id]: v }, dirty: true })),
+  setShowOriginal: (id, v) =>
+    set((s) => ({ showOriginal: { ...s.showOriginal, [id]: v }, selection: { ...s.selection, [id]: [] }, dirty: true })),
 
   moveLayer: (id, toIndex) =>
     set((s) => {
@@ -181,7 +201,27 @@ export function layerList(): LayerInfo[] {
   return s.order.map((id) => s.layers[id]).filter(Boolean);
 }
 
+type Displayable = Pick<AppState, "layers" | "results" | "showOriginal">;
+
+/** What a layer currently shows: its node-tree result, or its original data. */
+export function displayInfo(s: Displayable, id: string): LayerInfo | undefined {
+  const r = s.results[id];
+  return r && !s.showOriginal[id] ? r : s.layers[id];
+}
+
+/** The Contents layer a displayed layer (original or result) belongs to. */
+export function ownerOf(displayId: string): string {
+  const s = useApp.getState();
+  if (s.layers[displayId]) return displayId;
+  return Object.values(s.results).find((r) => r.id === displayId)?.resultOf ?? displayId;
+}
+
+/** Ids of what is drawn on the map right now (results where applicable). */
 export function drawableLayerIds(): string[] {
   const s = useApp.getState();
-  return s.order.filter((id) => s.visible[id] && s.layers[id] && s.layers[id].geomType !== "Table" && s.layers[id].crs);
+  return s.order
+    .filter((id) => s.visible[id])
+    .map((id) => displayInfo(s, id))
+    .filter((l): l is LayerInfo => !!l && l.geomType !== "Table" && !!l.crs)
+    .map((l) => l.id);
 }

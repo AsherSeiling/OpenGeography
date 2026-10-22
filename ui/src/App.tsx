@@ -81,6 +81,11 @@ export function App() {
       }
     };
     window.addEventListener("keydown", onKey);
+    // The Model shows the node tree of the layer selected in Contents.
+    useModel.getState().openTree(useApp.getState().activeLayer);
+    const unTree = useApp.subscribe((s, prev) => {
+      if (s.activeLayer !== prev.activeLayer) useModel.getState().openTree(s.activeLayer);
+    });
     const beforeUnload = (e: BeforeUnloadEvent) => {
       if (useApp.getState().dirty) e.preventDefault();
     };
@@ -89,6 +94,7 @@ export function App() {
       un1.then((f) => f());
       un2.then((f) => f());
       window.removeEventListener("keydown", onKey);
+      unTree();
       window.removeEventListener("beforeunload", beforeUnload);
     };
   }, []);

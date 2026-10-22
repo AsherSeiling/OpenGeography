@@ -22,7 +22,7 @@ import { crsName } from "../crs/crs";
 import { api, errorText, type ToolParam } from "../ipc/api";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
 import { fieldsForPort, useModel, useRun } from "../store/model";
-import { useApp, type LayerStyle } from "../store/store";
+import { displayInfo, useApp, type LayerStyle } from "../store/store";
 
 export function PropertiesPane() {
   const target = useApp((s) => s.properties);
@@ -109,7 +109,8 @@ function CrsInfo({ id }: { id: string }) {
 }
 
 function Symbology({ id }: { id: string }) {
-  const info = useApp((s) => s.layers[id]);
+  // Classify what the layer shows (its node-tree result may have new fields).
+  const info = useApp((s) => displayInfo(s, id))!;
   const style = useApp((s) => s.styles[id]);
   const setStyle = (p: Partial<LayerStyle>) => useApp.getState().setStyle(id, { ...style, ...p });
   const [ramp, setRamp] = useState("Blues");
@@ -123,10 +124,10 @@ function Symbology({ id }: { id: string }) {
     setErr(null);
     try {
       if (kind === "categorized") {
-        const vals = await api.uniqueValues(id, field, 60);
+        const vals = await api.uniqueValues(info.id, field, 60);
         setStyle({ kind, field, classes: vals.map(([v, n], i) => ({ value: v, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length], label: `${v || "<empty>"} (${n})` })) });
       } else if (kind === "graduated") {
-        const breaks = await api.quantileBreaks(id, field, classes);
+        const breaks = await api.quantileBreaks(info.id, field, classes);
         setStyle({ kind, field, breaks, colors: rampColors(RAMPS[ramp], breaks.length + 1) });
       }
     } catch (e) {

@@ -103,6 +103,7 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
         }
         "list_layers" => json!(e.list_layers()),
         "remove_layer" => json!(e.remove_layer(&s(a, "id")?)?),
+        "copy_layer" => json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?)?),
         "rename_layer" => json!(e.rename_layer(&s(a, "id")?, &s(a, "name")?)?),
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),
         "suggest_crs" => json!(e.suggest_crs(&s(a, "id")?)?),

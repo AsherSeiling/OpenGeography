@@ -25,6 +25,11 @@ use std::sync::Arc;
 
 type TileKey = (String, u64, u32, u32, u32, String);
 
+/// Id of the node-tree result layer for `owner` (e.g. L3 → L3r).
+pub fn result_id(owner: &str) -> String {
+    format!("{owner}r")
+}
+
 pub struct Engine {
     pool: RwLock<Pool>,
     project_dir: RwLock<Option<PathBuf>>,
@@ -134,6 +139,10 @@ impl Engine {
     }
 
     pub fn remove_layer(&self, id: &str) -> Result<()> {
+        let rid = result_id(id);
+        if self.layers.read().contains_key(&rid) {
+            self.remove_layer(&rid)?;
+        }
         let info = self.layer(id)?;
         let pool = self.pool.read();
         let conn = pool.get()?;
@@ -146,6 +155,26 @@ impl Engine {
         self.layers.write().remove(id);
         self.node_layers.lock().retain(|_, l| l != id);
         Ok(())
+    }
+
+    /// Copy a layer (typically a node-tree result) into a new, independent layer.
+    pub fn copy_layer(&self, id: &str, name: &str) -> Result<LayerInfo> {
+        let src_info = self.layer(id)?;
+        let hidden = if src_info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
+        let src = ImportSource {
+            name: name.to_string(),
+            select: format!("SELECT * EXCLUDE ({hidden}) FROM {}", ident(&src_info.table)),
+            crs: src_info.crs.clone(),
+            crs_name: src_info.crs_name.clone(),
+            warnings: vec![],
+        };
+        self.with_conn(|conn| {
+            let id = self.alloc_id();
+            let mut info = layers::build_layer(conn, &id, &src)?;
+            info.source = src_info.source.clone();
+            self.save_meta(conn, &info)?;
+            Ok(info)
+        })
     }
 
     pub fn rename_layer(&self, id: &str, name: &str) -> Result<LayerInfo> {
@@ -400,6 +429,19 @@ impl Engine {
 impl Host for Engine {
     fn layers(&self) -> HashMap<String, LayerInfo> {
         self.layers.read().clone()
+    }
+
+    fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo> {
+        let base = self.layer(owner)?;
+        let id = result_id(owner);
+        let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
+        let src = ImportSource { name: base.name.clone(), select: sql.into(), crs: crs.clone(), crs_name: None, warnings: vec![] };
+        let mut info = layers::build_layer(conn, &id, &src)?;
+        info.version = prev_version + info.version;
+        info.crs_name = if crs == base.crs { base.crs_name.clone() } else { None };
+        info.result_of = Some(owner.to_string());
+        self.save_meta(conn, &info)?;
+        Ok(info)
     }
 
     fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo> {

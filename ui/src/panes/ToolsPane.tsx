@@ -3,7 +3,7 @@ import { SearchBox } from "@fluentui/react-components";
 import { DatabaseRegular, WrenchRegular } from "@fluentui/react-icons";
 import { useMemo, useState } from "react";
 import { justDragged, startDrag } from "../dnd";
-import { useRun } from "../store/model";
+import { useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
 import { addToolToModel } from "./ModelPane";
 import { showPane } from "./panes";
@@ -16,7 +16,9 @@ export function ToolsPane() {
   const query = q.trim().toLowerCase();
   const groups = useMemo(() => {
     const out: Record<string, typeof list> = {};
-    const list = Object.values(specs).filter((s) => s.role !== "data");
+    // Every tree already has its own Layer Input and Output, so those (and
+    // the older Add to Map) aren't offered here.
+    const list = Object.values(specs).filter((s) => s.role !== "data" && s.id !== "layer_output" && s.id !== "add_to_map");
     for (const s of list) {
       if (query && !`${s.name} ${s.description} ${s.category}`.toLowerCase().includes(query)) continue;
       (out[s.category] ??= []).push(s);
@@ -24,7 +26,8 @@ export function ToolsPane() {
     // Outputs last, after the processing tools.
     return Object.entries(out).sort(([a], [b]) => (a === "Output" ? 1 : b === "Output" ? -1 : a.localeCompare(b)));
   }, [specs, query]);
-  const inputs = layers.filter((l) => !query || l.name.toLowerCase().includes(query) || "input layer data".includes(query));
+  const treeLayer = useModel((s) => s.layer);
+  const inputs = layers.filter((l) => l.id !== treeLayer && (!query || l.name.toLowerCase().includes(query) || "input layer data".includes(query)));
 
   const add = (tool: string, params?: Record<string, unknown>) => {
     if (justDragged()) return;
@@ -37,8 +40,8 @@ export function ToolsPane() {
       <SearchBox placeholder="Find Tools" value={q} onChange={(_, d) => setQ(d.value)} size="small" />
       <div className="tools-hint">Click to add to the Model, or drag onto it.</div>
       <div className="tools-list">
-        <div className="tools-cat">Inputs (layers)</div>
-        {inputs.length === 0 && <div className="muted tool-empty">Add data first; each layer can be an input.</div>}
+        <div className="tools-cat">Other layers (extra inputs)</div>
+        {inputs.length === 0 && <div className="muted tool-empty">Other layers appear here, e.g. to clip by.</div>}
         {inputs.map((l) => (
           <div
             key={l.id}
@@ -56,7 +59,7 @@ export function ToolsPane() {
         ))}
         {groups.map(([cat, tools]) => (
           <div key={cat}>
-            <div className="tools-cat">{cat === "Output" ? "Outputs" : cat}</div>
+            <div className="tools-cat">{cat === "Output" ? "Save to file" : cat}</div>
             {tools.map((t) => (
               <div
                 key={t.id}

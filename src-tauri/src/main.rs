@@ -25,6 +25,7 @@ fn main() {
             commands::list_layers,
             commands::remove_layer,
             commands::rename_layer,
+            commands::copy_layer,
             commands::define_projection,
             commands::suggest_crs,
             commands::validate_crs,

@@ -44,6 +44,10 @@ pub struct LayerInfo {
     /// Zoom levels with a pre-thinned overview table (`{table}__ov{z}`).
     #[serde(default)]
     pub overviews: Vec<u32>,
+    /// Set on a layer's node-tree result: the id of the layer it belongs to.
+    /// The UI draws the result in place of that layer.
+    #[serde(default)]
+    pub result_of: Option<String>,
 }
 
 impl LayerInfo {
@@ -203,6 +207,7 @@ pub fn build_layer(conn: &Connection, id: &str, src: &ImportSource) -> Result<La
         temporary: false,
         warnings: src.warnings.clone(),
         overviews: vec![],
+        result_of: None,
     };
     refresh_display(conn, &mut info)?;
     Ok(info)

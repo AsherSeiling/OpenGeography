@@ -229,3 +229,40 @@ fn export_handles_gdal_reserved_id_columns_and_keeps_crs() {
         assert!(back.crs.is_some(), "{fmt} lost its CRS");
     }
 }
+
+#[test]
+fn layer_tree_output_replaces_display_and_can_be_saved_as_new_layer() {
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 100, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+            {"id": "f", "tool": "filter", "params": {"where": "class < 3"}},
+            {"id": "out", "tool": "layer_output", "params": {"layer": l.id}}
+        ],
+        "edges": [
+            {"source": "in", "target": "f", "targetHandle": "in"},
+            {"source": "f", "target": "out", "targetHandle": "in"}
+        ]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    let out = res.iter().find(|r| r.id == "out").unwrap();
+    assert_eq!(out.status, Status::Done, "{out:?}");
+    let result = out.layer.clone().unwrap();
+    assert_eq!(result.result_of.as_deref(), Some(l.id.as_str()));
+    assert_eq!(result.name, l.name);
+    assert!(result.feature_count < 100);
+    // Original untouched.
+    assert_eq!(e.layer(&l.id).unwrap().feature_count, 100);
+    // Re-running replaces the same result layer.
+    let again = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert_eq!(again.iter().find(|r| r.id == "out").unwrap().layer.as_ref().unwrap().id, result.id);
+    // Save as a new independent layer.
+    let copy = e.copy_layer(&result.id, "Filtered points").unwrap();
+    assert!(copy.result_of.is_none());
+    assert_eq!(copy.feature_count, result.feature_count);
+    assert_eq!(copy.crs, l.crs);
+    // Removing the layer removes its result too.
+    e.remove_layer(&l.id).unwrap();
+    assert!(e.layer(&result.id).is_err());
+}
