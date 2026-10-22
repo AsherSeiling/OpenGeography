@@ -2,6 +2,10 @@
 // and the "Tell me" search all read from it.
 import {
   AddCircleRegular,
+  CalculatorRegular,
+  GlobeDesktopRegular,
+  RulerRegular,
+  TableAddRegular,
   ArrowExportRegular,
   ArrowResetRegular,
   CursorClickRegular,
@@ -67,6 +71,11 @@ const active = () => {
   const s = app();
   return s.activeLayer && s.layers[s.activeLayer] ? s.layers[s.activeLayer] : null;
 };
+/** The active layer's own data is shown (not a read-only node result). */
+const canEditActive = () => {
+  const a = active();
+  return !!a && (!app().results[a.id] || !!app().showOriginal[a.id]);
+};
 const hasSelection = () => Object.values(app().selection).some((f) => f.length > 0);
 const setTool = (t: MapTool) => () => app().setTool(t);
 const tool = (t: MapTool) => () => app().tool === t;
@@ -95,6 +104,10 @@ const list: Command[] = [
   // Data tab
   { id: "defineProjection", label: "Define Projection", icon: <GlobeRegular />, run: () => active() && useDialog.getState().show({ kind: "defineProjection", layer: active()!.id }), enabled: () => !!active() },
   { id: "exportLayer", label: "Export Features", icon: <ArrowExportRegular />, run: () => active() && exportLayer(active()!.id), enabled: () => !!active() },
+  { id: "tiger", label: "Sample Data (TIGER)", icon: <GlobeDesktopRegular />, run: () => useDialog.getState().show({ kind: "tiger" }), tip: "Download Census boundaries, roads and water for any state or county" },
+  { id: "addField", label: "Add Field", icon: <TableAddRegular />, run: () => active() && useDialog.getState().show({ kind: "addField", layer: active()!.id }), enabled: canEditActive },
+  { id: "calcField", label: "Calculate Field", icon: <CalculatorRegular />, run: () => active() && useDialog.getState().show({ kind: "calcField", layer: active()!.id, owner: active()!.id }), enabled: canEditActive },
+  { id: "calcGeometry", label: "Calculate Geometry", icon: <RulerRegular />, run: () => active() && useDialog.getState().show({ kind: "calcGeometry", layer: active()!.id, owner: active()!.id }), enabled: () => canEditActive() && active()!.geomType !== "Table" },
   { id: "testData", label: "Generate Test Data", icon: <DataUsageRegular />, run: () => useDialog.getState().show({ kind: "testData" }), tip: "Random points or polygons, to try tools and check speed" },
 
   // Analysis tab

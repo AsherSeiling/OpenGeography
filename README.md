@@ -20,7 +20,14 @@ npm run tauri dev
 ```
 
 Drag shapefiles, GeoPackages, GeoJSON, KML, CSV (with lat/lon columns) or
-GeoParquet onto the window, or use **Map → Add Data**.
+GeoParquet onto the window, use **Map → Add Data**, or download Census
+boundaries/roads/water for any state or county with **Map → Sample Data (TIGER)**.
+
+Each layer has its own node tree (select it in Contents): Layer Input → tools →
+Output. The Output redraws the layer without changing the original data;
+**Save as new layer** keeps a copy. The attribute table edits like a spreadsheet
+(type to edit, Enter/Tab to move, Ctrl+Z to undo; right-click a column header
+for Calculate Field / Calculate Geometry / Rename / Delete).
 
 ### Run the UI in a browser (development/testing)
 
@@ -32,7 +39,8 @@ npm run dev                         # open http://localhost:1420
 ## Test
 
 ```bash
-cargo test -p engine                                  # engine: CRS, tools, tiles, projects
+cargo test -p engine                                  # engine: CRS, tools, tiles, editing, projects
+cargo test -p engine tiger -- --ignored               # live Census TIGERweb download (needs internet)
 npm test                                              # UI: symbology, scale, CRS search
 cargo run --release -p engine --bin bench_tiles       # map performance gate
 ```

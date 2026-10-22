@@ -97,7 +97,7 @@ function ModelCanvas() {
       const n = useModel.getState().nodes.length;
       if (el.clientWidth > 80 && el.clientHeight > 80 && n > 0 && fittedFor.current === 0) {
         fittedFor.current = n;
-        requestAnimationFrame(() => flow.fitView({ padding: 0.2, maxZoom: 1 }));
+        setTimeout(() => flow.fitView({ padding: 0.2, maxZoom: 1 }), 80); // after nodes are measured
       }
       if (n === 0) fittedFor.current = 0;
     };

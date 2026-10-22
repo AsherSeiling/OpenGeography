@@ -16,6 +16,14 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 export type Extent = [number, number, number, number];
 export type GeomType = "Point" | "Line" | "Polygon" | "Mixed" | "Table";
 
+export interface TigerDataset {
+  id: string;
+  label: string;
+  needsCounty: boolean;
+}
+
+export type FieldType = "text" | "integer" | "double" | "date" | "boolean";
+
 export interface Field {
   name: string;
   type: string;
@@ -111,7 +119,20 @@ export const api = {
   listLayers: () => invoke<LayerInfo[]>("list_layers"),
   removeLayer: (id: string) => invoke<void>("remove_layer", { id }),
   renameLayer: (id: string, name: string) => invoke<LayerInfo>("rename_layer", { id, name }),
+  tigerDatasets: () => invoke<TigerDataset[]>("tiger_datasets"),
+  tigerCounties: (state: string) => invoke<[string, string][]>("tiger_counties", { state }),
+  tigerImport: (datasets: string[], state: string, county: string | null, label: string) =>
+    invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label }),
   copyLayer: (id: string, name: string) => invoke<LayerInfo>("copy_layer", { id, name }),
+  addField: (id: string, name: string, ty: FieldType) => invoke<LayerInfo>("add_field", { id, name, ty }),
+  deleteField: (id: string, name: string) => invoke<LayerInfo>("delete_field", { id, name }),
+  renameField: (id: string, old: string, newName: string) => invoke<LayerInfo>("rename_field", { id, old, new: newName }),
+  updateCell: (id: string, fid: number, field: string, value: string | null) => invoke<LayerInfo>("update_cell", { id, fid, field, value }),
+  calculateField: (id: string, field: string, expr: string, ty: FieldType | null, fids: number[] | null) =>
+    invoke<{ layer: LayerInfo; count: number }>("calculate_field", { id, field, expr, ty, fids }),
+  calculateGeometry: (id: string, field: string, property: string, areaUnits: string, lengthUnits: string, fids: number[] | null) =>
+    invoke<{ layer: LayerInfo; count: number }>("calculate_geometry", { id, field, property, areaUnits, lengthUnits, fids }),
+  deleteRows: (id: string, fids: number[]) => invoke<{ layer: LayerInfo; count: number }>("delete_rows", { id, fids }),
   defineProjection: (id: string, crs: string, crsName: string | null) =>
     invoke<LayerInfo>("define_projection", { id, crs, crsName }),
   suggestCrs: (id: string) => invoke<{ crs: string; reason: string }[]>("suggest_crs", { id }),

@@ -1,12 +1,15 @@
 //! GIS engine: data storage, coordinate systems, vector tiles and the
 //! geoprocessing graph. The Tauri app is a thin wrapper around [`Engine`].
 
+pub mod attrs;
 pub mod crs;
 pub mod db;
 pub mod graph;
 pub mod layers;
+pub mod measure;
 pub mod nodes;
 pub mod table;
+pub mod tiger;
 pub mod tiles;
 
 use anyhow::{anyhow, Result};
@@ -155,6 +158,65 @@ impl Engine {
         self.layers.write().remove(id);
         self.node_layers.lock().retain(|_, l| l != id);
         Ok(())
+    }
+
+    // ---------- attribute editing ----------
+
+    /// Run an edit on a layer and save its updated metadata.
+    fn edit<T>(&self, id: &str, f: impl FnOnce(&Connection, &mut LayerInfo) -> Result<T>) -> Result<(LayerInfo, T)> {
+        let mut info = self.layer(id)?;
+        self.with_conn(|conn| {
+            let out = f(conn, &mut info)?;
+            self.save_meta(conn, &info)?;
+            Ok((info, out))
+        })
+    }
+
+    pub fn add_field(&self, id: &str, name: &str, ty: &str) -> Result<LayerInfo> {
+        Ok(self.edit(id, |c, i| attrs::add_field(c, i, name, ty))?.0)
+    }
+
+    pub fn delete_field(&self, id: &str, name: &str) -> Result<LayerInfo> {
+        Ok(self.edit(id, |c, i| attrs::delete_field(c, i, name))?.0)
+    }
+
+    pub fn rename_field(&self, id: &str, old: &str, new: &str) -> Result<LayerInfo> {
+        Ok(self.edit(id, |c, i| attrs::rename_field(c, i, old, new))?.0)
+    }
+
+    pub fn update_cell(&self, id: &str, fid: i64, field: &str, value: Option<&str>) -> Result<LayerInfo> {
+        Ok(self.edit(id, |c, i| attrs::update_cell(c, i, fid, field, value))?.0)
+    }
+
+    pub fn calculate_field(&self, id: &str, field: &str, expr: &str, new_type: Option<&str>, fids: Option<&[i64]>) -> Result<(LayerInfo, i64)> {
+        self.edit(id, |c, i| attrs::calculate(c, i, field, expr, new_type, fids))
+    }
+
+    pub fn calculate_geometry(&self, id: &str, field: &str, property: &str, area_units: &str, length_units: &str, fids: Option<&[i64]>) -> Result<(LayerInfo, i64)> {
+        self.edit(id, |c, i| attrs::calculate_geometry(c, i, field, property, area_units, length_units, fids))
+    }
+
+    pub fn delete_rows(&self, id: &str, fids: &[i64]) -> Result<(LayerInfo, i64)> {
+        self.edit(id, |c, i| attrs::delete_rows(c, i, fids))
+    }
+
+    // ---------- sample data ----------
+
+    /// Download TIGER datasets for a state/county and add them as layers.
+    pub fn tiger_import(&self, datasets: &[String], state: &str, county: Option<&str>, area_label: &str) -> Result<Vec<LayerInfo>> {
+        let cache = std::env::temp_dir().join("gis-studio-cache");
+        let mut out = Vec::new();
+        for id in datasets {
+            let d = tiger::dataset(id)?;
+            let path = tiger::fetch(id, state, county, &cache)?;
+            for mut info in self.import(&path)? {
+                info.name = format!("{} — {area_label}", d.label);
+                info.source = Some(format!("Census TIGERweb: {}", d.label));
+                self.with_conn(|c| self.save_meta(c, &info))?;
+                out.push(info);
+            }
+        }
+        Ok(out)
     }
 
     /// Copy a layer (typically a node-tree result) into a new, independent layer.

@@ -222,3 +222,77 @@ pub async fn new_project(engine: Eng<'_>) -> Res<()> {
 pub fn frontend_log(level: String, message: String) {
     eprintln!("[ui:{level}] {message}");
 }
+
+// ---------- attribute editing ----------
+
+#[derive(Serialize)]
+pub struct EditResult {
+    layer: LayerInfo,
+    count: i64,
+}
+
+#[tauri::command]
+pub async fn add_field(engine: Eng<'_>, id: String, name: String, ty: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.add_field(&id, &name, &ty)).await
+}
+
+#[tauri::command]
+pub async fn delete_field(engine: Eng<'_>, id: String, name: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.delete_field(&id, &name)).await
+}
+
+#[tauri::command]
+pub async fn rename_field(engine: Eng<'_>, id: String, old: String, new: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.rename_field(&id, &old, &new)).await
+}
+
+#[tauri::command]
+pub async fn update_cell(engine: Eng<'_>, id: String, fid: i64, field: String, value: Option<String>) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.update_cell(&id, fid, &field, value.as_deref())).await
+}
+
+#[tauri::command]
+pub async fn calculate_field(engine: Eng<'_>, id: String, field: String, expr: String, ty: Option<String>, fids: Option<Vec<i64>>) -> Res<EditResult> {
+    blocking(&engine, move |e| {
+        let (layer, count) = e.calculate_field(&id, &field, &expr, ty.as_deref(), fids.as_deref())?;
+        Ok(EditResult { layer, count })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn calculate_geometry(engine: Eng<'_>, id: String, field: String, property: String, area_units: String, length_units: String, fids: Option<Vec<i64>>) -> Res<EditResult> {
+    blocking(&engine, move |e| {
+        let (layer, count) = e.calculate_geometry(&id, &field, &property, &area_units, &length_units, fids.as_deref())?;
+        Ok(EditResult { layer, count })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn delete_rows(engine: Eng<'_>, id: String, fids: Vec<i64>) -> Res<EditResult> {
+    blocking(&engine, move |e| {
+        let (layer, count) = e.delete_rows(&id, &fids)?;
+        Ok(EditResult { layer, count })
+    })
+    .await
+}
+
+// ---------- sample data ----------
+
+#[tauri::command]
+pub async fn tiger_datasets() -> Res<Vec<engine::tiger::Dataset>> {
+    Ok(engine::tiger::DATASETS.to_vec())
+}
+
+#[tauri::command]
+pub async fn tiger_counties(engine: Eng<'_>, state: String) -> Res<Vec<(String, String)>> {
+    blocking(&engine, move |_| engine::tiger::counties(&state)).await
+}
+
+#[tauri::command]
+pub async fn tiger_import(engine: Eng<'_>, datasets: Vec<String>, state: String, county: Option<String>, label: String) -> Res<Vec<LayerInfo>> {
+    let out = blocking(&engine, move |e| e.tiger_import(&datasets, &state, county.as_deref(), &label)).await?;
+    prewarm(&engine, out.iter().map(|l| l.id.clone()).collect());
+    Ok(out)
+}

@@ -15,7 +15,12 @@ export type DialogState =
   | { kind: "selectByAttributes"; layer: string }
   | { kind: "testData" }
   | { kind: "benchmark" }
-  | { kind: "rename"; layer: string };
+  | { kind: "rename"; layer: string }
+  | { kind: "addField"; layer: string }
+  | { kind: "calcField"; layer: string; owner: string; field?: string }
+  | { kind: "calcGeometry"; layer: string; owner: string; field?: string }
+  | { kind: "renameField"; layer: string; field: string }
+  | { kind: "tiger" };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,

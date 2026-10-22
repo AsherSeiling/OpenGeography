@@ -90,7 +90,8 @@ export function ContentsPane() {
         </div>
         {order.length === 0 && (
           <div className="empty-hint">
-            Add data from the <b>Map</b> tab, or drag files onto the window.
+            Add data from the <b>Map</b> tab, drag files onto the window, or get{" "}
+            <button className="linkbtn" onClick={() => useDialog.getState().show({ kind: "tiger" })}>Census sample data</button>.
           </div>
         )}
         {order.length > 0 && <div className="tree-hint">Drag a layer onto the Model to use it as an input, or onto another layer to reorder.</div>}

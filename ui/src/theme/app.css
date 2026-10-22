@@ -291,3 +291,28 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .model-empty.top { align-items: flex-start; padding-top: 14px; }
 .tree-result { color: #b8860b; flex: none; cursor: pointer; font-size: 15px; }
 .tree-result.off { color: var(--muted); opacity: .6; }
+
+/* ---------- Spreadsheet table ---------- */
+.attr-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+.attr-banner { background: #fff4ce; color: #5c4400; padding: 3px 8px; border-bottom: 1px solid var(--border); font-size: 11.5px; }
+.app.dark .attr-banner { background: #3d3214; color: #f3d98a; }
+.linkbtn { border: none; background: none; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+.grid-inner { outline: none; }
+.cell.fid { cursor: pointer; user-select: none; }
+.cell.fid:hover { background: var(--accent-hover); }
+.cell.fid.sel { background: #00b7c3; color: #fff; }
+.cell.fid.corner { cursor: default; }
+.cell.active { outline: 2px solid #107c41; outline-offset: -2px; background: var(--pane); }
+.grid-row.sel .cell.active { background: #d9f7f9; }
+.cell.ro { color: var(--muted); }
+.cell.head { position: relative; gap: 4px; }
+.cell.head.col-active { background: #e1efe6; }
+.head-name { overflow: hidden; text-overflow: ellipsis; }
+.head-type { font-weight: 400; font-size: 10px; color: var(--muted); margin-left: auto; }
+.col-resize { position: absolute; right: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 1; }
+.cell-editor { width: 100%; height: 100%; border: none; outline: none; font: inherit; background: #fff; color: #1f1f1f; padding: 0; margin: 0; }
+.attr-foot { display: flex; justify-content: space-between; gap: 10px; }
+.small { font-size: 11px; }
+.attr-foot > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attr-foot > .muted { flex: 1; text-align: right; min-width: 0; }
+.tiger-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; max-height: 260px; overflow: auto; }

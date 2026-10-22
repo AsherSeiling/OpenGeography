@@ -17,7 +17,7 @@ interface Group {
 const TABS: Record<string, Group[]> = {
   Map: [
     { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }] },
-    { label: "Layer", items: [{ cmd: "addData" }, { custom: <BasemapGallery /> }] },
+    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "tiger" }, { custom: <BasemapGallery /> }] },
     {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
@@ -34,7 +34,8 @@ const TABS: Record<string, Group[]> = {
     { label: "Tools", items: [{ custom: <ToolGallery /> }] },
   ],
   Data: [
-    { label: "Add", items: [{ cmd: "addData" }] },
+    { label: "Add", items: [{ cmd: "addData" }, { cmd: "tiger" }] },
+    { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
     { label: "Coordinate Systems", items: [{ cmd: "defineProjection" }, { cmd: "mapCrs" }] },
     { label: "Export", items: [{ cmd: "exportLayer" }] },
     { label: "Testing", items: [{ cmd: "testData" }] },
@@ -57,6 +58,7 @@ const TABS: Record<string, Group[]> = {
   ],
   "Feature Layer": [
     { label: "Layer", items: [{ cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
+    { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
     { label: "Data", items: [{ cmd: "defineProjection" }, { cmd: "exportLayer" }] },
     { label: "Remove", items: [{ cmd: "removeLayer" }] },
   ],

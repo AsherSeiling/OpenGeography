@@ -19,6 +19,18 @@ mod intersect;
 mod layer_output;
 mod project;
 mod spatial_join;
+mod erase;
+mod merge;
+mod select_by_location;
+mod feature_to_point;
+mod bounding_geometry;
+mod simplify;
+mod explode;
+mod repair;
+mod summarize_within;
+mod near;
+mod fishnet;
+mod summary_statistics;
 
 use crate::db::{ident, lit};
 use crate::layers::LayerInfo;
@@ -197,6 +209,12 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    /// UTM zone (WGS 84) at the center of a relation, for metric operations.
+    pub fn utm(&self, rel: &Rel) -> Result<String> {
+        let (lon, lat) = self.center_lonlat(rel)?;
+        Ok(crate::crs::utm_epsg(lon, lat))
+    }
+
     /// Dominant geometry dimension of a relation (0 point, 1 line, 2 polygon).
     pub fn dimension(&self, rel: &Rel) -> Result<i32> {
         let d: Option<i32> = self.conn.query_row(
@@ -268,6 +286,18 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(attribute_join::AttributeJoin),
         Box::new(calculate_field::CalculateField),
         Box::new(calculate_geometry::CalculateGeometry),
+        Box::new(erase::Erase),
+        Box::new(merge::Merge),
+        Box::new(select_by_location::SelectByLocation),
+        Box::new(feature_to_point::FeatureToPoint),
+        Box::new(bounding_geometry::BoundingGeometry),
+        Box::new(simplify::Simplify),
+        Box::new(explode::Explode),
+        Box::new(repair::Repair),
+        Box::new(summarize_within::SummarizeWithin),
+        Box::new(near::Near),
+        Box::new(fishnet::Fishnet),
+        Box::new(summary_statistics::SummaryStatistics),
         Box::new(layer_output::LayerOutput),
         Box::new(add_to_map::AddToMap),
         Box::new(export::Export),

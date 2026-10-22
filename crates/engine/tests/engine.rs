@@ -266,3 +266,119 @@ fn layer_tree_output_replaces_display_and_can_be_saved_as_new_layer() {
     e.remove_layer(&l.id).unwrap();
     assert!(e.layer(&result.id).is_err());
 }
+
+#[test]
+fn spreadsheet_style_attribute_editing() {
+    let e = Engine::new().unwrap();
+    // Large enough to get overview tables, which must stay in sync.
+    let l = e.generate_test_layer("polygons", 60_000, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    assert!(!l.overviews.is_empty());
+
+    // Geometry into a field that doesn't exist yet: it is created.
+    let (l, n) = e.calculate_geometry(&l.id, "AREA_ACRES", "area", "acres", "km", None).unwrap();
+    assert_eq!(n, 60_000);
+    let f = l.fields.iter().find(|f| f.name == "AREA_ACRES").expect("field created");
+    assert_eq!(f.ty, "DOUBLE");
+    assert!(first_value(&e, &l.id, "AREA_ACRES") > 0.0);
+
+    // Add, edit, rename, calculate on selection, delete.
+    let l = e.add_field(&l.id, "NOTE", "text").unwrap();
+    let l = e.update_cell(&l.id, 1, "NOTE", Some("checked in field")).unwrap();
+    assert!(e.update_cell(&l.id, 1, "value", Some("not a number")).is_err());
+    let l = e.update_cell(&l.id, 1, "value", Some("42.5")).unwrap();
+    let l = e.rename_field(&l.id, "NOTE", "COMMENT").unwrap();
+    assert!(l.fields.iter().any(|f| f.name == "COMMENT"));
+    let (l, n) = e.calculate_field(&l.id, "DOUBLED", "value * 2", None, Some(&[1, 2, 3])).unwrap();
+    assert_eq!(n, 3);
+    let row = e.feature(&l.id, 1).unwrap();
+    let get = |k: &str| row.iter().find(|(n, _)| n == k).unwrap().1.clone();
+    assert_eq!(get("COMMENT").as_deref(), Some("checked in field"));
+    assert_eq!(get("DOUBLED").as_deref(), Some("85.0"));
+    let l = e.delete_field(&l.id, "DOUBLED").unwrap();
+    let (l, n) = e.delete_rows(&l.id, &[1, 2]).unwrap();
+    assert_eq!(n, 2);
+    assert_eq!(l.feature_count, 59_998);
+
+    // Styled tiles read edited values from the overviews at low zoom.
+    let t = e.tile(&l.id, 4, 3, 6, &["COMMENT".into()]).unwrap();
+    assert!(!t.is_empty());
+
+    // Bad expressions don't change anything.
+    assert!(e.calculate_field(&l.id, "X", "no_such_column + 1", None, None).is_err());
+    assert!(!e.layer(&l.id).unwrap().fields.iter().any(|f| f.name == "X"));
+}
+
+#[test]
+fn new_geoprocessing_tools_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let polys = dir.path().join("grid.gpkg");
+    // 4 x 3 grid of 0.25° squares, plus one two-part feature.
+    write_fixture(
+        &polys,
+        "SELECT x*3+y AS id, CASE WHEN x < 2 THEN 'west' ELSE 'east' END AS side, (x+1)*100 AS pop,
+                ST_MakeEnvelope(-98 + x*0.25, 35 + y*0.25, -98 + (x+1)*0.25, 35 + (y+1)*0.25) AS geom
+         FROM range(4) a(x), range(3) b(y)
+         UNION ALL SELECT 99, 'multi', 1, ST_Union(ST_MakeEnvelope(-99, 35, -98.9, 35.1), ST_MakeEnvelope(-98.8, 35, -98.7, 35.1))",
+        "GPKG",
+        Some("EPSG:4326"),
+    );
+    let e = Engine::new().unwrap();
+    let p = e.import(&polys).unwrap().remove(0);
+    let pts = e.generate_test_layer("points", 500, [-98.0, 35.0, -97.0, 35.75]).unwrap();
+
+    let run = |tool: &str, params: serde_json::Value, second: Option<&str>| {
+        let mut nodes = vec![json!({"id": "a", "tool": "input_layer", "params": {"layer": p.id}}),
+                             json!({"id": "b", "tool": "input_layer", "params": {"layer": pts.id}})];
+        nodes.push(json!({"id": "t", "tool": tool, "params": params}));
+        let spec = e.tool_specs().into_iter().find(|s| s.id == tool).unwrap();
+        let mut edges = vec![json!({"source": "a", "target": "t", "targetHandle": spec.inputs[0].id})];
+        if let (Some(port), Some(src)) = (spec.inputs.get(1), second) {
+            edges.push(json!({"source": src, "target": "t", "targetHandle": port.id}));
+        }
+        let res = e.run_graph(&graph(json!({"nodes": nodes, "edges": edges})), Some("t"), &mut |_| {}).unwrap();
+        let r = res.into_iter().find(|r| r.id == "t").unwrap();
+        assert_eq!(r.status, Status::Done, "{tool}: {:?}", r.error);
+        r.rows.unwrap()
+    };
+
+    assert_eq!(run("feature_to_point", json!({"method": "inside"}), None), 13);
+    assert_eq!(run("bounding_geometry", json!({"shape": "hull", "group": "field", "field": "side"}), None), 3);
+    assert_eq!(run("bounding_geometry", json!({"shape": "envelope", "group": "all"}), None), 1);
+    assert_eq!(run("simplify", json!({"tolerance": 100, "units": "m", "topology": true}), None), 13);
+    assert_eq!(run("explode", json!({}), None), 14); // the two-part feature becomes two
+    assert_eq!(run("repair", json!({}), None), 13);
+    let within = run("summarize_within", json!({"field": "value", "stat": "sum"}), Some("b"));
+    assert_eq!(within, 13);
+    assert_eq!(run("summary_statistics", json!({"field": "pop", "case": "side"}), None), 3);
+    let cells = run("fishnet", json!({"size": 5, "units": "km", "clip": true}), None);
+    assert!(cells > 20, "fishnet cells {cells}");
+    assert_eq!(run("merge", json!({"source_field": true}), Some("b")), 513);
+    let sel = run("select_by_location", json!({"relation": "intersects", "invert": false}), Some("b"));
+    let not_sel = run("select_by_location", json!({"relation": "intersects", "invert": true}), Some("b"));
+    assert_eq!(sel + not_sel, 13);
+    assert!(run("select_by_location", json!({"relation": "distance", "distance": 50, "units": "km"}), Some("b")) >= sel);
+    assert_eq!(run("near", json!({"radius": 50, "units": "km"}), Some("b")), 13);
+    // Erase the grid by buffered points: fewer or equal features, smaller area.
+    assert!(run("erase", json!({}), Some("b")) <= 13);
+}
+
+/// Needs internet access to tigerweb.geo.census.gov; run with --ignored.
+#[test]
+#[ignore]
+fn tiger_sample_data_downloads() {
+    let counties = engine::tiger::counties("40").unwrap(); // Oklahoma
+    assert_eq!(counties.len(), 77);
+    let cleveland = counties.iter().find(|(_, n)| n.starts_with("Cleveland")).unwrap().0.clone();
+    let e = Engine::new().unwrap();
+    let layers = e
+        .tiger_import(&["tracts".into(), "primary_roads".into(), "blocks".into()], "40", Some(&cleveland), "Cleveland County, OK")
+        .unwrap();
+    assert_eq!(layers.len(), 3);
+    for l in &layers {
+        assert_eq!(l.crs.as_deref(), Some("EPSG:4326"), "{}", l.name);
+        assert!(l.feature_count > 0, "{}", l.name);
+        assert!(l.fields.iter().any(|f| f.name == "GEOID") || l.geom_type == "Line", "{} fields {:?}", l.name, l.fields);
+    }
+    let blocks = &layers[2];
+    assert!(blocks.feature_count > 1000, "blocks {}", blocks.feature_count);
+}

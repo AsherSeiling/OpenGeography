@@ -339,6 +339,21 @@ pub fn tile_source(info: &LayerInfo, z: u32) -> String {
         .unwrap_or_else(|| info.table.clone())
 }
 
+/// Refresh a layer's field list, record count and extent after its rows or
+/// columns changed (without rebuilding display columns or overviews).
+pub fn refresh_meta(conn: &Connection, info: &mut LayerInfo) -> Result<()> {
+    let t = ident(&info.table);
+    info.feature_count = conn.query_row(&format!("SELECT count(*) FROM {t}"), [], |r| r.get(0))?;
+    info.fields = columns_of(conn, &format!("SELECT * FROM {t}"))?
+        .into_iter()
+        .filter(|f| f.name != "geom" && !HIDDEN_COLS.contains(&f.name.as_str()))
+        .collect();
+    if info.has_geometry() && info.crs.is_some() {
+        info.extent = features_extent(conn, info, None)?;
+    }
+    Ok(())
+}
+
 fn existing_hidden(conn: &Connection, table: &str) -> Result<String> {
     let cols = columns_of(conn, &format!("SELECT * FROM {}", ident(table)))?;
     Ok(cols

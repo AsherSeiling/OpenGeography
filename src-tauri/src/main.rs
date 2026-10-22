@@ -47,6 +47,16 @@ fn main() {
             commands::open_project,
             commands::new_project,
             commands::frontend_log,
+            commands::add_field,
+            commands::delete_field,
+            commands::rename_field,
+            commands::update_cell,
+            commands::calculate_field,
+            commands::calculate_geometry,
+            commands::delete_rows,
+            commands::tiger_datasets,
+            commands::tiger_counties,
+            commands::tiger_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GIS Studio");

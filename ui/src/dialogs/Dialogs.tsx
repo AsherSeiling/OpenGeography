@@ -23,6 +23,8 @@ import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, useDialog } from "../actions";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, utmFor, type CrsEntry } from "../crs/crs";
 import { api, errorText } from "../ipc/api";
+import { TigerDialog } from "./TigerDialog";
+import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
 import { benchmarkFlight, getMap, type FlightResult } from "../map/mapController";
 import { displayInfo, useApp } from "../store/store";
 
@@ -43,6 +45,16 @@ export function Dialogs() {
       return <BenchmarkDialog onClose={close} />;
     case "rename":
       return <RenameDialog layer={dialog.layer} onClose={close} />;
+    case "addField":
+      return <AddFieldDialog layer={dialog.layer} onClose={close} />;
+    case "calcField":
+      return <CalculateFieldDialog layer={dialog.layer} owner={dialog.owner} field={dialog.field} onClose={close} />;
+    case "calcGeometry":
+      return <CalculateGeometryDialog layer={dialog.layer} owner={dialog.owner} field={dialog.field} onClose={close} />;
+    case "renameField":
+      return <RenameFieldDialog layer={dialog.layer} field={dialog.field} onClose={close} />;
+    case "tiger":
+      return <TigerDialog onClose={close} />;
   }
 }
 

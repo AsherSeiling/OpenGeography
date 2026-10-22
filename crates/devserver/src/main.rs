@@ -103,6 +103,35 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
         }
         "list_layers" => json!(e.list_layers()),
         "remove_layer" => json!(e.remove_layer(&s(a, "id")?)?),
+        "add_field" => json!(e.add_field(&s(a, "id")?, &s(a, "name")?, &s(a, "ty")?)?),
+        "delete_field" => json!(e.delete_field(&s(a, "id")?, &s(a, "name")?)?),
+        "rename_field" => json!(e.rename_field(&s(a, "id")?, &s(a, "old")?, &s(a, "new")?)?),
+        "update_cell" => json!(e.update_cell(&s(a, "id")?, a["fid"].as_i64().unwrap_or(0), &s(a, "field")?, a["value"].as_str())?),
+        "calculate_field" => {
+            let fids: Option<Vec<i64>> = de(a, "fids")?;
+            let (layer, count) = e.calculate_field(&s(a, "id")?, &s(a, "field")?, &s(a, "expr")?, a["ty"].as_str(), fids.as_deref())?;
+            json!({ "layer": layer, "count": count })
+        }
+        "calculate_geometry" => {
+            let fids: Option<Vec<i64>> = de(a, "fids")?;
+            let (layer, count) = e.calculate_geometry(&s(a, "id")?, &s(a, "field")?, &s(a, "property")?, &s(a, "areaUnits")?, &s(a, "lengthUnits")?, fids.as_deref())?;
+            json!({ "layer": layer, "count": count })
+        }
+        "delete_rows" => {
+            let fids: Vec<i64> = de(a, "fids")?;
+            let (layer, count) = e.delete_rows(&s(a, "id")?, &fids)?;
+            json!({ "layer": layer, "count": count })
+        }
+        "tiger_datasets" => json!(engine::tiger::DATASETS),
+        "tiger_counties" => json!(engine::tiger::counties(&s(a, "state")?)?),
+        "tiger_import" => {
+            let ds: Vec<String> = de(a, "datasets")?;
+            let out = e.tiger_import(&ds, &s(a, "state")?, a["county"].as_str(), &s(a, "label")?)?;
+            for l in &out {
+                let _ = e.prewarm(&l.id, 8, &[]);
+            }
+            json!(out)
+        }
         "copy_layer" => json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?)?),
         "rename_layer" => json!(e.rename_layer(&s(a, "id")?, &s(a, "name")?)?),
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),
