@@ -41,6 +41,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
         <Badge r={r} />
       </div>
       {fixedInput && <LayerName id={String(data.params.layer ?? "")} />}
+      {kind === "data" && !fixedInput && !data.params.layer && <div className="bnode-drop">Drop a layer here from Contents</div>}
 
       {spec.output && (
         <div className="bnode-row out">

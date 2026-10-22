@@ -72,11 +72,15 @@ impl LayerInfo {
 }
 
 /// CRS of one GDAL layer as reported by `ST_Read_Meta`.
-fn crs_from_meta(crs: &serde_json::Value) -> (Option<String>, Option<String>) {
+fn crs_from_meta(conn: &Connection, crs: &serde_json::Value) -> (Option<String>, Option<String>) {
     let s = |k: &str| crs.get(k).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(String::from);
     let name = s("name");
     let id = match (s("auth_name"), s("auth_code")) {
-        (Some(a), Some(c)) => Some(format!("{a}:{c}")),
+        // Prefer the code, unless PROJ can't use it; then the file's own WKT.
+        (Some(a), Some(c)) => {
+            let code = format!("{a}:{c}");
+            if crs::validate(conn, &code).is_ok() { Some(crs::resolve(&code)) } else { s("wkt").or(Some(code)) }
+        }
         _ => s("wkt"),
     };
     (id, name)
@@ -119,7 +123,7 @@ pub fn sources_for_path(conn: &Connection, path: &Path) -> Result<Vec<ImportSour
             out.push(ImportSource { name: display_name, select: format!("SELECT * FROM {read}"), crs: None, crs_name: None, warnings: vec![] });
             continue;
         }
-        let (crs, crs_name) = crs_from_meta(&gfields[0]["crs"]);
+        let (crs, crs_name) = crs_from_meta(conn, &gfields[0]["crs"]);
         let geom_col = geometry_column(conn, &format!("SELECT * FROM {read}"))?
             .ok_or_else(|| anyhow!("No geometry column found in {lname}"))?;
         let select = format!("SELECT * EXCLUDE ({g}), {g}::GEOMETRY AS geom FROM {read}", g = ident(&geom_col));

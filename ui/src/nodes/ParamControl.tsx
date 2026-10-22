@@ -78,6 +78,16 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
         </div>,
         true,
       );
+    case "query":
+      return row(
+        <div className="bexpr">
+          <div className={`bquery ${str ? "" : "empty"}`} title={str || "No query yet"}>{str || "No query yet"}</div>
+          <button className="bctl bbtn" onClick={(e) => { e.preventDefault(); useDialog.getState().show({ kind: "nodeQuery", nodeId, param: p.id }); }}>
+            {str ? "Edit query…" : "Build query…"}
+          </button>
+        </div>,
+        true,
+      );
     case "crs":
       return row(
         <button

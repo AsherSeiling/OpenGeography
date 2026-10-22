@@ -19,7 +19,7 @@ impl Tool for Project {
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
-        let target = p.req_str("crs", "Output coordinate system")?;
+        let target = crs::resolve(&p.req_str("crs", "Output coordinate system")?);
         crs::validate(ctx.conn, &target)?;
         let g = ctx.geom_in(i, "i", &target)?;
         Ok(Output::Select {

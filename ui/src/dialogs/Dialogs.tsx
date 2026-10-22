@@ -20,9 +20,11 @@ import {
 import { Globe20Regular, Location20Regular, Star20Filled } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, useDialog } from "../actions";
-import { crsName, FAVORITES, loadCatalog, searchCatalog, utmFor, type CrsEntry } from "../crs/crs";
+import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
+import { STATES } from "./TigerDialog";
 import { api, errorText } from "../ipc/api";
 import { ExportDialog } from "./ExportDialog";
+import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
 import { QueryEditor } from "../query/QueryEditor";
@@ -58,6 +60,8 @@ export function Dialogs() {
       return <TigerDialog onClose={close} />;
     case "export":
       return <ExportDialog owner={dialog.owner} onClose={close} />;
+    case "nodeQuery":
+      return <NodeQueryDialog nodeId={dialog.nodeId} param={dialog.param} onClose={close} />;
   }
 }
 
@@ -73,6 +77,7 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | "projected" | "geographic">("all");
   const [nearby, setNearby] = useState(false);
+  const [spState, setSpState] = useState<string>("");
   const [custom, setCustom] = useState("");
   const [customErr, setCustomErr] = useState<string | null>(null);
   useEffect(() => {
@@ -80,8 +85,11 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
   }, []);
   const center = mapCenter();
   const results = useMemo(
-    () => searchCatalog(list, query, { kind, at: nearby ? center : null, limit: 200 }),
-    [list, query, kind, nearby],
+    () =>
+      spState
+        ? statePlaneFor(list, spState).filter((e) => !query || `${e.id} ${e.name}`.toLowerCase().includes(query.toLowerCase()))
+        : searchCatalog(list, query, { kind, at: nearby ? center : null, limit: 200 }),
+    [list, query, kind, nearby, spState],
   );
   const favorites = list.filter((e) => FAVORITES.includes(e.id));
   const utm = center ? [utmFor(center[0], center[1]), utmFor(center[0], center[1], "NAD83")] : [];
@@ -108,6 +116,17 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
         <Button icon={<Location20Regular />} appearance={nearby ? "primary" : "secondary"} onClick={() => setNearby(!nearby)} title="Only coordinate systems valid at the map center">
           Current extent
         </Button>
+        <Dropdown
+          value={spState ? `State Plane: ${spState}` : "State Plane…"}
+          onOptionSelect={(_, d) => setSpState(d.optionValue ?? "")}
+          style={{ minWidth: 170 }}
+          title="All State Plane zones for a state, newest datum first"
+        >
+          <Option value="">All coordinate systems</Option>
+          {STATES.map(([, n]) => (
+            <Option key={n} value={n}>{n}</Option>
+          ))}
+        </Dropdown>
       </div>
       <div className="crs-quick">
         <span className="muted">Quick picks:</span>

@@ -129,8 +129,17 @@ export const useModel = create<ModelState>()(
   ),
 );
 
+export interface QgisAlgorithm {
+  id: string;
+  name: string;
+  group: string;
+  provider: string;
+}
+
 interface RunState {
   specs: Record<string, ToolSpec>;
+  /** Algorithms from an installed QGIS (empty if QGIS isn't installed). */
+  qgisAlgorithms: QgisAlgorithm[];
   results: Record<string, NodeResult>;
   running: boolean;
   setSpecs: (s: ToolSpec[]) => void;
@@ -140,6 +149,7 @@ interface RunState {
 
 export const useRun = create<RunState>((set) => ({
   specs: {},
+  qgisAlgorithms: [],
   results: {},
   running: false,
   setSpecs: (list) => set({ specs: Object.fromEntries(list.map((s) => [s.id, s])) }),
@@ -228,4 +238,16 @@ export function outputFields(nodeId: string, seen = new Set<string>()): Field[] 
 export function fieldsForPort(nodeId: string, port: string): Field[] {
   const src = upstream(nodeId, port);
   return src ? outputFields(src) : [];
+}
+
+/** The Contents layer that ultimately feeds a node's input port (for value suggestions). */
+export function sourceLayerFor(nodeId: string, port: string, seen = new Set<string>()): string | undefined {
+  const src = upstream(nodeId, port);
+  if (!src || seen.has(src)) return undefined;
+  seen.add(src);
+  const node = useModel.getState().nodes.find((n) => n.id === src);
+  if (!node) return undefined;
+  if (node.data.tool === "input_layer") return String(node.data.params.layer ?? "") || undefined;
+  const first = specs()[node.data.tool]?.inputs[0];
+  return first ? sourceLayerFor(src, first.id, seen) : undefined;
 }

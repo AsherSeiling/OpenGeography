@@ -404,6 +404,15 @@ function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolPa
           <Textarea value={String(value ?? "")} onChange={(_, d) => set(d.value)} rows={3} className="mono" />
         </Field>
       );
+    case "query":
+      return (
+        <Field label={label}>
+          <div className="stack">
+            <code className="query-preview">{String(value ?? "") || "No query yet"}</code>
+            <Button size="small" onClick={() => useDialog.getState().show({ kind: "nodeQuery", nodeId, param: p.id })}>{value ? "Edit query…" : "Build query…"}</Button>
+          </div>
+        </Field>
+      );
     case "crs":
       return (
         <Field label={label}>

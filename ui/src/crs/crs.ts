@@ -73,3 +73,22 @@ export function utmFor(lon: number, lat: number, datum: "WGS84" | "NAD83" = "WGS
   if (datum === "NAD83" && lat >= 0 && zone >= 1 && zone <= 23) return `EPSG:${26900 + zone}`;
   return `EPSG:${(lat >= 0 ? 32600 : 32700) + zone}`;
 }
+
+const DATUM_ORDER = ["NAD83(2011)", "NAD83(HARN)", "NAD83(PA11)", "NAD83(NSRS2007)", "NAD83", "NAD27", "Old Hawaiian", "Puerto Rico"];
+
+/** State Plane zones (and other statewide systems) for a US state, newest datum first. */
+export function statePlaneFor(list: CrsEntry[], state: string): CrsEntry[] {
+  const st = state.toLowerCase();
+  const hits = list.filter((e) => {
+    const area = e.area.toLowerCase();
+    const name = e.name.toLowerCase();
+    if (!e.projected) return false;
+    const inState = area.startsWith(`usa - ${st}`) || name.includes(`/ ${st} `) || name.endsWith(`/ ${st}`) || name.includes(`/ ${st} (`);
+    return inState && (area.includes("spcs") || /zone|north|south|east|west|central|ftus|\(ft\)/i.test(e.name) || name.includes(`/ ${st}`));
+  });
+  const rank = (e: CrsEntry) => {
+    const i = DATUM_ORDER.findIndex((d) => e.name.startsWith(`${d} /`));
+    return i < 0 ? DATUM_ORDER.length : i;
+  };
+  return hits.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+}

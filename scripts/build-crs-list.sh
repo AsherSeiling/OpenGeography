@@ -21,7 +21,12 @@ sqlite3 -json "$DB" "
 python3 - "$OUT" <<'PY'
 import json, sys
 rows = json.load(open(sys.argv[1]))
-out = [[r["id"], r["name"], r["t"], r["area"]] + [None if r[k] is None else round(r[k], 2) for k in "wsen"] for r in rows]
+# Skip systems the engine's PROJ can't compute (planetary bodies, a few
+# historic grids); see scripts/crs-exclude.txt.
+import os
+excl_path = os.path.join(os.path.dirname(sys.argv[1]), "..", "..", "..", "scripts", "crs-exclude.txt")
+excl = {l.split(" ", 1)[0] for l in open(excl_path)} if os.path.exists(excl_path) else set()
+out = [[r["id"], r["name"], r["t"], r["area"]] + [None if r[k] is None else round(r[k], 2) for k in "wsen"] for r in rows if r["id"] not in excl]
 json.dump(out, open(sys.argv[1], "w"), separators=(",", ":"))
 print(f"Wrote {len(out)} CRSs to {sys.argv[1]}")
 PY

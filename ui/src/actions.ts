@@ -22,7 +22,8 @@ export type DialogState =
   | { kind: "calcGeometry"; layer: string; owner: string; field?: string }
   | { kind: "renameField"; layer: string; field: string }
   | { kind: "tiger" }
-  | { kind: "export"; owner: string };
+  | { kind: "export"; owner: string }
+  | { kind: "nodeQuery"; nodeId: string; param: string };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,

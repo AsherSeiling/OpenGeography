@@ -9,7 +9,60 @@ import { pyToSql } from "./pyToSql";
 
 export type QueryMode = "builder" | "python" | "sql";
 
+/** Fields with more distinct values than this get a type-ahead box instead of a full list. */
+const MAX_VALUES = 1000;
+
 const newClause = (field = ""): Clause => ({ join: "AND", field, op: "eq", value: "", value2: "" });
+
+/** Value picker: every value of the field as a dropdown (=, ≠), a checklist
+ * ("is one of"), or a type-ahead box for fields with very many values. */
+function ValueInput({ clause: c, values, listId, onChange }: { clause: Clause; values?: string[]; listId: string; onChange: (p: Partial<Clause>) => void }) {
+  const [typed, setTyped] = useState(false);
+  const complete = values && values.length < MAX_VALUES;
+  if (complete && !typed && (c.op === "eq" || c.op === "ne")) {
+    return (
+      <select className="qe-ctl qe-val" value={values!.includes(c.value) ? c.value : ""} onChange={(e) => (e.target.value === "\u0000" ? setTyped(true) : onChange({ value: e.target.value }))}>
+        <option value="" disabled>Choose a value… ({values!.length})</option>
+        {values!.map((v) => (
+          <option key={v} value={v}>{v === "" ? "(empty text)" : v}</option>
+        ))}
+        <option value={"\u0000"}>Type another value…</option>
+      </select>
+    );
+  }
+  if (complete && !typed && c.op === "in") {
+    const chosen = new Set(c.value.split(",").map((v) => v.trim()).filter(Boolean));
+    const toggle = (v: string) => {
+      chosen.has(v) ? chosen.delete(v) : chosen.add(v);
+      onChange({ value: [...chosen].join(", ") });
+    };
+    return (
+      <div className="qe-checklist">
+        {values!.map((v) => (
+          <label key={v}>
+            <input type="checkbox" checked={chosen.has(v)} onChange={() => toggle(v)} /> {v === "" ? "(empty)" : v}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <>
+      <input className="qe-ctl qe-val" list={listId} value={c.value} placeholder={c.op === "in" ? "a, b, c" : "Value"} onChange={(e) => onChange({ value: e.target.value })} />
+      <datalist id={listId}>
+        {(values ?? []).slice(0, 500).map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+      {c.op === "between" && (
+        <>
+          <span className="muted">and</span>
+          <input className="qe-ctl qe-val" list={listId} value={c.value2} onChange={(e) => onChange({ value2: e.target.value })} />
+        </>
+      )}
+    </>
+  );
+}
 
 export function QueryEditor({
   layerId,
@@ -44,10 +97,11 @@ export function QueryEditor({
 
   // Values for the builder's value pickers, fetched per field on demand.
   const loadValues = async (field: string) => {
-    if (!field || values[field]) return;
+    if (!field || !layerId || values[field]) return;
     try {
-      const v = await api.uniqueValues(layerId, field, 200);
-      setValues((m) => ({ ...m, [field]: v.map(([x]) => x) }));
+      const v = await api.uniqueValues(layerId, field, MAX_VALUES);
+      const sorted = v.map(([x]) => x).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      setValues((m) => ({ ...m, [field]: sorted }));
     } catch {
       /* value suggestions are optional */
     }
@@ -100,20 +154,12 @@ export function QueryEditor({
                   ))}
                 </select>
                 {needsValue(c.op) && (
-                  <>
-                    <input className="qe-ctl qe-val" list={listId} value={c.value} placeholder={c.op === "in" ? "a, b, c" : "Value"} onChange={(e) => update(i, { value: e.target.value })} />
-                    <datalist id={listId}>
-                      {(values[c.field] ?? []).map((v) => (
-                        <option key={v} value={v} />
-                      ))}
-                    </datalist>
-                    {c.op === "between" && (
-                      <>
-                        <span className="muted">and</span>
-                        <input className="qe-ctl qe-val" list={listId} value={c.value2} onChange={(e) => update(i, { value2: e.target.value })} />
-                      </>
-                    )}
-                  </>
+                  <ValueInput
+                    clause={c}
+                    values={values[c.field]}
+                    listId={listId}
+                    onChange={(p) => update(i, p)}
+                  />
                 )}
                 <button className="qe-del" title="Remove this row" disabled={clauses.length === 1} onClick={() => setClauses((cs) => cs.filter((_, j) => j !== i))}>
                   <DeleteRegular />

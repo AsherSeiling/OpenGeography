@@ -52,7 +52,7 @@ export interface LayerInfo {
 }
 
 export type PortKind = "vector" | "table";
-export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "savePath";
+export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "savePath" | "query";
 
 export interface ToolParam {
   id: string;

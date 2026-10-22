@@ -70,6 +70,8 @@ pub enum ParamKind {
     Crs,
     Bool,
     SavePath,
+    /// A filter expression, edited with the query builder (Builder/Python/SQL).
+    Query,
 }
 
 #[derive(Serialize, Clone, Debug)]

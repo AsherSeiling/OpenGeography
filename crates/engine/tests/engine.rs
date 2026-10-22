@@ -430,3 +430,22 @@ fn definition_query_and_selected_only_export() {
     assert!(l.query_count.is_none());
     assert_eq!(e.rows(&l.id, &RowsQuery { limit: 1, ..Default::default() }).unwrap().total, 1000);
 }
+
+/// Every coordinate system offered in the UI's picker must work in the
+/// engine. Run with --ignored (checks ~7,000 systems).
+#[test]
+#[ignore]
+fn every_catalog_crs_is_usable() {
+    let list: Vec<serde_json::Value> =
+        serde_json::from_str(&std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ui/src/crs/crs-list.json")).unwrap()).unwrap();
+    let e = Engine::new().unwrap();
+    let mut bad = Vec::new();
+    for row in &list {
+        let id = row[0].as_str().unwrap();
+        if e.validate_crs(id).is_err() {
+            bad.push(format!("{id} {}", row[1].as_str().unwrap()));
+        }
+    }
+    std::fs::write(std::env::temp_dir().join("unusable_crs.txt"), bad.join("\n")).unwrap();
+    assert!(bad.is_empty(), "{} of {} unusable, e.g. {:?}", bad.len(), list.len(), &bad[..bad.len().min(8)]);
+}

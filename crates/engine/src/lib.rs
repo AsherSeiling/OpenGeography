@@ -279,7 +279,7 @@ impl Engine {
         let pool = self.pool.read();
         let conn = pool.get()?;
         crs::validate(&conn, crs)?;
-        info.crs = Some(crs.to_string());
+        info.crs = Some(crs::resolve(crs));
         info.crs_name = crs_name;
         info.warnings.retain(|w| !w.contains("coordinate system") && !w.contains("Define Projection"));
         layers::refresh_display(&conn, &mut info)?;
