@@ -245,3 +245,40 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .tool-empty { padding: 2px 6px 6px; font-size: 11px; }
 .model-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--muted); font-size: 13px; text-align: center; line-height: 1.6; z-index: 4; }
 .model-canvas { position: relative; }
+
+/* ---------- Blender-style node cards ---------- */
+.bnode { width: 230px; background: #fbfbfb; border: 1px solid #9a9a9a; border-radius: 5px; box-shadow: 0 2px 6px rgba(0,0,0,.18); font: 11.5px "Segoe UI", system-ui, sans-serif; color: #1f1f1f; padding-bottom: 4px; }
+.bnode.selected { border-color: #0078d4; box-shadow: 0 0 0 2px #0078d4, 0 2px 6px rgba(0,0,0,.18); }
+.bnode.error { border-color: var(--error); }
+.bnode-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border-radius: 4px 4px 0 0; font-weight: 600; border-bottom: 1px solid rgba(0,0,0,.15); }
+.bnode.data .bnode-head { background: #9cc2ea; }
+.bnode.tool .bnode-head { background: #f5d576; }
+.bnode.output .bnode-head { background: #a9d79c; }
+.bnode-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnode .badge { position: static; font-size: 15px; background: none; flex: none; }
+.bnode-row { position: relative; height: 22px; display: flex; align-items: center; padding: 0 12px; }
+.bnode-row.out { justify-content: flex-end; }
+.bnode-row .dim { color: #777; }
+.bnode-params { display: flex; flex-direction: column; gap: 3px; padding: 4px 8px; cursor: default; }
+.bparam { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: 6px; }
+.bparam.wide { grid-template-columns: 1fr; gap: 2px; }
+.bparam-label { color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bparam.check { display: flex; gap: 6px; padding-left: 2px; }
+.bctl { width: 100%; box-sizing: border-box; font: 11.5px "Segoe UI", system-ui, sans-serif; color: #1f1f1f; background: #fff; border: 1px solid #b8b8b8; border-radius: 3px; padding: 2px 5px; height: 21px; min-width: 0; }
+.bctl:focus { outline: none; border-color: #0078d4; box-shadow: 0 0 0 1px #0078d4; }
+textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
+.bbtn { text-align: left; cursor: default; background: #f1f1f1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bbtn:hover { background: #e5eef9; }
+.bexpr { display: flex; flex-direction: column; gap: 3px; }
+.bfield-insert { width: auto; align-self: flex-start; }
+.bpath { display: flex; gap: 3px; }
+.bpath .bbtn { width: 26px; flex: none; text-align: center; }
+.bnode-note { display: flex; align-items: center; gap: 3px; color: #555; padding: 2px 8px; font-size: 11px; }
+.bnode-error { color: var(--error); padding: 2px 8px; font-size: 11px; max-height: 44px; overflow: hidden; }
+.socket { width: 11px !important; height: 11px !important; border: 1.5px solid #333 !important; border-radius: 50% !important; }
+.socket.vector { background: #6aa0d8 !important; }
+.socket.table { background: #c7c7c7 !important; }
+.bnode-row.in .socket { left: 0 !important; }
+.bnode-row.out .socket { right: 0 !important; }
+.socket:hover { border-color: #0078d4 !important; transform: translate(-50%, -50%) scale(1.3); }
+.bnode-row.out .socket:hover { transform: translate(50%, -50%) scale(1.3); }
