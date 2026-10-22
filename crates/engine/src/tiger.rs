@@ -35,9 +35,10 @@ pub struct Dataset {
 pub const DATASETS: &[Dataset] = &[
     Dataset { id: "states", label: "State boundary", service: "tigerWMS_Current", layer: "States", by_attribute: true, needs_county: false },
     Dataset { id: "counties", label: "Counties", service: "tigerWMS_Current", layer: "Counties", by_attribute: true, needs_county: false },
-    Dataset { id: "tracts", label: "Census tracts", service: "tigerWMS_Current", layer: "Census Tracts", by_attribute: true, needs_county: false },
-    Dataset { id: "block_groups", label: "Block groups", service: "tigerWMS_Current", layer: "Census Block Groups", by_attribute: true, needs_county: false },
-    Dataset { id: "blocks", label: "Census blocks (2020)", service: "tigerWMS_Current", layer: "2020 Census Blocks", by_attribute: true, needs_county: true },
+    // 2020 Census vintage: these layers carry POP100 (population) and HU100 (housing units).
+    Dataset { id: "tracts", label: "Census tracts (2020, with population)", service: "tigerWMS_Census2020", layer: "Census Tracts", by_attribute: true, needs_county: false },
+    Dataset { id: "block_groups", label: "Block groups (2020, with population)", service: "tigerWMS_Census2020", layer: "Census Block Groups", by_attribute: true, needs_county: false },
+    Dataset { id: "blocks", label: "Census blocks (2020, with population)", service: "tigerWMS_Census2020", layer: "Census Blocks", by_attribute: true, needs_county: true },
     Dataset { id: "places", label: "Cities and towns (incorporated places)", service: "tigerWMS_Current", layer: "Incorporated Places", by_attribute: true, needs_county: false },
     Dataset { id: "zcta", label: "ZIP code areas (ZCTAs)", service: "tigerWMS_Current", layer: "2020 Census ZIP Code Tabulation Areas", by_attribute: false, needs_county: true },
     Dataset { id: "primary_roads", label: "Primary roads (interstates)", service: "Transportation", layer: "Primary Roads", by_attribute: false, needs_county: false },
@@ -160,7 +161,7 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path) -> R
         bail!("{} is too large for a whole state: choose a county.", d.label);
     }
     std::fs::create_dir_all(cache_dir)?;
-    let path = cache_dir.join(format!("tiger_{}_{}{}.geojson", d.id, state, county.map(|c| format!("_{c}")).unwrap_or_default()));
+    let path = cache_dir.join(format!("tiger2_{}_{}{}.geojson", d.id, state, county.map(|c| format!("_{c}")).unwrap_or_default()));
     if path.exists() {
         return Ok(path);
     }

@@ -381,6 +381,7 @@ fn tiger_sample_data_downloads() {
     }
     let blocks = &layers[2];
     assert!(blocks.feature_count > 1000, "blocks {}", blocks.feature_count);
+    assert!(blocks.fields.iter().any(|f| f.name == "POP100"), "blocks should carry 2020 population");
 }
 
 #[test]
