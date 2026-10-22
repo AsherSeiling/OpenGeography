@@ -28,20 +28,21 @@ function add(id: PaneId, position?: Parameters<DockviewApi["addPanel"]>[0]["posi
 }
 
 /**
- * Default layout from the sketch:
- *   Contents | Map | Attribute table | Properties/Geoprocessing
- *            |  Model (spans map + table)  |
+ * Default layout:
+ *   Contents |              Map               | Properties/Geoprocessing
+ *            | [Model | Attribute Table] tabs  |
  */
 export function defaultLayout() {
   if (!dock) return;
   dock.clear();
   add("map");
   add("model", { referencePanel: "map", direction: "below" });
-  add("table", { referencePanel: "map", direction: "right" });
+  add("table", { referencePanel: "model", direction: "within" }); // tabs: Model | Attribute Table
   add("contents", { direction: "left" }); // whole-height column on the far left
   add("properties", { direction: "right" }); // whole-height column on the far right
   add("tools", { referencePanel: "properties", direction: "within" });
   dock.getPanel("properties")?.api.setActive();
+  dock.getPanel("model")?.api.setActive();
   dock.getPanel("map")?.api.setActive();
   applyDefaultSizes();
 }
@@ -57,14 +58,11 @@ function applyDefaultSizes(tries = 0) {
     requestAnimationFrame(() => applyDefaultSizes(tries + 1));
     return;
   }
-  const W = dock.width;
   const H = dock.height;
   const contents = 230;
   const properties = 300;
-  const center = W - contents - properties;
   dock.getPanel("contents")?.group.api.setSize({ width: contents });
   dock.getPanel("properties")?.group.api.setSize({ width: properties });
-  dock.getPanel("table")?.group.api.setSize({ width: Math.round(Math.max(300, center * 0.34)) });
   dock.getPanel("model")?.group.api.setSize({ height: Math.round(Math.max(220, H * 0.4)) });
 }
 
@@ -81,8 +79,8 @@ export function showPane(id: PaneId) {
     contents: { direction: "left" },
     properties: { direction: "right" },
     tools: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : undefined,
-    table: dock.getPanel("map") ? { referencePanel: "map", direction: "right" } : undefined,
-    model: dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,
+    table: dock.getPanel("model") ? { referencePanel: "model", direction: "within" } : dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,
+    model: dock.getPanel("table") ? { referencePanel: "table", direction: "within" } : dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,
   };
   add(id, anchor[id]);
 }

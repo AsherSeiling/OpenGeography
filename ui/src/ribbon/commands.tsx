@@ -2,6 +2,7 @@
 // and the "Tell me" search all read from it.
 import {
   AddCircleRegular,
+  SettingsRegular,
   FilterRegular,
   LayerDiagonalAddRegular,
   CalculatorRegular,
@@ -55,6 +56,7 @@ import {
   zoomToSelection,
 } from "../actions";
 import { zoomToExtent } from "../map/mapController";
+import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
@@ -139,7 +141,8 @@ const list: Command[] = [
 
   // Feature Layer contextual tab
   { id: "zoomLayer", label: "Zoom To Layer", icon: <ZoomFitRegular />, run: () => active() && zoomToLayer(active()!.id), enabled: () => !!active()?.extent },
-  { id: "symbology", label: "Symbology", icon: <PaintBrushRegular />, run: () => { const a = active(); if (a) { app().setProperties({ kind: "layer", id: a.id }); showPane("properties"); } }, enabled: () => !!active() },
+  { id: "symbology", label: "Symbology", icon: <PaintBrushRegular />, run: () => { const a = active(); if (a) openLayerProperties(a.id, "symbology"); }, enabled: () => !!active() && active()!.geomType !== "Table" },
+  { id: "layerProps", label: "Properties", icon: <SettingsRegular />, run: () => { const a = active(); if (a) openLayerProperties(a.id); }, enabled: () => !!active(), tip: "Open the Layer Properties window" },
   { id: "openTable", label: "Attribute Table", icon: <TableRegular />, run: () => showPane("table"), enabled: () => !!active() },
   { id: "removeLayer", label: "Remove", icon: <DeleteRegular />, run: () => active() && removeLayer(active()!.id), enabled: () => !!active() },
 ];

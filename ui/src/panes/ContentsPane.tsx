@@ -1,6 +1,7 @@
 import { Menu, MenuDivider, MenuItem, MenuList, MenuPopover, Tooltip } from "@fluentui/react-components";
 import {
   ArrowExportRegular,
+  SettingsRegular,
   FilterRegular,
   LayerDiagonalAddRegular,
   FlowchartRegular,
@@ -15,6 +16,7 @@ import {
 } from "@fluentui/react-icons";
 import { useEffect, useRef, useState } from "react";
 import { exportLayer, layerFromSelection, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
+import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
@@ -116,7 +118,7 @@ export function ContentsPane() {
                 if (justDragged()) return;
                 select(id);
               }}
-              onDoubleClick={() => showPane("properties")}
+              onDoubleClick={() => openLayerProperties(id)}
               onContextMenu={(e) => {
                 e.preventDefault();
                 select(id);
@@ -188,7 +190,7 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
         <MenuList>
           <MenuItem icon={<ZoomFitRegular />} disabled={!info.extent} onClick={() => zoomToLayer(id)}>Zoom To Layer</MenuItem>
           <MenuItem icon={<TableRegular />} onClick={() => { useApp.getState().setActiveLayer(id); showPane("table"); }}>Attribute Table</MenuItem>
-          <MenuItem icon={<PaintBrushRegular />} disabled={info.geomType === "Table"} onClick={() => showPane("properties")}>Symbology…</MenuItem>
+          <MenuItem icon={<PaintBrushRegular />} disabled={info.geomType === "Table"} onClick={() => openLayerProperties(id, "symbology")}>Symbology…</MenuItem>
           <MenuItem icon={<FlowchartRegular />} onClick={() => showPane("model")}>Edit Node Tree</MenuItem>
           {hasResult && (
             <MenuItem icon={<FlowchartRegular />} onClick={() => useApp.getState().setShowOriginal(id, !showingOriginal)}>
@@ -203,6 +205,8 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<EditRegular />} onClick={() => dlg({ kind: "rename", layer: id })}>Rename…</MenuItem>
           <MenuDivider />
           <MenuItem icon={<DeleteRegular />} onClick={() => removeLayer(id)}>Remove</MenuItem>
+          <MenuDivider />
+          <MenuItem icon={<SettingsRegular />} onClick={() => openLayerProperties(id)}>Properties…</MenuItem>
         </MenuList>
       </MenuPopover>
     </Menu>

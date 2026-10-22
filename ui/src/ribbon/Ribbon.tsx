@@ -58,7 +58,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Appearance", items: [{ cmd: "theme" }] },
   ],
   "Feature Layer": [
-    { label: "Layer", items: [{ cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
+    { label: "Layer", items: [{ cmd: "layerProps" }, { cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
     { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
     { label: "Data", items: [{ cmd: "definitionQuery" }, { cmd: "defineProjection" }, { cmd: "exportLayer" }, { cmd: "layerFromSelection" }] },
     { label: "Remove", items: [{ cmd: "removeLayer" }] },

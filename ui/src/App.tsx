@@ -6,6 +6,7 @@ import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { addData, registerDock, runModel, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
+import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
 import { api, IN_TAURI, type NodeResult } from "./ipc/api";
 import { AttributeTable } from "./panes/AttributeTable";
 import { ContentsPane } from "./panes/ContentsPane";
@@ -125,6 +126,7 @@ export function App() {
           <DockviewReact components={components} onReady={onReady} theme={dark ? themeDark : themeLight} defaultRenderer="always" />
         </div>
         <StatusBar />
+        <LayerPropertiesWindow />
         <Dialogs />
       </div>
     </FluentProvider>

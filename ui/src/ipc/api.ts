@@ -47,6 +47,7 @@ export interface LayerInfo {
   /** Set on a layer's node-tree result: the layer it is drawn in place of. */
   resultOf?: string | null;
   definitionQuery?: string | null;
+  overviews: number[];
   queryCount?: number | null;
 }
 

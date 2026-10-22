@@ -21,6 +21,7 @@ import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions
 import { crsName } from "../crs/crs";
 import { api, errorText, type ToolParam } from "../ipc/api";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
+import { QueryEditor } from "../query/QueryEditor";
 import { fieldsForPort, useModel, useRun } from "../store/model";
 import { displayInfo, useApp, type LayerStyle } from "../store/store";
 
@@ -81,7 +82,7 @@ function LayerProperties({ id }: { id: string }) {
   );
 }
 
-function CrsInfo({ id }: { id: string }) {
+export function CrsInfo({ id }: { id: string }) {
   const info = useApp((s) => s.layers[id]);
   const ext = info.nativeExtent;
   return (
@@ -121,7 +122,7 @@ function CrsInfo({ id }: { id: string }) {
   );
 }
 
-function Symbology({ id }: { id: string }) {
+export function Symbology({ id }: { id: string }) {
   // Classify what the layer shows (its node-tree result may have new fields).
   const info = useApp((s) => displayInfo(s, id))!;
   const style = useApp((s) => s.styles[id]);
@@ -248,26 +249,20 @@ function Symbology({ id }: { id: string }) {
   );
 }
 
-/** Limit a layer to features matching an SQL expression, everywhere in the app. */
-function DefinitionQuery({ id }: { id: string }) {
+/** Limit a layer to features matching an expression, everywhere in the app. */
+export function DefinitionQuery({ id }: { id: string }) {
   const info = useApp((s) => s.layers[id]);
   const hasResult = useApp((s) => !!s.results[id] && !s.showOriginal[id]);
-  const [text, setText] = useState(info.definitionQuery ?? "");
+  const [pending, setPending] = useState<{ sql: string; error: string | null }>({ sql: info.definitionQuery ?? "", error: null });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [valueField, setValueField] = useState<string>("");
-  const [values, setValues] = useState<[string, number][]>([]);
-  useEffect(() => setText(info.definitionQuery ?? ""), [info.definitionQuery]);
-  const field = info.fields.find((f) => f.name === valueField);
-  const numeric = field && /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/i.test(field.type);
-  const insert = (t: string) => setText((x) => (x && !x.endsWith(" ") ? `${x} ${t}` : `${x}${t}`));
-  const quoteField = (f: string) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(f) ? f : `"${f}"`);
+  const [editorKey, setEditorKey] = useState(0);
   const apply = async (q: string | null) => {
     setBusy(true);
     setErr(null);
     try {
       await setDefinitionQuery(id, q);
-      if (!q) setText("");
+      if (!q) setEditorKey((k) => k + 1); // reset the editor after Clear
     } catch (e) {
       setErr(errorText(e));
     }
@@ -276,63 +271,28 @@ function DefinitionQuery({ id }: { id: string }) {
   return (
     <div className="stack">
       <div className="muted">
-        Only features matching this expression are part of the layer: drawn on the map, listed in the table, selectable, exported, and used as tool input. The data itself isn't changed.
+        Only features matching the query are part of the layer: drawn on the map, listed in the table, selectable, exported, and used as tool input. The data itself isn't changed.
       </div>
-      {info.definitionQuery && (
+      {info.definitionQuery ? (
         <MessageBar intent="info">
           <MessageBarBody>
-            Showing {(info.queryCount ?? 0).toLocaleString()} of {info.featureCount.toLocaleString()} features.
+            Active: <code>{info.definitionQuery}</code> — {(info.queryCount ?? 0).toLocaleString()} of {info.featureCount.toLocaleString()} features.
           </MessageBarBody>
         </MessageBar>
-      )}
+      ) : null}
       {hasResult && (
         <MessageBar intent="warning">
           <MessageBarBody>This layer shows its node-tree result. The query filters the tree's Layer Input: run the tree to update the result.</MessageBarBody>
         </MessageBar>
       )}
-      <div>
-        <div className="muted small">Fields:</div>
-        <div className="field-chips">
-          {info.fields.map((f) => (
-            <button key={f.name} className="chip" title={f.type} onClick={() => insert(quoteField(f.name))}>{f.name}</button>
-          ))}
-          {["=", "<>", ">", "<", ">=", "<=", "AND", "OR", "NOT", "IN ()", "LIKE '%'", "IS NULL"].map((op) => (
-            <button key={op} className="chip op" onClick={() => insert(op)}>{op}</button>
-          ))}
-        </div>
-      </div>
-      <Field label="Values of a field (click to insert)">
-        <Dropdown
-          value={valueField}
-          placeholder="Choose a field…"
-          onOptionSelect={async (_, d) => {
-            setValueField(d.optionValue!);
-            try {
-              setValues(await api.uniqueValues(id, d.optionValue!, 200));
-            } catch (e) {
-              setErr(errorText(e));
-            }
-          }}
-        >
-          {info.fields.map((f) => (
-            <Option key={f.name} value={f.name}>{f.name}</Option>
-          ))}
-        </Dropdown>
-      </Field>
-      {values.length > 0 && (
-        <div className="value-list">
-          {values.map(([v, n]) => (
-            <button key={v} className="chip" onClick={() => insert(numeric ? v : `'${v.replace(/'/g, "''")}'`)} title={`${n.toLocaleString()} feature(s)`}>
-              {v || "<empty>"} <span className="muted">({n.toLocaleString()})</span>
-            </button>
-          ))}
-        </div>
+      <QueryEditor key={editorKey} layerId={id} fields={info.fields} initialSql={info.definitionQuery} onChange={(sql, error) => setPending({ sql, error })} />
+      {err && (
+        <MessageBar intent="error">
+          <MessageBarBody>{err}</MessageBarBody>
+        </MessageBar>
       )}
-      <Field label="Expression" validationMessage={err ?? undefined} validationState={err ? "error" : "none"} hint="SQL, e.g. COUNTY = '109' AND POP2020 > 1000">
-        <Textarea value={text} onChange={(_, d) => setText(d.value)} rows={4} className="mono" />
-      </Field>
       <div className="btn-row">
-        <Button appearance="primary" size="small" disabled={busy || !text.trim()} onClick={() => apply(text)}>Apply</Button>
+        <Button appearance="primary" size="small" disabled={busy || !!pending.error || !pending.sql} onClick={() => apply(pending.sql)}>Apply</Button>
         <Button size="small" disabled={busy || !info.definitionQuery} onClick={() => apply(null)}>Clear</Button>
       </div>
     </div>

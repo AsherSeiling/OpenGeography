@@ -16,7 +16,6 @@ import {
   Radio,
   RadioGroup,
   Spinner,
-  Textarea,
 } from "@fluentui/react-components";
 import { Globe20Regular, Location20Regular, Star20Filled } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
@@ -26,6 +25,7 @@ import { api, errorText } from "../ipc/api";
 import { ExportDialog } from "./ExportDialog";
 import { TigerDialog } from "./TigerDialog";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
+import { QueryEditor } from "../query/QueryEditor";
 import { benchmarkFlight, getMap, type FlightResult } from "../map/mapController";
 import { displayInfo, useApp } from "../store/store";
 
@@ -237,14 +237,13 @@ function DefineProjectionDialog({ layer, onClose }: { layer: string; onClose: ()
 function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: string; onClose: () => void }) {
   const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter(Boolean)));
   const [layer, setLayer] = useState(initialLayer);
-  const [where, setWhere] = useState("");
+  const [where, setWhere] = useState<{ sql: string; error: string | null }>({ sql: "", error: null });
   const [mode, setMode] = useState<"new" | "add">("new");
   const [err, setErr] = useState<string | null>(null);
   const info = useApp((s) => displayInfo(s, layer));
-  const insert = (t: string) => setWhere((w) => (w && !w.endsWith(" ") ? `${w} ${t}` : `${w}${t}`));
   return (
     <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
-      <DialogSurface>
+      <DialogSurface className="dlg-mid">
         <DialogBody>
           <DialogTitle>Select By Attributes</DialogTitle>
           <DialogContent className="stack">
@@ -259,33 +258,26 @@ function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: str
               <Radio value="new" label="New selection" />
               <Radio value="add" label="Add to current selection" />
             </RadioGroup>
-            <div className="field-chips">
-              {info?.fields.map((f) => (
-                <button key={f.name} className="chip" onClick={() => insert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(f.name) ? f.name : `"${f.name}"`)} title={f.type}>
-                  {f.name}
-                </button>
-              ))}
-              {["=", "<>", ">", "<", "AND", "OR", "LIKE '%'", "IS NULL"].map((op) => (
-                <button key={op} className="chip op" onClick={() => insert(op)}>{op}</button>
-              ))}
-            </div>
-            <Field label="Where (SQL expression)" validationMessage={err ?? undefined} validationState={err ? "error" : "none"}>
-              <Textarea value={where} onChange={(_, d) => setWhere(d.value)} rows={4} placeholder="POP2020 > 10000 AND STATE = 'TX'" />
-            </Field>
+            {info && <QueryEditor key={info.id} layerId={info.id} fields={info.fields} onChange={(sql, error) => { setWhere({ sql, error }); setErr(null); }} />}
+            {err && (
+              <MessageBar intent="error">
+                <MessageBarBody>{err}</MessageBarBody>
+              </MessageBar>
+            )}
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
             <Button
               appearance="primary"
-              disabled={!where.trim() || !info}
+              disabled={!where.sql || !!where.error || !info}
               onClick={async () => {
                 try {
-                  await api.selectWhere(info!.id, `(${where}) AND FALSE`);
+                  await api.selectWhere(info!.id, `(${where.sql}) AND FALSE`);
                 } catch (e) {
                   setErr(errorText(e).split("\n")[0]);
                   return;
                 }
-                if (await selectByAttributes(layer, where, mode)) onClose();
+                if (await selectByAttributes(layer, where.sql, mode)) onClose();
               }}
             >
               Apply

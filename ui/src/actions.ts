@@ -3,7 +3,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
-import { showPane } from "./panes/panes";
+import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { graphPayload, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle } from "./store/store";
 
@@ -178,10 +178,10 @@ export async function layerFromSelection(owner: string) {
   status(`Created "${created.name}" with ${created.featureCount.toLocaleString()} feature(s)`);
 }
 
-/** Show a layer's Definition Query tab in Properties. */
+/** Open a layer's Properties window at its Definition Query section. */
 export function openDefinitionQuery(owner: string) {
-  useApp.getState().set({ activeLayer: owner, properties: { kind: "layer", id: owner }, propsTab: "query" });
-  showPane("properties");
+  useApp.getState().setActiveLayer(owner);
+  openLayerProperties(owner, "query");
 }
 
 export async function setDefinitionQuery(owner: string, query: string | null) {
