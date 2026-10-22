@@ -37,7 +37,7 @@ export function useAddItems(): AddItem[] {
   }, [specs, owner, layers]);
 }
 
-const CATEGORY_ORDER = ["Input", "Extract", "Overlay", "Proximity", "Analysis", "Generalize", "General", "Tables", "Coordinate Systems", "Sampling", "Raster", "Save to File"];
+const CATEGORY_ORDER = ["Input", "Extract", "Overlay", "Proximity", "Analysis", "Geometry", "Generalize", "General", "Tables", "Coordinate Systems", "Sampling", "Raster", "Save to File"];
 
 export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPick: (item: AddItem) => void; onClose: () => void }) {
   const items = useAddItems();

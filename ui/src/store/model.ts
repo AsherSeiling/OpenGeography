@@ -214,6 +214,26 @@ export function outputFields(nodeId: string, seen = new Set<string>()): Field[] 
       return add(p.field ? from("in").filter((f) => f.name === p.field) : [], "COUNT", "BIGINT");
     case "buffer":
       return p.dissolve ? [] : from("in");
+    case "sample_raster":
+      return add(from("in"), p.field || "VALUE", "DOUBLE");
+    case "zonal_statistics": {
+      const pre = String(p.prefix ?? "Z_");
+      return ["COUNT", "MEAN", "MIN", "MAX"].reduce((f, s) => add(f, `${pre}${s}`, "DOUBLE"), from("in"));
+    }
+    case "extract_vertices":
+      return add(from("in"), "VERTEX_INDEX", "BIGINT");
+    case "points_along_lines":
+      return add(from("in"), "DISTANCE", "DOUBLE");
+    case "join_nearest":
+      return add([...from("in"), ...from("near")], "DISTANCE", "DOUBLE");
+    case "near":
+      return add(add(from("in"), "NEAR_DIST", "DOUBLE"), "NEAR_ROW", "BIGINT");
+    case "summarize_within":
+      return add(from("polys"), "COUNT", "BIGINT");
+    case "polygonize":
+      return [{ name: "DN", type: "DOUBLE" }];
+    case "fishnet":
+      return [{ name: "CELL_ID", type: "BIGINT" }, { name: "COL", type: "BIGINT" }, { name: "ROW", type: "BIGINT" }];
     case "contours":
       return [{ name: "ID", type: "INTEGER" }, { name: "ELEV", type: "DOUBLE" }, ...(Number(p.index_every) > 0 ? [{ name: "INDEX", type: "INTEGER" }] : [])];
     case "intersect":

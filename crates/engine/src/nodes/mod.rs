@@ -18,6 +18,8 @@ mod input_layer;
 mod intersect;
 mod layer_output;
 mod raster_tools;
+mod qgis_vector;
+mod qgis_raster;
 mod project;
 mod spatial_join;
 mod erase;
@@ -33,6 +35,7 @@ mod near;
 mod fishnet;
 mod summary_statistics;
 
+use crate::crs;
 use crate::db::{ident, lit};
 use crate::layers::LayerInfo;
 use anyhow::{anyhow, bail, Result};
@@ -315,10 +318,28 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(near::Near),
         Box::new(fishnet::Fishnet),
         Box::new(summary_statistics::SummaryStatistics),
+        Box::new(qgis_vector::PolygonsToLines),
+        Box::new(qgis_vector::LinesToPolygons),
+        Box::new(qgis_vector::ExtractVertices),
+        Box::new(qgis_vector::DeleteDuplicates),
+        Box::new(qgis_vector::RemoveNull),
+        Box::new(qgis_vector::LineIntersections),
+        Box::new(qgis_vector::RandomPointsInPolygons),
+        Box::new(qgis_vector::Voronoi),
+        Box::new(qgis_vector::ConcaveHull),
+        Box::new(qgis_vector::JoinByNearest),
+        Box::new(qgis_vector::PointsToPath),
+        Box::new(qgis_vector::PointsAlongLines),
         Box::new(raster_tools::Contours),
         Box::new(raster_tools::Hillshade),
         Box::new(raster_tools::Slope),
         Box::new(raster_tools::ClipRaster),
+        Box::new(qgis_raster::Aspect),
+        Box::new(qgis_raster::Ruggedness),
+        Box::new(qgis_raster::Warp),
+        Box::new(qgis_raster::Polygonize),
+        Box::new(qgis_raster::SampleRaster),
+        Box::new(qgis_raster::ZonalStatistics),
         Box::new(layer_output::LayerOutput),
         Box::new(add_to_map::AddToMap),
         Box::new(export::Export),

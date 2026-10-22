@@ -554,3 +554,79 @@ fn download_3dep_elevation() {
     assert!(r.min > 300.0 && r.max < 420.0, "elevation range {} {}", r.min, r.max);
     assert!(l.crs.unwrap().contains("32614"));
 }
+
+#[test]
+fn qgis_equivalent_tools_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let polys = e.generate_test_layer("polygons", 40, [-97.6, 35.1, -97.3, 35.3]).unwrap();
+    let pts = e.generate_test_layer("points", 200, [-97.6, 35.1, -97.3, 35.3]).unwrap();
+    let dem_path = dir.path().join("hill.tif");
+    write_test_dem(&dem_path);
+    let dem = e.import(&dem_path).unwrap().remove(0);
+
+    let run = |tool: &str, params: serde_json::Value, a: &str, b: Option<&str>| -> i64 {
+        let spec = e.tool_specs().into_iter().find(|s| s.id == tool).unwrap();
+        let mut nodes = vec![json!({"id": "a", "tool": "input_layer", "params": {"layer": a}})];
+        let mut edges = vec![json!({"source": "a", "target": "t", "targetHandle": spec.inputs[0].id})];
+        if let Some(b) = b {
+            nodes.push(json!({"id": "b", "tool": "input_layer", "params": {"layer": b}}));
+            edges.push(json!({"source": "b", "target": "t", "targetHandle": spec.inputs[1].id}));
+        }
+        nodes.push(json!({"id": "t", "tool": tool, "params": params}));
+        let res = e.run_graph(&graph(json!({"nodes": nodes, "edges": edges})), Some("t"), &mut |_| {}).unwrap();
+        let r = res.into_iter().find(|r| r.id == "t").unwrap();
+        assert!(matches!(r.status, Status::Done | Status::Cached), "{tool}: {:?}", r.error);
+        r.rows.unwrap_or(-1)
+    };
+    let (p, q, d) = (polys.id.as_str(), pts.id.as_str(), dem.id.as_str());
+    assert_eq!(run("polygons_to_lines", json!({}), p, None), 40);
+    let lines = run("polygons_to_lines", json!({}), p, None);
+    assert!(lines > 0);
+    assert!(run("extract_vertices", json!({}), p, None) >= 40 * 4);
+    assert_eq!(run("delete_duplicates", json!({}), q, None), 200);
+    assert_eq!(run("remove_null", json!({}), q, None), 200);
+    assert_eq!(run("random_points", json!({"count": 5}), p, None), 200);
+    let cells = run("voronoi", json!({"buffer": 10}), q, None);
+    assert!(cells >= 190, "voronoi cells {cells}");
+    assert_eq!(run("concave_hull", json!({"ratio": 0.3}), q, None), 1);
+    assert_eq!(run("join_nearest", json!({"radius": 50, "units": "km"}), q, Some(p)), 200);
+    assert_eq!(run("points_to_path", json!({"order": "id"}), q, None), 1);
+    assert!(run("points_along_lines", json!({"distance": 100, "units": "m"}), p, None) > 0, "points along polygon outlines are skipped (lines only)");
+    assert!(run("fishnet", json!({"shape": "hexagon", "size": 2, "units": "km", "clip": false}), p, None) > 50);
+    assert_eq!(run("buffer", json!({"distance_field": "class", "units": "m"}), q, None), 200);
+    // Raster tools.
+    assert_eq!(run("aspect", json!({}), d, None), -1);
+    assert_eq!(run("ruggedness", json!({"mode": "TPI"}), d, None), -1);
+    assert_eq!(run("warp", json!({"crs": "EPSG:4326", "resampling": "bilinear"}), d, None), -1);
+    assert!(run("polygonize", json!({}), d, None) > 0);
+    // Sample and zonal stats on features placed over the synthetic DEM (UTM 14N).
+    let over = dir.path().join("over.gpkg");
+    write_fixture(&over, "SELECT 1 AS id, ST_Point(603000, 3897000) AS geom UNION ALL SELECT 2, ST_Point(600100, 3894100)", "GPKG", Some("EPSG:32614"));
+    let ov = e.import(&over).unwrap().remove(0);
+    let zones = dir.path().join("zones.gpkg");
+    write_fixture(&zones, "SELECT 1 AS id, ST_Buffer(ST_Point(603000, 3897000), 300) AS geom", "GPKG", Some("EPSG:32614"));
+    let zl = e.import(&zones).unwrap().remove(0);
+    assert_eq!(run("sample_raster", json!({"field": "ELEV"}), &ov.id, Some(d)), 2);
+    assert_eq!(run("zonal_statistics", json!({"prefix": "Z_"}), &zl.id, Some(d)), 1);
+    // Check sampled values: summit ~100 m, near corner ~0 m.
+    let g = graph(json!({
+        "nodes": [
+            {"id": "a", "tool": "input_layer", "params": {"layer": ov.id}},
+            {"id": "b", "tool": "input_layer", "params": {"layer": d}},
+            {"id": "t", "tool": "sample_raster", "params": {"field": "ELEV"}},
+            {"id": "z", "tool": "layer_output", "params": {"layer": ov.id}}
+        ],
+        "edges": [
+            {"source": "a", "target": "t", "targetHandle": "in"},
+            {"source": "b", "target": "t", "targetHandle": "raster"},
+            {"source": "t", "target": "z", "targetHandle": "in"}
+        ]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    let out = res.iter().find(|r| r.id == "z").unwrap().layer.clone().unwrap();
+    let page = e.rows(&out.id, &RowsQuery { limit: 10, sort: Some("id".into()), ..Default::default() }).unwrap();
+    let idx = out.fields.iter().position(|f| f.name == "ELEV").unwrap();
+    let summit: f64 = page.rows[0][idx].as_ref().unwrap().parse().unwrap();
+    assert!(summit > 95.0, "summit {summit}");
+}

@@ -414,3 +414,128 @@ pub fn clip_to_extent(src_path: &Path, bbox: [f64; 4]) -> Result<PathBuf> {
 fn geographic(ds: &Dataset) -> bool {
     ds.spatial_ref().map(|s| s.is_geographic()).unwrap_or(false)
 }
+
+/// Other gdaldem modes: "aspect", "TRI", "TPI", "roughness".
+pub fn dem_mode(src_path: &Path, mode: &str, extra: &[String]) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let out = new_store_path(&mode.to_lowercase(), "tif");
+    let mut args: Vec<String> = vec!["-of".into(), "GTiff".into(), "-co".into(), "COMPRESS=DEFLATE".into(), "-compute_edges".into()];
+    args.extend(extra.iter().cloned());
+    dem(&ds, &out, mode, &args)?;
+    build_overviews(&out)?;
+    Ok(out)
+}
+
+/// Reproject a raster to another CRS (gdalwarp).
+pub fn reproject(src_path: &Path, crs: &str, resampling: &str) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let out = new_store_path("warp", "tif");
+    let args: Vec<String> = ["-of", "GTiff", "-co", "COMPRESS=DEFLATE", "-co", "TILED=YES", "-t_srs", crs, "-r", resampling].map(String::from).to_vec();
+    warp(&ds, out.to_str().unwrap(), &args)?;
+    build_overviews(&out)?;
+    Ok(out)
+}
+
+/// Polygons of connected cells with the same value (gdal_polygonize), with a DN field.
+pub fn polygonize(src_path: &Path) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let band = ds.rasterband(1)?;
+    let out = new_store_path("polygonize", "gpkg");
+    unsafe {
+        let drv = gdal_sys::GDALGetDriverByName(cstr("GPKG")?.as_ptr());
+        let p = cstr(out.to_str().unwrap())?;
+        let vds = gdal_sys::GDALCreate(drv, p.as_ptr(), 0, 0, 0, gdal_sys::GDALDataType::GDT_Unknown, null_mut());
+        if vds.is_null() {
+            return Err(last_error("Creating polygonize output"));
+        }
+        let srs = gdal_sys::OSRNewSpatialReference(gdal_sys::GDALGetProjectionRef(ds.c_dataset()));
+        let layer = gdal_sys::GDALDatasetCreateLayer(vds, cstr("polygons")?.as_ptr(), srs, gdal_sys::OGRwkbGeometryType::wkbPolygon, null_mut());
+        let f = gdal_sys::OGR_Fld_Create(cstr("DN")?.as_ptr(), gdal_sys::OGRFieldType::OFTReal);
+        gdal_sys::OGR_L_CreateField(layer, f, 1);
+        gdal_sys::OGR_Fld_Destroy(f);
+        let mask = gdal_sys::GDALGetMaskBand(band.c_rasterband());
+        let err = gdal_sys::GDALFPolygonize(band.c_rasterband(), mask, layer, 0, null_mut(), None, null_mut());
+        gdal_sys::OSRDestroySpatialReference(srs);
+        gdal_sys::GDALClose(vds);
+        if err != gdal_sys::CPLErr::CE_None {
+            return Err(last_error("Polygonize"));
+        }
+    }
+    Ok(out)
+}
+
+/// The raster's CRS as WKT (for transforming other data into it).
+pub fn wkt_of(src_path: &Path) -> Result<String> {
+    Ok(Dataset::open(src_path)?.spatial_ref()?.to_wkt()?)
+}
+
+/// Band-1 values at points given in the raster's CRS (None outside or no-data).
+pub fn sample_points(src_path: &Path, pts: &[(f64, f64)]) -> Result<Vec<Option<f64>>> {
+    let ds = Dataset::open(src_path)?;
+    let (w, h) = ds.raster_size();
+    let gt = ds.geo_transform()?;
+    let band = ds.rasterband(1)?;
+    let nodata = band.no_data_value();
+    // Small rasters: read once. Large ones: read per point.
+    let whole: Option<Vec<f64>> = if w * h <= 64_000_000 { Some(band.read_as::<f64>((0, 0), (w, h), (w, h), None)?.data().to_vec()) } else { None };
+    pts.iter()
+        .map(|&(x, y)| {
+            let c = ((x - gt[0]) / gt[1]).floor();
+            let r = ((y - gt[3]) / gt[5]).floor();
+            if c < 0.0 || r < 0.0 || c >= w as f64 || r >= h as f64 {
+                return Ok(None);
+            }
+            let v = match &whole {
+                Some(a) => a[r as usize * w + c as usize],
+                None => band.read_as::<f64>((c as isize, r as isize), (1, 1), (1, 1), None)?.data()[0],
+            };
+            Ok(if nodata.map(|nd| (v - nd).abs() < 1e-9).unwrap_or(false) || v.is_nan() { None } else { Some(v) })
+        })
+        .collect()
+}
+
+/// Per-zone statistics: `zones_gpkg` holds polygons (layer "zones", integer
+/// field ZONE, in the raster's CRS). Returns zone → (count, sum, min, max).
+pub fn zonal(src_path: &Path, zones_gpkg: &Path) -> Result<std::collections::HashMap<i64, (i64, f64, f64, f64)>> {
+    let ds = Dataset::open(src_path)?;
+    let (w, h) = ds.raster_size();
+    if w * h > 200_000_000 {
+        bail!("Raster too large for zonal statistics ({}×{} cells); clip it first", w, h);
+    }
+    let gt = ds.geo_transform()?;
+    let (x0, y1) = (gt[0], gt[3]);
+    let (x1, y0) = (gt[0] + gt[1] * w as f64, gt[3] + gt[5] * h as f64);
+    let zones_ds = Dataset::open(zones_gpkg)?;
+    let args: Vec<String> = vec![
+        "-of".into(), "MEM".into(), "-a".into(), "ZONE".into(), "-ot".into(), "Int32".into(), "-init".into(), "0".into(),
+        "-te".into(), x0.to_string(), y0.min(y1).to_string(), x1.to_string(), y0.max(y1).to_string(),
+        "-ts".into(), w.to_string(), h.to_string(), "-l".into(), "zones".into(),
+    ];
+    let list = argv(&args)?;
+    let zr = unsafe {
+        let opts = gdal_sys::GDALRasterizeOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        let mut usage = 0;
+        let out = gdal_sys::GDALRasterize(cstr("")?.as_ptr(), null_mut(), zones_ds.c_dataset(), opts, &mut usage);
+        gdal_sys::GDALRasterizeOptionsFree(opts);
+        if out.is_null() {
+            return Err(last_error("Rasterizing zones"));
+        }
+        Dataset::from_c_dataset(out)
+    };
+    let zones = zr.rasterband(1)?.read_as::<i32>((0, 0), (w, h), (w, h), None)?.data().to_vec();
+    let band = ds.rasterband(1)?;
+    let nodata = band.no_data_value();
+    let vals = band.read_as::<f64>((0, 0), (w, h), (w, h), None)?.data().to_vec();
+    let mut out: std::collections::HashMap<i64, (i64, f64, f64, f64)> = Default::default();
+    for (z, v) in zones.iter().zip(vals.iter()) {
+        if *z == 0 || v.is_nan() || nodata.map(|nd| (v - nd).abs() < 1e-9).unwrap_or(false) {
+            continue;
+        }
+        let e = out.entry(*z as i64).or_insert((0, 0.0, f64::MAX, f64::MIN));
+        e.0 += 1;
+        e.1 += v;
+        e.2 = e.2.min(*v);
+        e.3 = e.3.max(*v);
+    }
+    Ok(out)
+}

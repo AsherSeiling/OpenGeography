@@ -45,6 +45,15 @@ npm test                                              # UI: symbology, scale, CR
 cargo run --release -p engine --bin bench_tiles       # map performance gate
 ```
 
+## Tools
+
+Vector, table and raster tools run natively in GIS Studio (no QGIS or other
+GIS needed). Many mirror QGIS Processing algorithms by name and behavior so
+QGIS users feel at home; each such tool cites the QGIS algorithm id and
+documentation in its source (`crates/engine/src/nodes/`). They are original
+implementations on DuckDB Spatial and GDAL; no QGIS code is used, so the
+project stays MIT/Apache-licensed.
+
 ## Layout
 
 | Path | What |
