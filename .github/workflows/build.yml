@@ -95,11 +95,14 @@ jobs:
         with: { node-version: 22 }
       # apt only supplies Tauri's system packages (the system WebKitGTK stays the
       # web view); GDAL comes from conda-forge so no GPL-only libraries are linked.
+      # The runner image's package index is recent enough; skipping `apt-get update`
+      # and caching the downloaded .debs avoids the ~12–35 min WebKitGTK install.
       - name: System packages (Tauri)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
-            libclang-dev pkg-config
+        uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+        with:
+          packages: libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libclang-dev pkg-config
+          version: 1.0
+      - uses: Swatinem/rust-cache@v2
       - uses: mamba-org/setup-micromamba@v2
         with:
           environment-name: gdal
