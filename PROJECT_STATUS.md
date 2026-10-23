@@ -42,4 +42,4 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-Do A2 (refresh stale roadmap rows, Sonnet), then A3/A4 (A3 needs real Windows/Linux machines). Then Phase C1 (layouts design) needs an Opus session.
+Do A4 (release workflow, Sonnet; A3 needs real Windows/Linux machines) (A3 needs real Windows/Linux machines). Then Phase C1 (layouts design) needs an Opus session.

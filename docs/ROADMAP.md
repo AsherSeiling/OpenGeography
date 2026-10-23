@@ -57,7 +57,7 @@ Status levels: implemented → build-verified → tested → release-ready.
 
 | Area | macOS arm64 | macOS Intel | Windows x64 | Linux x64 |
 |---|---|---|---|---|
-| Dev build + tests | tested | not attempted | not attempted | not attempted |
+| Dev build + tests | tested | not attempted | tested in CI (engine + UI) | tested in CI (engine + UI) |
 | Release package | tested (DMG, self-test in clean env) | ⬜ | build-verified in CI (NSIS + MSI, self-test passes) | build-verified in CI (AppImage + deb, self-test passes) |
 | Native deps strategy | Homebrew + dylibbundler | ⬜ | conda-forge GDAL 3.12 + prebuilt libduckdb (CI, GPL-free gate) | conda-forge GDAL 3.12, private in the AppImage with unique sonames (CI, GPL-free gate) |
 | Map, vector, raster, projects | tested | — | — | — |
@@ -66,9 +66,8 @@ Status levels: implemented → build-verified → tested → release-ready.
 Known portability risks:
 1. CI runs at https://github.com/AsherSeiling/OpenGeography/actions; history in `docs/CI_LOG.md`.
 2. `.cargo/config.toml` hard-codes `/opt/homebrew` (CI deletes it; local Windows/Linux devs must too).
-3. `resources::init()` keeps any pre-existing `GDAL_DATA`/`PROJ_DATA`, so another GDAL install can override bundled data.
-4. Rasters are stored in a per-user app folder, not in the project → projects with rasters don't move between machines.
-5. GDAL versions differ per platform (3.13 Homebrew, 3.10 conda, Ubuntu 3.8).
+3. Fixed 2026-10-23: bundled GDAL/PROJ data always wins over `GDAL_DATA`/`PROJ_DATA`; rasters are copied into the project, so projects move between machines.
+4. GDAL is 3.12 on every platform (conda-forge in CI, Homebrew 3.12.x locally; the gdal crate 0.19 doesn't support 3.13). Local Homebrew builds still link GPL-only libraries; CI release builds don't.
 
 ## 3. Licensing
 Update 2026-10-23: macOS and Windows CI builds use conda-forge `libgdal-core=3.12` + `libspatialite=*=lgpl*` (no poppler/x265/librttopo) and a license gate fails the build if any appears. Linux moved to conda-forge GDAL 3.12 too (private `gs_`-prefixed libs, strict gate) — done 2026-10-23.
@@ -79,8 +78,8 @@ The macOS package includes GPL-only libraries via Homebrew GDAL: poppler (linked
 ## 4. Priorities
 The order these are done in, with effort and dependencies, is in `docs/MASTER_PLAN.md`.
 P0 baseline — done 2026-10-23 (all tests green on macOS).
-P1 release reliability — CI green on macOS, Linux and Windows (done 2026-10-23). Remaining: GPL-free GDAL; bundled-data precedence over GDAL_DATA/PROJ_DATA; project-portable rasters; macOS notarization and Intel build.
-P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts. Remaining: **attribute history between nodes** (next), flag deleted-layer references, one undo step per parameter edit, UI graph tests.
+P1 release reliability — CI green on macOS, Linux and Windows (done 2026-10-23). GPL-free GDAL, bundled-data precedence and project-portable rasters done. Remaining: hands-on Windows/Linux checks, release workflow, macOS notarization and Intel build.
+P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts. Deleted-layer references flagged and one undo step per parameter edit also done. Remaining: **attribute history between nodes**, UI graph tests.
 P3 processing correctness — parameter validation; missing vector tools (union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay).
 P4 raster foundation — calculator, alignment, NoData, resample, mosaic.
 P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; docs/PUBLIC_DATA_CATALOG.md), Census join, NAIP, NASA.
