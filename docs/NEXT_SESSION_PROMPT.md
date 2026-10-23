@@ -34,7 +34,7 @@ How to verify:
 Constraints (from CLAUDE.md, which wins on any conflict):
 - Keep GDAL at 3.12 (gdal crate 0.19 can't build against 3.13) and DuckDB at 1.5.6.
 - Never add a QGIS dependency, and never copy GPL code. Project license is MIT OR Apache-2.0.
-- Commit per feature. End commit messages with the Co-Authored-By line. Never commit .claude/, PROJECT_SUMMARY.md or build artifacts. Push to origin main.
+- Commit per feature. End commit messages with the Co-Authored-By line. Never commit .claude/ or build artifacts. Push to origin main.
 - Log every CI round in docs/CI_LOG.md: run id, what failed, what you changed.
 - When done, update PROJECT_STATUS.md (known issue 2, next tasks, exact next action), the README licensing note, and the platform/licensing rows in docs/ROADMAP.md.
 - If you hit a design decision you can't settle from the docs (for example, conda vs. system WebKitGTK can't coexist), stop and explain the options instead of guessing. That decision goes to an Opus session.
