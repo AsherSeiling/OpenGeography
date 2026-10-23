@@ -346,6 +346,8 @@ fn new_geoprocessing_tools_run() {
     assert_eq!(run("bounding_geometry", json!({"shape": "hull", "group": "field", "field": "side"}), None), 3);
     assert_eq!(run("bounding_geometry", json!({"shape": "envelope", "group": "all"}), None), 1);
     assert_eq!(run("simplify", json!({"tolerance": 100, "units": "m", "topology": true}), None), 13);
+    assert_eq!(run("bounding_geometry", json!({"shape": "concave", "ratio": 0.5, "group": "all"}), None), 1);
+    assert!(run("delaunay", json!({}), None) > 13); // triangles over the grid's vertices
     assert_eq!(run("explode", json!({}), None), 14); // the two-part feature becomes two
     assert_eq!(run("repair", json!({}), None), 13);
     let within = run("summarize_within", json!({"field": "value", "stat": "sum"}), Some("b"));

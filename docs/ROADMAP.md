@@ -47,7 +47,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Vector: buffer (geodesic/planar, field distance), clip, intersect, dissolve, project, spatial/attribute join, join by nearest, near, select by location, centroids, Voronoi, grids/hex, points along lines, extract vertices, summarize within, definition query, export | ✅ / 🟡 |
 | Vector already present: merge, repair, explode (multipart→singlepart), simplify, bounding geometry (hull/envelope), feature to point, select by location | ✅ |
 | Union, symmetrical difference, singlepart→multipart (Collect) | ✅ |
-| Vector still missing: concave hull, Delaunay (difference = existing Erase) | ⬜ |
+| Concave hull (Minimum Bounding Geometry), Delaunay triangulation | ✅ |
 | Raster: contours, hillshade, slope, aspect, ruggedness, clip, warp, polygonize, sample, zonal stats | 🟡 |
 | Raster missing: calculator, reclassify, resample/align, mosaic, rasterize, NoData tools, band select | ⬜ |
 | Hydrology, interpolation, spatial statistics, remote sensing | ⬜ |

@@ -23,6 +23,7 @@ mod qgis_raster;
 mod project;
 mod spatial_join;
 mod collect;
+mod delaunay;
 mod erase;
 mod merge;
 pub mod select_by_location;
@@ -408,6 +409,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(union::Union),
         Box::new(symmetrical_difference::SymmetricalDifference),
         Box::new(collect::Collect),
+        Box::new(delaunay::Delaunay),
         Box::new(merge::Merge),
         Box::new(select_by_location::SelectByLocation),
         Box::new(feature_to_point::FeatureToPoint),

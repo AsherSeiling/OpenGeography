@@ -9,14 +9,17 @@ impl Tool for BoundingGeometry {
             name: "Minimum Bounding Geometry",
             category: "Generalize",
             role: Role::Tool,
-            description: "Convex hull or bounding rectangle around each feature, each group, or everything.",
+            description: "Convex hull, concave hull or bounding rectangle around each feature, each group, or everything.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],
             output: Some(PortKind::Vector),
             params: vec![
                 Param::new("shape", "Shape", ParamKind::Enum).default("hull").options(&[
                     ("hull", "Convex hull"),
+                    ("concave", "Concave hull"),
                     ("envelope", "Rectangle (envelope)"),
                 ]),
+                Param::new("ratio", "Concave ratio", ParamKind::Number).default(0.3)
+                    .help("Concave hull only: 1 = convex hull, 0 = tightest fit (0 to 1)"),
                 Param::new("group", "Group", ParamKind::Enum).default("each").options(&[
                     ("each", "Each feature"),
                     ("all", "All features"),
@@ -30,7 +33,15 @@ impl Tool for BoundingGeometry {
     fn build(&self, _ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let t = ident(&i.table);
-        let shape = |g: &str| if p.str("shape").as_deref() == Some("envelope") { format!("ST_Envelope({g})") } else { format!("ST_ConvexHull({g})") };
+        let ratio = p.f64("ratio").unwrap_or(0.3);
+        if !(0.0..=1.0).contains(&ratio) {
+            bail!("'Concave ratio' must be between 0 and 1");
+        }
+        let shape = |g: &str| match p.str("shape").as_deref() {
+            Some("envelope") => format!("ST_Envelope({g})"),
+            Some("concave") => format!("ST_ConcaveHull({g}, {ratio}, false)"),
+            _ => format!("ST_ConvexHull({g})"),
+        };
         let sql = match p.str("group").as_deref().unwrap_or("each") {
             "all" => format!("SELECT count(*) AS COUNT, {} AS geom FROM {t}", shape("ST_Collect(list(geom))")),
             "field" => {

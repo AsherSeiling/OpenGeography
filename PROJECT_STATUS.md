@@ -18,7 +18,7 @@ _Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`
 | Browser check (devserver + vite) | model Cancel from toolbar stops a 3M-feature run in ~0.1 s |
 
 ## Completed milestones
-Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet editing · definition queries · rasters + 3DEP · 51 native tools · self-contained macOS installer · geodesic measuring + resection/intersection · National Map downloads · progress bars + cancel for downloads · sources & citations · third-party notices.
+Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet editing · definition queries · rasters + 3DEP · 53 native tools · self-contained macOS installer · geodesic measuring + resection/intersection · National Map downloads · progress bars + cancel for downloads · sources & citations · third-party notices.
 
 ## Known issues / technical debt
 1. Cancel lands between DuckDB work units (~100k rows/thread). GDAL translate/warp/contours/polygonize/rasterize stop mid-step; gdaldem (hillshade/slope/aspect/ruggedness) ignores GDAL's progress callback, so those finish first.
@@ -26,7 +26,7 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 3. Fixed 2026-10-23: deleted-layer references are flagged; parameter typing is one undo step; bundled GDAL/PROJ data always wins; rasters are copied into the project (portable); tool output fields come from the engine registry (`Tool::output_fields`, with a drift test).
 
 ## Recent decisions
-- 2026-10-23 **Overlay tools**: Union, Symmetrical Difference (`union.rs` holds the shared `minus_sql`/`overlay_ctes`) and Singlepart To Multipart (`collect`). Remaining from B3: concave hull, Delaunay.
+- 2026-10-23 **Overlay tools**: Union, Symmetrical Difference (`union.rs` holds the shared `minus_sql`/`overlay_ctes`) and Singlepart To Multipart (`collect`). Concave hull is a shape in Minimum Bounding Geometry (`ST_ConcaveHull`); Delaunay (`delaunay.rs`) triangulates through GDAL/GEOS and inlines the result as hex WKB (cap 200k features). B3 complete.
 - 2026-10-23 **Select By Location on the map** (Map → Selection): intersects / within distance (geodesic) / within / contains / touches / crosses, optionally only the comparison layer's selected features, invert, and new / add / remove / subset selection methods. Engine `select_by_location` shares `nodes::select_by_location::location_test` with the model node.
 - 2026-10-23 **Model-run cancellation** (done): Cancel on the Model toolbar and status bar. A watcher thread calls DuckDB `interrupt()` repeatedly until the run returns (DuckDB clears the flag at each query start, so a single interrupt can miss); the executor checks before each step and marks remaining steps `cancelled`. Result writes (`set_result`, `upsert_layer`) run in one transaction, so a cancelled/failed write keeps the previous result (a test proves the layer corrupts without it). Run tasks are labelled "Running model — <layer>".
 
