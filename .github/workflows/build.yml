@@ -144,13 +144,18 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
       # GDAL + PROJ from conda-forge (headers, import libs and DLLs).
-      - uses: conda-incubator/setup-miniconda@v3
+      # GDAL 3.12 + PROJ from conda-forge via micromamba (setup-miniconda's
+      # installer failed on Windows runners).
+      - uses: mamba-org/setup-micromamba@v2
         with:
-          miniforge-version: latest
-          activate-environment: gdal
-          channels: conda-forge
-          conda-remove-defaults: "true"
-      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj
+          environment-name: gdal
+          create-args: >-
+            libgdal-core=3.12
+            proj
+          condarc: |
+            channels:
+              - conda-forge
+          init-shell: bash
       - name: Point the build at conda's GDAL and a prebuilt libduckdb
         run: |
           LIB="$CONDA_PREFIX/Library"
