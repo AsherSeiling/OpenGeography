@@ -480,3 +480,4 @@ select.qe-val { width: 160px; }
 .src-style { margin-left: 6px; font: inherit; font-size: 11.5px; height: 22px; border: 1px solid var(--border-strong); background: var(--pane); color: var(--text); }
 .src-auto { display: flex; flex-direction: column; padding: 2px 8px 4px; border-bottom: 1px solid var(--border); }
 .src-auto .muted { margin-left: 30px; margin-top: -6px; font-size: 11px; }
+.model-active.editing { color: #8a6d00; border-color: #c19c00; }

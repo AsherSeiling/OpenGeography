@@ -191,23 +191,47 @@ function ModelCanvas() {
   // activates it until you click elsewhere.
   const sawMove = useRef(false);
   const clickedIn = useRef(false);
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState<"off" | "on" | "editing">("off");
   const editorActive = (target?: Element | null) =>
     !!useModel.getState().layer && (sawMove.current ? overCanvas() || !!target?.closest?.(".model .react-flow__node") : clickedIn.current);
+  const pointerOver = (el: Element | null | undefined) => {
+    const m = mouse.current;
+    const r = el?.getBoundingClientRect();
+    return !!m && !!r && m.x >= r.left && m.x <= r.right && m.y >= r.top && m.y <= r.bottom;
+  };
+  /**
+   * A text field the keys should go to: a focused text/number input outside
+   * the editor, or one inside a node while the pointer is still over that
+   * node. Dropdowns and checkboxes never take shortcut keys.
+   */
+  const typingField = (): HTMLElement | null => {
+    const el = document.activeElement as HTMLElement | null;
+    const field = el?.closest?.("textarea, [contenteditable], input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=range])") as HTMLElement | null;
+    if (!field) return null;
+    if (!field.closest(".model")) return field;
+    return !sawMove.current || pointerOver(field.closest(".react-flow__node") ?? field) ? field : null;
+  };
+  const editorState = () => (!editorActive(document.activeElement) ? "off" : typingField()?.closest(".model") ? "editing" : "on");
   useEffect(() => {
     // Window-level, capture phase: nothing inside the editor can swallow these.
     const track = (e: PointerEvent | MouseEvent) => {
       mouse.current = { x: e.clientX, y: e.clientY };
       if (e.type === "pointermove" || e.type === "mousemove") sawMove.current = true;
       if (e.type === "pointerdown") clickedIn.current = !!(e.target as Element)?.closest?.(".model");
-      const a = editorActive();
+      const a = editorState();
       setActive((was) => (was === a ? was : a));
     };
     const opts = { capture: true, passive: true };
     window.addEventListener("pointermove", track, opts);
     window.addEventListener("mousemove", track, opts);
     window.addEventListener("pointerdown", track, opts);
+    const refocus = () => setActive(editorState());
+    const unfocus = () => setTimeout(refocus, 0);
+    window.addEventListener("focusin", refocus);
+    window.addEventListener("focusout", unfocus);
     return () => {
+      window.removeEventListener("focusin", refocus);
+      window.removeEventListener("focusout", unfocus);
       window.removeEventListener("pointermove", track, opts);
       window.removeEventListener("mousemove", track, opts);
       window.removeEventListener("pointerdown", track, opts);
@@ -302,14 +326,24 @@ function ModelCanvas() {
         return;
       }
       const target = e.target as HTMLElement;
-      if (target?.closest?.("input, textarea, select, [contenteditable]")) return;
       if (document.querySelector(".addmenu, [role=dialog]")) return;
+      const nodeField = target?.closest?.(".model .react-flow__node input, .model .react-flow__node select, .model .react-flow__node textarea") as HTMLElement | null;
+      // Enter / Esc in a node's field finishes editing.
+      if (nodeField && (e.key === "Enter" || e.key === "Escape") && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+        nodeField.blur();
+        setActive(editorState());
+        if (e.key === "Escape") e.preventDefault();
+        return;
+      }
+      if (typingField()) return; // the keys are for that field
       if (!editorActive(target)) return;
       const combo = eventCombo(e);
       const action = combo && actionFor(useKeymap.getState().bindings, combo);
       if (!action) return;
       e.preventDefault();
       e.stopPropagation();
+      // A node field the pointer has left lets go, so the shortcut acts on the tree.
+      if (nodeField || (document.activeElement as HTMLElement)?.closest?.(".model .react-flow__node")) (document.activeElement as HTMLElement).blur?.();
       runAction(action);
     };
     const onMove = (e: MouseEvent) => {
@@ -370,7 +404,7 @@ function ModelCanvas() {
   const hasErrors = Object.values(results).some((r) => r.status === "error");
 
   return (
-    <div className={`model ${active ? "shortcuts-on" : ""}`}>
+    <div className={`model ${active === "on" ? "shortcuts-on" : ""}`}>
       <Toolbar size="small" className="model-bar">
         <span className="model-title" title="Each layer has its own node tree. Select a layer in Contents to switch.">
           {treeName ? <>Node tree: <b>{treeName}</b></> : "No layer selected"}
@@ -428,9 +462,14 @@ function ModelCanvas() {
         <Tooltip content="Node editor keyboard shortcuts — view and change them" relationship="label">
           <Button size="small" appearance="subtle" icon={<KeyboardRegular />} onClick={() => useDialog.getState().show({ kind: "nodeShortcuts" })} />
         </Tooltip>
-        {active && (
+        {active === "on" && (
           <span className="model-active" title="Node editor shortcuts are active (pointer is over the editor). Change them with the keyboard button.">
             Shortcuts on
+          </span>
+        )}
+        {active === "editing" && (
+          <span className="model-active editing" title="Keys go into the field you're editing. Press Enter or Esc, or move the pointer off the node, to use shortcuts again.">
+            Editing field
           </span>
         )}
         <span className="model-hint">
@@ -496,7 +535,11 @@ function ModelCanvas() {
             }
             openMenu(e.clientX, e.clientY);
           }}
-          onPaneClick={() => useApp.getState().properties?.kind === "node" && useApp.getState().setProperties(null)}
+          onPaneClick={() => {
+            // Clicking empty canvas releases a node field, so shortcuts apply again.
+            if ((document.activeElement as HTMLElement)?.closest?.(".model")) (document.activeElement as HTMLElement).blur();
+            if (useApp.getState().properties?.kind === "node") useApp.getState().setProperties(null);
+          }}
           deleteKeyCode={null}
           defaultEdgeOptions={{ type: "smoothstep" }}
           minZoom={0.2}
