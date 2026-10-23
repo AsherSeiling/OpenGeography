@@ -7,11 +7,14 @@ use parking_lot::Mutex;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
-const INIT_SQL: &str = "
-    INSTALL spatial;
-    LOAD spatial;
-    SET geometry_always_xy = true;
-";
+/// Load the spatial extension: from the copy bundled with the app when there
+/// is one (no internet needed), otherwise DuckDB's normal install (dev builds).
+fn spatial_sql() -> String {
+    match crate::resources::spatial_extension() {
+        Some(path) => format!("LOAD {}; SET geometry_always_xy = true;", lit(&path.display().to_string())),
+        None => "INSTALL spatial; LOAD spatial; SET geometry_always_xy = true;".to_string(),
+    }
+}
 
 pub struct Pool {
     root: Mutex<Connection>,
@@ -24,7 +27,7 @@ impl Pool {
             Some(p) => Connection::open(p)?,
             None => Connection::open_in_memory()?,
         };
-        root.execute_batch(INIT_SQL)?;
+        root.execute_batch(&spatial_sql())?;
         Ok(Self { root: Mutex::new(root), idle: Mutex::new(Vec::new()) })
     }
 
@@ -33,7 +36,7 @@ impl Pool {
             return Ok(Conn { conn: Some(c), pool: self });
         }
         let c = self.root.lock().try_clone()?;
-        c.execute_batch("LOAD spatial; SET geometry_always_xy = true;")?;
+        c.execute_batch(&spatial_sql())?;
         Ok(Conn { conn: Some(c), pool: self })
     }
 }

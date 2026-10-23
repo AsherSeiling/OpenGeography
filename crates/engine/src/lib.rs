@@ -9,6 +9,7 @@ pub mod layers;
 pub mod measure;
 pub mod nodes;
 pub mod raster;
+pub mod resources;
 pub mod table;
 pub mod tiger;
 pub mod tiles;

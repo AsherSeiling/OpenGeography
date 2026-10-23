@@ -36,6 +36,24 @@ cargo run --release -p devserver   # engine over HTTP on 127.0.0.1:7878
 npm run dev                         # open http://localhost:1420
 ```
 
+## Build a self-contained installer
+
+macOS (Apple Silicon), on a Mac with Homebrew:
+
+```bash
+brew install gdal duckdb dylibbundler
+scripts/package-macos.sh
+```
+
+This produces `target/release/bundle/GIS-Studio-<version>-macos-arm64.dmg`.
+GDAL, PROJ data, DuckDB and its spatial extension are bundled inside the app
+(about 190 libraries), so users install nothing else. Check an installed app
+with `GIS\ Studio.app/Contents/MacOS/gis-studio --self-test`.
+The app is ad-hoc signed; for distribution without Gatekeeper warnings,
+sign it with an Apple Developer ID and notarize it.
+
+Windows and Linux installers are built by `.github/workflows/build.yml`.
+
 ## Test
 
 ```bash

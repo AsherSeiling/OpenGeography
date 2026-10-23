@@ -2,12 +2,18 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod selftest;
 mod tiles;
 
 use engine::Engine;
 use std::sync::Arc;
 
 fn main() {
+    // Bundled GDAL/PROJ data and DuckDB extension (installed app), before anything starts.
+    engine::resources::init();
+    if std::env::args().any(|a| a == "--self-test") {
+        std::process::exit(selftest::run());
+    }
     let engine = Arc::new(Engine::new().expect("failed to start the GIS engine"));
     let tile_engine = engine.clone();
 

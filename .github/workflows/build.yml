@@ -1,44 +1,137 @@
 name: build
 
+# Builds self-contained installers: GDAL, PROJ data, DuckDB and its spatial
+# extension are bundled, so users install nothing else. Every job finishes by
+# running the packaged app's `--self-test` (headless engine check).
+#
+# Verified locally: macOS (scripts/package-macos.sh).
+# Not yet verified on CI: the Linux and Windows jobs below — expect to adjust
+# library paths on their first runs.
+
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+env:
+  DUCKDB_VERSION: v1.5.6
 
 jobs:
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-14, windows-latest]
-    runs-on: ${{ matrix.os }}
+  macos:
+    runs-on: macos-14 # Apple Silicon
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: Linux packages for Tauri
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      # CI compiles DuckDB from source (engine/bundled) instead of using a
-      # local prebuilt libduckdb, so remove the developer-machine paths.
-      - name: Use bundled DuckDB
-        shell: bash
-        run: rm -f .cargo/config.toml
+      - run: brew install gdal duckdb dylibbundler
       - run: npm ci
       - run: npm test
-      - run: npx tsc -p tsconfig.json
-      - run: cargo test -p engine --features engine/bundled --release
+      - run: cargo test -p engine --release
       - name: Map performance gate
-        run: cargo run --release -p engine --features engine/bundled --bin bench_tiles -- 300000 2000000
-      - name: Build installer
-        run: npx tauri build -- --features bundled
+        run: cargo run --release -p engine --bin bench_tiles -- 300000 2000000
+      - run: scripts/package-macos.sh
+      - name: Self-test the packaged app (no Homebrew paths, empty home)
+        run: |
+          env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin \
+            "target/release/bundle/macos/GIS Studio.app/Contents/MacOS/gis-studio" --self-test
       - uses: actions/upload-artifact@v4
         with:
-          name: installer-${{ matrix.os }}
+          name: gis-studio-macos
+          path: target/release/bundle/*.dmg
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: System packages (Tauri + GDAL)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libgdal-dev gdal-bin proj-bin libclang-dev pkg-config
+      - name: Prebuilt libduckdb
+        run: |
+          curl -fsSL -o libduckdb.zip "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-amd64.zip"
+          mkdir -p "$HOME/duckdb" && unzip -o libduckdb.zip -d "$HOME/duckdb"
+          echo "DUCKDB_LIB_DIR=$HOME/duckdb" >> "$GITHUB_ENV"
+          echo "DUCKDB_INCLUDE_DIR=$HOME/duckdb" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$HOME/duckdb" >> "$GITHUB_ENV"
+          rm -f .cargo/config.toml
+      - run: npm ci
+      - run: npm test
+      - run: cargo test -p engine --release
+      - run: scripts/stage-resources.sh linux_amd64
+      # The AppImage bundler copies every linked shared library (GDAL, PROJ,
+      # GEOS, libduckdb, …) into the image.
+      - run: npx tauri build --bundles appimage,deb
+      - name: Self-test the AppImage
+        run: |
+          APPIMAGE=$(ls target/release/bundle/appimage/*.AppImage | head -1)
+          chmod +x "$APPIMAGE"
+          env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin "$APPIMAGE" --appimage-extract-and-run --self-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gis-studio-linux
           path: |
-            target/release/bundle/**/*.dmg
-            target/release/bundle/**/*.msi
-            target/release/bundle/**/*.exe
-            target/release/bundle/**/*.deb
-            target/release/bundle/**/*.AppImage
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/deb/*.deb
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      # GDAL + PROJ from conda-forge (headers, import libs and DLLs).
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: gdal
+      - run: conda install -y -c conda-forge "libgdal-core=3.10" proj
+      - name: Point the build at conda's GDAL and a prebuilt libduckdb
+        run: |
+          LIB="$CONDA_PREFIX/Library"
+          echo "GDAL_HOME=$LIB" >> "$GITHUB_ENV"
+          echo "GDAL_VERSION=3.10.0" >> "$GITHUB_ENV"
+          curl -fsSL -o libduckdb.zip "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-windows-amd64.zip"
+          mkdir -p duckdb && unzip -o libduckdb.zip -d duckdb
+          echo "DUCKDB_LIB_DIR=$PWD/duckdb" >> "$GITHUB_ENV"
+          echo "DUCKDB_INCLUDE_DIR=$PWD/duckdb" >> "$GITHUB_ENV"
+          echo "$LIB/bin" >> "$GITHUB_PATH"
+          echo "$PWD/duckdb" >> "$GITHUB_PATH"
+          rm -f .cargo/config.toml
+      - run: npm ci
+      - run: npm test
+      - run: cargo test -p engine --release
+      - name: Stage resources and the DLLs the app needs next to its exe
+        run: |
+          GDAL_DATA_SRC="$CONDA_PREFIX/Library/share/gdal" PROJ_DATA_SRC="$CONDA_PREFIX/Library/share/proj" \
+            scripts/stage-resources.sh windows_amd64
+          mkdir -p src-tauri/dlls
+          cp "$CONDA_PREFIX"/Library/bin/*.dll src-tauri/dlls/
+          cp duckdb/duckdb.dll src-tauri/dlls/
+          python - <<'PY'
+          import json
+          p = "src-tauri/tauri.conf.json"
+          c = json.load(open(p))
+          # Install the DLLs beside gis-studio.exe so Windows finds them.
+          c["bundle"]["resources"] = {"resources/**/*": "resources/", "dlls/*.dll": "./"}
+          json.dump(c, open(p, "w"), indent=2)
+          PY
+      - run: npx tauri build --bundles nsis,msi
+      - name: Self-test the built app
+        run: ./target/release/gis-studio.exe --self-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gis-studio-windows
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
