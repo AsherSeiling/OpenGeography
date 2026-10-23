@@ -88,13 +88,8 @@ impl Engine {
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);",
         )?;
         sources::init(&conn)?;
-        // Drop stale model cache tables from a previous session.
-        let mut stmt = conn.prepare("SELECT table_name, table_type FROM information_schema.tables WHERE table_name LIKE '\\_\\_node\\_%' ESCAPE '\\'")?;
-        let stale: Vec<(String, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
-        for (t, ty) in stale {
-            let kind = if ty == "VIEW" { "VIEW" } else { "TABLE" };
-            conn.execute_batch(&format!("DROP {kind} IF EXISTS {}", ident(&t)))?;
-        }
+        // Reload persisted node snapshots (drops stale or orphaned ones).
+        self.graph_cache.lock().load(&conn)?;
         let mut stmt = conn.prepare("SELECT info::VARCHAR FROM __layers")?;
         let infos: Vec<String> = stmt.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
         let mut layers = self.layers.write();
@@ -125,6 +120,12 @@ impl Engine {
         let pool = self.pool.read();
         let conn = pool.get()?;
         f(&conn)
+    }
+
+    /// Run SQL against the project database (integration tests only).
+    #[doc(hidden)]
+    pub fn with_conn_for_tests<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        self.with_conn(f)
     }
 
     fn alloc_id(&self) -> String {
@@ -890,6 +891,20 @@ impl Engine {
         Ok(())
     }
 
+    /// Drop node snapshots the UI no longer shows (`live` = output table
+    /// names; `pinned` stays), then apply the size budget. Returns the count dropped.
+    pub fn prune_node_cache(&self, live: &[String], pinned: Option<&str>) -> Result<usize> {
+        let pool = self.pool.read();
+        let conn = pool.get()?;
+        let n = self.graph_cache.lock().prune(&conn, live, pinned);
+        Ok(n)
+    }
+
+    /// Size budget for persisted node snapshots, in bytes (0 = keep none between saves).
+    pub fn set_node_cache_budget(&self, bytes: u64) {
+        self.graph_cache.lock().budget = bytes;
+    }
+
     // ---------- test data ----------
 
     /// Generate random features for benchmarking (`points` or `polygons`).
@@ -936,7 +951,6 @@ impl Engine {
             {
                 let pool = self.pool.read();
                 let conn = pool.get()?;
-                self.graph_cache.lock().clear(&conn);
                 let cur: String = conn.query_row("SELECT current_database()", [], |r| r.get(0))?;
                 conn.execute_batch(&format!(
                     "ATTACH {} AS __dst; COPY FROM DATABASE {} TO __dst; DETACH __dst;",

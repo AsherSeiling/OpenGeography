@@ -2,30 +2,31 @@
 
 Open a new Claude Code session in this folder, pick **Sonnet**, and paste one block. Run them **one at a time**: both edit `crates/engine/src/lib.rs`. The general-purpose prompt is `docs/SONNET_RUNNER_PROMPT.md`.
 
-> Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B3 and B4 are done, so B2.1 is the next Sonnet task.
+> Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B3 and B4 are done, B2.1 is done, so B2.2 is the next Sonnet task.
 
 ---
 
-## 1. B2.1 — Persist the node cache (attribute history, part 1)
+## 1. B2.2 — Diff and node-rows commands (attribute history, part 2)
 
 ```text
 You are continuing GIS Studio (Tauri 2 + Rust engine + DuckDB Spatial + GDAL/PROJ + React/Fluent UI) in this folder.
 
-Read CLAUDE.md, PROJECT_STATUS.md, then docs/ATTRIBUTE_HISTORY_PLAN.md (§1, §2 D1–D4, §3 B2.1). Read only crates/engine/src/graph.rs, the init_schema / save_project / clear_model_cache / new_project parts of crates/engine/src/lib.rs, and the existing engine tests that run models (grep "run_graph" in crates/engine/tests). Grep before opening other files.
+Read CLAUDE.md, PROJECT_STATUS.md, then docs/ATTRIBUTE_HISTORY_PLAN.md (§2 D5–D7, §3 B2.2). Read only crates/engine/src/table.rs (RowsQuery / RowsPage), the graph.rs `Cache` and `run` parts (B2.1 persisted the node cache: `__node_cache` index, `Cache::prune`), the existing Tauri command + devserver route + ui/src/ipc/api.ts pattern for `rows`, and the progress/cancel pattern in `Engine::run_graph`. Grep before opening other files.
 
-TASK B2.1: persist the model's node cache (__node_<hash> tables) in the project, with an index table, version check, prune and size budget, exactly as the plan's D1–D4 say. Engine only; no UI, no new Tauri commands except that prune_node_cache is an Engine method (its command comes in B2.2).
+TASK B2.2: new crates/engine/src/history.rs with node_table_info, node_rows, node_diff, node_diff_rows (D5–D7), Engine methods in lib.rs, plus `prune_node_cache` and a budget setter as Tauri commands (src-tauri/src/commands.rs + main.rs registration), crates/devserver routes and ui/src/ipc/api.ts functions. Engine + IPC only; no UI components.
 
-Acceptance: H1–H7 in the plan, plus all existing engine tests green (especially the cancel and result-transaction tests).
+Acceptance: H8–H15 in the plan; every command reachable through the devserver (curl check); all existing engine tests green.
 
 Notes:
-- The index row and the CREATE of a cache table go in one transaction (H6).
-- engine_version = env!("CARGO_PKG_VERSION") + a CACHE_FORMAT const in graph.rs; bump CACHE_FORMAT whenever a tool's SQL changes meaning.
-- Keep serde_json without preserve_order; H3 guards it.
-- Raster cache entries stay session-only.
+- B2.1 is done: `Engine::prune_node_cache(live, pinned)` and `Engine::set_node_cache_budget(bytes)` exist; wire them as commands (`prune_node_cache`, `set_node_cache_budget`). Layer Input snapshots are VIEWs; node tables are plain `__node_<hash>` tables (stable `rowid`).
+- Diff tables `__diff_*` are temporary: never indexed in `__node_cache`; drop them on new_project/open_db. Note the `__node_%` orphan sweep in `Cache::load` must not touch them (different prefix).
+- Run the diff in a progress::Task "Comparing tables" and cancel via the connection interrupt, as run_graph does (H15).
+- The ignored 1M-row performance test (H14): record the number in PROJECT_STATUS.md.
+- Bump graph::CACHE_FORMAT only if a tool's SQL changes meaning (not needed here).
 
-Test: cargo test -p engine <filter>, then cargo test -p engine (PATH line from CLAUDE.md). Commit (Co-Authored-By line, never .claude/), push, wait for CI in the background with a long interval (public API, see docs/SONNET_RUNNER_PROMPT.md), and log CI rounds in docs/CI_LOG.md.
-Finish by updating PROJECT_STATUS.md (next action: B2.2) and replacing this block in docs/NEXT_SESSION_PROMPT.md with a B2.2 prompt built the same way from the plan.
-Stop and ask (OPUS NEEDED) if the plan doesn't settle something, e.g. DuckDB can't COPY views between databases on Save As.
+Test: cargo test -p engine <filter>, then cargo test -p engine, then cargo build -p gis-studio -p devserver (PATH line from CLAUDE.md). Commit (Co-Authored-By line, never .claude/), push, wait for CI in the background with a long interval (public API, see docs/SONNET_RUNNER_PROMPT.md), and log CI rounds in docs/CI_LOG.md.
+Finish by updating PROJECT_STATUS.md (next action: B2.3) and replacing this block in docs/NEXT_SESSION_PROMPT.md with a B2.3 prompt built the same way from the plan.
+Stop and ask (OPUS NEEDED) if the plan doesn't settle something, e.g. paging a Layer Input VIEW stably.
 ```
 
 ---

@@ -1202,3 +1202,156 @@ fn select_by_location_on_the_map() {
     // Selecting with an empty selection is a clear error.
     assert!(e.select_by_location(&pts.id, &polys.id, Some(&[]), "intersects", 0.0, "m", false).unwrap_err().to_string().contains("no selected features"));
 }
+
+// ---------- B2.1: persisted node cache ----------
+
+fn chain(layer: &str, class: i64) -> Graph {
+    graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": layer}},
+            {"id": "f", "tool": "filter", "params": {"where": format!("class < {class}")}},
+            {"id": "buf", "tool": "buffer", "params": {"distance": 100, "units": "m", "method": "planar"}}
+        ],
+        "edges": [
+            {"source": "in", "target": "f", "targetHandle": "in"},
+            {"source": "f", "target": "buf", "targetHandle": "in"}
+        ]
+    }))
+}
+
+fn statuses(res: &[engine::graph::NodeResult]) -> Vec<Status> {
+    res.iter().map(|r| r.status.clone()).collect()
+}
+
+fn count_rows(e: &Engine, sql: &str) -> i64 {
+    e.with_conn_for_tests(|c| Ok(c.query_row(sql, [], |r| r.get(0))?)).unwrap()
+}
+
+#[test]
+fn h1_h7_snapshots_survive_save_close_reopen_and_save_as() {
+    let dir = tempfile::tempdir().unwrap();
+    let (p1, p2) = (dir.path().join("a.gproj"), dir.path().join("b.gproj"));
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 500, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    let g = chain(&l.id, 5);
+    let first = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert!(first.iter().all(|r| r.status == Status::Done), "{first:?}");
+    // First save is a Save As from the in-memory database (H7).
+    e.save_project(&p1, "{}").unwrap();
+    let after_save_as = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert!(after_save_as.iter().all(|r| r.status == Status::Cached), "{after_save_as:?}");
+    drop(e);
+    // H1: reopen in a new engine.
+    let e2 = Engine::new().unwrap();
+    e2.open_project(&p1).unwrap();
+    let again = e2.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert!(again.iter().all(|r| r.status == Status::Cached), "{again:?}");
+    for (a, b) in first.iter().zip(&again) {
+        assert_eq!((a.rows, &a.output, &a.crs), (b.rows, &b.output, &b.crs));
+    }
+    // Save As again from a file-backed project (H7).
+    e2.save_project(&p2, "{}").unwrap();
+    drop(e2);
+    let e3 = Engine::new().unwrap();
+    e3.open_project(&p2).unwrap();
+    assert!(e3.run_graph(&g, None, &mut |_| {}).unwrap().iter().all(|r| r.status == Status::Cached));
+}
+
+#[test]
+fn h2_other_engine_version_is_dropped_on_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("v.gproj");
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 200, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    let g = chain(&l.id, 5);
+    e.run_graph(&g, None, &mut |_| {}).unwrap();
+    e.save_project(&p, "{}").unwrap();
+    e.with_conn_for_tests(|c| Ok(c.execute_batch("UPDATE __node_cache SET engine_version = 'old'")?)).unwrap();
+    drop(e);
+    let e2 = Engine::new().unwrap();
+    e2.open_project(&p).unwrap();
+    assert_eq!(count_rows(&e2, "SELECT count(*) FROM __node_cache"), 0);
+    assert_eq!(count_rows(&e2, "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE '\\_\\_node\\_%' ESCAPE '\\' AND table_name <> '__node_cache'"), 0);
+    let res = e2.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert!(res.iter().all(|r| r.status == Status::Done), "{res:?}");
+}
+
+#[test]
+fn h3_hash_is_stable_across_param_key_order() {
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 50, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    let mk = |params: serde_json::Value| graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+            {"id": "b", "tool": "buffer", "params": params}
+        ],
+        "edges": [{"source": "in", "target": "b", "targetHandle": "in"}]
+    }));
+    let a: serde_json::Value = serde_json::from_str(r#"{"distance": 5, "units": "m", "method": "planar"}"#).unwrap();
+    let b: serde_json::Value = serde_json::from_str(r#"{"method": "planar", "units": "m", "distance": 5}"#).unwrap();
+    e.run_graph(&mk(a), None, &mut |_| {}).unwrap();
+    let res = e.run_graph(&mk(b), None, &mut |_| {}).unwrap();
+    assert_eq!(statuses(&res), vec![Status::Cached, Status::Cached], "serde_json must not preserve key order (preserve_order feature)");
+}
+
+#[test]
+fn h4_broken_views_and_orphans_are_dropped_on_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("o.gproj");
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 100, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    e.run_graph(&chain(&l.id, 5), None, &mut |_| {}).unwrap();
+    e.save_project(&p, "{}").unwrap();
+    e.with_conn_for_tests(|c| Ok(c.execute_batch("CREATE TABLE __node_deadbeef AS SELECT 1 AS x")?)).unwrap();
+    e.remove_layer(&l.id).unwrap();
+    drop(e);
+    let e2 = Engine::new().unwrap();
+    e2.open_project(&p).unwrap();
+    let rows = count_rows(&e2, "SELECT count(*) FROM information_schema.tables WHERE table_name = '__node_deadbeef'");
+    assert_eq!(rows, 0, "orphan table dropped");
+    assert_eq!(count_rows(&e2, "SELECT count(*) FROM __node_cache WHERE kind = 'view'"), 0, "view of the deleted layer dropped");
+}
+
+#[test]
+fn h5_prune_drops_non_live_and_budget_never_evicts_pinned() {
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 2000, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    let res = e.run_graph(&chain(&l.id, 5), None, &mut |_| {}).unwrap();
+    let out = |id: &str| res.iter().find(|r| r.id == id).unwrap().output.clone().unwrap();
+    let (input, f, buf) = (out("in"), out("f"), out("buf"));
+    // Only `f` is live: the other two go.
+    assert_eq!(e.prune_node_cache(&[f.clone()], None).unwrap(), 2);
+    let again = e.run_graph(&chain(&l.id, 5), None, &mut |_| {}).unwrap();
+    let st = |id: &str| again.iter().find(|r| r.id == id).unwrap().status.clone();
+    assert_eq!((st("in"), st("f"), st("buf")), (Status::Done, Status::Cached, Status::Done));
+    // Budget: tiny, so everything not pinned goes; pinned stays.
+    e.set_node_cache_budget(1);
+    let _ = (input, buf);
+    let dropped = e.prune_node_cache(&[out_of(&again, "in"), f.clone(), out_of(&again, "buf")], Some(&f)).unwrap();
+    assert_eq!(dropped, 1, "only the buffer output (bigger, unpinned) is evicted; the pinned one stays");
+    assert_eq!(count_rows(&e, &format!("SELECT count(*) FROM __node_cache WHERE table_name = '{f}'")), 1);
+}
+
+fn out_of(res: &[engine::graph::NodeResult], id: &str) -> String {
+    res.iter().find(|r| r.id == id).unwrap().output.clone().unwrap()
+}
+
+#[test]
+fn h6_failed_step_leaves_no_table_and_no_index_row() {
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 100, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    let before = count_rows(&e, "SELECT count(*) FROM __node_cache");
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+            {"id": "f", "tool": "filter", "params": {"where": "no_such_column > 1"}}
+        ],
+        "edges": [{"source": "in", "target": "f", "targetHandle": "in"}]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    assert_eq!(res.iter().find(|r| r.id == "f").unwrap().status, Status::Error);
+    // Only the Layer Input view was stored.
+    assert_eq!(count_rows(&e, "SELECT count(*) FROM __node_cache"), before + 1);
+    let tables = count_rows(&e, "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE '\\_\\_node\\_%' ESCAPE '\\' AND table_name <> '__node_cache'");
+    assert_eq!(tables, before + 1, "no table without an index row");
+}
