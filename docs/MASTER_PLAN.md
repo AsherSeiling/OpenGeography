@@ -21,6 +21,7 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 | [`docs/PLANETARY_PLAN.md`](PLANETARY_PLAN.md) | Moon/Mars: body-aware CRS, USGS importers, crater tools, ISIS/ASP bridges | Phase F |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
 | [`docs/NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) | Ready-to-paste prompt for the current Sonnet task | Opening a new Sonnet session |
+| [`docs/SONNET_RUNNER_PROMPT.md`](SONNET_RUNNER_PROMPT.md) | Reusable Sonnet prompt that picks the next task from this plan and flags Opus tasks | Any Sonnet session without a task-specific prompt |
 
 **Plans still to be written.** Each is the output of an Opus design session, made before its phase starts:
 - `docs/LAYOUTS_PLAN.md` — phase C.
