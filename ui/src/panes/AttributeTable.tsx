@@ -22,9 +22,14 @@ import {
 } from "@fluentui/react-icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { exportLayer, useDialog, zoomToSelection } from "../actions";
-import { api, errorText, type LayerInfo, type RowsPage } from "../ipc/api";
+import { exportLayer, runModel, useDialog, zoomToSelection } from "../actions";
+import { api, errorText, type LayerInfo } from "../ipc/api";
+import { useModel } from "../store/model";
 import { displayInfo, useApp } from "../store/store";
+import { DiffBar } from "./table/DiffBar";
+import { useTableTarget } from "./table/history";
+import { NodePicker } from "./table/NodePicker";
+import { useNodeTable, type NodePage } from "./table/useNodeTable";
 
 const PAGE = 200;
 const ROW_H = 24;
@@ -53,9 +58,17 @@ export function AttributeTable() {
   const showOriginal = useApp((s) => s.showOriginal);
   // Rows come from what the layer currently shows (node-tree result or original).
   const info = owner ? displayInfo({ layers, results, showOriginal }, owner) : undefined;
-  const id = info?.id;
-  const readOnly = !!info?.resultOf;
-  const selected = useApp((s) => (owner ? s.selection[owner] : undefined));
+  // Node mode: a node's table from the open tree (read-only), optionally compared with another node.
+  const ntAll = useNodeTable(owner);
+  const nt = ntAll.active ? ntAll : null;
+  const nodeMode = !!nt;
+  const diffMode = !!nt?.diff;
+  const nodeReady = !!nt && !nt.missing && !!nt.info && (!nt.compareId || !!nt.diff);
+  const id = nodeMode ? (nodeReady ? `node:${nt!.table}` : undefined) : info?.id;
+  const readOnly = nodeMode || !!info?.resultOf;
+  const layerSelected = useApp((s) => (owner ? s.selection[owner] : undefined));
+  const selected = nodeMode ? undefined : layerSelected;
+  const roTip = (t: string) => (nodeMode ? "Node tables are read-only — pick “Layer (as stored)” in Table of: to edit or select" : t);
   const [sort, setSort] = useState<{ field: string; desc: boolean } | null>(null);
   const [filterText, setFilterText] = useState("");
   const [filter, setFilter] = useState("");
@@ -74,7 +87,7 @@ export function AttributeTable() {
   const [widths, setWidths] = useState<Record<string, number>>({});
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; field: string } | null>(null);
   const undo = useRef<CellEdit[]>([]);
-  const pages = useRef(new Map<number, RowsPage>());
+  const pages = useRef(new Map<number, NodePage>());
   const loading = useRef(new Set<number>());
   const [, force] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -85,10 +98,17 @@ export function AttributeTable() {
   const selSet = useMemo(() => new Set(selected ?? []), [selected]);
   const fidsFilter = onlySelected ? (selected ?? []) : null;
   // Changing these starts over at the top; a version bump (an edit) keeps the scroll position.
-  const viewKey = JSON.stringify([id, sort, filter, onlySelected ? fidsFilter : null]);
-  const queryKey = JSON.stringify([viewKey, info?.version]);
-  const fields = info?.fields ?? [];
+  const viewKey = JSON.stringify([id, sort, filter, onlySelected ? fidsFilter : null, nt?.queryKey]);
+  const queryKey = JSON.stringify([viewKey, nodeMode ? null : info?.version]);
+  const fields = nodeMode ? nt!.fields : (info?.fields ?? []);
+  const diffFlag = (f: string) => (nt?.diff?.fieldsAdded.includes(f) ? "head-added" : nt?.diff?.fieldsRemoved.includes(f) ? "head-removed" : nt?.diff?.fieldsRetyped.some((r) => r.name === f) ? "head-changed" : "");
   const colW = (f: string) => widths[`${id}:${f}`] ?? DEFAULT_W;
+
+  // A table of another layer's tree is not this layer's: leave node mode.
+  useEffect(() => {
+    const t = useTableTarget.getState().target;
+    if (t && owner && t.tree !== owner) useTableTarget.getState().set(null);
+  }, [owner]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
@@ -115,12 +135,13 @@ export function AttributeTable() {
       loading.current.add(p);
       const key = queryKey;
       try {
-        const page = await api.getRows(id, { offset: p * PAGE, limit: PAGE, sort: sort?.field, desc: sort?.desc, filter: filter || null, fids: fidsFilter });
+        const page = nt ? await nt.fetchPage(p * PAGE, PAGE, sort, filter) : await api.getRows(id, { offset: p * PAGE, limit: PAGE, sort: sort?.field, desc: sort?.desc, filter: filter || null, fids: fidsFilter });
         if (key !== currentKey.current) return; // query changed while loading
         pages.current.set(p, page);
         setTotal(page.total);
         force((n) => n + 1);
       } catch (e) {
+        if (nt?.onFetchError(e)) return; // lost snapshot or diff: the panel below explains and offers a fix
         setError(errorText(e).split("\n")[0]);
       } finally {
         loading.current.delete(p);
@@ -142,7 +163,7 @@ export function AttributeTable() {
     const page = pages.current.get(Math.floor(i / PAGE));
     if (!page) return null;
     const j = i % PAGE;
-    return { fid: page.fids[j], values: page.rows[j] };
+    return { fid: page.fids[j], values: page.rows[j], diff: page.diff?.[j] };
   };
 
   const setLocal = (row: number, col: number, value: string | null) => {
@@ -157,7 +178,7 @@ export function AttributeTable() {
 
   const clickRowHeader = (i: number, fid: number, e: React.MouseEvent) => {
     const s = useApp.getState();
-    if (!owner) return;
+    if (!owner || nodeMode) return;
     if (e.shiftKey && anchor.current !== null) {
       const [a, b] = [Math.min(anchor.current, i), Math.max(anchor.current, i)];
       const fids: number[] = [];
@@ -214,7 +235,7 @@ export function AttributeTable() {
 
   const startEdit = (c: Cell, initial?: string) => {
     if (readOnly) {
-      status("This is a node-tree result (read-only). Show the original data to edit it.");
+      status(nodeMode ? "Node tables are read-only. Pick “Layer (as stored)” in Table of: to edit." : "This is a node-tree result (read-only). Show the original data to edit it.");
       return;
     }
     const r = rowAt(c.row);
@@ -341,17 +362,18 @@ export function AttributeTable() {
             <Option key={lid} value={lid}>{layers[lid]?.name ?? lid}</Option>
           ))}
         </Dropdown>
+        <NodePicker owner={owner} tree={ntAll.tree} entries={ntAll.entries} nodeId={nt?.nodeId ?? null} compareId={nt?.compareId ?? null} />
         <div className="attr-sep" />
-        <Tooltip content="Add Field" relationship="label">
+        <Tooltip content={roTip("Add Field")} relationship="label">
           <Button size="small" icon={<AddRegular />} disabled={readOnly} onClick={() => dlg({ kind: "addField", layer: id! })}>Field</Button>
         </Tooltip>
-        <Tooltip content="Calculate Field" relationship="label">
+        <Tooltip content={roTip("Calculate Field")} relationship="label">
           <Button size="small" icon={<CalculatorRegular />} disabled={readOnly} onClick={() => dlg({ kind: "calcField", layer: id!, owner })} />
         </Tooltip>
-        <Tooltip content="Calculate Geometry (area, length, coordinates)" relationship="label">
+        <Tooltip content={roTip("Calculate Geometry (area, length, coordinates)")} relationship="label">
           <Button size="small" icon={<RulerRegular />} disabled={readOnly || info.geomType === "Table"} onClick={() => dlg({ kind: "calcGeometry", layer: id!, owner })} />
         </Tooltip>
-        <Tooltip content={`Delete ${nsel} selected row(s)`} relationship="label">
+        <Tooltip content={roTip(`Delete ${nsel} selected row(s)`)} relationship="label">
           <Button
             size="small"
             icon={<DeleteRegular />}
@@ -369,29 +391,32 @@ export function AttributeTable() {
             }}
           />
         </Tooltip>
-        <Tooltip content="Undo last cell edit (Ctrl+Z)" relationship="label">
+        <Tooltip content={roTip("Undo last cell edit (Ctrl+Z)")} relationship="label">
           <Button size="small" icon={<ArrowUndoRegular />} disabled={readOnly} onClick={undoEdit} />
         </Tooltip>
         <div className="attr-sep" />
-        <Tooltip content="Select By Attributes" relationship="label">
-          <Button size="small" icon={<SelectAllOnRegular />} onClick={() => dlg({ kind: "selectByAttributes", layer: owner })} />
+        <Tooltip content={roTip("Select By Attributes")} relationship="label">
+          <Button size="small" icon={<SelectAllOnRegular />} disabled={nodeMode} onClick={() => dlg({ kind: "selectByAttributes", layer: owner })} />
         </Tooltip>
-        <Tooltip content="Zoom To Selection" relationship="label">
-          <Button size="small" icon={<ZoomFitRegular />} disabled={!nsel} onClick={zoomToSelection} />
+        <Tooltip content={roTip("Zoom To Selection")} relationship="label">
+          <Button size="small" icon={<ZoomFitRegular />} disabled={nodeMode || !nsel} onClick={zoomToSelection} />
         </Tooltip>
-        <Tooltip content="Clear Selection" relationship="label">
-          <Button size="small" icon={<DismissCircleRegular />} disabled={!nsel} onClick={() => useApp.getState().setSelection(owner, [])} />
+        <Tooltip content={roTip("Clear Selection")} relationship="label">
+          <Button size="small" icon={<DismissCircleRegular />} disabled={nodeMode || !nsel} onClick={() => useApp.getState().setSelection(owner, [])} />
         </Tooltip>
-        <Tooltip content={nsel ? `Export (${nsel} selected or all)` : "Export features"} relationship="label">
-          <Button size="small" icon={<ArrowExportRegular />} onClick={() => exportLayer(owner)} />
+        <Tooltip content={nodeMode ? "Export the layer from Contents; node tables are not exported" : nsel ? `Export (${nsel} selected or all)` : "Export features"} relationship="label">
+          <Button size="small" icon={<ArrowExportRegular />} disabled={nodeMode} onClick={() => exportLayer(owner)} />
         </Tooltip>
-        <ToggleButton size="small" checked={onlySelected} onClick={() => setOnlySelected(!onlySelected)}>
-          {onlySelected ? "Selected" : "All rows"}
-        </ToggleButton>
+        <Tooltip content={roTip("Show only the selected rows")} relationship="label">
+          <ToggleButton size="small" checked={onlySelected && !nodeMode} disabled={nodeMode} onClick={() => setOnlySelected(!onlySelected)}>
+            {onlySelected && !nodeMode ? "Selected" : "All rows"}
+          </ToggleButton>
+        </Tooltip>
         <Input
           size="small"
           contentBefore={<FilterRegular />}
-          placeholder="Filter, e.g. POP > 1000"
+          placeholder={diffMode ? "Filtering is off while comparing" : "Filter, e.g. POP > 1000"}
+          disabled={diffMode}
           value={filterText}
           onChange={(_, d) => setFilterText(d.value)}
           onKeyDown={(e) => e.key === "Enter" && setFilter(filterText)}
@@ -399,26 +424,63 @@ export function AttributeTable() {
           style={{ flex: 1, minWidth: 110 }}
         />
       </div>
-      {readOnly && (
+      {nt && (
+        <div className="attr-banner node">
+          {nt.diff
+            ? `Comparing ${nt.label} with ${nt.compareLabel} (read-only).`
+            : `Showing ${nt.label} as of its last run (read-only).`}
+          {nt.entries.find((e) => e.id === nt.nodeId)?.state === "outofdate" && (
+            <>
+              {" "}This node changed since it last ran.{" "}
+              <button className="linkbtn" onClick={() => runToNode(owner, nt.nodeId!, nt.recompare)}>Run to this node</button>
+            </>
+          )}
+        </div>
+      )}
+      {nt && nt.compareId && !nt.missing && (
+        <DiffBar
+          diff={nt.diff}
+          comparing={nt.comparing}
+          error={nt.diffError}
+          kind={nt.kind}
+          onKind={nt.setKind}
+          keyChoice={nt.key}
+          onKey={nt.setKey}
+          keyFields={nt.fields.map((f) => f.name).filter((n) => n !== "geom")}
+          aLabel={nt.compareLabel ?? ""}
+          bLabel={nt.label}
+          onRetry={nt.recompare}
+        />
+      )}
+      {!nodeMode && readOnly && (
         <div className="attr-banner">
           Showing this layer's node-tree result (read-only).{" "}
           <button className="linkbtn" onClick={() => useApp.getState().setShowOriginal(owner, true)}>Show original data to edit</button>
         </div>
       )}
       {error && <div className="attr-error">{error}</div>}
-      <div className="grid" ref={scrollRef}>
+      {nt?.missing && (
+        <div className="attr-missing">
+          <div>
+            <b>{nt.missing.label}</b> {nt.missing.why === "is not stored" ? "has no stored table (it was cleared or never saved)." : "has not been run yet."}
+          </div>
+          <Button size="small" appearance="primary" onClick={() => runToNode(owner, nt.missing!.nodeId, nt.recompare)}>Run to this node</Button>
+        </div>
+      )}
+      <div className="grid" ref={scrollRef} style={nt?.missing ? { display: "none" } : undefined}>
         <div style={{ width, minWidth: "100%" }} ref={gridRef} tabIndex={0} onKeyDown={onGridKey} className="grid-inner">
           <div className="grid-head" style={{ width }}>
-            <div className="cell fid corner" style={{ width: FID_W }} title="Click a row number to select that feature">FID</div>
+            <div className="cell fid corner" style={{ width: FID_W }} title={nodeMode ? "Row number in this node's table" : "Click a row number to select that feature"}>{nodeMode ? "Row" : "FID"}</div>
             {fields.map((f) => (
               <div
                 key={f.name}
-                className={`cell head ${cell && fields[cell.col]?.name === f.name ? "col-active" : ""}`}
+                className={`cell head ${cell && fields[cell.col]?.name === f.name ? "col-active" : ""} ${diffFlag(f.name)}`}
                 style={{ width: colW(f.name) }}
-                title={`${f.name} (${f.type}) — click to sort, right-click for field tools`}
-                onClick={() => setSort(sort?.field === f.name ? (sort.desc ? null : { field: f.name, desc: true }) : { field: f.name, desc: false })}
+                title={`${f.name} (${f.type}) — ${diffMode ? "" : "click to sort, "}${nodeMode ? "" : "right-click for field tools"}`}
+                onClick={() => !diffMode && setSort(sort?.field === f.name ? (sort.desc ? null : { field: f.name, desc: true }) : { field: f.name, desc: false })}
                 onContextMenu={(e) => {
                   e.preventDefault();
+                  if (nodeMode) return;
                   setHeaderMenu({ x: e.clientX, y: e.clientY, field: f.name });
                 }}
               >
@@ -434,9 +496,9 @@ export function AttributeTable() {
               const r = rowAt(it.index);
               const isSel = r ? selSet.has(r.fid) : false;
               return (
-                <div key={it.key} className={`grid-row ${isSel ? "sel" : ""} ${it.index % 2 ? "odd" : ""}`} style={{ transform: `translateY(${it.start}px)`, height: ROW_H, width }}>
-                  <div className={`cell fid ${isSel ? "sel" : ""}`} style={{ width: FID_W }} onClick={(e) => r && clickRowHeader(it.index, r.fid, e)}>
-                    {r?.fid ?? ""}
+                <div key={it.key} className={`grid-row ${isSel ? "sel" : ""} ${it.index % 2 ? "odd" : ""} ${r?.diff ? `diff-${r.diff.kind}` : ""}`} style={{ transform: `translateY(${it.start}px)`, height: ROW_H, width }}>
+                  <div className={`cell fid ${isSel ? "sel" : ""}`} style={{ width: FID_W }} onClick={(e) => r && clickRowHeader(it.index, r.fid, e)} title={r?.diff ? `${r.diff.kind}${r.diff.key ? ` · key ${r.diff.key}` : ""}` : undefined}>
+                    {r?.diff ? { added: "+", removed: "−", changed: "~" }[r.diff.kind] : nodeMode ? it.index + 1 : (r?.fid ?? "")}
                   </div>
                   {fields.map((f, k) => {
                     const isActive = cell?.row === it.index && cell?.col === k;
@@ -445,7 +507,8 @@ export function AttributeTable() {
                     return (
                       <div
                         key={f.name}
-                        className={`cell ${isNumeric(f.type) ? "num" : ""} ${isActive ? "active" : ""} ${readOnly ? "ro" : ""}`}
+                        className={`cell ${isNumeric(f.type) ? "num" : ""} ${isActive ? "active" : ""} ${readOnly && !nodeMode ? "ro" : ""} ${r?.diff?.values[k]?.changed && r.diff.kind === "changed" ? "diff-chg" : ""}`}
+                        title={r?.diff?.values[k]?.changed && r.diff.kind === "changed" ? `was: ${r.diff.values[k].a ?? "<Null>"}` : undefined}
                         style={{ width: colW(f.name) }}
                         onMouseDown={(e) => {
                           if (isEditing) return;
@@ -484,11 +547,15 @@ export function AttributeTable() {
         </div>
       </div>
       <div className="attr-foot">
+        {nt ? (
+          <span>{nt.total.toLocaleString()} {nt.diff ? "differing rows" : "rows"} · {nt.label}</span>
+        ) : (
         <span>
           {nsel.toLocaleString()} of {(layers[owner]?.definitionQuery && !readOnly ? (layers[owner]?.queryCount ?? 0) : info.featureCount).toLocaleString()} selected
           {layers[owner]?.definitionQuery && !readOnly ? " (definition query)" : ""}
           {filter || onlySelected ? ` · ${total.toLocaleString()} shown` : ""}
         </span>
+        )}
         <span className="muted">{readOnly ? "Read-only" : "Double-click or type to edit · Enter/Tab to move · Ctrl+Z to undo"}</span>
       </div>
       {headerMenu && (
@@ -546,6 +613,13 @@ function HeaderMenu(p: {
       </MenuPopover>
     </Menu>
   );
+}
+
+/** Run the open tree up to a node (opening its tree first), then refresh the table. */
+async function runToNode(owner: string, nodeId: string, then: () => void) {
+  if (useModel.getState().layer !== owner) useModel.getState().openTree(owner);
+  await runModel(nodeId);
+  then();
 }
 
 function isNumeric(t: string) {

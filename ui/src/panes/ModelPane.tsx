@@ -9,6 +9,7 @@ import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
 import { AddMenu, type AddItem } from "../nodes/AddMenu";
 import { nodeTypes } from "../nodes/ModelNodes";
+import { NodeMenu } from "../nodes/NodeMenu";
 import { copySelection, cutLinks, deleteSelection, duplicateSelection, invertSelection, makeLinks, paste, selectAll, toggleCollapse, toggleMute } from "../nodes/graphOps";
 import { actionFor, displayCombo, eventCombo, useKeymap, type NodeAction } from "../nodes/keymap";
 import { edgeUnder, splice } from "../nodes/splice";
@@ -50,6 +51,7 @@ function ModelCanvas() {
   const canUndo = useStore(temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(temporal, (s) => s.futureStates.length > 0);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [spliceEdge, setSpliceEdge] = useState<string | null>(null);
   const mouse = useRef<{ x: number; y: number } | null>(null);
 
@@ -528,6 +530,11 @@ function ModelCanvas() {
           onConnect={useModel.getState().connect}
           isValidConnection={isValidConnection}
           onNodeClick={(_, n) => useApp.getState().setProperties({ kind: "node", id: n.id })}
+          onNodeContextMenu={(e, n) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setNodeMenu({ x: e.clientX, y: e.clientY, id: n.id });
+          }}
           onNodeDragStart={() => (dragStep.current = beginStep())}
           onNodeDrag={(_, n) => setSpliceEdge(edgeUnder(n.id, flow.getInternalNode)?.id ?? null)}
           onNodeDragStop={(_, n) => {
@@ -556,6 +563,7 @@ function ModelCanvas() {
           <Background gap={16} size={1} color="#d8d8d8" />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
+        {nodeMenu && <NodeMenu x={nodeMenu.x} y={nodeMenu.y} nodeId={nodeMenu.id} onClose={() => setNodeMenu(null)} />}
         {menu && <AddMenu x={menu.x} y={menu.y} onPick={pick} onClose={() => setMenu(null)} />}
       </div>
     </div>

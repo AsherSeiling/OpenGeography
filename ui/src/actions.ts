@@ -7,6 +7,8 @@ import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
+import { showPane } from "./panes/panes";
+import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle, type SelectMode } from "./store/store";
 
@@ -113,6 +115,7 @@ export async function removeLayer(id: string) {
   if (m.layer === id) m.openTree(null);
   const { [id]: _gone, ...trees } = useModel.getState().trees;
   useModel.setState({ trees });
+  void pruneSnapshots();
   const using = Object.entries(m.allTrees()).filter(([owner, t]) => owner !== id && t.nodes.some((n) => n.data.tool === "input_layer" && n.data.params.layer === id));
   const names = using.map(([owner]) => useApp.getState().layers[owner]?.name ?? owner);
   status(names.length ? `${name} removed. ${names.length === 1 ? "The node tree of" : "Node trees of"} ${names.join(", ")} used it — its Layer node there is marked.` : `${name} removed`);
@@ -273,6 +276,7 @@ export async function runModel(target?: string) {
     run.setResult(r);
     if (r.layer) useApp.getState().updateLayer(r.layer);
   }
+  useModel.getState().setLastOutputs(Object.fromEntries(res.filter((r) => (r.status === "done" || r.status === "cached") && r.output).map((r) => [r.id, r.output!])));
   const ok = res.filter((r) => r.status === "done" || r.status === "cached").map((r) => [r.id, sigs[r.id]]);
   useRun.setState((s) => ({ ranSig: { ...s.ranSig, ...Object.fromEntries(ok) } }));
   const errors = res.filter((r) => r.status === "error");
@@ -357,6 +361,14 @@ function uiState(): UiStateV1 {
   };
 }
 
+/** Tell the engine which node snapshots the trees still reference; the table on screen is never evicted. */
+export async function pruneSnapshots() {
+  const t = useTableTarget.getState().target;
+  const m = useModel.getState();
+  const node = t && (t.tree === m.layer ? m.nodes : m.trees[t.tree]?.nodes)?.find((n) => n.id === t.nodeId);
+  await pruneNodeCache(m.allTrees(), typeof node?.data.lastOutput === "string" ? node.data.lastOutput : null, api);
+}
+
 export async function saveProject(saveAs = false) {
   let dir = useApp.getState().projectDir;
   if (!dir || saveAs) {
@@ -364,6 +376,7 @@ export async function saveProject(saveAs = false) {
     if (!picked) return;
     dir = picked.endsWith(".gproj") ? picked : `${picked}.gproj`;
   }
+  await pruneSnapshots();
   const ok = await busy("Saving project", () => api.saveProject(dir!, JSON.stringify(uiState())));
   if (ok === undefined) return;
   useApp.getState().set({ projectDir: dir, dirty: false });
@@ -437,4 +450,14 @@ export async function newProject() {
   if (ok === undefined) return;
   restoreState([], {}, null);
   status("New project");
+}
+
+/** Open the table pane on a node of the open tree; `compare` also diffs it against its input. */
+export function viewNodeTable(nodeId: string, compare = false) {
+  const m = useModel.getState();
+  if (!m.layer) return;
+  const input = compare ? defaultCompareInput({ nodes: m.nodes, edges: m.edges }, nodeId, useRun.getState().specs) : null;
+  useTableTarget.getState().set({ tree: m.layer, nodeId, compareId: input });
+  showPane("table");
+  if (compare && !input) status("This node has no input to compare with.");
 }
