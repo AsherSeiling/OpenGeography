@@ -939,3 +939,17 @@ fn geodesic_buffer_is_true_distance_with_shared_projections() {
     assert!(n > 60, "{n} vertices");
     assert!(worst < 5.0, "worst vertex is {worst:.2} m off 50 km (< 0.01%)");
 }
+
+#[test]
+fn catalog_inspects_datasets() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("wells.gpkg");
+    write_fixture(&p, "SELECT * FROM (VALUES (1, ST_Point(-97.5, 35.4)), (2, ST_Point(-97.4, 35.5))) t(id, geom)", "GPKG", Some("EPSG:4326"));
+    let d = engine::catalog::inspect(p.to_str().unwrap()).unwrap();
+    assert_eq!(d.kind, "vector");
+    assert_eq!(d.layers.len(), 1);
+    let l = &d.layers[0];
+    assert_eq!((l.features, l.geometry.as_str()), (2, "Point"));
+    assert!(l.crs.as_deref().unwrap_or("").contains("EPSG:4326"), "{:?}", l.crs);
+    assert!(engine::catalog::inspect(dir.path().to_str().unwrap()).is_err(), "a folder isn't a dataset");
+}

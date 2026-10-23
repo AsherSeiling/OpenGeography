@@ -2,6 +2,7 @@
 //! geoprocessing graph. The Tauri app is a thin wrapper around [`Engine`].
 
 pub mod attrs;
+pub mod catalog;
 pub mod crs;
 pub mod db;
 pub mod graph;

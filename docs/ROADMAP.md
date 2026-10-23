@@ -57,7 +57,7 @@ Status levels: implemented → build-verified → tested → release-ready.
 | Area | macOS arm64 | macOS Intel | Windows x64 | Linux x64 |
 |---|---|---|---|---|
 | Dev build + tests | tested | not attempted | not attempted | not attempted |
-| Release package | tested (DMG, self-test in clean env) | ⬜ | CI running, not green yet | CI running, not green yet |
+| Release package | tested (DMG, self-test in clean env) | ⬜ | build-verified in CI (NSIS + MSI, self-test passes) | build-verified in CI (AppImage + deb, self-test passes) |
 | Native deps strategy | Homebrew + dylibbundler | ⬜ | conda-forge GDAL 3.10 + prebuilt libduckdb (unrun) | Ubuntu GDAL + AppImage (unrun) |
 | Map, vector, raster, projects | tested | — | — | — |
 | Clean-machine smoke test | `--self-test` with `env -i` | — | — | — |

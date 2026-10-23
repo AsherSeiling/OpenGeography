@@ -338,6 +338,23 @@ pub async fn cancel_task(id: u64) -> Res<()> {
     Ok(())
 }
 
+// ---------- file manager ----------
+
+#[tauri::command]
+pub async fn fs_roots() -> Res<Vec<engine::catalog::Root>> {
+    Ok(engine::catalog::roots())
+}
+
+#[tauri::command]
+pub async fn fs_list(engine: Eng<'_>, path: String) -> Res<engine::catalog::Listing> {
+    blocking(&engine, move |_| engine::catalog::list(&path)).await
+}
+
+#[tauri::command]
+pub async fn fs_inspect(engine: Eng<'_>, path: String) -> Res<engine::catalog::Details> {
+    blocking(&engine, move |_| engine::catalog::inspect(&path)).await
+}
+
 // ---------- sources & citations ----------
 
 #[tauri::command]
