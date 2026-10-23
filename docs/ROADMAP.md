@@ -14,7 +14,9 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Attribute table: spreadsheet editing, add/rename/delete field, calculate field/geometry | ✅ | |
 | Definition queries (GUI + Python→SQL), selection, export selection | ✅ | |
 | Projects (.gproj = project.json + project.duckdb) | 🟡 | rasters live in an app-wide store outside the project (not portable); local file sources are absolute paths |
-| TIGER / National Map vector / 3DEP downloads | ✅ | network tests ignored by default |
+| TIGER / National Map vector / 3DEP downloads | ✅ | TIGER by year (2010–current, sorted); network tests ignored by default |
+| File manager (Catalog pane: browse folders/GIS files, drag to map or model, folder connections) | ⬜ | **next** (requested 2026-10-23) |
+| Public data toolkit (Living Atlas–style) | ⬜ | plan and dataset list in `docs/PUBLIC_DATA_CATALOG.md` |
 | Sources & citations (annotated bibliography, BibTeX) | ✅ | model results cite every upstream input |
 | Census data join (ACS / 2020) + keychain key | ⬜ | |
 | NAIP imagery; NASA GIBS / CMR / POWER | ⬜ | |
@@ -36,6 +38,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Progress for model runs | ✅ | step n of N |
 | Cancel a model run | ✅ | DuckDB interrupt + step checks; atomic result writes; slow for per-feature geodesic tools; GDAL raster steps finish first |
 | Copy/paste, duplicate, mute, collapse, make links | ✅ | auto-layout ⬜ |
+| Attribute history between nodes ("git for tables") | ⬜ | requested 2026-10-23: keep each node's output table as a versioned snapshot (what changed vs. the previous node: rows added/removed, fields added/changed); the Attribute Table shows the Output by default with a picker to view any earlier node's table and its diff. Builds on the node cache tables (`__node_<hash>`), which currently live only for a session. |
 | Model tests (graph semantics, persistence) | 🟠 | engine tests cover tools; no tests for UI graph ops (splice, undo, tree switching) |
 
 ### Processing tools (97 spec ids across `nodes/`, 48 tools)
@@ -75,7 +78,7 @@ P1 release reliability: push to a remote so CI runs; fix Windows/Linux builds; G
 P2 node-tree correctness: ~~model-run cancellation~~ (done 2026-10-23); splice as one undo step + type check; stale-result marker; deleted-layer references; provenance from all inputs; graph tests →
 P3 processing correctness: parameter validation, missing vector tools (union/difference/repair/…) →
 P4 raster foundation: calculator, alignment, NoData, resample, mosaic →
-P5 data: Census join, NAIP, NASA →
+P5 data: file manager (next), Census join, public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; see docs/PUBLIC_DATA_CATALOG.md), NAIP, NASA →
 P6 layouts, then Topo Map Builder →
 P7 Python tool SDK + headless CLI →
 P8 advanced analysis (hydrology, interpolation, statistics, remote sensing).

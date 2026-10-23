@@ -37,11 +37,11 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **GDAL bindings** generated at build time (`bindgen` feature) — needed for GDAL 3.13; requires libclang.
 
 ## Next tasks (in order)
-1. Get the Windows and Linux CI jobs green (in progress; see docs/CI_LOG.md).
-2. GPL-free GDAL for the installer.
-3. Flag trees that reference deleted layers.
-4. Group a node-parameter edit into one undo step.
-5. Census data join.
+1. File manager — a Catalog pane (user asked for it "as soon as you can").
+2. Get Windows CI green (macOS and Linux pass; see docs/CI_LOG.md).
+3. Attribute history between nodes ("git for tables"; see roadmap).
+4. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
+5. GPL-free GDAL for the installer; Census data join.
 
 ## Exact next action
-Read the latest CI run's annotations/summaries, fix the next failure, log it in docs/CI_LOG.md, push.
+Build the file manager (Catalog pane): browse folders, list GIS files with type icons, add/drag to the map or model; folder connections saved with the project. Check the latest CI run first and log it in docs/CI_LOG.md.
