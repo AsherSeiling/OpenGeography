@@ -59,13 +59,20 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 
 | Task | Effort | Model | Notes |
 |---|---|---|---|
-| A1. Linux AppImage library clash (conda GDAL vs. system libraries) | 1–3 | Opus decides, Sonnet builds | In progress. See known issue 2 in `PROJECT_STATUS.md` and `CI_LOG.md`. |
+| A1. Linux AppImage library clash (conda GDAL vs. system libraries) | 1–3 | Opus decides, Sonnet builds | In progress. See known issue 2 in `PROJECT_STATUS.md` and `CI_LOG.md`. **Stop rule:** if the run for `5fd5c23` fails, use the Linux fallback below instead of more rounds. |
 | A2. Refresh stale roadmap rows (platform matrix, portability risks already fixed) | 0.5 | Sonnet | Doc-only. |
 | A3. Hands-on check of the Windows and Linux installers on real machines (open, import, run a model, save/reopen) | 1 | You + Sonnet | CI's `--self-test` doesn't exercise the UI. Needs a Windows PC/VM and a Linux desktop. |
 | A4. GitHub Release v0.1.0: tag, installers attached, release notes, licence notices | 0.5 | Sonnet | Add a `release` workflow triggered by tags. |
 | A5. (Optional) macOS notarization and Intel build | 1 | Sonnet | Needs your Apple Developer ID ($99/yr). Intel build needs a `macos-13` runner. |
 
-**Exit:** CI green with strict license gates on all three platforms, and v0.1.0 published.
+**Linux fallback (decided 2026-10-23).** Keep Linux supported; defer only the GPL-free AppImage.
+1. Revert the Linux CI job to Ubuntu's GDAL (green as of `a4d6b8f`). Keep the Linux license gate warn-only.
+2. Label the Linux AppImage "preview, not license-clean" in the README and release notes. macOS and Windows stay GPL-free.
+3. Prefer shipping Linux as a `.deb` that depends on the system's GDAL instead of bundling it, so no GPL libraries are redistributed.
+4. Keep Linux build + tests in CI on every push, so Linux breakage is caught early rather than piling up.
+5. Revisit a GPL-free AppImage or Flatpak before 1.0. It's tracked as a 1.0 release blocker, not a v0.1 one.
+
+**Exit:** CI green on all three platforms, with strict license gates on macOS and Windows; v0.1.0 published. Linux also needs a strict gate, unless the fallback above was used.
 **Total:** 3–6 sessions.
 
 ### Phase B — Data manipulation completeness (priority 1)
@@ -210,7 +217,7 @@ These can run in two sessions at once:
 
 | Risk | Effect | Mitigation |
 |---|---|---|
-| Linux AppImage library clash takes many rounds | Delays v0.1 | Option C in `PROJECT_STATUS.md` (build a minimal GDAL from source); or ship Linux as `.deb` + Flatpak first. |
+| Linux AppImage library clash takes many rounds | Delays v0.1 | Linux fallback in phase A (Ubuntu GDAL, `.deb` first, AppImage labelled preview); GPL-free AppImage/Flatpak before 1.0. |
 | gdal crate stays on GDAL ≤ 3.12 | Stuck on an older GDAL | Watch gdal-rs releases; the pin is fine for at least a year. |
 | MapLibre can't show the poles | Lunar south pole maps | Polar layouts/exports (PLANETARY_PLAN D2). |
 | Vector PDF export in layouts | Layout scope grows | Decide the rendering path in C1; PNG/raster PDF first if needed. |
