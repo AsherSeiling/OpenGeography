@@ -1,7 +1,7 @@
 // Drop a node onto a connection to insert it there (Blender behavior):
 // A → B becomes A → node → B.
 import type { Edge, InternalNode, Node } from "@xyflow/react";
-import { outputKind, specs, useModel, type ModelNode } from "../store/model";
+import { connectProblem, kindAfter, outputKind, specs, useModel, type ModelNode } from "../store/model";
 
 type Box = { x: number; y: number; w: number; h: number };
 
@@ -30,17 +30,32 @@ export function edgeUnder(nodeId: string, getNode: (id: string) => InternalNode<
     const [x0, y0, x1, y1] = [s.x + s.w, s.y + 30, t.x, t.y + t.h / 2];
     for (let i = 1; i < 24; i++) {
       const f = i / 24;
-      if (inside(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)) {
-        if (spec.inputs[0].kind === "vector" && outputKind(e.source) === "table") return null;
-        return e;
-      }
+      if (inside(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)) return e;
     }
   }
   return null;
 }
 
-/** Insert `nodeId` into connection `e`. */
-export function splice(nodeId: string, e: Edge) {
+/**
+ * Why `nodeId` can't be inserted into connection `e` (types checked on both
+ * sides), or null if it can.
+ */
+export function spliceProblem(nodeId: string, e: Edge): string | null {
+  const node = useModel.getState().nodes.find((n) => n.id === nodeId);
+  const spec = node && specs()[node.data.tool];
+  if (!spec?.output || !spec.inputs.length) return "This node can't go inside a connection";
+  const incoming = outputKind(e.source);
+  return connectProblem(e.source, nodeId, spec.inputs[0].id, incoming) ?? connectProblem(nodeId, e.target, e.targetHandle, kindAfter(node!.data.tool, incoming));
+}
+
+/**
+ * Insert `nodeId` into connection `e` (A → B becomes A → node → B), keeping
+ * every other connection. Returns the reason if it can't, changing nothing.
+ * Its other inputs (e.g. Clip's clip layer) stay empty for the user to fill.
+ */
+export function splice(nodeId: string, e: Edge): string | null {
+  const problem = spliceProblem(nodeId, e);
+  if (problem) return problem;
   const { nodes, edges } = useModel.getState();
   const node = nodes.find((n) => n.id === nodeId) as ModelNode;
   const firstIn = specs()[node.data.tool].inputs[0].id;
@@ -53,4 +68,5 @@ export function splice(nodeId: string, e: Edge) {
       { id: id(), source: nodeId, sourceHandle: "out", target: e.target, targetHandle: e.targetHandle },
     ],
   });
+  return null;
 }

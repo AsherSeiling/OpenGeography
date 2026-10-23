@@ -5,7 +5,7 @@ import { DockviewReact, themeLight, themeDark, type DockviewReadyEvent, type IDo
 import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
-import { addData, registerDock, runModel, saveProject, openProject } from "./actions";
+import { addData, registerDock, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
 import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
 import { api, IN_TAURI, type NodeResult } from "./ipc/api";
@@ -67,23 +67,13 @@ export function App() {
       : Promise.resolve(() => {});
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
-      const typing = (e.target as HTMLElement)?.closest?.("input, textarea, [contenteditable]");
       if (mod && e.key === "s") {
         e.preventDefault();
         saveProject(e.shiftKey);
       } else if (mod && e.key === "o") {
         e.preventDefault();
         openProject();
-      } else if (mod && e.key === "Enter") {
-        e.preventDefault();
-        runModel();
-      } else if (mod && !typing && e.key === "z") {
-        e.preventDefault();
-        if (e.shiftKey) useModel.temporal.getState().redo();
-        else useModel.temporal.getState().undo();
-      } else if (mod && !typing && e.key === "y") {
-        e.preventDefault();
-        useModel.temporal.getState().redo();
+        // Node-editor keys (undo, run, …) live in nodes/keymap.ts and apply only there.
       } else if (e.altKey && e.key.toLowerCase() === "q") {
         e.preventDefault();
         (document.querySelector(".tellme input") as HTMLInputElement | null)?.focus();

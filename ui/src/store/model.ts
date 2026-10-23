@@ -2,7 +2,7 @@
 import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type Edge, type EdgeChange, type Node, type NodeChange } from "@xyflow/react";
 import { create } from "zustand";
 import { temporal } from "zundo";
-import type { Field, NodeResult, ToolSpec } from "../ipc/api";
+import type { Field, NodeResult, PortKind, ToolSpec } from "../ipc/api";
 import { displayInfo, useApp } from "./store";
 
 export interface ModelNodeData extends Record<string, unknown> {
@@ -10,6 +10,10 @@ export interface ModelNodeData extends Record<string, unknown> {
   params: Record<string, unknown>;
   /** The tree's own Layer Input / Output nodes: always present, not deletable. */
   fixed?: boolean;
+  /** Bypassed (Blender "mute"): its first input passes straight through. */
+  muted?: boolean;
+  /** Settings hidden (Blender "hide"). */
+  collapsed?: boolean;
 }
 
 export type ModelNode = Node<ModelNodeData>;
@@ -129,9 +133,45 @@ export const useModel = create<ModelState>()(
   ),
 );
 
+const snapshot = () => {
+  const s = useModel.getState();
+  return {
+    nodes: s.nodes.map(({ id, type, position, data }) => ({ id, type, position, data })),
+    edges: s.edges.map(({ id, source, target, sourceHandle, targetHandle }) => ({ id, source, target, sourceHandle, targetHandle })),
+  };
+};
+
+/**
+ * Group several edits (possibly across async steps) into ONE undo step.
+ * Call the returned function when done; nothing is recorded if nothing changed.
+ */
+export function beginStep(): () => void {
+  const before = snapshot();
+  const t = useModel.temporal.getState();
+  t.pause();
+  return () => {
+    useModel.temporal.getState().resume();
+    if (JSON.stringify(before) === JSON.stringify(snapshot())) return;
+    useModel.temporal.setState((s) => ({ pastStates: [...s.pastStates, before as (typeof s.pastStates)[number]].slice(-100), futureStates: [] }));
+    useApp.getState().set({ dirty: true });
+  };
+}
+
+/** Run synchronous edits as one undo step. */
+export function asOneStep<T>(f: () => T): T {
+  const end = beginStep();
+  try {
+    return f();
+  } finally {
+    end();
+  }
+}
+
 interface RunState {
   specs: Record<string, ToolSpec>;
   results: Record<string, NodeResult>;
+  /** Signature of each node when it last ran successfully (see nodeSignature). */
+  ranSig: Record<string, string>;
   running: boolean;
   setSpecs: (s: ToolSpec[]) => void;
   setResult: (r: NodeResult) => void;
@@ -141,6 +181,7 @@ interface RunState {
 export const useRun = create<RunState>((set) => ({
   specs: {},
   results: {},
+  ranSig: {},
   running: false,
   setSpecs: (list) => set({ specs: Object.fromEntries(list.map((s) => [s.id, s])) }),
   setResult: (r) => set((s) => ({ results: { ...s.results, [r.id]: r } })),
@@ -150,7 +191,7 @@ export const useRun = create<RunState>((set) => ({
 export const specs = () => useRun.getState().specs;
 
 export function graphPayload() {
-  const { nodes, edges } = useModel.getState();
+  const { nodes, edges } = bypassMuted(useModel.getState().nodes, useModel.getState().edges);
   const app = useApp.getState();
   return {
     nodes: nodes.map((n) => {
@@ -165,6 +206,26 @@ export function graphPayload() {
     }),
     edges: edges.map((e) => ({ source: e.source, target: e.target, targetHandle: e.targetHandle ?? "" })),
   };
+}
+
+/**
+ * Remove muted nodes, wiring whatever fed a muted node's first input straight
+ * to everything it fed (Blender's mute). Fixed nodes can't be muted.
+ */
+export function bypassMuted(nodes: ModelNode[], edges: Edge[]): { nodes: ModelNode[]; edges: Edge[] } {
+  let ns = nodes;
+  let es = edges;
+  for (const m of nodes.filter((n) => n.data.muted && !n.data.fixed)) {
+    const first = specs()[m.data.tool]?.inputs[0]?.id;
+    const feed = es.find((e) => e.target === m.id && e.targetHandle === first);
+    es = es.flatMap((e) => {
+      if (e.target === m.id) return [];
+      if (e.source === m.id) return feed ? [{ ...e, id: `${e.id}~`, source: feed.source, sourceHandle: feed.sourceHandle }] : [];
+      return [e];
+    });
+    ns = ns.filter((n) => n.id !== m.id);
+  }
+  return { nodes: ns, edges: es };
 }
 
 function upstream(nodeId: string, port?: string): string | undefined {
@@ -189,6 +250,56 @@ export function outputKind(nodeId: string, seen = new Set<string>()): "vector" |
   const first = spec.inputs[0];
   const src = first && upstream(nodeId, first.id);
   return src ? outputKind(src, seen) : undefined;
+}
+
+/** Can data of `kind` (undefined = not known yet) go into a port of `port` kind? */
+export function accepts(port: PortKind, kind: "vector" | "table" | "raster" | undefined): boolean {
+  if (port === "any") return true;
+  if (port === "raster") return kind === "raster" || kind === undefined;
+  if (kind === "raster") return false;
+  return port === "table" || kind !== "table";
+}
+
+/** What a node of `tool` outputs when fed `input` on its first port. */
+export function kindAfter(tool: string, input: "vector" | "table" | "raster" | undefined): "vector" | "table" | "raster" | undefined {
+  const spec = specs()[tool];
+  if (!spec) return undefined;
+  if (spec.output === "vector" || spec.output === "raster" || spec.output === "table") return spec.output;
+  return input;
+}
+
+/** Why `source` can't feed `target`'s `port`, or null if it can. */
+export function connectProblem(source: string, target: string, port: string | null | undefined, sourceKind = outputKind(source)): string | null {
+  if (source === target) return "A node can't feed itself";
+  const t = useModel.getState().nodes.find((n) => n.id === target);
+  const spec = t && specs()[t.data.tool];
+  const p = spec?.inputs.find((x) => x.id === port);
+  if (!p) return "That node has no such input";
+  if (accepts(p.kind, sourceKind)) return null;
+  const what = { vector: "features", table: "a table", raster: "a raster" }[sourceKind ?? "vector"];
+  const needs = { vector: "features", table: "a table or features", raster: "a raster", any: "data" }[p.kind];
+  return `${spec!.name}'s "${p.label}" needs ${needs}, not ${what}`;
+}
+
+/**
+ * A node's identity for change tracking: its tool, settings, bypass state,
+ * its source layer's version, and (recursively) everything upstream.
+ */
+export function nodeSignature(id: string, memo = new Map<string, string>(), seen = new Set<string>()): string {
+  if (memo.has(id)) return memo.get(id)!;
+  if (seen.has(id)) return "cycle";
+  seen.add(id);
+  const { nodes, edges } = useModel.getState();
+  const n = nodes.find((x) => x.id === id);
+  if (!n) return "missing";
+  const layer = n.data.tool === "input_layer" ? useApp.getState().layers[String(n.data.params.layer ?? "")] : undefined;
+  const ins = edges
+    .filter((e) => e.target === id)
+    .map((e) => `${e.targetHandle}<${nodeSignature(e.source, memo, seen)}`)
+    .sort();
+  const sig = JSON.stringify([n.data.tool, n.data.params, !!n.data.muted, layer ? `${layer.id}@${layer.version}` : null, ins]);
+  memo.set(id, sig);
+  return sig;
 }
 
 /** Best guess at the fields a node outputs, for field pickers before running. */

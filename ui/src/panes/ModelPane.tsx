@@ -1,17 +1,19 @@
 import { Button, Toolbar, ToolbarDivider, Tooltip } from "@fluentui/react-components";
-import { AddRegular, ArrowRedoRegular, ArrowUndoRegular, DeleteRegular, DismissRegular, EraserRegular, Play20Filled, ZoomFitRegular } from "@fluentui/react-icons";
+import { AddRegular, ArrowRedoRegular, ArrowUndoRegular, DeleteRegular, DismissRegular, EraserRegular, KeyboardRegular, Play20Filled, ZoomFitRegular } from "@fluentui/react-icons";
 import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow, type Connection, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { runModel } from "../actions";
+import { runModel, useDialog } from "../actions";
 import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
 import { AddMenu, type AddItem } from "../nodes/AddMenu";
 import { nodeTypes } from "../nodes/ModelNodes";
+import { copySelection, cutLinks, deleteSelection, duplicateSelection, invertSelection, makeLinks, paste, selectAll, toggleCollapse, toggleMute } from "../nodes/graphOps";
+import { actionFor, displayCombo, eventCombo, useKeymap, type NodeAction } from "../nodes/keymap";
 import { edgeUnder, splice } from "../nodes/splice";
 import { useProgress } from "../progress/progress";
-import { outputKind, specs, useModel, useRun } from "../store/model";
+import { beginStep, connectProblem, specs, useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
 
 let addAtCenter: ((tool: string, params?: Record<string, unknown>) => void) | null = null;
@@ -64,18 +66,7 @@ function ModelCanvas() {
     useApp.getState().setProperties({ kind: "node", id });
   };
 
-  const isValidConnection = useCallback((c: Connection | Edge) => {
-    if (c.source === c.target) return false;
-    const target = useModel.getState().nodes.find((n) => n.id === c.target);
-    const port = target && specs()[target.data.tool]?.inputs.find((p) => p.id === c.targetHandle);
-    if (!port) return false;
-    // Vector inputs need features; raster inputs need rasters; tables take anything but rasters.
-    const k = outputKind(c.source);
-    if (port.kind === "any") return true;
-    if (port.kind === "raster") return k === "raster" || k === undefined;
-    if (k === "raster") return false;
-    return port.kind === "table" || k !== "table";
-  }, []);
+  const isValidConnection = useCallback((c: Connection | Edge) => !connectProblem(c.source, c.target, c.targetHandle), []);
 
   // Tools and layers dragged in from the Geoprocessing and Contents panes.
   useEffect(() => {
@@ -150,14 +141,22 @@ function ModelCanvas() {
 
   /** Add a node; if it lands on a connection, insert it there. */
   const addAndMaybeSplice = (tool: string, pos: { x: number; y: number }, params?: Record<string, unknown>) => {
+    const end = beginStep(); // adding + inserting is one undo step
     const id = useModel.getState().addNode(tool, pos, params);
     selectNode(id);
     // Wait for React Flow to measure the new node before testing for an edge under it.
     setTimeout(() => {
-      const e = edgeUnder(id, flow.getInternalNode);
-      if (e) splice(id, e);
+      trySplice(id);
+      end();
     }, 60);
     return id;
+  };
+
+  /** Insert a free node into the connection under it, or say why not. */
+  const trySplice = (id: string) => {
+    const e = edgeUnder(id, flow.getInternalNode);
+    const problem = e && splice(id, e);
+    if (problem) useApp.getState().setStatus(`Not inserted into the connection: ${problem}.`);
   };
 
   const openMenu = (x: number, y: number) => {
@@ -174,26 +173,173 @@ function ModelCanvas() {
     addAndMaybeSplice(item.tool, at, item.params);
   };
 
-  // Shift+A opens the Add menu at the mouse (when the pointer is over the canvas).
+  // Node-editor shortcuts (keymap.ts): only while the pointer is over the
+  // canvas or focus is inside the Model pane, never while typing.
+  const dragStep = useRef<(() => void) | null>(null);
+  const grab = useRef<{ start: { x: number; y: number }; orig: Map<string, { x: number; y: number }>; end: () => void } | null>(null);
+  const suppressMenu = useRef(false);
+  const [cut, setCut] = useState<{ x: number; y: number }[] | null>(null);
+
+  const overCanvas = () => {
+    const m = mouse.current;
+    const r = wrap.current?.getBoundingClientRect();
+    return !!m && !!r && m.x >= r.left && m.x <= r.right && m.y >= r.top && m.y <= r.bottom;
+  };
+  const pointerFlow = () => {
+    const m = mouse.current;
+    const r = wrap.current!.getBoundingClientRect();
+    return flow.screenToFlowPosition(m && overCanvas() ? m : { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+  };
+
+  const startGrab = () => {
+    const sel = useModel.getState().nodes.filter((n) => n.selected);
+    if (!sel.length) return;
+    grab.current = { start: pointerFlow(), orig: new Map(sel.map((n) => [n.id, { ...n.position }])), end: beginStep() };
+    useApp.getState().setStatus("Move: click or Enter to place · Esc or right-click to cancel");
+  };
+  const endGrab = (confirm: boolean) => {
+    const g = grab.current;
+    if (!g) return;
+    grab.current = null;
+    setSpliceEdge(null);
+    if (!confirm) {
+      useModel.setState({ nodes: useModel.getState().nodes.map((n) => (g.orig.has(n.id) ? { ...n, position: g.orig.get(n.id)! } : n)) });
+    } else if (g.orig.size === 1) {
+      trySplice([...g.orig.keys()][0]);
+    }
+    g.end();
+    useApp.getState().setStatus(confirm ? "Moved" : "Move cancelled");
+  };
+
+  const runAction = (a: NodeAction) => {
+    const temporal = useModel.temporal.getState();
+    switch (a) {
+      case "add": {
+        const m = mouse.current;
+        if (m) openMenu(m.x, m.y);
+        break;
+      }
+      case "delete":
+        return deleteSelection(false);
+      case "deleteReconnect":
+        return deleteSelection(true);
+      case "duplicate":
+        if (duplicateSelection().length) startGrab();
+        return;
+      case "copy": {
+        const n = copySelection();
+        useApp.getState().setStatus(n ? `Copied ${n} node(s)` : "Nothing to copy (the Layer Input and Output can't be copied)");
+        return;
+      }
+      case "paste":
+        paste(pointerFlow());
+        return;
+      case "grab":
+        return startGrab();
+      case "selectAll":
+        return selectAll(true);
+      case "deselectAll":
+        return selectAll(false);
+      case "invertSelection":
+        return invertSelection();
+      case "mute":
+        return toggleMute();
+      case "collapse":
+        return toggleCollapse();
+      case "makeLinks":
+        makeLinks();
+        return;
+      case "frameAll":
+        return void flow.fitView({ padding: 0.2, duration: 200 });
+      case "frameSelected": {
+        const sel = useModel.getState().nodes.filter((n) => n.selected);
+        return void flow.fitView({ nodes: sel.length ? sel : undefined, padding: 0.3, duration: 200, maxZoom: 1.5 });
+      }
+      case "undo":
+        return temporal.undo();
+      case "redo":
+        return temporal.redo();
+      case "run":
+        return void runModel();
+    }
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const typing = (e.target as HTMLElement)?.closest?.("input, textarea, select, [contenteditable]");
-      if (typing || !e.shiftKey || e.key.toLowerCase() !== "a" || e.ctrlKey || e.metaKey || e.altKey) return;
-      const m = mouse.current;
-      const r = wrap.current?.getBoundingClientRect();
-      if (!m || !r || m.x < r.left || m.x > r.right || m.y < r.top || m.y > r.bottom) return;
+      if (grab.current) {
+        if (e.key === "Escape" || e.key === "Enter") {
+          e.preventDefault();
+          endGrab(e.key === "Enter");
+        }
+        return;
+      }
+      const target = e.target as HTMLElement;
+      if (target?.closest?.("input, textarea, select, [contenteditable]")) return;
+      if (document.querySelector(".addmenu, [role=dialog]")) return;
+      const inPane = !!target?.closest?.(".model");
+      if (!inPane && !overCanvas()) return;
+      if (!useModel.getState().layer) return;
+      const combo = eventCombo(e);
+      const action = combo && actionFor(useKeymap.getState().bindings, combo);
+      if (!action) return;
       e.preventDefault();
-      openMenu(m.x, m.y);
+      e.stopPropagation();
+      runAction(action);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+    const onMove = (e: MouseEvent) => {
+      const g = grab.current;
+      if (!g) return;
+      const p = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const [dx, dy] = [p.x - g.start.x, p.y - g.start.y];
+      useModel.setState({ nodes: useModel.getState().nodes.map((n) => (g.orig.has(n.id) ? { ...n, position: { x: g.orig.get(n.id)!.x + dx, y: g.orig.get(n.id)!.y + dy } } : n)) });
+      if (g.orig.size === 1) setSpliceEdge(edgeUnder([...g.orig.keys()][0], flow.getInternalNode)?.id ?? null);
+    };
+    const onDown = (e: MouseEvent) => {
+      if (!grab.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.button === 2) suppressMenu.current = true;
+      endGrab(e.button === 0);
+    };
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousedown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mousedown", onDown, true);
+    };
+  });
 
-  const deleteSelected = () => {
-    const ids = useModel.getState().nodes.filter((n) => n.selected).map((n) => n.id);
-    useModel.getState().removeNodes(ids);
-    useModel.setState({ edges: useModel.getState().edges.filter((e) => !e.selected) });
+  // Cut links: Mod + right-drag across connections (Blender's Ctrl+RMB).
+  const isMac = /Mac/.test(navigator.platform);
+  const onCutDown = (e: React.PointerEvent) => {
+    if (e.button !== 2 || !(isMac ? e.metaKey : e.ctrlKey)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressMenu.current = true;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    setCut([{ x: e.clientX, y: e.clientY }]);
   };
+  const onCutMove = (e: React.PointerEvent) => {
+    if (cut) setCut([...cut, { x: e.clientX, y: e.clientY }]);
+  };
+  const onCutUp = () => {
+    if (!cut) return;
+    const n = cutLinks(
+      cut,
+      (id) => wrap.current?.querySelector(`.react-flow__edge[data-id="${CSS.escape(id)}"] path.react-flow__edge-path`) ?? null,
+      (p, el) => {
+        const q = p.matrixTransform(el.getScreenCTM() ?? undefined);
+        return { x: q.x, y: q.y };
+      },
+    );
+    setCut(null);
+    if (n) useApp.getState().setStatus(`Cut ${n} connection(s)`);
+  };
+
+  const bindings = useKeymap((s) => s.bindings);
+  const keys = (a: NodeAction) => (bindings[a][0] ? ` (${displayCombo(bindings[a][0])})` : "");
 
   const hasErrors = Object.values(results).some((r) => r.status === "error");
 
@@ -214,7 +360,7 @@ function ModelCanvas() {
             </Button>
           </Tooltip>
         )}
-        <Tooltip content="Add a node (Shift+A over the canvas, or right-click)" relationship="label">
+        <Tooltip content={`Add a node${keys("add")} — or right-click the canvas`} relationship="label">
           <Button
             size="small"
             appearance="subtle"
@@ -229,16 +375,16 @@ function ModelCanvas() {
           </Button>
         </Tooltip>
         <ToolbarDivider />
-        <Tooltip content="Undo (Ctrl+Z)" relationship="label">
+        <Tooltip content={`Undo${keys("undo")}`} relationship="label">
           <Button size="small" appearance="subtle" icon={<ArrowUndoRegular />} disabled={!canUndo} onClick={() => temporal.getState().undo()} />
         </Tooltip>
-        <Tooltip content="Redo (Ctrl+Y)" relationship="label">
+        <Tooltip content={`Redo${keys("redo")}`} relationship="label">
           <Button size="small" appearance="subtle" icon={<ArrowRedoRegular />} disabled={!canRedo} onClick={() => temporal.getState().redo()} />
         </Tooltip>
-        <Tooltip content="Delete selected" relationship="label">
-          <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={deleteSelected} />
+        <Tooltip content={`Delete selected${keys("delete")}`} relationship="label">
+          <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => deleteSelection(false)} />
         </Tooltip>
-        <Tooltip content="Fit to window" relationship="label">
+        <Tooltip content={`Fit to window${keys("frameAll")}`} relationship="label">
           <Button size="small" appearance="subtle" icon={<ZoomFitRegular />} onClick={() => flow.fitView({ padding: 0.2 })} />
         </Tooltip>
         <Tooltip content="Clear cached results (forces a full re-run)" relationship="label">
@@ -253,13 +399,29 @@ function ModelCanvas() {
             }}
           />
         </Tooltip>
+        <Tooltip content="Node editor keyboard shortcuts — view and change them" relationship="label">
+          <Button size="small" appearance="subtle" icon={<KeyboardRegular />} onClick={() => useDialog.getState().show({ kind: "nodeShortcuts" })} />
+        </Tooltip>
         <span className="model-hint">
           {hasErrors
               ? "Some steps failed — select a red step to see the error in Properties."
               : ""}
         </span>
       </Toolbar>
-      <div className="model-canvas" ref={wrap} data-drop="model" onMouseMove={(e) => (mouse.current = { x: e.clientX, y: e.clientY })}>
+      <div
+        className="model-canvas"
+        ref={wrap}
+        data-drop="model"
+        onMouseMove={(e) => (mouse.current = { x: e.clientX, y: e.clientY })}
+        onPointerDownCapture={onCutDown}
+        onPointerMove={onCutMove}
+        onPointerUp={onCutUp}
+      >
+        {cut && cut.length > 1 && (
+          <svg className="cut-line">
+            <polyline points={cut.map((p) => `${p.x - (wrap.current?.getBoundingClientRect().left ?? 0)},${p.y - (wrap.current?.getBoundingClientRect().top ?? 0)}`).join(" ")} />
+          </svg>
+        )}
         {!treeLayer && (
           <div className="model-empty">
             <div>
@@ -287,21 +449,24 @@ function ModelCanvas() {
           onConnect={useModel.getState().connect}
           isValidConnection={isValidConnection}
           onNodeClick={(_, n) => useApp.getState().setProperties({ kind: "node", id: n.id })}
-          onNodeDragStart={() => temporal.getState().pause()}
+          onNodeDragStart={() => (dragStep.current = beginStep())}
           onNodeDrag={(_, n) => setSpliceEdge(edgeUnder(n.id, flow.getInternalNode)?.id ?? null)}
           onNodeDragStop={(_, n) => {
-            temporal.getState().resume();
-            const e = edgeUnder(n.id, flow.getInternalNode);
             setSpliceEdge(null);
-            if (e) splice(n.id, e);
-            else useModel.setState({ nodes: [...useModel.getState().nodes] });
+            trySplice(n.id);
+            dragStep.current?.(); // the move (and any insert) is one undo step
+            dragStep.current = null;
           }}
           onPaneContextMenu={(e) => {
             e.preventDefault();
+            if (suppressMenu.current) {
+              suppressMenu.current = false;
+              return;
+            }
             openMenu(e.clientX, e.clientY);
           }}
           onPaneClick={() => useApp.getState().properties?.kind === "node" && useApp.getState().setProperties(null)}
-          deleteKeyCode={["Delete", "Backspace"]}
+          deleteKeyCode={null}
           defaultEdgeOptions={{ type: "smoothstep" }}
           minZoom={0.2}
         >

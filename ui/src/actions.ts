@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
-import { graphPayload, useModel, useRun, type Tree } from "./store/model";
+import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle } from "./store/store";
 
 // ---------- dialogs ----------
@@ -26,7 +26,8 @@ export type DialogState =
   | { kind: "export"; owner: string }
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
-  | { kind: "nationalMap" };
+  | { kind: "nationalMap" }
+  | { kind: "nodeShortcuts" };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,
@@ -225,6 +226,9 @@ export async function runModel(target?: string) {
     return;
   }
   const graph = graphPayload();
+  // Each node's state as sent, to mark later edits as "changed since last run".
+  const memo = new Map<string, string>();
+  const sigs = Object.fromEntries(useModel.getState().nodes.map((n) => [n.id, nodeSignature(n.id, memo)]));
   run.set({ running: true, results: target ? run.results : {} });
   const t0 = performance.now();
   const res = await busy(target ? "Running to selected step" : "Running model", () => api.runGraph(graph, target));
@@ -234,6 +238,8 @@ export async function runModel(target?: string) {
     run.setResult(r);
     if (r.layer) useApp.getState().updateLayer(r.layer);
   }
+  const ok = res.filter((r) => r.status === "done" || r.status === "cached").map((r) => [r.id, sigs[r.id]]);
+  useRun.setState((s) => ({ ranSig: { ...s.ranSig, ...Object.fromEntries(ok) } }));
   const errors = res.filter((r) => r.status === "error");
   if (res.some((r) => r.status === "cancelled")) {
     status(`Model run cancelled. ${useApp.getState().layers[owner]?.name ?? "The layer"} still shows its last result.`);

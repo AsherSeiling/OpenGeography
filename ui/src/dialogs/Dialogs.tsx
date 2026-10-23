@@ -25,6 +25,7 @@ import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, 
 import { STATES } from "./TigerDialog";
 import { api, errorText } from "../ipc/api";
 import { ElevationDialog } from "./ElevationDialog";
+import { ShortcutsDialog } from "../nodes/ShortcutsDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
 import { ExportDialog } from "./ExportDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
@@ -67,6 +68,8 @@ export function Dialogs() {
       return <ElevationDialog onClose={close} />;
     case "nationalMap":
       return <NationalMapDialog onClose={close} />;
+    case "nodeShortcuts":
+      return <ShortcutsDialog onClose={close} />;
     case "nodeQuery":
       return <NodeQueryDialog nodeId={dialog.nodeId} param={dialog.param} onClose={close} />;
   }

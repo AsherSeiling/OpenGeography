@@ -5,7 +5,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
 import { saveResultAsLayer } from "../actions";
 import type { NodeResult } from "../ipc/api";
-import { useRun, type ModelNode } from "../store/model";
+import { nodeSignature, useModel, useRun, type ModelNode } from "../store/model";
 import { useApp } from "../store/store";
 import { ParamControl } from "./ParamControl";
 
@@ -27,9 +27,20 @@ function Badge({ r }: { r?: NodeResult }) {
   }
 }
 
+/** True when the node (or anything upstream) changed since it last ran successfully. */
+function useChanged(id: string): boolean {
+  const ran = useRun((s) => s.ranSig[id]);
+  // Re-evaluate whenever the tree or the layers change.
+  useModel((s) => s.nodes);
+  useModel((s) => s.edges);
+  useApp((s) => s.layers);
+  return !!ran && nodeSignature(id) !== ran;
+}
+
 function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "data" | "tool" | "output" }) {
   const r = useRun((s) => s.results[id]);
   const spec = useRun((s) => s.specs[data.tool]);
+  const changed = useChanged(id);
   if (!spec) return <div className="bnode">{data.tool}</div>;
   const ok = r?.status === "done" || r?.status === "cached";
   const outLabel = spec.output === "vector" || kind === "data" ? "Features" : "Result";
@@ -37,9 +48,11 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
   const params = spec.params.filter((p) => !p.hidden && !(fixedInput && p.id === "layer"));
   const title = fixedInput ? "Layer Input" : kind === "data" ? "Layer" : spec.name;
   return (
-    <div className={`bnode ${kind} ${data.fixed ? "fixed" : ""} ${selected ? "selected" : ""} ${r?.status ?? ""}`}>
+    <div className={`bnode ${kind} ${data.fixed ? "fixed" : ""} ${selected ? "selected" : ""} ${r?.status ?? ""} ${data.muted ? "muted" : ""} ${data.collapsed ? "collapsed" : ""}`}>
       <div className="bnode-head">
         <span className="bnode-title">{title}</span>
+        {data.muted && <span className="bnode-tag" title="Muted (M): bypassed — its first input passes straight through">muted</span>}
+        {changed && !data.muted && <span className="bnode-changed" title="Changed since the last run — run the tree to update" />}
         <Badge r={r} />
       </div>
       {fixedInput && <LayerName id={String(data.params.layer ?? "")} />}
@@ -52,7 +65,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
         </div>
       )}
 
-      {params.length > 0 && (
+      {params.length > 0 && !data.collapsed && (
         <div className="bnode-params nodrag nowheel">
           {params.map((p) => (
             <ParamControl key={p.id} nodeId={id} param={p} value={data.params[p.id]} compact />
@@ -67,7 +80,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
         </div>
       ))}
 
-      {data.tool === "layer_output" && <OutputControls owner={String(data.params.layer ?? "")} />}
+      {data.tool === "layer_output" && !data.collapsed && <OutputControls owner={String(data.params.layer ?? "")} status={r?.status} changed={changed} />}
 
       {r?.reprojected && (
         <div className="bnode-note" title="An input was reprojected to match the first input's coordinate system">
@@ -89,9 +102,16 @@ function LayerName({ id }: { id: string }) {
 }
 
 /** The layer's Output: show the result in place of the original, or save it as a new layer. */
-function OutputControls({ owner }: { owner: string }) {
+function OutputControls({ owner, status, changed }: { owner: string; status?: string; changed: boolean }) {
   const result = useApp((s) => s.results[owner]);
   const showOriginal = useApp((s) => !!s.showOriginal[owner]);
+  // Never present an old result as current.
+  const stale =
+    result && (status === "error" || status === "skipped" || status === "cancelled")
+      ? "The last run didn't finish — the map shows the previous result."
+      : result && changed
+        ? "The tree changed since this result was made — run to update."
+        : null;
   return (
     <div className="bnode-params nodrag nowheel">
       <label className="bparam check" title="Draw the node result in place of the original data. The original is never changed.">
@@ -102,6 +122,7 @@ function OutputControls({ owner }: { owner: string }) {
         Save as new layer…
       </button>
       {result && <div className="bnode-layer">{result.featureCount.toLocaleString()} features in result</div>}
+      {stale && <div className="bnode-stale">{stale}</div>}
     </div>
   );
 }
