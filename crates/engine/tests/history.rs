@@ -193,6 +193,10 @@ fn h13_node_rows_page_stably_for_tables_and_layer_input_views() {
             sorted.sort();
             sorted.dedup();
             assert_eq!(sorted.len(), 5000, "positions are distinct");
+            if sort.is_none() {
+                assert!(whole.fids.windows(2).all(|w| w[0] < w[1]), "unsorted positions increase ({t})");
+                assert_eq!(whole.fids[0], 0);
+            }
             // The view and the table (a copy of it) agree on content.
         }
     }

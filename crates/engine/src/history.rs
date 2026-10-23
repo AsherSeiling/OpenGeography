@@ -155,8 +155,11 @@ pub fn node_rows(conn: &Connection, table: &str, q: &RowsQuery) -> Result<RowsPa
     let limit = q.limit.clamp(1, 5000);
     let (source, pos, order) = match (is_view, &sort) {
         (false, _) => (format!("(SELECT rowid AS __pos, * FROM {t})"), "__pos", format!("ORDER BY {}__pos", sort.as_ref().map(|s| format!("{s}, ")).unwrap_or_default())),
-        (true, Some(s)) => (format!("(SELECT row_number() OVER () - 1 AS __pos, * FROM {t})"), "__pos", format!("ORDER BY {s}, __pos")),
-        (true, None) => (format!("(SELECT 0::BIGINT AS __pos, * FROM {t})"), "__pos", String::new()),
+        (true, s) => (
+            format!("(SELECT row_number() OVER () - 1 AS __pos, * FROM {t})"),
+            "__pos",
+            format!("ORDER BY {}__pos", s.as_ref().map(|s| format!("{s}, ")).unwrap_or_default()),
+        ),
     };
     let total: i64 = conn.query_row(&format!("SELECT count(*) FROM {source} {w}"), [], |r| r.get(0))?;
     let select = if select_cols.is_empty() { pos.to_string() } else { format!("{pos}, {}", select_cols.join(", ")) };
@@ -165,8 +168,7 @@ pub fn node_rows(conn: &Connection, table: &str, q: &RowsQuery) -> Result<RowsPa
     let (mut fids, mut rows) = (Vec::new(), Vec::new());
     let mut it = stmt.query([])?;
     while let Some(r) = it.next()? {
-        // Unsorted view pages carry no position column; number them by offset.
-        fids.push(if is_view && sort.is_none() { (q.offset + fids.len()) as i64 } else { r.get::<_, i64>(0)? });
+        fids.push(r.get::<_, i64>(0)?);
         let mut row = Vec::with_capacity(n);
         for i in 0..n {
             row.push(r.get::<_, Option<String>>(i + 1)?);
