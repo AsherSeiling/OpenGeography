@@ -85,6 +85,32 @@ export interface SourceEntry {
   uses: { layerId: string; layerName: string; at: string }[];
 }
 
+/** File manager (Catalog pane). */
+export interface FsEntry {
+  name: string;
+  path: string;
+  kind: "folder" | "project" | "gdb" | "vector" | "raster" | "table" | "archive" | "file";
+  size: number | null;
+  modified: number | null;
+}
+export interface FsListing {
+  path: string;
+  parent: string | null;
+  entries: FsEntry[];
+}
+export interface FsRoot {
+  name: string;
+  path: string;
+  kind: "home" | "desktop" | "documents" | "downloads" | "drive" | "volume";
+}
+export interface FsDetails {
+  kind: string;
+  driver: string;
+  layers: { name: string; geometry: string; features: number; crs: string | null }[];
+  raster: [number, number, number] | null;
+  crs: string | null;
+}
+
 export type FieldType = "text" | "integer" | "double" | "date" | "boolean";
 
 export interface Field {
@@ -187,6 +213,9 @@ export const api = {
   removeLayer: (id: string) => invoke<void>("remove_layer", { id }),
   renameLayer: (id: string, name: string) => invoke<LayerInfo>("rename_layer", { id, name }),
   progress: () => invoke<TaskInfo[]>("progress"),
+  fsRoots: () => invoke<FsRoot[]>("fs_roots"),
+  fsList: (path: string) => invoke<FsListing>("fs_list", { path }),
+  fsInspect: (path: string) => invoke<FsDetails>("fs_inspect", { path }),
   sources: () => invoke<SourceEntry[]>("sources"),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
   removeSource: (key: string) => invoke<void>("remove_source", { key }),

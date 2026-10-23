@@ -4,7 +4,7 @@ _Updated 2026-10-23. Read this first; the roadmap is `docs/ROADMAP.md`._
 
 ## State
 - Branch `main`, pushed to https://github.com/AsherSeiling/OpenGeography (public). Untracked: `.claude/` (local launch config — don't commit), `PROJECT_SUMMARY.md` (superseded by this file and the roadmap).
-- macOS arm64 built and tested locally. CI runs on every push; Windows/Linux not green yet — see `docs/CI_LOG.md`.
+- macOS arm64 built and tested locally. CI is green on macOS, Linux and Windows (build, tests, installers, clean self-test) — see `docs/CI_LOG.md`.
 - CI logs need a GitHub login; without one, read failures from the run's annotations (`scripts/ci-run.sh` publishes key output lines) and job summaries.
 
 ## Build and test status (macOS arm64, 2026-10-23)
@@ -37,11 +37,10 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **GDAL bindings** generated at build time (`bindgen` feature) — needed for GDAL 3.13; requires libclang.
 
 ## Next tasks (in order)
-1. File manager — a Catalog pane (user asked for it "as soon as you can").
-2. Get Windows CI green (macOS and Linux pass; see docs/CI_LOG.md).
-3. Attribute history between nodes ("git for tables"; see roadmap).
-4. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
-5. GPL-free GDAL for the installer; Census data join.
+1. Attribute history between nodes ("git for tables"; see roadmap).
+2. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
+3. GPL-free GDAL for the installer.
+4. Census data join.
 
 ## Exact next action
-Build the file manager (Catalog pane): browse folders, list GIS files with type icons, add/drag to the map or model; folder connections saved with the project. Check the latest CI run first and log it in docs/CI_LOG.md.
+Attribute history between nodes: persist each node's output table as a versioned snapshot and let the Attribute Table switch between the Output (default) and earlier nodes, with a diff. Check the latest CI run first and log it in docs/CI_LOG.md.

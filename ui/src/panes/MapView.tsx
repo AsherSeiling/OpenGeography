@@ -5,6 +5,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { api, errorText, tileUrl } from "../ipc/api";
+import { addData } from "../actions";
+import type { DropDetail } from "../dnd";
 import { setMap } from "../map/mapController";
 import { BASEMAPS, buildLayers, layerIds, styleFields } from "../map/style";
 import { displayInfo, drawableLayerIds, ownerOf, useApp } from "../store/store";
@@ -35,6 +37,18 @@ interface IdentifyResult {
 
 export function MapView() {
   const el = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // Datasets dragged from the Catalog pane are added to the map.
+  useEffect(() => {
+    const w = wrapRef.current;
+    if (!w) return;
+    const onDrop = (e: Event) => {
+      const { payload } = (e as CustomEvent<DropDetail>).detail;
+      if (payload.kind === "file") void addData([payload.id]);
+    };
+    w.addEventListener("gis-drop", onDrop);
+    return () => w.removeEventListener("gis-drop", onDrop);
+  }, []);
   const mapRef = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
   const [identify, setIdentify] = useState<IdentifyResult | null>(null);
@@ -330,7 +344,7 @@ export function MapView() {
   };
 
   return (
-    <div className="map-wrap" onMouseDown={onMouseDown}>
+    <div className="map-wrap" onMouseDown={onMouseDown} data-drop="map" ref={wrapRef}>
       <div ref={el} className="map" />
       {box && (
         <div

@@ -1,3 +1,4 @@
+import { addData } from "../actions";
 import { Menu, MenuDivider, MenuItem, MenuList, MenuPopover, Tooltip } from "@fluentui/react-components";
 import {
   ArrowExportRegular,
@@ -78,6 +79,7 @@ export function ContentsPane() {
     if (!el) return;
     const onDrop = (e: Event) => {
       const { payload } = (e as CustomEvent<DropDetail>).detail;
+      if (payload.kind === "file") return void addData([payload.id]);
       const row = (e.target as HTMLElement).closest("[data-index]") as HTMLElement | null;
       if (payload.kind !== "layer" || !row) return;
       const to = Number(row.dataset.index);
@@ -97,7 +99,7 @@ export function ContentsPane() {
   return (
     <div className="contents" onClick={() => setMenu(null)}>
       <div className="contents-head">Drawing Order</div>
-      <div className="tree" ref={treeRef}>
+      <div className="tree" ref={treeRef} data-drop="contents">
         <div className="tree-map" onClick={pickMapCrs} title="Click to change the map's coordinate system">
           <MapRegular />
           <span>Map</span>

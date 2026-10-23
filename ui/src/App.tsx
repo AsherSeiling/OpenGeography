@@ -14,6 +14,7 @@ import { ContentsPane } from "./panes/ContentsPane";
 import { MapView } from "./panes/MapView";
 import { ModelPane } from "./panes/ModelPane";
 import { defaultLayout, setDock, type PaneId } from "./panes/panes";
+import { CatalogPane } from "./panes/CatalogPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
 import { SourcesPane } from "./panes/SourcesPane";
 import { ToolsPane } from "./panes/ToolsPane";
@@ -40,6 +41,7 @@ const officeDark: Theme = { ...webDarkTheme, fontFamilyBase: officeLight.fontFam
 
 const components: Record<PaneId, React.FunctionComponent<IDockviewPanelProps>> = {
   contents: () => <ContentsPane />,
+  catalog: () => <CatalogPane />,
   map: () => <MapView />,
   table: () => <AttributeTable />,
   model: () => <ModelPane />,

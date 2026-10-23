@@ -2,10 +2,11 @@
 // floated; View → Reset Panes restores this default.
 import type { DockviewApi } from "dockview-react";
 
-export type PaneId = "contents" | "map" | "table" | "model" | "properties" | "tools" | "sources";
+export type PaneId = "contents" | "catalog" | "map" | "table" | "model" | "properties" | "tools" | "sources";
 
 export const PANE_TITLES: Record<PaneId, string> = {
   contents: "Contents",
+  catalog: "Catalog",
   map: "Map",
   table: "Attribute Table",
   model: "Model",
@@ -40,8 +41,10 @@ export function defaultLayout() {
   add("model", { referencePanel: "map", direction: "below" });
   add("table", { referencePanel: "model", direction: "within" }); // tabs: Model | Attribute Table
   add("contents", { direction: "left" }); // whole-height column on the far left
+  add("catalog", { referencePanel: "contents", direction: "within" }); // tabs: Contents | Catalog
   add("properties", { direction: "right" }); // whole-height column on the far right
   add("tools", { referencePanel: "properties", direction: "within" });
+  dock.getPanel("contents")?.api.setActive();
   dock.getPanel("properties")?.api.setActive();
   dock.getPanel("model")?.api.setActive();
   dock.getPanel("map")?.api.setActive();
@@ -78,6 +81,7 @@ export function showPane(id: PaneId) {
   const anchor: Record<PaneId, Parameters<DockviewApi["addPanel"]>[0]["position"]> = {
     map: undefined,
     contents: { direction: "left" },
+    catalog: dock.getPanel("contents") ? { referencePanel: "contents", direction: "within" } : { direction: "left" },
     properties: { direction: "right" },
     tools: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : undefined,
     sources: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : { direction: "right" },

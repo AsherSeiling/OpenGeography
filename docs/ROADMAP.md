@@ -15,7 +15,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Definition queries (GUI + Python→SQL), selection, export selection | ✅ | |
 | Projects (.gproj = project.json + project.duckdb) | 🟡 | rasters live in an app-wide store outside the project (not portable); local file sources are absolute paths |
 | TIGER / National Map vector / 3DEP downloads | ✅ | TIGER by year (2010–current, sorted); network tests ignored by default |
-| File manager (Catalog pane: browse folders/GIS files, drag to map or model, folder connections) | ⬜ | **next** (requested 2026-10-23) |
+| File manager (Catalog pane: browse folders/GIS files, drag to map or model, folder connections) | ✅ | GIS-aware listing (shapefile sidecars hidden, .gdb/.gproj as items), GDAL details, drag to map/Contents/node editor |
 | Public data toolkit (Living Atlas–style) | ⬜ | plan and dataset list in `docs/PUBLIC_DATA_CATALOG.md` |
 | Sources & citations (annotated bibliography, BibTeX) | ✅ | model results cite every upstream input |
 | Census data join (ACS / 2020) + keychain key | ⬜ | |

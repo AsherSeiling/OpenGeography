@@ -57,14 +57,15 @@ const DATA_FILTERS = [
   { name: "All files", extensions: ["*"] },
 ];
 
-export async function addData(paths?: string[]) {
+/** Add files as layers (asks for them if not given); returns the new layers. */
+export async function addData(paths?: string[]): Promise<LayerInfo[]> {
   if (!paths) {
     const picked = await open({ multiple: true, title: "Add Data", filters: DATA_FILTERS });
-    if (!picked) return;
+    if (!picked) return [];
     paths = Array.isArray(picked) ? picked : [picked];
   }
   const infos = await busy(`Adding ${paths.length} file(s)`, () => api.importFiles(paths!));
-  if (!infos) return;
+  if (!infos) return [];
   const hadLayers = useApp.getState().order.length > 0;
   useApp.getState().addLayers(infos);
   const noCrs = infos.filter((i) => i.geomType !== "Table" && !i.crs);
@@ -75,6 +76,7 @@ export async function addData(paths?: string[]) {
   );
   if (!hadLayers) zoomToExtent(infos.find((i) => i.extent)?.extent ?? null);
   if (noCrs.length) useDialog.getState().show({ kind: "defineProjection", layer: noCrs[0].id });
+  return infos;
 }
 
 const shown = (id: string) => displayInfo(useApp.getState(), id);
@@ -357,8 +359,8 @@ export async function exportBibliography(folder: string): Promise<number> {
   }
 }
 
-export async function openProject() {
-  const picked = await open({ title: "Open Project", directory: true });
+export async function openProject(path?: string) {
+  const picked = path ?? (await open({ title: "Open Project", directory: true }));
   if (!picked || Array.isArray(picked)) return;
   const res = await busy("Opening project", () => api.openProject(picked));
   if (!res) return;

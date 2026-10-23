@@ -4,7 +4,7 @@ import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow, type 
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { runModel, useDialog } from "../actions";
+import { addData, runModel, useDialog } from "../actions";
 import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
 import { AddMenu, type AddItem } from "../nodes/AddMenu";
@@ -79,6 +79,13 @@ function ModelCanvas() {
       if (!owner) return;
       if (payload.kind === "tool") {
         addAndMaybeSplice(payload.id, pos);
+        return;
+      }
+      if (payload.kind === "file") {
+        // A dataset from the Catalog: add it as a layer, then as a Layer input here.
+        void addData([payload.id]).then((infos) => {
+          if (infos[0] && useModel.getState().layer === owner) selectNode(useModel.getState().addNode("input_layer", pos, { layer: infos[0].id }));
+        });
         return;
       }
       if (payload.id === owner) return;

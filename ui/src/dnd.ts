@@ -5,7 +5,11 @@
 // Drop targets mark themselves with `data-drop="<kind>"` and listen for the
 // "gis-drop" event, whose detail is a DropDetail.
 
-export type DragPayload = { kind: "tool"; id: string; label: string } | { kind: "layer"; id: string; label: string };
+export type DragPayload =
+  | { kind: "tool"; id: string; label: string }
+  | { kind: "layer"; id: string; label: string }
+  /** A file or dataset from the Catalog pane; `id` is its path. */
+  | { kind: "file"; id: string; label: string };
 
 export interface DropDetail {
   payload: DragPayload;
