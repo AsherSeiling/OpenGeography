@@ -21,20 +21,20 @@ jobs:
   macos:
     runs-on: macos-14 # Apple Silicon
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - run: brew install gdal duckdb dylibbundler
       - run: npm ci
       - run: npm test
-      - run: cargo test -p engine --release
+      - run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - name: Map performance gate
         run: cargo run --release -p engine --bin bench_tiles -- 300000 2000000
       - run: scripts/package-macos.sh
       - name: Self-test the packaged app (no Homebrew paths, empty home)
         run: |
-          env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin \
+          scripts/ci-run.sh "Self-test" env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin \
             "target/release/bundle/macos/GIS Studio.app/Contents/MacOS/gis-studio" --self-test
       - uses: actions/upload-artifact@v4
         with:
@@ -44,9 +44,9 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - name: System packages (Tauri + GDAL)
         run: |
@@ -63,7 +63,7 @@ jobs:
           rm -f .cargo/config.toml
       - run: npm ci
       - run: npm test
-      - run: cargo test -p engine --release
+      - run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - run: scripts/stage-resources.sh linux_amd64
       # The AppImage bundler copies every linked shared library (GDAL, PROJ,
       # GEOS, libduckdb, …) into the image.
@@ -72,7 +72,7 @@ jobs:
         run: |
           APPIMAGE=$(ls target/release/bundle/appimage/*.AppImage | head -1)
           chmod +x "$APPIMAGE"
-          env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin "$APPIMAGE" --appimage-extract-and-run --self-test
+          scripts/ci-run.sh "Self-test" env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin "$APPIMAGE" --appimage-extract-and-run --self-test
       - uses: actions/upload-artifact@v4
         with:
           name: gis-studio-linux
@@ -86,9 +86,9 @@ jobs:
       run:
         shell: bash -el {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       # GDAL + PROJ from conda-forge (headers, import libs and DLLs).
       - uses: conda-incubator/setup-miniconda@v3
@@ -110,7 +110,7 @@ jobs:
           rm -f .cargo/config.toml
       - run: npm ci
       - run: npm test
-      - run: cargo test -p engine --release
+      - run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - name: Stage resources and the DLLs the app needs next to its exe
         run: |
           GDAL_DATA_SRC="$CONDA_PREFIX/Library/share/gdal" PROJ_DATA_SRC="$CONDA_PREFIX/Library/share/proj" \
@@ -128,7 +128,7 @@ jobs:
           PY
       - run: npx tauri build --bundles nsis,msi
       - name: Self-test the built app
-        run: ./target/release/gis-studio.exe --self-test
+        run: scripts/ci-run.sh "Self-test" ./target/release/gis-studio.exe --self-test
       - uses: actions/upload-artifact@v4
         with:
           name: gis-studio-windows
