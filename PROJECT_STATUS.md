@@ -14,7 +14,7 @@ _Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`
 | `npx vitest run` | 57/57 pass |
 | `cargo test -p engine` | 35 + 8 (history) integration + 7 unit pass (4 network tests + H14 ignored) |
 | `cargo build -p gis-studio` | pass, 0 warnings |
-| Packaged app `--self-test` (clean env) | pass (rebuilt 2026-10-23 09:31 with node shortcuts) |
+| Packaged app `--self-test` (clean env) | pass (rebuilt 2026-10-23 after B2.3, closes Phase B; 187 libs, DMG 96 MB; first `package-macos.sh` attempt failed once in dylibbundler on libabsl_time, retry passed) |
 | Browser check (devserver + vite) | model Cancel from toolbar stops a 3M-feature run in ~0.1 s |
 
 ## Completed milestones
@@ -48,4 +48,4 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 3. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-Build **C2.1** (layout renderer core; prompt 1 in `docs/NEXT_SESSION_PROMPT.md`; it adds bundled crates and fonts, so it ends with an OPUS NEEDED licence review). Before that, the orchestrator rebuilds the Mac app (`scripts/package-macos.sh`, `--self-test`) once to close Phase B. Meanwhile A3: you check the Windows and Linux installers on real machines, then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`).
+Build **C2.1** (layout renderer core; prompt 1 in `docs/NEXT_SESSION_PROMPT.md`; it adds bundled crates and fonts, so it ends with an OPUS NEEDED licence review). Meanwhile A3: you check the Windows and Linux installers on real machines, then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`).
