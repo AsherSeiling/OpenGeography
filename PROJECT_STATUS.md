@@ -3,41 +3,45 @@
 _Updated 2026-10-23. Read this first; the roadmap is `docs/ROADMAP.md`._
 
 ## State
-- Branch `main`. Working tree clean apart from untracked `.claude/` (local launch config — don't commit) and `PROJECT_SUMMARY.md` (long-form summary written for a prompt generator; superseded by this file and the roadmap).
-- macOS arm64 is the only platform built and tested. Windows/Linux CI jobs exist but have never run (no git remote).
+- Branch `main`, pushed to https://github.com/AsherSeiling/OpenGeography (public). Untracked: `.claude/` (local launch config — don't commit), `PROJECT_SUMMARY.md` (superseded by this file and the roadmap).
+- macOS arm64 built and tested locally. CI runs on every push; Windows/Linux not green yet — see `docs/CI_LOG.md`.
+- CI logs need a GitHub login; without one, read failures from the run's annotations (`scripts/ci-run.sh` publishes key output lines) and job summaries.
 
 ## Build and test status (macOS arm64, 2026-10-23)
 | Check | Result |
 |---|---|
 | `npx tsc` | pass |
-| `npx vitest run` | 34/34 pass |
-| `cargo test -p engine` | 20/20 pass (4 network tests ignored) |
+| `npx vitest run` | 44/44 pass |
+| `cargo test -p engine` | 22/22 pass (4 network tests ignored) |
 | `cargo build -p gis-studio` | pass, 0 warnings |
-| Packaged app `--self-test` (clean env) | pass (2026-10-22 build; not rebuilt since — no native changes) |
+| Packaged app `--self-test` (clean env) | pass (rebuilt 2026-10-23 09:31 with node shortcuts) |
 | Browser check (devserver + vite) | model Cancel from toolbar stops a 3M-feature run in ~0.1 s |
 
 ## Completed milestones
 Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet editing · definition queries · rasters + 3DEP · 48 native tools · self-contained macOS installer · geodesic measuring + resection/intersection · National Map downloads · progress bars + cancel for downloads · sources & citations · third-party notices.
 
 ## Known issues / technical debt
-1. Geodesic per-feature tools (buffer, near, join by nearest) build a PROJ transform per row (~50 µs–1.5 ms/feature): slow on big layers, and Cancel only lands between DuckDB work units (~100k rows/thread), so it can take seconds there. GDAL raster steps can't be interrupted mid-step.
-2. Splice (drop onto connection) is two undo steps and doesn't check the new node's output against the downstream port.
-3. No "changed since last run" marker; a failed run leaves the previous result shown without saying it's stale.
-4. Trees referencing a deleted layer aren't flagged until run.
-5. Model results inherit citations only from the owning layer.
-6. GPL-only libraries (poppler, x265, librttopo) in the macOS package.
-7. Projects with rasters aren't portable (rasters in a per-user store).
-8. `store/model.ts::outputFields` duplicates per-tool knowledge (can drift from the registry).
+1. Cancel lands between DuckDB work units (~100k rows/thread); GDAL raster steps can't be interrupted mid-step.
+2. Trees referencing a deleted layer aren't flagged until run.
+3. Typing in a node parameter makes one undo step per keystroke.
+4. GPL-only libraries (poppler, x265, librttopo) in the macOS package.
+5. Projects with rasters aren't portable (rasters in a per-user store).
+6. `store/model.ts::outputFields` duplicates per-tool knowledge (can drift from the registry).
 
 ## Recent decisions
 - 2026-10-23 **Model-run cancellation** (done): Cancel on the Model toolbar and status bar. A watcher thread calls DuckDB `interrupt()` repeatedly until the run returns (DuckDB clears the flag at each query start, so a single interrupt can miss); the executor checks before each step and marks remaining steps `cancelled`. Result writes (`set_result`, `upsert_layer`) run in one transaction, so a cancelled/failed write keeps the previous result (a test proves the layer corrupts without it). Run tasks are labelled "Running model — <layer>".
 
+- 2026-10-23 **Node editor**: Blender keys only over the editor (`nodes/keymap.ts`, rebindable in the Shortcuts dialog, saved in browser storage); one-step, type-checked inserts; changed/stale markers; mute = bypass in `graphPayload`.
+- 2026-10-23 **Provenance**: Output/Add to Map record the sources of every upstream Layer input (same transaction as the result).
+- 2026-10-23 **Geodesic speed**: aeqd centers snap to 0.25° (~30× faster; < 0.1 m error on 50 km buffers in tests).
+- 2026-10-23 **GDAL bindings** generated at build time (`bindgen` feature) — needed for GDAL 3.13; requires libclang.
+
 ## Next tasks (in order)
-1. Push to a GitHub remote and get the Windows/Linux CI jobs green (needs the user's repository).
+1. Get the Windows and Linux CI jobs green (in progress; see docs/CI_LOG.md).
 2. GPL-free GDAL for the installer.
-3. Splice as one undo step + downstream type check; stale-result marker.
-4. Provenance from all model inputs.
-5. Faster geodesic per-feature tools (group features by rounded projection center), which also makes Cancel prompt for them.
+3. Flag trees that reference deleted layers.
+4. Group a node-parameter edit into one undo step.
+5. Census data join.
 
 ## Exact next action
-Ask the user for a GitHub repository (or permission to create one) to push `main` to, so `.github/workflows/build.yml` runs on Windows and Linux; then fix whatever those jobs report.
+Read the latest CI run's annotations/summaries, fix the next failure, log it in docs/CI_LOG.md, push.
