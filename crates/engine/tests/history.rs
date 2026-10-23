@@ -256,13 +256,14 @@ fn h15_diff_runs_as_a_cancellable_task_and_cancel_stops_it() {
     let canceller = std::thread::spawn(|| {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
         loop {
-            if let Some(t) = engine::progress::snapshot().into_iter().find(|t| t.label == "Comparing tables") {
-                assert!(t.cancellable);
+            // `Task::start(..).cancellable()` registers the task, then sets the
+            // flag: wait for both, or this poll can land in between.
+            if let Some(t) = engine::progress::snapshot().into_iter().find(|t| t.label == "Comparing tables" && t.cancellable) {
                 std::thread::sleep(std::time::Duration::from_millis(300)); // let the join start
                 engine::progress::cancel(t.id);
                 return std::time::Instant::now();
             }
-            assert!(std::time::Instant::now() < deadline, "no Comparing tables task appeared");
+            assert!(std::time::Instant::now() < deadline, "no cancellable Comparing tables task appeared");
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
     });
