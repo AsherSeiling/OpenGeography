@@ -148,6 +148,8 @@ jobs:
         with:
           miniforge-version: latest
           activate-environment: gdal
+          channels: conda-forge
+          conda-remove-defaults: "true"
       - run: conda install -y -c conda-forge "libgdal-core=3.12" proj
       - name: Point the build at conda's GDAL and a prebuilt libduckdb
         run: |
