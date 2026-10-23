@@ -35,10 +35,10 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **Catalog pane** (file manager) with a "This project" view; TIGER downloads by year; bibliography auto-export (APA/MLA/Chicago, BibTeX, RIS).
 
 ## Next tasks (in order)
-1. Attribute history between nodes ("git for tables"; see roadmap).
-2. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
-3. GPL-free GDAL for the installer.
-4. Census data join.
+1. Linux: build with conda-forge GDAL 3.12 + LGPL SpatiaLite like macOS/Windows, then make the Linux license gate strict (watch for conda vs. system WebKitGTK library conflicts).
+2. Attribute history between nodes ("git for tables"; see roadmap).
+3. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
+4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-Attribute history between nodes: persist each node's output table as a versioned snapshot and let the Attribute Table switch between the Output (default) and earlier nodes, with a diff. Check the latest CI run first and log it in docs/CI_LOG.md.
+Check the latest CI run (docs/CI_LOG.md has the history; failures show as annotations on the run page). If green, start task 1 or 2 as the user prefers.
