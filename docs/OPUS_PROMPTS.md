@@ -1,5 +1,7 @@
 # Opus design prompts (paste one into an Opus session)
 
+(To have one Opus session run these and delegate the builds automatically, use docs/ORCHESTRATOR_PROMPT.md instead.)
+
 ## C1 — Layouts design — ✅ done 2026-10-23 → `docs/LAYOUTS_PLAN.md`
 
 ### (original prompt) (priority 2: map production; the biggest missing piece)
