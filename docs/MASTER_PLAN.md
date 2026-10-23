@@ -63,7 +63,7 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 | A1. Linux AppImage library clash (conda GDAL vs. system libraries) | 1–3 | Opus decides, Sonnet builds | ✅ Done 2026-10-23. See known issue 2 in `PROJECT_STATUS.md` and `CI_LOG.md`. |
 | A2. Refresh stale roadmap rows (platform matrix, portability risks already fixed) | 0.5 | Sonnet | ✅ Done 2026-10-23. |
 | A3. Hands-on check of the Windows and Linux installers on real machines (open, import, run a model, save/reopen) | 1 | You + Sonnet | CI's `--self-test` doesn't exercise the UI. Needs a Windows PC/VM and a Linux desktop. |
-| A4. GitHub Release v0.1.0: tag, installers attached, release notes, licence notices | 0.5 | Sonnet | Add a `release` workflow triggered by tags. |
+| A4. GitHub Release v0.1.0: tag, installers attached, release notes, licence notices | 0.5 | Sonnet | Workflow done 2026-10-23 (`release` job in `build.yml`, runs on `v*` tags, publishes a pre-release). **Tag not pushed yet** — wait for A3. |
 | A5. (Optional) macOS notarization and Intel build | 1 | Sonnet | Needs your Apple Developer ID ($99/yr). Intel build needs a `macos-13` runner. |
 
 **Linux fallback (decided 2026-10-23).** Keep Linux supported; defer only the GPL-free AppImage.

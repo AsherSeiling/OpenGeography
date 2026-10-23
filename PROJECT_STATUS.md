@@ -42,4 +42,4 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-Do A4 (release workflow, Sonnet; A3 needs real Windows/Linux machines) (A3 needs real Windows/Linux machines). Then Phase C1 (layouts design) needs an Opus session.
+A3: you check the Windows and Linux installers on real machines (open, import, run a model, save/reopen). Then tag the release: `git tag v0.1.0 && git push origin v0.1.0` (the `release` job in `build.yml` publishes a pre-release; untested until the first tag). Meanwhile Phase B/C need Opus design sessions (B1, C1).

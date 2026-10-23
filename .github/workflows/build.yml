@@ -11,6 +11,7 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -250,3 +251,40 @@ jobs:
           path: |
             target/release/bundle/nsis/*.exe
             target/release/bundle/msi/*.msi
+
+  # Tag a version (git tag v0.1.0 && git push --tags) to publish the three
+  # installers as a GitHub Release. Runs only if every platform job passed.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, linux, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cat > notes.md <<EOF
+          GIS Studio $TAG - free, open-source, node-based desktop GIS.
+
+          | Platform | File |
+          |---|---|
+          | macOS (Apple Silicon) | \`.dmg\` (not notarized: right-click > Open the first time) |
+          | Windows x64 | \`.exe\` (NSIS) or \`.msi\` |
+          | Linux x64 | \`.AppImage\` or \`.deb\` |
+
+          macOS and Windows builds pass a strict license gate (no GPL-only libraries).
+          The Linux AppImage also passes it in CI. Windows and Linux installers have
+          passed the automated self-test but not yet a hands-on check on real machines.
+          Third-party licenses: THIRD_PARTY_NOTICES.md (attached). Project license: MIT OR Apache-2.0.
+          EOF
+          gh release create "$TAG" --title "GIS Studio $TAG" --notes-file notes.md \
+            --prerelease \
+            $(find dist-release -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.msi' -o -name '*.AppImage' -o -name '*.deb' \)) \
+            THIRD_PARTY_NOTICES.md LICENSE
