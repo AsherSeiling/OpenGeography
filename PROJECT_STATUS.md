@@ -44,4 +44,4 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-A3: you check the Windows and Linux installers on real machines (open, import, run a model, save/reopen). Then tag the release: `git tag v0.1.0 && git push origin v0.1.0` (the `release` job in `build.yml` publishes a pre-release; untested until the first tag). Meanwhile Phase B/C need Opus design sessions (B1, C1).
+A3: you check the Windows and Linux installers on real machines (open, import, run a model, save/reopen). Then tag the release: `git tag v0.1.0 && git push origin v0.1.0` (the `release` job in `build.yml` publishes a pre-release; untested until the first tag). Meanwhile Opus design sessions for C1 (layouts) and B1 (attribute history): paste-ready prompts in `docs/OPUS_PROMPTS.md`.
