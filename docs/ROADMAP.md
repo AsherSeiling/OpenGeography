@@ -77,6 +77,7 @@ Original finding:
 The macOS package includes GPL-only libraries via Homebrew GDAL: poppler (linked by libgdal: PDF driver), x265 (via libheif: HEIF driver) and librttopo (via libspatialite: SQLite/SpatiaLite driver). Fix: build/obtain GDAL without PDF/HEIF/SpatiaLite (or with those drivers as removable plugins), re-run `third_party_notices.py`, confirm zero GPL-only entries. Apply to Windows/Linux packages too.
 
 ## 4. Priorities
+The order these are done in, with effort and dependencies, is in `docs/MASTER_PLAN.md`.
 P0 baseline — done 2026-10-23 (all tests green on macOS).
 P1 release reliability — CI green on macOS, Linux and Windows (done 2026-10-23). Remaining: GPL-free GDAL; bundled-data precedence over GDAL_DATA/PROJ_DATA; project-portable rasters; macOS notarization and Intel build.
 P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts. Remaining: **attribute history between nodes** (next), flag deleted-layer references, one undo step per parameter edit, UI graph tests.

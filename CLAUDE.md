@@ -2,7 +2,7 @@
 
 Free, open-source, node-based desktop GIS for geoscientists and government staff.
 Priorities: easy data manipulation → easy map production → fast, correct geoprocessing.
-Start each session with `PROJECT_STATUS.md` (state + exact next action). The one roadmap is `docs/ROADMAP.md`.
+Start each session with `PROJECT_STATUS.md` (state + exact next action). Order of work: `docs/MASTER_PLAN.md` (links every other plan). Feature inventory: `docs/ROADMAP.md`.
 
 ## Architecture (one line each)
 - `src-tauri/` Tauri 2 shell: IPC commands (`commands.rs`), `gis://` tile protocol, `--self-test`.

@@ -1,6 +1,6 @@
 # Project status
 
-_Updated 2026-10-23. Read this first; the roadmap is `docs/ROADMAP.md`._
+_Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`, the feature inventory `docs/ROADMAP.md`._
 
 ## State
 - Branch `main`, pushed to https://github.com/AsherSeiling/OpenGeography (public). Untracked: `.claude/` (local launch config — don't commit), `PROJECT_SUMMARY.md` (superseded by this file and the roadmap).
