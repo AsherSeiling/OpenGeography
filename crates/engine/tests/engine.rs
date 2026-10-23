@@ -878,3 +878,43 @@ fn model_results_cite_every_input_layer() {
     let county_src = e.sources().unwrap().into_iter().find(|s| s.citation.title == "county.gpkg").unwrap();
     assert!(county_src.uses.iter().any(|u| u.layer_name.ends_with("(model result)")), "{:?}", county_src.uses);
 }
+
+#[test]
+fn geodesic_buffer_is_true_distance_with_shared_projections() {
+    let e = Engine::new().unwrap();
+    // Points ~17 km from their snapped projection centers, mid and high latitude.
+    let pts = e
+        .create_features(
+            "probe",
+            &[
+                ("POINT(-97.12 35.12)".into(), serde_json::from_value(json!({"k": "mid"})).unwrap()),
+                ("POINT(25.13 69.88)".into(), serde_json::from_value(json!({"k": "north"})).unwrap()),
+            ],
+        )
+        .unwrap();
+    // Buffer → vertices → true ellipsoidal distance from each point to each vertex.
+    let d = "ST_Distance_Spheroid(CASE k WHEN 'mid' THEN ST_Point(-97.12, 35.12) ELSE ST_Point(25.13, 69.88) END, geom)";
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": pts.id}},
+            {"id": "b", "tool": "buffer", "params": {"distance": 50, "units": "km", "method": "geodesic"}},
+            {"id": "v", "tool": "extract_vertices", "params": {}},
+            {"id": "d", "tool": "calculate_field", "params": {"field": "D", "expression": d}},
+            {"id": "o", "tool": "layer_output", "params": {"layer": pts.id}}
+        ],
+        "edges": [
+            {"source": "in", "target": "b", "targetHandle": "in"},
+            {"source": "b", "target": "v", "targetHandle": "in"},
+            {"source": "v", "target": "d", "targetHandle": "in"},
+            {"source": "d", "target": "o", "targetHandle": "in"}
+        ]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    let out = res.iter().find(|r| r.id == "o").unwrap().layer.clone().unwrap_or_else(|| panic!("{res:?}"));
+    let idx = out.fields.iter().position(|f| f.name == "D").unwrap();
+    let page = e.rows(&out.id, &RowsQuery { limit: 10_000, ..Default::default() }).unwrap();
+    let n = page.rows.len();
+    let worst = page.rows.iter().map(|r| (r[idx].as_ref().unwrap().parse::<f64>().unwrap() - 50_000.0).abs()).fold(0.0, f64::max);
+    assert!(n > 60, "{n} vertices");
+    assert!(worst < 5.0, "worst vertex is {worst:.2} m off 50 km (< 0.01%)");
+}
