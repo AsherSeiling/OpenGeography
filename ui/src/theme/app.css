@@ -481,3 +481,5 @@ select.qe-val { width: 160px; }
 .src-auto { display: flex; flex-direction: column; padding: 2px 8px 4px; border-bottom: 1px solid var(--border); }
 .src-auto .muted { margin-left: 30px; margin-top: -6px; font-size: 11px; }
 .model-active.editing { color: #8a6d00; border-color: #c19c00; }
+.tiger-year { display: flex; gap: 6px; align-items: center; }
+.tiger-year .fui-Dropdown { flex: 1; }

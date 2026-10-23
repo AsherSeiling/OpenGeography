@@ -21,10 +21,15 @@ const MAX_FEATURES: usize = 250_000;
 pub struct Dataset {
     pub id: &'static str,
     pub label: &'static str,
+    /// Comes from the chosen year's tigerWMS_<vintage> service (boundaries);
+    /// false = only TIGERweb's current Transportation/Hydro services exist.
+    pub by_year: bool,
+    /// Service for datasets that aren't by year.
     #[serde(skip)]
     service: &'static str,
+    /// Layer names to try, in order (names differ between vintages).
     #[serde(skip)]
-    layer: &'static str,
+    layers: &'static [&'static str],
     /// Filtered by STATE/COUNTY attributes (true) or by the area's bounding box (false).
     #[serde(skip)]
     by_attribute: bool,
@@ -32,25 +37,95 @@ pub struct Dataset {
     pub needs_county: bool,
 }
 
+const ZCTA: &[&str] = &["2020 Census ZIP Code Tabulation Areas", "2010 Census ZIP Code Tabulation Areas", "Zip Code Tabulation Areas", "ZIP Code Tabulation Areas"];
+
 pub const DATASETS: &[Dataset] = &[
-    Dataset { id: "states", label: "State boundary", service: "tigerWMS_Current", layer: "States", by_attribute: true, needs_county: false },
-    Dataset { id: "counties", label: "Counties", service: "tigerWMS_Current", layer: "Counties", by_attribute: true, needs_county: false },
-    // 2020 Census vintage: these layers carry POP100 (population) and HU100 (housing units).
-    Dataset { id: "tracts", label: "Census tracts (2020, with population)", service: "tigerWMS_Census2020", layer: "Census Tracts", by_attribute: true, needs_county: false },
-    Dataset { id: "block_groups", label: "Block groups (2020, with population)", service: "tigerWMS_Census2020", layer: "Census Block Groups", by_attribute: true, needs_county: false },
-    Dataset { id: "blocks", label: "Census blocks (2020, with population)", service: "tigerWMS_Census2020", layer: "Census Blocks", by_attribute: true, needs_county: true },
-    Dataset { id: "places", label: "Cities and towns (incorporated places)", service: "tigerWMS_Current", layer: "Incorporated Places", by_attribute: true, needs_county: false },
-    Dataset { id: "zcta", label: "ZIP code areas (ZCTAs)", service: "tigerWMS_Current", layer: "2020 Census ZIP Code Tabulation Areas", by_attribute: false, needs_county: true },
-    Dataset { id: "primary_roads", label: "Primary roads (interstates)", service: "Transportation", layer: "Primary Roads", by_attribute: false, needs_county: false },
-    Dataset { id: "secondary_roads", label: "Secondary roads (US and state highways)", service: "Transportation", layer: "Secondary Roads 72_1k scale", by_attribute: false, needs_county: false },
-    Dataset { id: "local_roads", label: "Local roads (all streets)", service: "Transportation", layer: "Local Roads", by_attribute: false, needs_county: true },
-    Dataset { id: "railroads", label: "Railroads", service: "Transportation", layer: "Railroads", by_attribute: false, needs_county: false },
-    Dataset { id: "water_areas", label: "Lakes and rivers (areas)", service: "Hydro", layer: "Areal Hydrography", by_attribute: false, needs_county: true },
-    Dataset { id: "water_lines", label: "Streams (lines)", service: "Hydro", layer: "Linear Hydrography", by_attribute: false, needs_county: true },
+    Dataset { id: "states", label: "State boundary", by_year: true, service: "", layers: &["States"], by_attribute: true, needs_county: false },
+    Dataset { id: "counties", label: "Counties", by_year: true, service: "", layers: &["Counties"], by_attribute: true, needs_county: false },
+    // Decennial Census vintages carry POP100 (population) and HU100 (housing units).
+    Dataset { id: "tracts", label: "Census tracts", by_year: true, service: "", layers: &["Census Tracts"], by_attribute: true, needs_county: false },
+    Dataset { id: "block_groups", label: "Block groups", by_year: true, service: "", layers: &["Census Block Groups"], by_attribute: true, needs_county: false },
+    Dataset { id: "blocks", label: "Census blocks", by_year: true, service: "", layers: &["Census Blocks", "2020 Census Blocks"], by_attribute: true, needs_county: true },
+    Dataset { id: "places", label: "Cities and towns (incorporated places)", by_year: true, service: "", layers: &["Incorporated Places"], by_attribute: true, needs_county: false },
+    Dataset { id: "zcta", label: "ZIP code areas (ZCTAs)", by_year: true, service: "", layers: ZCTA, by_attribute: false, needs_county: true },
+    Dataset { id: "primary_roads", label: "Primary roads (interstates)", by_year: false, service: "Transportation", layers: &["Primary Roads"], by_attribute: false, needs_county: false },
+    Dataset { id: "secondary_roads", label: "Secondary roads (US and state highways)", by_year: false, service: "Transportation", layers: &["Secondary Roads 72_1k scale"], by_attribute: false, needs_county: false },
+    Dataset { id: "local_roads", label: "Local roads (all streets)", by_year: false, service: "Transportation", layers: &["Local Roads"], by_attribute: false, needs_county: true },
+    Dataset { id: "railroads", label: "Railroads", by_year: false, service: "Transportation", layers: &["Railroads"], by_attribute: false, needs_county: false },
+    Dataset { id: "water_areas", label: "Lakes and rivers (areas)", by_year: false, service: "Hydro", layers: &["Areal Hydrography"], by_attribute: false, needs_county: true },
+    Dataset { id: "water_lines", label: "Streams (lines)", by_year: false, service: "Hydro", layers: &["Linear Hydrography"], by_attribute: false, needs_county: true },
 ];
 
 pub fn dataset(id: &str) -> Result<&'static Dataset> {
     DATASETS.iter().find(|d| d.id == id).ok_or_else(|| anyhow!("Unknown TIGER dataset '{id}'"))
+}
+
+/// A TIGERweb vintage (year of the geography).
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Vintage {
+    /// "Current", "ACS2023", "Census2020"…
+    pub id: String,
+    /// Year of the geography (the current year for "Current").
+    pub year: i32,
+    pub label: String,
+    /// Decennial Census geography (has blocks and population counts).
+    pub decennial: bool,
+}
+
+/// Vintage ids are spliced into service URLs: only accept TIGERweb's forms.
+fn check_vintage(v: &str) -> Result<()> {
+    let ok = v == "Current" || ["ACS", "Census"].iter().any(|p| v.strip_prefix(p).is_some_and(|y| y.len() == 4 && y.chars().all(|c| c.is_ascii_digit())));
+    if !ok {
+        bail!("Unknown TIGER year '{v}'");
+    }
+    Ok(())
+}
+
+/// The vintages TIGERweb offers, newest first ("Current" on top).
+pub fn vintages() -> Result<Vec<Vintage>> {
+    static CACHE: OnceLock<Vec<Vintage>> = OnceLock::new();
+    if let Some(v) = CACHE.get() {
+        return Ok(v.clone());
+    }
+    let v = get_json(&format!("{BASE}?f=json"))?;
+    let mut out: Vec<Vintage> = v["services"]
+        .as_array()
+        .map(|ss| {
+            ss.iter()
+                .filter_map(|s| s["name"].as_str()?.strip_prefix("TIGERweb/tigerWMS_").map(String::from))
+                .filter(|id| check_vintage(id).is_ok())
+                .map(|id| {
+                    let year = id.trim_start_matches(|c: char| c.is_ascii_alphabetic()).parse().unwrap_or(9999);
+                    let decennial = id.starts_with("Census");
+                    let label = if id == "Current" { "Current (latest)".to_string() } else if decennial { format!("{year} Census (decennial)") } else { format!("{year} (ACS geography)") };
+                    Vintage { id, year, label, decennial }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if out.is_empty() {
+        bail!("TIGERweb didn't list any years");
+    }
+    out.sort_by(|a, b| b.year.cmp(&a.year).then(b.decennial.cmp(&a.decennial)));
+    let _ = CACHE.set(out.clone());
+    Ok(out)
+}
+
+/// The service a dataset comes from for a vintage.
+fn service_for(d: &Dataset, vintage: &str) -> String {
+    if d.by_year {
+        format!("tigerWMS_{vintage}")
+    } else {
+        d.service.to_string()
+    }
+}
+
+/// Which datasets a vintage has (e.g. blocks only exist for decennial Census
+/// years and Current): (dataset id, available).
+pub fn availability(vintage: &str) -> Result<Vec<(String, bool)>> {
+    check_vintage(vintage)?;
+    Ok(DATASETS.iter().map(|d| (d.id.to_string(), find_layer(&service_for(d, vintage), d.layers).is_ok())).collect())
 }
 
 fn get_json(url: &str) -> Result<Value> {
@@ -93,6 +168,16 @@ fn layer_id(service: &str, name: &str) -> Result<i64> {
     Ok(id)
 }
 
+/// The first of `names` that the service has.
+fn find_layer(service: &str, names: &[&str]) -> Result<i64> {
+    for n in names {
+        if let Ok(id) = layer_id(service, n) {
+            return Ok(id);
+        }
+    }
+    bail!("This year's TIGER data has no '{}' layer", names[0])
+}
+
 fn query_url(service: &str, layer: i64, params: &[(&str, String)]) -> String {
     let q: Vec<String> = params.iter().map(|(k, v)| format!("{k}={}", enc(v))).collect();
     format!("{BASE}/{service}/MapServer/{layer}/query?{}", q.join("&"))
@@ -113,11 +198,14 @@ fn check_code(code: &str, len: usize) -> Result<()> {
 }
 
 /// Counties of a state: (3-digit county code, name), sorted by name.
-pub fn counties(state: &str) -> Result<Vec<(String, String)>> {
+/// Counties of a state in a vintage (they change: e.g. Connecticut's 2022 planning regions).
+pub fn counties(state: &str, vintage: &str) -> Result<Vec<(String, String)>> {
     check_code(state, 2)?;
-    let id = layer_id("tigerWMS_Current", "Counties")?;
+    check_vintage(vintage)?;
+    let svc = format!("tigerWMS_{vintage}");
+    let id = layer_id(&svc, "Counties")?;
     let v = get_json(&query_url(
-        "tigerWMS_Current",
+        &svc,
         id,
         &[("where", area_where(state, None)), ("outFields", "COUNTY,NAME".into()), ("returnGeometry", "false".into()), ("f", "json".into())],
     ))?;
@@ -134,11 +222,12 @@ pub fn counties(state: &str) -> Result<Vec<(String, String)>> {
 }
 
 /// Bounding box (lon/lat) of a state or county, for datasets without STATE/COUNTY fields.
-fn area_extent(state: &str, county: Option<&str>) -> Result<String> {
+fn area_extent(state: &str, county: Option<&str>, vintage: &str) -> Result<String> {
     let (layer, name) = if county.is_some() { ("Counties", "county") } else { ("States", "state") };
-    let id = layer_id("tigerWMS_Current", layer)?;
+    let svc = format!("tigerWMS_{vintage}");
+    let id = layer_id(&svc, layer)?;
     let v = get_json(&query_url(
-        "tigerWMS_Current",
+        &svc,
         id,
         &[("where", area_where(state, county)), ("returnExtentOnly", "true".into()), ("outSR", "4326".into()), ("f", "json".into())],
     ))?;
@@ -151,7 +240,7 @@ fn area_extent(state: &str, county: Option<&str>) -> Result<String> {
 
 /// Download a dataset for a state (and optionally one county) as a GeoJSON
 /// file in `cache_dir`, reusing an earlier download when present.
-pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path, report: &dyn Fn(f64, &str) -> Result<()>) -> Result<PathBuf> {
+pub fn fetch(id: &str, vintage: &str, state: &str, county: Option<&str>, cache_dir: &Path, report: &dyn Fn(f64, &str) -> Result<()>) -> Result<PathBuf> {
     let d = dataset(id)?;
     check_code(state, 2)?;
     if let Some(c) = county {
@@ -161,19 +250,21 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path, repo
         bail!("{} is too large for a whole state: choose a county.", d.label);
     }
     std::fs::create_dir_all(cache_dir)?;
-    let path = cache_dir.join(format!("tiger2_{}_{}{}.geojson", d.id, state, county.map(|c| format!("_{c}")).unwrap_or_default()));
+    check_vintage(vintage)?;
+    let svc = service_for(d, vintage);
+    let path = cache_dir.join(format!("tiger3_{}_{}_{}{}.geojson", svc, d.id, state, county.map(|c| format!("_{c}")).unwrap_or_default()));
     if path.exists() {
         report(1.0, &format!("{} (already downloaded)", d.label))?;
         return Ok(path);
     }
     report(0.0, &format!("{}: counting features…", d.label))?;
-    let layer = layer_id(d.service, d.layer)?;
+    let layer = find_layer(&svc, d.layers).map_err(|_| anyhow!("{} isn't available for this year — choose a decennial Census year or Current.", d.label))?;
     let mut filter: Vec<(&str, String)> = if d.by_attribute {
         vec![("where", area_where(state, if d.id == "states" { None } else { county }))]
     } else {
         vec![
             ("where", "1=1".into()),
-            ("geometry", area_extent(state, county)?),
+            ("geometry", area_extent(state, county, if d.by_year { vintage } else { "Current" })?),
             ("geometryType", "esriGeometryEnvelope".into()),
             ("inSR", "4326".into()),
             ("spatialRel", "esriSpatialRelIntersects".into()),
@@ -182,7 +273,7 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path, repo
     let mut count_q = filter.clone();
     count_q.push(("returnCountOnly", "true".into()));
     count_q.push(("f", "json".into()));
-    let total = get_json(&query_url(d.service, layer, &count_q)).ok().and_then(|v| v["count"].as_u64()).unwrap_or(0) as usize;
+    let total = get_json(&query_url(&svc, layer, &count_q)).ok().and_then(|v| v["count"].as_u64()).unwrap_or(0) as usize;
     filter.extend([
         ("outFields", "*".into()),
         ("returnGeometry", "true".into()),
@@ -196,7 +287,7 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path, repo
         let mut params = filter.clone();
         params.push(("resultOffset", features.len().to_string()));
         params.push(("resultRecordCount", PAGE.to_string()));
-        let page = get_json(&query_url(d.service, layer, &params))?;
+        let page = get_json(&query_url(&svc, layer, &params))?;
         let got = page["features"].as_array().cloned().unwrap_or_default();
         let n = got.len();
         features.extend(got);

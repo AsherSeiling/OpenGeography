@@ -293,13 +293,23 @@ pub async fn tiger_datasets() -> Res<Vec<engine::tiger::Dataset>> {
 }
 
 #[tauri::command]
-pub async fn tiger_counties(engine: Eng<'_>, state: String) -> Res<Vec<(String, String)>> {
-    blocking(&engine, move |_| engine::tiger::counties(&state)).await
+pub async fn tiger_vintages(engine: Eng<'_>) -> Res<Vec<engine::tiger::Vintage>> {
+    blocking(&engine, |_| engine::tiger::vintages()).await
 }
 
 #[tauri::command]
-pub async fn tiger_import(engine: Eng<'_>, datasets: Vec<String>, state: String, county: Option<String>, label: String) -> Res<Vec<LayerInfo>> {
-    let out = blocking(&engine, move |e| e.tiger_import(&datasets, &state, county.as_deref(), &label)).await?;
+pub async fn tiger_availability(engine: Eng<'_>, vintage: String) -> Res<Vec<(String, bool)>> {
+    blocking(&engine, move |_| engine::tiger::availability(&vintage)).await
+}
+
+#[tauri::command]
+pub async fn tiger_counties(engine: Eng<'_>, state: String, vintage: String) -> Res<Vec<(String, String)>> {
+    blocking(&engine, move |_| engine::tiger::counties(&state, &vintage)).await
+}
+
+#[tauri::command]
+pub async fn tiger_import(engine: Eng<'_>, datasets: Vec<String>, vintage: String, state: String, county: Option<String>, label: String) -> Res<Vec<LayerInfo>> {
+    let out = blocking(&engine, move |e| e.tiger_import(&datasets, &vintage, &state, county.as_deref(), &label)).await?;
     prewarm(&engine, out.iter().map(|l| l.id.clone()).collect());
     Ok(out)
 }

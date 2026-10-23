@@ -119,9 +119,10 @@ pub fn for_3dep() -> Citation {
     )
 }
 
-/// Citations for a TIGER dataset id: TIGER geography, plus the 2020 Census
-/// counts carried by tract, block group and block layers.
-pub fn for_tiger(dataset_id: &str, label: &str) -> Vec<Citation> {
+/// Citations for a TIGER dataset from a vintage ("Current", "ACS2023",
+/// "Census2020"…): the TIGER geography, plus — for tracts, block groups and
+/// blocks from a decennial Census — the redistricting counts they carry.
+pub fn for_tiger(dataset_id: &str, label: &str, vintage: &str) -> Vec<Citation> {
     let census = |key: &str, year: &str, title: &str, version: &str, url: &str, annotation: String| Citation {
         key: key.into(),
         author: "U.S. Census Bureau".into(),
@@ -135,23 +136,24 @@ pub fn for_tiger(dataset_id: &str, label: &str) -> Vec<Citation> {
         annotation,
         complete: true,
     };
-    let census2020 = matches!(dataset_id, "tracts" | "block_groups" | "blocks");
+    let year: String = vintage.chars().filter(|c| c.is_ascii_digit()).collect();
     let mut out = vec![census(
-        if census2020 { "census-tigerweb-2020" } else { "census-tigerweb-current" },
-        if census2020 { "2020" } else { "n.d." },
+        &format!("census-tigerweb-{}", vintage.to_lowercase()),
+        if year.is_empty() { "n.d." } else { &year },
         "TIGERweb: Topologically Integrated Geographic Encoding and Referencing (TIGER) geography",
-        if census2020 { "tigerWMS_Census2020 REST service" } else { "tigerWMS_Current, Transportation and Hydro REST services" },
+        &if vintage == "Current" { "Current vintage REST services (tigerWMS_Current, Transportation, Hydro)".to_string() } else { format!("tigerWMS_{vintage} REST service") },
         "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb",
-        format!("Census Bureau boundaries, roads and water features from the TIGER database. Used for: {label}."),
+        format!("Census Bureau boundaries, roads and water features from the TIGER database ({} vintage). Used for: {label}.", if vintage == "Current" { "current".to_string() } else { vintage.replace("ACS", "ACS ").replace("Census", "Census ") }),
     )];
-    if census2020 {
+    let counts = matches!(dataset_id, "tracts" | "block_groups" | "blocks");
+    if counts && (vintage == "Census2020" || vintage == "Census2010") {
         out.push(census(
-            "census-2020-pl",
-            "2021",
-            "2020 Census Redistricting Data (Public Law 94-171) Summary File",
-            "POP100 and HU100 counts as published on TIGERweb 2020 Census layers",
+            &format!("census-{year}-pl"),
+            if year == "2020" { "2021" } else { "2011" },
+            &format!("{year} Census Redistricting Data (Public Law 94-171) Summary File"),
+            &format!("POP100 and HU100 counts as published on TIGERweb {year} Census layers"),
             "https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html",
-            "Total population (POP100) and housing units (HU100) from the 2020 Census, attached to tract, block group and block geography.".into(),
+            format!("Total population (POP100) and housing units (HU100) from the {year} Census, attached to tract, block group and block geography."),
         ));
     }
     out

@@ -367,12 +367,12 @@ fn new_geoprocessing_tools_run() {
 #[test]
 #[ignore]
 fn tiger_sample_data_downloads() {
-    let counties = engine::tiger::counties("40").unwrap(); // Oklahoma
+    let counties = engine::tiger::counties("40", "Census2020").unwrap(); // Oklahoma
     assert_eq!(counties.len(), 77);
     let cleveland = counties.iter().find(|(_, n)| n.starts_with("Cleveland")).unwrap().0.clone();
     let e = Engine::new().unwrap();
     let layers = e
-        .tiger_import(&["tracts".into(), "primary_roads".into(), "blocks".into()], "40", Some(&cleveland), "Cleveland County, OK")
+        .tiger_import(&["tracts".into(), "primary_roads".into(), "blocks".into()], "Census2020", "40", Some(&cleveland), "Cleveland County, OK")
         .unwrap();
     assert_eq!(layers.len(), 3);
     for l in &layers {
@@ -383,6 +383,22 @@ fn tiger_sample_data_downloads() {
     let blocks = &layers[2];
     assert!(blocks.feature_count > 1000, "blocks {}", blocks.feature_count);
     assert!(blocks.fields.iter().any(|f| f.name == "POP100"), "blocks should carry 2020 population");
+
+    // Years: newest first, Current on top, decennial years flagged.
+    let vs = engine::tiger::vintages().unwrap();
+    assert_eq!(vs[0].id, "Current");
+    assert!(vs.windows(2).skip(1).all(|w| w[0].year >= w[1].year), "{vs:?}");
+    assert!(vs.iter().any(|v| v.id == "Census2010" && v.decennial));
+    assert!(vs.iter().any(|v| v.id == "ACS2015" && !v.decennial));
+    // ACS-year geography has no blocks; ZIP areas resolve under that year's layer name.
+    let avail: std::collections::HashMap<String, bool> = engine::tiger::availability("ACS2015").unwrap().into_iter().collect();
+    assert!(!avail["blocks"] && avail["tracts"] && avail["zcta"], "{avail:?}");
+    assert!(engine::tiger::availability("../etc").is_err(), "vintage ids are validated");
+    // An older year downloads and is labelled with it.
+    let old = e.tiger_import(&["tracts".into()], "ACS2015", "40", Some(&cleveland), "Cleveland County, OK").unwrap();
+    assert!(old[0].feature_count > 20 && old[0].name.contains("(2015)"), "{} {}", old[0].name, old[0].feature_count);
+    let err = e.tiger_import(&["blocks".into()], "ACS2015", "40", Some(&cleveland), "x").unwrap_err().to_string();
+    assert!(err.contains("isn't available for this year"), "{err}");
 }
 
 #[test]
@@ -764,7 +780,11 @@ fn data_sources_are_logged_with_citations() {
     assert_eq!(all.len(), 2);
     assert_eq!(all.iter().find(|s| s.citation.key == "osm").unwrap().uses.len(), 1);
     assert!(engine::sources::for_tnm("nhd_flowlines").title.contains("National Hydrography Dataset"));
-    assert_eq!(engine::sources::for_tiger("tracts", "Tracts").len(), 2, "tracts cite TIGER and the 2020 Census counts");
+    assert_eq!(engine::sources::for_tiger("tracts", "Tracts", "Census2020").len(), 2, "2020 Census tracts cite TIGER and the 2020 Census counts");
+    let acs = engine::sources::for_tiger("tracts", "Tracts", "ACS2023");
+    assert_eq!(acs.len(), 1, "ACS-year geography has no decennial counts");
+    assert_eq!((acs[0].year.as_str(), acs[0].key.as_str()), ("2023", "census-tigerweb-acs2023"));
+    assert_eq!(engine::sources::for_tiger("blocks", "Blocks", "Census2010")[1].year, "2011");
 }
 
 #[test]

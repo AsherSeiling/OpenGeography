@@ -2,7 +2,7 @@
 // for a state or county straight from TIGERweb.
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, MessageBar, MessageBarBody, Option } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
-import { api, errorText, type TigerDataset } from "../ipc/api";
+import { api, errorText, type TigerDataset, type TigerVintage } from "../ipc/api";
 import { zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
 import { useApp } from "../store/store";
@@ -25,6 +25,11 @@ const DEFAULT_PICK = ["counties", "tracts", "primary_roads"];
 
 export function TigerDialog({ onClose }: { onClose: () => void }) {
   const [datasets, setDatasets] = useState<TigerDataset[]>([]);
+  const [vintages, setVintages] = useState<TigerVintage[]>([]);
+  // The 2020 Census: decennial geography with blocks and population counts.
+  const [vintage, setVintage] = useState("Census2020");
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [available, setAvailable] = useState<Record<string, boolean> | null>(null);
   const [state, setState] = useState("40");
   const [counties, setCounties] = useState<[string, string][]>([]);
   const [county, setCounty] = useState<string>("");
@@ -34,23 +39,38 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     api.tigerDatasets().then(setDatasets).catch((e) => setErr(errorText(e)));
+    api.tigerVintages().then(setVintages).catch((e) => setErr(errorText(e)));
   }, []);
   useEffect(() => {
+    setAvailable(null);
+    api.tigerAvailability(vintage).then((a) => setAvailable(Object.fromEntries(a))).catch((e) => setErr(errorText(e)));
+  }, [vintage]);
+  useEffect(() => {
     setCounties([]);
-    setCounty("");
-    api.tigerCounties(state).then(setCounties).catch((e) => setErr(errorText(e)));
-  }, [state]);
+    api.tigerCounties(state, vintage)
+      .then((cs) => {
+        setCounties(cs);
+        // Keep the county if this year still has it (counties do change).
+        setCounty((c) => (cs.some(([code]) => code === c) ? c : ""));
+      })
+      .catch((e) => setErr(errorText(e)));
+  }, [state, vintage]);
+  const v = vintages.find((x) => x.id === vintage);
+  const years = newestFirst ? vintages : [...vintages].reverse();
+  const unavailable = (id: string) => available !== null && available[id] === false;
 
   const st = STATES.find(([c]) => c === state)!;
   const countyName = counties.find(([c]) => c === county)?.[1];
   const label = countyName ? `${countyName}, ${st[2]}` : st[1];
-  const blocked = pick.filter((id) => datasets.find((d) => d.id === id)?.needsCounty && !county);
+  // Ticked datasets this year doesn't have are skipped, not blocking.
+  const chosen = pick.filter((id) => !unavailable(id));
+  const blocked = chosen.filter((id) => datasets.find((d) => d.id === id)?.needsCounty && !county);
 
   const download = async () => {
     setBusy(true);
     setErr(null);
     try {
-      const layers = await api.tigerImport(pick, state, county || null, label);
+      const layers = await api.tigerImport(chosen, vintage, state, county || null, label);
       const app = useApp.getState();
       app.addLayers(layers);
       app.setStatus(`Added ${layers.length} TIGER layer(s) for ${label} · ${layers.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features`);
@@ -71,6 +91,29 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Sample Data — Census TIGER</DialogTitle>
           <DialogContent className="stack">
             <div className="muted">Boundaries, roads and water from the U.S. Census Bureau (TIGERweb). Public domain, free to use. Downloads are cached.</div>
+            <Field
+              label="Year"
+              hint={
+                v?.decennial
+                  ? "Decennial Census geography: includes blocks, and tracts/block groups/blocks carry population (POP100) and housing units (HU100)."
+                  : v
+                    ? "ACS-year geography (boundaries as of that year). Blocks exist only in decennial Census years."
+                    : undefined
+              }
+            >
+              <div className="tiger-year">
+                <Dropdown value={v?.label ?? vintage} onOptionSelect={(_, d) => setVintage(d.optionValue!)} disabled={!vintages.length}>
+                  {years.map((y) => (
+                    <Option key={y.id} value={y.id} text={y.label}>
+                      {y.decennial ? <b>{y.label}</b> : y.label}
+                    </Option>
+                  ))}
+                </Dropdown>
+                <Button size="small" appearance="subtle" onClick={() => setNewestFirst((n) => !n)} title="Change the sort order of the years">
+                  {newestFirst ? "Newest first ↓" : "Oldest first ↑"}
+                </Button>
+              </div>
+            </Field>
             <div className="row2">
               <Field label="State">
                 <Dropdown value={st[1]} onOptionSelect={(_, d) => setState(d.optionValue!)}>
@@ -94,15 +137,16 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
                 {datasets.map((d) => (
                   <Checkbox
                     key={d.id}
-                    label={`${d.label}${d.needsCounty ? " (county only)" : ""}`}
-                    checked={pick.includes(d.id)}
-                    disabled={d.needsCounty && !county}
+                    label={`${d.label}${d.needsCounty ? " (county only)" : ""}${!d.byYear ? " — current data" : ""}${unavailable(d.id) ? " — not in this year" : ""}`}
+                    checked={pick.includes(d.id) && !unavailable(d.id)}
+                    disabled={(d.needsCounty && !county) || unavailable(d.id)}
+                    title={unavailable(d.id) ? "This year's TIGER geography doesn't include it (blocks exist only in decennial Census years and Current)." : !d.byYear ? "TIGERweb publishes roads and water only as current data." : undefined}
                     onChange={(_, v) => setPick((p) => (v.checked ? [...p, d.id] : p.filter((x) => x !== d.id)))}
                   />
                 ))}
               </div>
             </Field>
-            <TaskProgress active={busy} label={`Downloading ${pick.length} layer(s) for ${label}…`} match={["Downloading Census", "Adding"]} />
+            <TaskProgress active={busy} label={`Downloading ${chosen.length} layer(s) for ${label}…`} match={["Downloading Census"]} />
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody>{err}</MessageBarBody>
@@ -111,8 +155,8 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !pick.length || blocked.length > 0} onClick={download}>
-              {busy ? "Downloading…" : `Add ${pick.length} layer(s)`}
+            <Button appearance="primary" disabled={busy || !chosen.length || blocked.length > 0} onClick={download}>
+              {busy ? "Downloading…" : `Add ${chosen.length} layer(s)`}
             </Button>
           </DialogActions>
         </DialogBody>

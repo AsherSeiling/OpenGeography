@@ -34,6 +34,16 @@ export interface TigerDataset {
   id: string;
   label: string;
   needsCounty: boolean;
+  /** From the chosen year (boundaries); false = TIGERweb's current data only (roads, water). */
+  byYear: boolean;
+}
+
+/** A TIGERweb vintage: the year of the geography. */
+export interface TigerVintage {
+  id: string;
+  year: number;
+  label: string;
+  decennial: boolean;
 }
 
 export interface TnmDataset {
@@ -187,9 +197,11 @@ export const api = {
   tnmImport: (datasets: string[], bbox: Extent, clipLayer: string | null, clip: boolean, label: string) =>
     track(invoke<{ layers: LayerInfo[]; empty: string[]; failed: string[] }>("tnm_import", { datasets, bbox, clipLayer, clip, label })),
   tigerDatasets: () => invoke<TigerDataset[]>("tiger_datasets"),
-  tigerCounties: (state: string) => invoke<[string, string][]>("tiger_counties", { state }),
-  tigerImport: (datasets: string[], state: string, county: string | null, label: string) =>
-    track(invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label })),
+  tigerVintages: () => invoke<TigerVintage[]>("tiger_vintages"),
+  tigerAvailability: (vintage: string) => invoke<[string, boolean][]>("tiger_availability", { vintage }),
+  tigerCounties: (state: string, vintage: string) => invoke<[string, string][]>("tiger_counties", { state, vintage }),
+  tigerImport: (datasets: string[], vintage: string, state: string, county: string | null, label: string) =>
+    track(invoke<LayerInfo[]>("tiger_import", { datasets, vintage, state, county, label })),
   measureFeature: (id: string, fid: number) =>
     invoke<{ area: number | null; perimeter: number | null; length: number | null; centroid: [number, number] | null }>("measure_feature", { id, fid }),
   createFeatures: (name: string, features: { wkt: string; props?: Record<string, unknown> }[]) => invoke<LayerInfo>("create_features", { name, features }),

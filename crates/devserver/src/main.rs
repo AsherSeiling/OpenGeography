@@ -125,10 +125,12 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             json!({ "layer": layer, "count": count })
         }
         "tiger_datasets" => json!(engine::tiger::DATASETS),
-        "tiger_counties" => json!(engine::tiger::counties(&s(a, "state")?)?),
+        "tiger_vintages" => json!(engine::tiger::vintages()?),
+        "tiger_availability" => json!(engine::tiger::availability(&s(a, "vintage")?)?),
+        "tiger_counties" => json!(engine::tiger::counties(&s(a, "state")?, &s(a, "vintage")?)?),
         "tiger_import" => {
             let ds: Vec<String> = de(a, "datasets")?;
-            let out = e.tiger_import(&ds, &s(a, "state")?, a["county"].as_str(), &s(a, "label")?)?;
+            let out = e.tiger_import(&ds, &s(a, "vintage")?, &s(a, "state")?, a["county"].as_str(), &s(a, "label")?)?;
             for l in &out {
                 let _ = e.prewarm(&l.id, 8, &[]);
             }

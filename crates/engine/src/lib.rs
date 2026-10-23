@@ -282,25 +282,29 @@ impl Engine {
     // ---------- sample data ----------
 
     /// Download TIGER datasets for a state/county and add them as layers.
-    pub fn tiger_import(&self, datasets: &[String], state: &str, county: Option<&str>, area_label: &str) -> Result<Vec<LayerInfo>> {
+    pub fn tiger_import(&self, datasets: &[String], vintage: &str, state: &str, county: Option<&str>, area_label: &str) -> Result<Vec<LayerInfo>> {
         let cache = std::env::temp_dir().join("gis-studio-cache");
+        let v = tiger::vintages().ok().and_then(|vs| vs.into_iter().find(|x| x.id == vintage));
+        let year_label = v.as_ref().map(|v| if v.id == "Current" { "current".to_string() } else if v.decennial { format!("{} Census", v.year) } else { v.year.to_string() }).unwrap_or_else(|| vintage.to_string());
         let mut task = Task::start(format!("Downloading Census TIGER data for {area_label}")).cancellable();
         let mut out = Vec::new();
         for (i, id) in datasets.iter().enumerate() {
             let d = tiger::dataset(id)?;
             // Each dataset: download is 85% of its share, building the layer the rest.
             task.part(i, datasets.len());
-            let path = tiger::fetch(id, state, county, &cache, &|f, msg| {
+            let path = tiger::fetch(id, vintage, state, county, &cache, &|f, msg| {
                 task.set(f * 0.85, Some(msg));
                 task.check()
             })?;
             task.set(0.9, Some(format!("{}: building layer…", d.label)));
             for mut info in self.import_with(&path, &mut Task::start(format!("Adding {}", d.label)))? {
-                info.name = format!("{} — {area_label}", d.label);
-                info.source = Some(format!("Census TIGERweb: {}", d.label));
+                // Roads and water only exist as TIGERweb's current data.
+                let yr = if d.by_year { year_label.clone() } else { "current".to_string() };
+                info.name = format!("{} ({yr}) — {area_label}", d.label);
+                info.source = Some(format!("Census TIGERweb ({yr}): {}", d.label));
                 self.with_conn(|c| {
                     self.save_meta(c, &info)?;
-                    for cite in sources::for_tiger(d.id, d.label) {
+                    for cite in sources::for_tiger(d.id, d.label, if d.by_year { vintage } else { "Current" }) {
                         sources::record(c, &cite, &info.id, &info.name)?;
                     }
                     Ok(())

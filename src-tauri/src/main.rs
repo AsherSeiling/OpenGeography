@@ -64,6 +64,8 @@ fn main() {
             commands::tiger_datasets,
             commands::tiger_counties,
             commands::tiger_import,
+            commands::tiger_vintages,
+            commands::tiger_availability,
             commands::tnm_datasets,
             commands::tnm_import,
             commands::progress,
