@@ -86,3 +86,4 @@ P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data 
 P6 layouts, then the Topo Map Builder.
 P7 Python tool SDK + headless CLI.
 P8 advanced analysis (hydrology, interpolation, statistics, remote sensing).
+P9 planetary GIS (Moon, Mars first): body-aware CRS/geodesics, USGS data importers, crater tools, ISIS/ASP bridges — plan in `docs/PLANETARY_PLAN.md` (not started).
