@@ -3,6 +3,7 @@
 import {
   AddCircleRegular,
   MyLocationRegular,
+  LocationRegular,
   BookRegular,
   FolderOpenRegular,
   MapRegular,
@@ -106,6 +107,7 @@ const list: Command[] = [
   { id: "addData", label: "Add Data", icon: <AddCircleRegular />, run: () => addData(), tip: "Add shapefiles, GeoPackages, GeoJSON, KML, CSV, GeoParquet…" },
   { id: "select", label: "Select", icon: <CursorClickRegular />, run: setTool("select"), checked: tool("select"), tip: "Click features to select (Shift adds, Ctrl toggles)" },
   { id: "selectBox", label: "Select by Rectangle", icon: <RectangleLandscapeRegular />, run: setTool("selectBox"), checked: tool("selectBox"), tip: "Drag a box to select features" },
+  { id: "selectByLocation", label: "Select By Location", icon: <LocationRegular />, run: () => active() && useDialog.getState().show({ kind: "selectByLocation", layer: active()!.id }), enabled: () => !!active() && Object.keys(app().layers).length > 1, tip: "Select features by where they are relative to another layer's features" },
   { id: "selectByAttributes", label: "Select By Attributes", icon: <SelectAllOnRegular />, run: () => active() && useDialog.getState().show({ kind: "selectByAttributes", layer: active()!.id }), enabled: () => !!active() },
   { id: "zoomSelection", label: "Zoom To Selection", icon: <ZoomFitRegular />, run: zoomToSelection, enabled: hasSelection },
   { id: "clearSelection", label: "Clear", icon: <DismissCircleRegular />, run: () => app().clearSelection(), enabled: hasSelection, tip: "Clear the selection in all layers" },

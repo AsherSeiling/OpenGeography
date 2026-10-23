@@ -1084,3 +1084,53 @@ fn declared_output_fields_match_real_outputs() {
     check("buffer", json!({"distance": 1, "units": "km"}), &[("in", &pts)]);
     check("buffer", json!({"distance": 1, "units": "km", "dissolve": true}), &[("in", &pts)]);
 }
+
+#[test]
+fn select_by_location_on_the_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let grid = dir.path().join("grid.gpkg");
+    // Two side-by-side squares, west and east, in Web Mercator (a different CRS from the points).
+    write_fixture(
+        &grid,
+        "SELECT * FROM (VALUES ('west', ST_Transform(ST_MakeEnvelope(-98, 35, -97.5, 35.5), 'EPSG:4326', 'EPSG:3857', true)),
+                               ('east', ST_Transform(ST_MakeEnvelope(-97.5, 35, -97, 35.5), 'EPSG:4326', 'EPSG:3857', true))) t(side, geom)",
+        "GPKG",
+        Some("EPSG:3857"),
+    );
+    let e = Engine::new().unwrap();
+    let polys = e.import(&grid).unwrap().remove(0);
+    let pts = e
+        .create_features(
+            "pts",
+            &[
+                ("POINT(-97.9 35.2)".into(), serde_json::from_value(json!({"k": "in-west"})).unwrap()),
+                ("POINT(-97.2 35.2)".into(), serde_json::from_value(json!({"k": "in-east"})).unwrap()),
+                ("POINT(-97.9 35.52)".into(), serde_json::from_value(json!({"k": "2km-north-of-west"})).unwrap()),
+                ("POINT(-99.5 35.2)".into(), serde_json::from_value(json!({"k": "far"})).unwrap()),
+            ],
+        )
+        .unwrap();
+    let kidx = pts.fields.iter().position(|f| f.name == "k").unwrap();
+    let keys = |fids: Vec<i64>| -> Vec<String> {
+        let rows = e.rows(&pts.id, &RowsQuery { limit: 100, ..Default::default() }).unwrap();
+        let mut out: Vec<String> = rows.rows.iter().zip(&rows.fids).filter(|(_, f)| fids.contains(f)).map(|(r, _)| r[kidx].clone().unwrap()).collect();
+        out.sort();
+        out
+    };
+    let sel = |by_fids: Option<&[i64]>, rel: &str, dist: f64, invert: bool| keys(e.select_by_location(&pts.id, &polys.id, by_fids, rel, dist, "km", invert).unwrap());
+
+    assert_eq!(sel(None, "intersects", 0.0, false), vec!["in-east", "in-west"]);
+    // Only the selected polygon (west).
+    let west = e.select_where(&polys.id, "side = 'west'").unwrap();
+    assert_eq!(sel(Some(&west), "within", 0.0, false), vec!["in-west"]);
+    // Geodesic distance: the point ~2 km north of the west square is within 5 km, not 1 km.
+    assert_eq!(sel(Some(&west), "distance", 5.0, false), vec!["2km-north-of-west", "in-west"]);
+    assert_eq!(sel(Some(&west), "distance", 1.0, false), vec!["in-west"]);
+    // Invert.
+    assert_eq!(sel(None, "intersects", 0.0, true), vec!["2km-north-of-west", "far"]);
+    // The target layer's definition query applies.
+    e.set_definition_query(&pts.id, Some("k <> 'in-east'")).unwrap();
+    assert_eq!(sel(None, "intersects", 0.0, false), vec!["in-west"]);
+    // Selecting with an empty selection is a clear error.
+    assert!(e.select_by_location(&pts.id, &polys.id, Some(&[]), "intersects", 0.0, "m", false).unwrap_err().to_string().contains("no selected features"));
+}

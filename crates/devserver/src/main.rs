@@ -146,6 +146,10 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             json!(out)
         }
         "progress" => json!(engine::progress::snapshot()),
+        "select_by_location" => {
+            let by_fids: Option<Vec<i64>> = de(a, "byFids").ok();
+            json!(e.select_by_location(&s(a, "target")?, &s(a, "by")?, by_fids.as_deref(), &s(a, "relation")?, f(a, "distance")?, &s(a, "units")?, a["invert"].as_bool().unwrap_or(false))?)
+        }
         "fs_roots" => json!(engine::catalog::roots()),
         "fs_list" => json!(engine::catalog::list(&s(a, "path")?)?),
         "fs_inspect" => json!(engine::catalog::inspect(&s(a, "path")?)?),

@@ -2,6 +2,8 @@
 import { create } from "zustand";
 import type { LayerInfo } from "../ipc/api";
 
+export type SelectMode = "new" | "add" | "toggle" | "remove" | "subset";
+
 export interface StyleClass {
   value: string;
   color: string;
@@ -80,7 +82,8 @@ interface AppState {
   setShowOriginal: (id: string, v: boolean) => void;
   moveLayer: (id: string, toIndex: number) => void;
   setStyle: (id: string, style: LayerStyle) => void;
-  setSelection: (id: string, fids: number[], mode?: "new" | "add" | "toggle") => void;
+  /** new / add / toggle; remove = take these out; subset = keep only these from the current selection. */
+  setSelection: (id: string, fids: number[], mode?: SelectMode) => void;
   clearSelection: () => void;
   setActiveLayer: (id: string | null) => void;
   setProperties: (t: PropertiesTarget) => void;
@@ -181,6 +184,14 @@ export const useApp = create<AppState>((set, get) => ({
       let next = fids;
       const cur = s.selection[id] ?? [];
       if (mode === "add") next = Array.from(new Set([...cur, ...fids]));
+      if (mode === "remove") {
+        const drop = new Set(fids);
+        next = cur.filter((f) => !drop.has(f));
+      }
+      if (mode === "subset") {
+        const keep = new Set(fids);
+        next = cur.filter((f) => keep.has(f));
+      }
       if (mode === "toggle") {
         const set1 = new Set(cur);
         for (const f of fids) set1.has(f) ? set1.delete(f) : set1.add(f);

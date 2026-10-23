@@ -24,7 +24,7 @@ mod project;
 mod spatial_join;
 mod erase;
 mod merge;
-mod select_by_location;
+pub mod select_by_location;
 mod feature_to_point;
 mod bounding_geometry;
 mod simplify;

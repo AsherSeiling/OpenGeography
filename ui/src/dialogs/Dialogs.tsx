@@ -1,6 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogBody,
@@ -20,7 +21,7 @@ import {
 import { WaitBar } from "../progress/progress";
 import { Globe20Regular, Location20Regular, Star20Filled } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
-import { defineProjection, generateTestData, selectByAttributes, useDialog } from "../actions";
+import { defineProjection, generateTestData, selectByAttributes, selectByLocation, useDialog } from "../actions";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
 import { STATES } from "./TigerDialog";
 import { api, errorText } from "../ipc/api";
@@ -33,7 +34,7 @@ import { TigerDialog } from "./TigerDialog";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
 import { QueryEditor } from "../query/QueryEditor";
 import { benchmarkFlight, getMap, type FlightResult } from "../map/mapController";
-import { displayInfo, useApp } from "../store/store";
+import { displayInfo, useApp, type SelectMode } from "../store/store";
 
 export function Dialogs() {
   const dialog = useDialog((s) => s.dialog);
@@ -46,6 +47,8 @@ export function Dialogs() {
       return <DefineProjectionDialog layer={dialog.layer} onClose={close} />;
     case "selectByAttributes":
       return <SelectByAttributesDialog layer={dialog.layer} onClose={close} />;
+    case "selectByLocation":
+      return <SelectByLocationDialog layer={dialog.layer} onClose={close} />;
     case "testData":
       return <TestDataDialog onClose={close} />;
     case "benchmark":
@@ -310,6 +313,106 @@ function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: str
               }}
             >
               Apply
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  );
+}
+
+const RELATIONS: [string, string][] = [
+  ["intersects", "Intersect"],
+  ["distance", "Are within a distance of"],
+  ["within", "Are completely within"],
+  ["contains", "Completely contain"],
+  ["touches", "Touch the boundary of"],
+  ["crosses", "Cross"],
+];
+const METHODS: [SelectMode, string][] = [
+  ["new", "New selection"],
+  ["add", "Add to current selection"],
+  ["remove", "Remove from current selection"],
+  ["subset", "Select from current selection"],
+];
+
+function SelectByLocationDialog({ layer: initialLayer, onClose }: { layer: string; onClose: () => void }) {
+  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && l.geomType !== "Table" && l.geomType !== "Raster")));
+  const [target, setTarget] = useState(initialLayer);
+  const [by, setBy] = useState(() => layers.find((l) => l.id !== initialLayer)?.id ?? initialLayer);
+  const [relation, setRelation] = useState("intersects");
+  const [distance, setDistance] = useState("1");
+  const [units, setUnits] = useState("km");
+  const [invert, setInvert] = useState(false);
+  const [mode, setMode] = useState<SelectMode>("new");
+  const bySelected = useApp((s) => s.selection[by]?.length ?? 0);
+  const [onlySelected, setOnlySelected] = useState(bySelected > 0);
+  const [busy, setBusy] = useState(false);
+  const name = (id: string) => layers.find((l) => l.id === id)?.name ?? "";
+  const pick = (value: string, set: (v: string) => void) => (
+    <Dropdown value={name(value)} onOptionSelect={(_, d) => set(d.optionValue!)}>
+      {layers.map((l) => (
+        <Option key={l.id} value={l.id}>{l.name}</Option>
+      ))}
+    </Dropdown>
+  );
+  return (
+    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+      <DialogSurface className="dlg-mid">
+        <DialogBody>
+          <DialogTitle>Select By Location</DialogTitle>
+          <DialogContent className="stack">
+            <Field label="Select features from">{pick(target, setTarget)}</Field>
+            <Field label="That">
+              <Dropdown value={RELATIONS.find(([v]) => v === relation)![1]} onOptionSelect={(_, d) => setRelation(d.optionValue!)}>
+                {RELATIONS.map(([v, l]) => (
+                  <Option key={v} value={v}>{l}</Option>
+                ))}
+              </Dropdown>
+            </Field>
+            {relation === "distance" && (
+              <div className="row2">
+                <Field label="Distance (geodesic)">
+                  <Input type="number" value={distance} onChange={(_, d) => setDistance(d.value)} />
+                </Field>
+                <Field label="Units">
+                  <Dropdown value={units} onOptionSelect={(_, d) => setUnits(d.optionValue!)}>
+                    {["m", "km", "ft", "mi", "nmi"].map((u) => (
+                      <Option key={u} value={u}>{u}</Option>
+                    ))}
+                  </Dropdown>
+                </Field>
+              </div>
+            )}
+            <Field label="The features of">{pick(by, setBy)}</Field>
+            <Checkbox
+              checked={onlySelected && bySelected > 0}
+              disabled={bySelected === 0}
+              onChange={(_, d) => setOnlySelected(!!d.checked)}
+              label={bySelected ? `Use only its ${bySelected.toLocaleString()} selected feature(s)` : "Use only its selected features (none selected)"}
+            />
+            <Checkbox checked={invert} onChange={(_, d) => setInvert(!!d.checked)} label="Invert: select the features that do NOT match" />
+            <Field label="Selection method">
+              <RadioGroup value={mode} onChange={(_, d) => setMode(d.value as SelectMode)}>
+                {METHODS.map(([v, l]) => (
+                  <Radio key={v} value={v} label={l} />
+                ))}
+              </RadioGroup>
+            </Field>
+          </DialogContent>
+          <DialogActions>
+            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
+            <Button
+              appearance="primary"
+              disabled={busy || !target || !by || (relation === "distance" && !(Number(distance) >= 0))}
+              onClick={async () => {
+                setBusy(true);
+                const ok = await selectByLocation(target, by, { relation, distance: Number(distance) || 0, units, invert, onlySelected: onlySelected && bySelected > 0, mode });
+                setBusy(false);
+                if (ok) onClose();
+              }}
+            >
+              {busy ? "Selecting…" : "Apply"}
             </Button>
           </DialogActions>
         </DialogBody>

@@ -75,6 +75,7 @@ fn main() {
             commands::remove_source,
             commands::record_basemap,
             commands::save_text,
+            commands::select_by_location,
             commands::fs_roots,
             commands::fs_list,
             commands::fs_inspect,

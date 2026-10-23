@@ -695,6 +695,46 @@ impl Engine {
         self.with_conn(|c| table::select_where(c, &info, filter))
     }
 
+    /// Select By Location on the map: features of `target` related to the
+    /// features of `by` (only `by_fids` when given, e.g. its selection).
+    /// Both layers' definition queries apply; `by` is reprojected if needed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn select_by_location(&self, target: &str, by: &str, by_fids: Option<&[i64]>, relation: &str, distance: f64, units: &str, invert: bool) -> Result<Vec<i64>> {
+        let a = self.layer(target)?;
+        let b = self.layer(by)?;
+        if !a.has_geometry() || !b.has_geometry() {
+            anyhow::bail!("Select By Location needs two layers with shapes");
+        }
+        let crs = a.crs.clone().ok_or_else(|| anyhow!("{} has no coordinate system — use Define Projection first", a.name))?;
+        let bcrs = b.crs.clone().ok_or_else(|| anyhow!("{} has no coordinate system — use Define Projection first", b.name))?;
+        let bg = if crs::resolve(&bcrs) == crs::resolve(&crs) {
+            "b.geom".to_string()
+        } else {
+            format!("ST_Transform(b.geom, {}, {}, true)", lit(&crs::resolve(&bcrs)), lit(&crs::resolve(&crs)))
+        };
+        let only = match by_fids {
+            Some([]) => anyhow::bail!("{} has no selected features to select with", b.name),
+            Some(ids) => format!(" AND __fid IN ({})", ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")),
+            None => String::new(),
+        };
+        let d = nodes::to_meters(distance, units)?;
+        let not = if invert { "NOT " } else { "" };
+        let sql = format!(
+            "WITH b AS (SELECT {bg} AS g FROM {bt} b WHERE geom IS NOT NULL{bdef}{only})
+             SELECT a.__fid FROM {at} a WHERE a.geom IS NOT NULL{adef} AND {not}{test} ORDER BY a.__fid",
+            at = ident(&a.table),
+            bt = ident(&b.table),
+            adef = a.def_and(),
+            bdef = b.def_and(),
+            test = nodes::select_by_location::location_test(relation, &crs, d)
+        );
+        self.with_conn(|c| {
+            let mut stmt = c.prepare(&sql)?;
+            let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+            Ok(ids)
+        })
+    }
+
     pub fn identify(&self, id: &str, lon: f64, lat: f64, zoom: f64) -> Result<Vec<i64>> {
         let info = self.layer(id)?;
         self.with_conn(|c| table::identify(c, &info, lon, lat, zoom))

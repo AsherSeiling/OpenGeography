@@ -224,6 +224,8 @@ export const api = {
   removeLayer: (id: string) => invoke<void>("remove_layer", { id }),
   renameLayer: (id: string, name: string) => invoke<LayerInfo>("rename_layer", { id, name }),
   progress: () => invoke<TaskInfo[]>("progress"),
+  selectByLocation: (target: string, by: string, byFids: number[] | null, relation: string, distance: number, units: string, invert: boolean) =>
+    invoke<number[]>("select_by_location", { target, by, byFids, relation, distance, units, invert }),
   fsRoots: () => invoke<FsRoot[]>("fs_roots"),
   fsList: (path: string) => invoke<FsListing>("fs_list", { path }),
   fsInspect: (path: string) => invoke<FsDetails>("fs_inspect", { path }),

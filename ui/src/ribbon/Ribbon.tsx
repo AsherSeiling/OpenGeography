@@ -21,7 +21,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Layer", items: [{ cmd: "addData" }, { cmd: "catalog" }, { cmd: "tiger" }, { cmd: "nationalMap" }, { cmd: "elevation" }, { custom: <BasemapGallery /> }] },
     {
       label: "Selection",
-      items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
+      items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "selectByLocation", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
     },
     { label: "Inquiry", items: [{ cmd: "identify" }, { cmd: "measure" }, { cmd: "measureArea", size: "small" }] },
     { label: "Land Nav", items: [{ cmd: "resection" }, { cmd: "intersection" }] },

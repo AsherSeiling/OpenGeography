@@ -8,7 +8,7 @@ import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
-import { defaultStyle, displayInfo, useApp, type LayerStyle } from "./store/store";
+import { defaultStyle, displayInfo, useApp, type LayerStyle, type SelectMode } from "./store/store";
 
 // ---------- dialogs ----------
 
@@ -17,6 +17,7 @@ export type DialogState =
   | { kind: "crs"; title: string; initial?: string | null; onPick: (id: string, name: string) => void }
   | { kind: "defineProjection"; layer: string }
   | { kind: "selectByAttributes"; layer: string }
+  | { kind: "selectByLocation"; layer: string }
   | { kind: "testData" }
   | { kind: "benchmark" }
   | { kind: "rename"; layer: string }
@@ -215,6 +216,27 @@ export async function selectByAttributes(layer: string, where: string, mode: "ne
   if (!fids) return false;
   useApp.getState().setSelection(layer, fids, mode);
   status(`Selected ${fids.length.toLocaleString()} feature(s)`);
+  return true;
+}
+
+/**
+ * Select By Location: select features of `target` by how they relate to the
+ * features of `by` (only its selected features when `onlySelected`).
+ */
+export async function selectByLocation(
+  target: string,
+  by: string,
+  opts: { relation: string; distance: number; units: string; invert: boolean; onlySelected: boolean; mode: SelectMode },
+) {
+  const s = useApp.getState();
+  const byFids = opts.onlySelected ? (s.selection[by] ?? []) : null;
+  const fids = await busy("Selecting by location", () =>
+    api.selectByLocation(shown(target)?.id ?? target, shown(by)?.id ?? by, byFids, opts.relation, opts.distance, opts.units, opts.invert),
+  );
+  if (!fids) return false;
+  useApp.getState().setSelection(target, fids, opts.mode);
+  const n = useApp.getState().selection[target]?.length ?? 0;
+  status(`${fids.length.toLocaleString()} feature(s) matched · ${n.toLocaleString()} selected in ${s.layers[target]?.name ?? "layer"}`);
   return true;
 }
 

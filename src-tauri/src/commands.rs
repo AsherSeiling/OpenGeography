@@ -337,6 +337,12 @@ pub async fn cancel_task(id: u64) -> Res<()> {
     Ok(())
 }
 
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn select_by_location(engine: Eng<'_>, target: String, by: String, by_fids: Option<Vec<i64>>, relation: String, distance: f64, units: String, invert: bool) -> Res<Vec<i64>> {
+    blocking(&engine, move |e| e.select_by_location(&target, &by, by_fids.as_deref(), &relation, distance, &units, invert)).await
+}
+
 // ---------- file manager ----------
 
 #[tauri::command]
