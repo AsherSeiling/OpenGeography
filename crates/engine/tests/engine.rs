@@ -363,6 +363,47 @@ fn new_geoprocessing_tools_run() {
     assert!(run("erase", json!({}), Some("b")) <= 13);
 }
 
+#[test]
+fn union_symmetrical_difference_and_collect() {
+    let dir = tempfile::tempdir().unwrap();
+    let (pa, pb) = (dir.path().join("a.gpkg"), dir.path().join("b.gpkg"));
+    // A = [0,2]², B = [1,3]²: one 1×1 overlap, 3 units of A only, 3 of B only.
+    write_fixture(&pa, "SELECT 1 AS id, 'a' AS name, ST_MakeEnvelope(0, 0, 2, 2) AS geom", "GPKG", Some("EPSG:4326"));
+    write_fixture(
+        &pb,
+        "SELECT 7 AS id, 'b' AS name, ST_MakeEnvelope(1, 1, 3, 3) AS geom
+         UNION ALL SELECT 8, 'b', ST_MakeEnvelope(10, 10, 11, 11)",
+        "GPKG",
+        Some("EPSG:4326"),
+    );
+    let e = Engine::new().unwrap();
+    let a = e.import(&pa).unwrap().remove(0);
+    let b = e.import(&pb).unwrap().remove(0);
+    let run = |tool: &str, params: serde_json::Value| {
+        let nodes = vec![
+            json!({"id": "a", "tool": "input_layer", "params": {"layer": a.id}}),
+            json!({"id": "b", "tool": "input_layer", "params": {"layer": b.id}}),
+            json!({"id": "t", "tool": tool, "params": params}),
+        ];
+        let mut edges = vec![json!({"source": "a", "target": "t", "targetHandle": "in"})];
+        let spec = e.tool_specs().into_iter().find(|s| s.id == tool).unwrap();
+        edges[0]["targetHandle"] = json!(spec.inputs[0].id);
+        if let Some(port) = spec.inputs.get(1) {
+            edges.push(json!({"source": "b", "target": "t", "targetHandle": port.id}));
+        }
+        let res = e.run_graph(&graph(json!({"nodes": nodes, "edges": edges})), Some("t"), &mut |_| {}).unwrap();
+        let r = res.into_iter().find(|r| r.id == "t").unwrap();
+        assert_eq!(r.status, Status::Done, "{tool}: {:?}", r.error);
+        r.rows.unwrap()
+    };
+    // Union: overlap + A-only + B-only (feature 7) + the untouched B feature 8.
+    assert_eq!(run("union", json!({})), 4);
+    // Symmetrical difference: A-only + B-only (7) + B feature 8.
+    assert_eq!(run("symmetrical_difference", json!({})), 3);
+    // Collect: A is one feature; grouping the other layer would give 1 group per name.
+    assert_eq!(run("collect", json!({})), 1);
+}
+
 /// Needs internet access to tigerweb.geo.census.gov; run with --ignored.
 #[test]
 #[ignore]
