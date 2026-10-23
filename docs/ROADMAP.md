@@ -71,7 +71,7 @@ Known portability risks:
 5. GDAL versions differ per platform (3.13 Homebrew, 3.10 conda, Ubuntu 3.8).
 
 ## 3. Licensing
-Update 2026-10-23: macOS and Windows CI builds use conda-forge `libgdal-core=3.12` + `libspatialite=*=lgpl*` (no poppler/x265/librttopo) and a license gate fails the build if any appears. Linux still bundles Ubuntu GDAL (gate reports only) — next: move Linux to conda-forge GDAL.
+Update 2026-10-23: macOS and Windows CI builds use conda-forge `libgdal-core=3.12` + `libspatialite=*=lgpl*` (no poppler/x265/librttopo) and a license gate fails the build if any appears. Linux moved to conda-forge GDAL 3.12 too (private `gs_`-prefixed libs, strict gate) — done 2026-10-23.
 
 Original finding:
 The macOS package includes GPL-only libraries via Homebrew GDAL: poppler (linked by libgdal: PDF driver), x265 (via libheif: HEIF driver) and librttopo (via libspatialite: SQLite/SpatiaLite driver). Fix: build/obtain GDAL without PDF/HEIF/SpatiaLite (or with those drivers as removable plugins), re-run `third_party_notices.py`, confirm zero GPL-only entries. Apply to Windows/Linux packages too.

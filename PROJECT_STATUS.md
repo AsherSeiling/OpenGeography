@@ -22,7 +22,7 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 
 ## Known issues / technical debt
 1. Cancel lands between DuckDB work units (~100k rows/thread). GDAL translate/warp/contours/polygonize/rasterize stop mid-step; gdaldem (hillshade/slope/aspect/ruggedness) ignores GDAL's progress callback, so those finish first.
-2. Linux: the CI job now builds with conda-forge GDAL 3.12 (commit 036e780, strict license gate) but the AppImage fails its self-test: `libtiff.so.6: undefined symbol: jpeg12_write_raw_data, version LIBJPEG_8.0` (run 40008023939). The bundler flattens conda's and Ubuntu's same-soname libraries into one `usr/lib`; Ubuntu's `libjpeg.so.8` (from WebKitGTK) replaced conda's libjpeg-turbo 3. Linux CI is red on main until fixed. Local Homebrew macOS builds still warn; CI macOS/Windows release builds are GPL-free. Options for the Opus session: (A) conda libs win via LD_LIBRARY_PATH scoped to the package step only (quick, risks WebKitGTK running on conda's libcurl/libxml2/libjpeg); (B) bundle conda GDAL libs in a private subfolder with an $ORIGIN rpath, post-processing the AppImage layout (cleanest); (C) build a minimal GPL-free GDAL from source on Ubuntu (slow CI, leaves the conda pin).
+2. Fixed 2026-10-23: Linux AppImage clash (conda GDAL vs. system libs) — private libs with unique `gs_` sonames (`5fd5c23`, run 40014559269); Linux builds with conda-forge GDAL 3.12 and passes the strict license gate. Local Homebrew macOS builds still warn; CI release builds on all platforms are GPL-free.
 3. Fixed 2026-10-23: deleted-layer references are flagged; parameter typing is one undo step; bundled GDAL/PROJ data always wins; rasters are copied into the project (portable); tool output fields come from the engine registry (`Tool::output_fields`, with a drift test).
 
 ## Recent decisions
@@ -36,11 +36,10 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **Catalog pane** (file manager) with a "This project" view; TIGER downloads by year; bibliography auto-export (APA/MLA/Chicago, BibTeX, RIS).
 
 ## Next tasks (in order)
-1. (In progress — `036e780`, CI pending) Linux: build with conda-forge GDAL 3.12 + LGPL SpatiaLite like macOS/Windows, then make the Linux license gate strict (watch for conda vs. system WebKitGTK library conflicts).
 2. Layouts (M2: page, map frame, legend, scale bar, north arrow, title, export PDF/PNG) — design in Opus first, then implement.
 3. Attribute history between nodes ("git for tables"; see roadmap).
 4. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
 5. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-Open an Opus session on next task 1: pick the approach for the Linux AppImage library clash (known issue 2), then hand the implementation to Sonnet. History is in docs/CI_LOG.md; failures show as annotations on the run page.
+Do A2 (refresh stale roadmap rows, Sonnet), then A3/A4 (A3 needs real Windows/Linux machines). Then Phase C1 (layouts design) needs an Opus session.
