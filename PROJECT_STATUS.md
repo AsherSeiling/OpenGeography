@@ -36,10 +36,10 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **Catalog pane** (file manager) with a "This project" view; TIGER downloads by year; bibliography auto-export (APA/MLA/Chicago, BibTeX, RIS).
 
 ## Next tasks (in order)
-2. Layouts (M2: page, map frame, legend, scale bar, north arrow, title, export PDF/PNG) — design in Opus first, then implement.
-3. Attribute history between nodes ("git for tables"; see roadmap).
-4. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
-5. Census data join (user enters the API key; OS keychain).
+1. Layouts (M2: page, map frame, legend, scale bar, north arrow, title, export PDF/PNG) — design in Opus first, then implement.
+2. Attribute history between nodes ("git for tables"; see roadmap).
+3. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
+4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
 Do A2 (refresh stale roadmap rows, Sonnet), then A3/A4 (A3 needs real Windows/Linux machines). Then Phase C1 (layouts design) needs an Opus session.
