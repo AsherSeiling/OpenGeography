@@ -267,7 +267,11 @@ fn diff_id(a: &str, b: &str, key: Option<&str>) -> String {
         }
         None => "content".into(),
     };
-    format!("{DIFF_PREFIX}{}_{}_{k}", short(a), short(b))
+    // Unique per call: two comparisons of the same inputs (a re-run, StrictMode's double effect)
+    // must not share a table, or dropping one would pull it from under the other.
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{DIFF_PREFIX}{}_{}_{k}_{n}", short(a), short(b))
 }
 
 pub fn node_diff(conn: &Connection, a: &str, b: &str, user_key: Option<&str>, handle: TaskHandle, progress: &dyn Fn(f64, &str)) -> Result<(DiffSummary, DiffMeta)> {
@@ -389,7 +393,7 @@ pub fn node_diff(conn: &Connection, a: &str, b: &str, user_key: Option<&str>, ha
             }
             let any = if flags.is_empty() { "FALSE".to_string() } else { flags.join(" OR ") };
             let sql = format!(
-                "CREATE OR REPLACE TABLE {tbl} AS SELECT __kind, CAST(coalesce(CAST(__ak AS VARCHAR), CAST(__bk AS VARCHAR)) AS VARCHAR) AS __key, {fin} \
+                "CREATE TABLE {tbl} AS SELECT __kind, CAST(coalesce(CAST(__ak AS VARCHAR), CAST(__bk AS VARCHAR)) AS VARCHAR) AS __key, {fin} \
                  FROM (SELECT CASE WHEN __ak IS NULL THEN 'added' WHEN __bk IS NULL THEN 'removed' WHEN ({any}) THEN 'changed' ELSE 'unchanged' END AS __kind, * \
                        FROM (SELECT {inner} FROM {at} a FULL OUTER JOIN {bt} b ON {on})) j WHERE __kind <> 'unchanged'",
                 fin = final_cols("j"),
@@ -436,7 +440,7 @@ pub fn node_diff(conn: &Connection, a: &str, b: &str, user_key: Option<&str>, ha
                 final_parts.push(format!("left(ST_AsText(x.a_{n}), 80) AS a_{n}, left(ST_AsText(y.b_{n}), 80) AS b_{n}, FALSE AS c_{n}"));
             }
             let sql = format!(
-                "CREATE OR REPLACE TABLE {tbl} AS \
+                "CREATE TABLE {tbl} AS \
                  WITH x1 AS (SELECT {sa} FROM {at} a), x AS (SELECT *, row_number() OVER (PARTITION BY __h) AS __n FROM x1), \
                       y1 AS (SELECT {sb} FROM {bt} b), y AS (SELECT *, row_number() OVER (PARTITION BY __h) AS __n FROM y1) \
                  SELECT CASE WHEN x.__h IS NULL THEN 'added' ELSE 'removed' END AS __kind, CAST(NULL AS VARCHAR) AS __key, {fin} \

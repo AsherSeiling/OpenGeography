@@ -295,3 +295,21 @@ fn h14_million_row_key_diff_performance() {
     assert!(d.changed > 0 && d.added == 0);
     assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
 }
+
+#[test]
+fn diff_ids_are_unique_per_call_and_drops_are_independent() {
+    let _g = serial();
+    let e = Engine::new().unwrap();
+    sql(
+        &e,
+        "CREATE TABLE __node_a AS SELECT * FROM (VALUES (1, 'x'), (2, 'y')) t(GEOID, NAME);
+         CREATE TABLE __node_b AS SELECT * FROM (VALUES (1, 'x'), (3, 'z')) t(GEOID, NAME);",
+    );
+    let d1 = e.node_diff("__node_a", "__node_b", Some("GEOID")).unwrap();
+    let d2 = e.node_diff("__node_a", "__node_b", Some("GEOID")).unwrap();
+    assert_ne!(d1.diff_id, d2.diff_id);
+    e.drop_node_diff(&d1.diff_id).unwrap();
+    assert_eq!(kinds(&e, &d2.diff_id, "all").len(), 2, "the second comparison survives the first's drop");
+    assert!(e.node_diff_rows(&d1.diff_id, "all", 0, 10).is_err());
+    e.drop_node_diff(&d2.diff_id).unwrap();
+}
