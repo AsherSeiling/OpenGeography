@@ -134,6 +134,35 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             }
             json!(out)
         }
+        "tnm_datasets" => json!(engine::tnm_vector::DATASETS),
+        "tnm_import" => {
+            let ds: Vec<String> = de(a, "datasets")?;
+            let out = e.tnm_import(&ds, de(a, "bbox")?, a["clipLayer"].as_str(), a["clip"].as_bool().unwrap_or(true), &s(a, "label")?)?;
+            for l in &out.layers {
+                let _ = e.prewarm(&l.id, 8, &[]);
+            }
+            json!(out)
+        }
+        "progress" => json!(engine::progress::snapshot()),
+        "sources" => json!(e.sources()?),
+        "update_source" => {
+            e.update_source(&de(a, "citation")?)?;
+            json!(null)
+        }
+        "remove_source" => {
+            e.remove_source(&s(a, "key")?)?;
+            json!(null)
+        }
+        "record_basemap" => {
+            if let Some(c) = engine::sources::for_basemap(&s(a, "id")?) {
+                e.record_source(&c, "Basemap")?;
+            }
+            json!(null)
+        }
+        "cancel_task" => {
+            engine::progress::cancel(a["id"].as_u64().unwrap_or(0));
+            json!(null)
+        }
         "download_elevation" => {
             let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?)?;
             json!(l)

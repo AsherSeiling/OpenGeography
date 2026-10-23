@@ -700,3 +700,68 @@ fn geodesic_buffer_near_and_measure() {
     assert!((m.area.unwrap() / 1e6 - 123.09).abs() < 0.05, "area {:?}", m.area);
     assert!(m.length.is_none());
 }
+
+/// Network: The National Map vector services (slow; run with --ignored).
+#[test]
+#[ignore]
+fn national_map_vector_downloads() {
+    let e = Engine::new().unwrap();
+    let bbox = [-97.56, 35.44, -97.46, 35.50]; // downtown Oklahoma City
+    let ids: Vec<String> = ["st_emergency", "gn_places", "roads_major", "wbd_huc12"].iter().map(|s| s.to_string()).collect();
+    let r = e.tnm_import(&ids, bbox, None, true, "OKC").unwrap();
+    assert!(r.failed.is_empty(), "{:?}", r.failed);
+    let layers = r.layers;
+    assert_eq!(layers.len(), 4);
+    for l in &layers {
+        assert!(l.feature_count > 0, "{} is empty", l.name);
+        let [w, s, ea, n] = l.extent.unwrap();
+        assert!(w >= bbox[0] - 1e-6 && s >= bbox[1] - 1e-6 && ea <= bbox[2] + 1e-6 && n <= bbox[3] + 1e-6, "{} not clipped: {:?}", l.name, l.extent);
+    }
+    let emergency = &layers[0];
+    assert_eq!(emergency.geom_type, "Point");
+    assert!(emergency.fields.iter().any(|f| f.name == "CATEGORY"));
+    assert_eq!(layers[2].geom_type, "Line", "clipped highways stay lines");
+    assert_eq!(layers[3].geom_type, "Polygon");
+}
+
+#[test]
+fn data_sources_are_logged_with_citations() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("wells.gpkg");
+    write_fixture(&p, "SELECT 1 AS id, ST_Point(-97.5, 35.4) AS geom", "GPKG", Some("EPSG:4326"));
+    let e = Engine::new().unwrap();
+    let l = e.import(&p).unwrap().remove(0);
+
+    let list = e.sources().unwrap();
+    assert_eq!(list.len(), 1);
+    let src = &list[0];
+    assert_eq!(src.citation.kind, "Local file");
+    assert!(!src.citation.complete, "a local file starts as an incomplete citation");
+    assert_eq!(src.uses[0].layer_id, l.id);
+
+    // Copies inherit the source; renames follow.
+    let copy = e.copy_layer(&l.id, "Wells copy", None).unwrap();
+    e.rename_layer(&l.id, "Water wells").unwrap();
+    let names: Vec<String> = e.sources().unwrap()[0].uses.iter().map(|u| u.layer_name.clone()).collect();
+    assert!(names.contains(&"Water wells".to_string()) && names.contains(&copy.name), "{names:?}");
+
+    // The user's completed citation survives re-importing the same file.
+    let mut c = src.citation.clone();
+    c.author = "Oklahoma Water Resources Board".into();
+    c.year = "2025".into();
+    e.update_source(&c).unwrap();
+    e.import(&p).unwrap();
+    let after = &e.sources().unwrap()[0];
+    assert_eq!(after.citation.author, "Oklahoma Water Resources Board");
+    assert!(after.citation.complete);
+
+    // Basemaps are logged once.
+    let osm = engine::sources::for_basemap("osm").unwrap();
+    e.record_source(&osm, "Basemap").unwrap();
+    e.record_source(&osm, "Basemap").unwrap();
+    let all = e.sources().unwrap();
+    assert_eq!(all.len(), 2);
+    assert_eq!(all.iter().find(|s| s.citation.key == "osm").unwrap().uses.len(), 1);
+    assert!(engine::sources::for_tnm("nhd_flowlines").title.contains("National Hydrography Dataset"));
+    assert_eq!(engine::sources::for_tiger("tracts", "Tracts").len(), 2, "tracts cite TIGER and the 2020 Census counts");
+}

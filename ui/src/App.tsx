@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { DockviewReact, themeLight, themeDark, type DockviewReadyEvent, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
+import { startProgressPolling } from "./progress/progress";
 import { addData, registerDock, runModel, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
 import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
@@ -14,6 +15,7 @@ import { MapView } from "./panes/MapView";
 import { ModelPane } from "./panes/ModelPane";
 import { defaultLayout, setDock, type PaneId } from "./panes/panes";
 import { PropertiesPane } from "./panes/PropertiesPane";
+import { SourcesPane } from "./panes/SourcesPane";
 import { ToolsPane } from "./panes/ToolsPane";
 import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
@@ -43,11 +45,17 @@ const components: Record<PaneId, React.FunctionComponent<IDockviewPanelProps>> =
   model: () => <ModelPane />,
   properties: () => <PropertiesPane />,
   tools: () => <ToolsPane />,
+  sources: () => <SourcesPane />,
 };
 
 export function App() {
   const dark = useApp((s) => s.dark);
 
+  useEffect(startProgressPolling, []);
+  const basemap = useApp((s) => s.basemap);
+  useEffect(() => {
+    if (basemap) api.recordBasemap(basemap).catch(() => {});
+  }, [basemap]);
   useEffect(() => {
     api.toolSpecs().then(useRun.getState().setSpecs).catch((e) => useApp.getState().setStatus(`Engine not available: ${e}`));
     // Live step status while a model runs; drag and drop files onto the window to add them.

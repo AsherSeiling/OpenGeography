@@ -34,7 +34,7 @@ export interface FlightResult {
  * Scripted pan/zoom flight over an extent, recording frame times. Used by
  * View → Benchmark to check the map stays smooth (target: 60 fps, p95 < 20 ms).
  */
-export async function benchmarkFlight(ext: Extent): Promise<FlightResult> {
+export async function benchmarkFlight(ext: Extent, onStep?: (fraction: number) => void): Promise<FlightResult> {
   if (!map) throw new Error("Map not ready");
   const m = map;
   const [w, s, e, n] = ext;
@@ -62,7 +62,8 @@ export async function benchmarkFlight(ext: Extent): Promise<FlightResult> {
   const t0 = performance.now();
   last = t0;
   requestAnimationFrame(tick);
-  for (const step of steps.slice(1)) {
+  for (const [i, step] of steps.slice(1).entries()) {
+    onStep?.(i / (steps.length - 1));
     await new Promise<void>((resolve) => {
       m.once("moveend", () => resolve());
       m.flyTo({ ...step, duration: 2000, essential: true });

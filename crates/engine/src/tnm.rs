@@ -15,7 +15,7 @@ const MAX_PX: f64 = 8000.0;
 
 /// Download 3DEP elevation for a lon/lat box at `resolution` meters.
 /// Returns the GeoTIFF path and the resolution actually used.
-pub fn download_elevation(bbox: [f64; 4], resolution: f64) -> Result<(PathBuf, f64)> {
+pub fn download_elevation(bbox: [f64; 4], resolution: f64, report: &dyn Fn(f64, &str) -> Result<()>) -> Result<(PathBuf, f64)> {
     let [w, s, e, n] = bbox;
     if !(w < e && s < n) {
         bail!("The area is empty");
@@ -33,6 +33,7 @@ pub fn download_elevation(bbox: [f64; 4], resolution: f64) -> Result<(PathBuf, f
     let url = format!(
         "{ELEVATION}?bbox={w},{s},{e},{n}&bboxSR=4326&imageSR={wkid}&size={cols},{rows}&format=tiff&pixelType=F32&noData=-999999&interpolation=RSP_BilinearInterpolation&f=image"
     );
+    report(0.0, "Waiting for the 3DEP service to cut the elevation…")?;
     let resp = ureq::get(&url)
         .set("User-Agent", "GIS-Studio (open-source GIS)")
         .timeout(std::time::Duration::from_secs(300))
@@ -45,7 +46,26 @@ pub fn download_elevation(bbox: [f64; 4], resolution: f64) -> Result<(PathBuf, f
     }
     let tmp = crate::raster::new_store_path("3dep_download", "tif");
     let mut f = std::fs::File::create(&tmp)?;
-    std::io::copy(&mut resp.into_reader(), &mut f)?;
+    // Stream to disk; the service sends a length, so progress is real.
+    let total: Option<u64> = resp.header("Content-Length").and_then(|v| v.parse().ok());
+    let mut reader = resp.into_reader();
+    let mut buf = vec![0u8; 1 << 16];
+    let mut got: u64 = 0;
+    loop {
+        let n = reader.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        std::io::Write::write_all(&mut f, &buf[..n])?;
+        got += n as u64;
+        let mb = got as f64 / 1e6;
+        match total {
+            Some(t) if t > 0 => report(0.8 * got as f64 / t as f64, &format!("Downloaded {mb:.1} of {:.1} MB", t as f64 / 1e6))?,
+            _ => report(0.4, &format!("Downloaded {mb:.1} MB"))?,
+        }
+    }
+    drop(f);
+    report(0.85, "Building overviews…")?;
     // Mark the service's no-data value, then store with overviews.
     {
         let ds = gdal::Dataset::open_ex(&tmp, gdal::DatasetOptions { open_flags: gdal::GdalOpenFlags::GDAL_OF_UPDATE | gdal::GdalOpenFlags::GDAL_OF_RASTER, ..Default::default() })?;

@@ -15,8 +15,9 @@ import {
   Option,
   Radio,
   RadioGroup,
-  Spinner,
+  ProgressBar,
 } from "@fluentui/react-components";
+import { WaitBar } from "../progress/progress";
 import { Globe20Regular, Location20Regular, Star20Filled } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, useDialog } from "../actions";
@@ -24,6 +25,7 @@ import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, 
 import { STATES } from "./TigerDialog";
 import { api, errorText } from "../ipc/api";
 import { ElevationDialog } from "./ElevationDialog";
+import { NationalMapDialog } from "./NationalMapDialog";
 import { ExportDialog } from "./ExportDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
@@ -63,6 +65,8 @@ export function Dialogs() {
       return <ExportDialog owner={dialog.owner} onClose={close} />;
     case "elevation":
       return <ElevationDialog onClose={close} />;
+    case "nationalMap":
+      return <NationalMapDialog onClose={close} />;
     case "nodeQuery":
       return <NodeQueryDialog nodeId={dialog.nodeId} param={dialog.param} onClose={close} />;
   }
@@ -145,7 +149,7 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
         ))}
       </div>
       <div className="crs-list" role="listbox">
-        {list.length === 0 && <Spinner size="tiny" label="Loading coordinate systems…" />}
+        {list.length === 0 && <WaitBar label="Loading coordinate systems…" />}
         {results.map((e) => (
           <div key={e.id} role="option" aria-selected={e.id === value} className={`crs-row ${e.id === value ? "sel" : ""}`} onClick={() => onChange(e.id, e.name)} onDoubleClick={() => onChange(e.id, e.name)}>
             <span className="crs-code">{e.id}</span>
@@ -347,6 +351,7 @@ function BenchmarkDialog({ onClose }: { onClose: () => void }) {
   const [res, setRes] = useState<FlightResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [step, setStep] = useState(0);
   const run = async () => {
     const s = useApp.getState();
     const target = s.order.map((id) => s.layers[id]).find((l) => l?.extent);
@@ -357,7 +362,8 @@ function BenchmarkDialog({ onClose }: { onClose: () => void }) {
     setRunning(true);
     setErr(null);
     try {
-      setRes(await benchmarkFlight(target.extent));
+      setStep(0);
+      setRes(await benchmarkFlight(target.extent, setStep));
     } catch (e) {
       setErr(errorText(e));
     }
@@ -371,7 +377,12 @@ function BenchmarkDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Map Benchmark</DialogTitle>
           <DialogContent className="stack">
             <div className="muted">Flies across the top layer at several zoom levels and records frame times. Target: ≥ 50 fps average, p95 frame ≤ 25 ms.</div>
-            {running && <Spinner label="Flying…" />}
+            {running && (
+              <div className="task-progress">
+                <div className="tp-head"><span>Flying…</span><span className="tp-pct">{Math.round(step * 100)}%</span></div>
+                <ProgressBar thickness="large" value={step} max={1} />
+              </div>
+            )}
             {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
             {res && (
               <MessageBar intent={pass ? "success" : "warning"}>

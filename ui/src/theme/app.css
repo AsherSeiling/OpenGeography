@@ -422,3 +422,34 @@ select.qe-val { width: 160px; }
 .nav-result { border: 1px solid #107c10; background: rgba(16,124,16,.06); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
 .nav-mgrs { font: 600 16px Consolas, Menlo, monospace; color: #107c10; }
 .map-hint { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.75); color: #fff; padding: 5px 12px; border-radius: 3px; z-index: 7; font-size: 12px; pointer-events: none; }
+
+/* ---------- Progress bars ---------- */
+.task-progress { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; }
+.tp-head { display: flex; justify-content: space-between; font-weight: 600; font-size: 12px; }
+.tp-pct { font-variant-numeric: tabular-nums; color: var(--accent); }
+.tp-detail { font-size: 11.5px; min-height: 15px; }
+.sb-progress { display: inline-flex; align-items: center; gap: 6px; max-width: 420px; }
+.sb-progress-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.sb-progress-bar { width: 120px; }
+.sb-progress-pct { font-variant-numeric: tabular-nums; min-width: 30px; }
+.tnm-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; max-height: 340px; overflow: auto; border: 1px solid var(--border); padding: 6px 8px; }
+.tnm-group { display: flex; flex-direction: column; }
+.tnm-group-title { font-weight: 600; margin: 4px 0 2px 6px; color: var(--accent); }
+.tp-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sb-progress-x { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0 2px; font-size: 11px; }
+.sb-progress-x:hover { color: var(--error); }
+
+/* ---------- Sources pane ---------- */
+.sources-pane { display: flex; flex-direction: column; height: 100%; overflow: hidden; font-size: 12px; }
+.sources-pane .pane-toolbar { display: flex; align-items: center; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--border); background: var(--chrome); }
+.sources-pane .pane-empty { padding: 12px; line-height: 1.5; }
+.src-warn { display: flex; gap: 6px; align-items: center; margin: 6px 8px 0; padding: 5px 8px; background: #fff4ce; color: #5c4400; border: 1px solid #f2d27a; font-size: 11.5px; }
+.src-list { overflow: auto; padding: 4px 8px 12px; }
+.src-entry { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.src-entry.incomplete .src-ref { color: #8a6d00; }
+.src-ref { padding-left: 2em; text-indent: -2em; line-height: 1.45; overflow-wrap: anywhere; }
+.src-note { margin: 4px 0 0 2em; color: var(--text); line-height: 1.4; }
+.src-uses, .src-license { margin: 3px 0 0 2em; color: var(--muted); font-size: 11.5px; }
+.src-uses .removed { text-decoration: line-through; }
+.src-actions { display: flex; align-items: center; gap: 2px; margin: 4px 0 0 2em; }
+.src-kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: auto; }

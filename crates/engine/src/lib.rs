@@ -8,12 +8,15 @@ pub mod graph;
 pub mod layers;
 pub mod measure;
 pub mod nodes;
+pub mod progress;
 pub mod raster;
+pub mod sources;
 pub mod resources;
 pub mod table;
 pub mod tiger;
 pub mod tiles;
 pub mod tnm;
+pub mod tnm_vector;
 
 use anyhow::{anyhow, Result};
 use db::{ident, lit, Pool};
@@ -22,12 +25,22 @@ use graph::{Cache, Graph, Host, NodeResult};
 use layers::{ImportSource, LayerInfo};
 use lru::LruCache;
 use nodes::{Tool, ToolSpec};
+use progress::Task;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+
+/// Result of a National Map download: new layers, plus datasets that had no
+/// features in the area or failed (e.g. a server down).
+#[derive(serde::Serialize, Default, Debug)]
+pub struct TnmImport {
+    pub layers: Vec<LayerInfo>,
+    pub empty: Vec<String>,
+    pub failed: Vec<String>,
+}
 
 type TileKey = (String, u64, u32, u32, u32, String);
 
@@ -73,6 +86,7 @@ impl Engine {
             "CREATE TABLE IF NOT EXISTS __layers (id VARCHAR PRIMARY KEY, info JSON);
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);",
         )?;
+        sources::init(&conn)?;
         // Drop stale model cache tables from a previous session.
         let mut stmt = conn.prepare("SELECT table_name, table_type FROM information_schema.tables WHERE table_name LIKE '\\_\\_node\\_%' ESCAPE '\\'")?;
         let stale: Vec<(String, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
@@ -131,17 +145,38 @@ impl Engine {
     // ---------- layers ----------
 
     pub fn import(&self, path: &Path) -> Result<Vec<LayerInfo>> {
+        let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("data").to_string();
+        let mut task = Task::start(format!("Adding {name}"));
+        let out = self.import_with(path, &mut task)?;
+        let format = path.extension().and_then(|e| e.to_str()).unwrap_or("data").to_uppercase();
+        self.with_conn(|c| {
+            for l in &out {
+                let cite = sources::for_file(path, &format, if l.is_raster() { 0 } else { l.feature_count }, l.crs_name.as_deref().or(l.crs.as_deref()));
+                sources::record(c, &cite, &l.id, &l.name)?;
+            }
+            Ok(())
+        })?;
+        Ok(out)
+    }
+
+    /// Import, reporting each layer of the file as a part of `task`.
+    fn import_with(&self, path: &Path, task: &mut Task) -> Result<Vec<LayerInfo>> {
         if raster::is_raster_path(path) {
+            task.detail("Copying raster and building overviews…");
             return Ok(vec![self.import_raster(path, None)?]);
         }
         let pool = self.pool.read();
         let conn = pool.get()?;
         let mut out = Vec::new();
-        for src in layers::sources_for_path(&conn, path)? {
+        let sources = layers::sources_for_path(&conn, path)?;
+        for (i, src) in sources.iter().enumerate() {
+            task.part(i, sources.len());
+            task.set(0.1, Some(format!("Reading {}…", src.name)));
             let id = self.alloc_id();
-            let mut info = layers::build_layer(&conn, &id, &src)?;
+            let mut info = layers::build_layer(&conn, &id, src)?;
             info.source = Some(path.display().to_string());
             self.save_meta(&conn, &info)?;
+            task.set(1.0, Some(format!("Indexed {} features", info.feature_count)));
             out.push(info);
         }
         Ok(out)
@@ -159,11 +194,18 @@ impl Engine {
 
     /// Download USGS 3DEP elevation for a lon/lat box as a raster layer.
     pub fn download_elevation(&self, bbox: [f64; 4], resolution: f64, area_label: &str) -> Result<LayerInfo> {
-        let (path, res) = tnm::download_elevation(bbox, resolution)?;
+        let task = Task::start(format!("Downloading elevation for {area_label}")).cancellable();
+        let (path, res) = tnm::download_elevation(bbox, resolution, &|f, msg| {
+            task.set(f, Some(msg));
+            task.check()
+        })?;
         let id = self.alloc_id();
         let name = format!("Elevation (3DEP {res} m) — {area_label}");
         let info = layers::raster_layer(&id, &name, &path, Some("USGS 3DEP elevation (The National Map)".into()))?;
-        self.with_conn(|c| self.save_meta(c, &info))?;
+        self.with_conn(|c| {
+            self.save_meta(c, &info)?;
+            sources::record(c, &sources::for_3dep(), &info.id, &info.name)
+        })?;
         Ok(info)
     }
 
@@ -242,18 +284,215 @@ impl Engine {
     /// Download TIGER datasets for a state/county and add them as layers.
     pub fn tiger_import(&self, datasets: &[String], state: &str, county: Option<&str>, area_label: &str) -> Result<Vec<LayerInfo>> {
         let cache = std::env::temp_dir().join("gis-studio-cache");
+        let mut task = Task::start(format!("Downloading Census TIGER data for {area_label}")).cancellable();
         let mut out = Vec::new();
-        for id in datasets {
+        for (i, id) in datasets.iter().enumerate() {
             let d = tiger::dataset(id)?;
-            let path = tiger::fetch(id, state, county, &cache)?;
-            for mut info in self.import(&path)? {
+            // Each dataset: download is 85% of its share, building the layer the rest.
+            task.part(i, datasets.len());
+            let path = tiger::fetch(id, state, county, &cache, &|f, msg| {
+                task.set(f * 0.85, Some(msg));
+                task.check()
+            })?;
+            task.set(0.9, Some(format!("{}: building layer…", d.label)));
+            for mut info in self.import_with(&path, &mut Task::start(format!("Adding {}", d.label)))? {
                 info.name = format!("{} — {area_label}", d.label);
                 info.source = Some(format!("Census TIGERweb: {}", d.label));
-                self.with_conn(|c| self.save_meta(c, &info))?;
+                self.with_conn(|c| {
+                    self.save_meta(c, &info)?;
+                    for cite in sources::for_tiger(d.id, d.label) {
+                        sources::record(c, &cite, &info.id, &info.name)?;
+                    }
+                    Ok(())
+                })?;
                 out.push(info);
             }
         }
         Ok(out)
+    }
+
+    /// Download The National Map vector datasets for a lon/lat box and add them
+    /// as layers, clipped to the box or to a polygon layer's shape when `clip`.
+    /// Datasets download in parallel; one failing doesn't stop the others.
+    pub fn tnm_import(&self, datasets: &[String], bbox: [f64; 4], clip_layer: Option<&str>, clip: bool, area_label: &str) -> Result<TnmImport> {
+        let cache = std::env::temp_dir().join("gis-studio-cache");
+        let task = Task::start(format!("Downloading from The National Map for {area_label}")).cancellable();
+        let clip_wkt = match (clip, clip_layer) {
+            (false, _) => None,
+            (true, Some(l)) => {
+                task.detail("Reading the clip area…");
+                Some(self.shape_wkt(l)?)
+            }
+            (true, None) => {
+                let [w, s, e, n] = bbox;
+                Some(format!("POLYGON(({w} {s},{e} {s},{e} {n},{w} {n},{w} {s}))"))
+            }
+        };
+        let picked: Vec<&'static tnm_vector::Dataset> = datasets.iter().map(|id| tnm_vector::dataset(id)).collect::<Result<_>>()?;
+
+        // Download: up to 4 at a time, each reporting into its slot; this
+        // thread combines the slots into one bar. Workers are detached so
+        // Cancel returns at once; a request already in flight finishes in the
+        // background and lands in the download cache for next time.
+        struct Slot {
+            frac: f64,
+            msg: String,
+            since: std::time::Instant,
+            result: Option<Result<Option<PathBuf>>>,
+        }
+        let slots: Arc<Mutex<Vec<Slot>>> = Arc::new(Mutex::new(
+            picked.iter().map(|d| Slot { frac: 0.0, msg: format!("{}: waiting…", d.label), since: std::time::Instant::now(), result: None }).collect(),
+        ));
+        let queue = Arc::new(Mutex::new((0..picked.len()).rev().collect::<Vec<_>>()));
+        let handle = task.handle();
+        for _ in 0..picked.len().min(4) {
+            let (slots, queue, picked, cache) = (slots.clone(), queue.clone(), picked.clone(), cache.clone());
+            std::thread::spawn(move || loop {
+                let Some(i) = queue.lock().pop() else { break };
+                let report = |f: f64, msg: &str| {
+                    let mut sl = slots.lock();
+                    if !f.is_nan() {
+                        sl[i].frac = f;
+                    }
+                    sl[i].msg = msg.to_string();
+                    sl[i].since = std::time::Instant::now();
+                    drop(sl);
+                    handle.check()
+                };
+                let r = handle.check().and_then(|_| tnm_vector::fetch(picked[i].id, bbox, &cache, &report));
+                slots.lock()[i].result = Some(r);
+            });
+        }
+        loop {
+            {
+                let sl = slots.lock();
+                let done = sl.iter().filter(|x| x.result.is_some()).count();
+                if done == sl.len() {
+                    break;
+                }
+                let overall = sl.iter().map(|x| if x.result.is_some() { 1.0 } else { x.frac }).sum::<f64>() / sl.len() as f64;
+                // Name the dataset that has waited longest, so a slow server is visible.
+                let detail = sl
+                    .iter()
+                    .filter(|x| x.result.is_none())
+                    .min_by_key(|x| x.since)
+                    .map(|x| {
+                        let secs = x.since.elapsed().as_secs();
+                        if secs >= 3 { format!("{} · waiting {secs} s", x.msg) } else { x.msg.clone() }
+                    })
+                    .unwrap_or_default();
+                task.set(overall * 0.85, Some(format!("{done} of {} done · {detail}", sl.len())));
+            }
+            task.check()?;
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+        let fetched: Vec<Result<Option<PathBuf>>> = slots.lock().iter_mut().map(|x| x.result.take().expect("every dataset finished")).collect();
+
+        // Build layers (DuckDB work, one at a time).
+        let mut out = TnmImport::default();
+        for (i, (d, r)) in picked.iter().zip(fetched).enumerate() {
+            task.set(0.85 + 0.15 * i as f64 / picked.len() as f64, Some(format!("{}: building layer…", d.label)));
+            let path = match r {
+                Ok(Some(p)) => p,
+                Ok(None) => {
+                    out.empty.push(d.label.into());
+                    continue;
+                }
+                Err(e) => {
+                    out.failed.push(format!("{}: {e:#}", d.label));
+                    continue;
+                }
+            };
+            for mut info in self.import_with(&path, &mut Task::start(format!("Adding {}", d.label)))? {
+                if let Some(w) = &clip_wkt {
+                    info = self.clip_layer_to(&info, w)?;
+                    if info.feature_count == 0 {
+                        self.remove_layer(&info.id)?;
+                        out.empty.push(d.label.into());
+                        continue;
+                    }
+                }
+                info.name = format!("{} — {area_label}", d.label);
+                info.source = Some(format!("USGS The National Map: {}", d.label));
+                self.with_conn(|c| {
+                    self.save_meta(c, &info)?;
+                    sources::record(c, &sources::for_tnm(d.id), &info.id, &info.name)
+                })?;
+                out.layers.push(info);
+            }
+        }
+        if out.layers.is_empty() {
+            match out.failed.first() {
+                Some(f) => anyhow::bail!("{f}"),
+                None => anyhow::bail!("The National Map has no {} in this area.", out.empty.join(", ").to_lowercase()),
+            }
+        }
+        Ok(out)
+    }
+
+    /// A layer's features dissolved into one shape, as lon/lat WKT.
+    fn shape_wkt(&self, id: &str) -> Result<String> {
+        let info = self.layer(id)?;
+        if !info.has_geometry() {
+            anyhow::bail!("{} has no shapes to clip to", info.name);
+        }
+        let crs = info.crs.clone().ok_or_else(|| anyhow!("{} has no coordinate system", info.name))?;
+        self.with_conn(|c| {
+            let wkt: Option<String> = c.query_row(
+                &format!(
+                    "SELECT ST_AsText(ST_Transform(ST_Union_Agg(geom), {}, 'EPSG:4326', true)) FROM {} WHERE geom IS NOT NULL{}",
+                    lit(&crs::resolve(&crs)),
+                    ident(&info.table),
+                    info.def_and()
+                ),
+                [],
+                |r| r.get(0),
+            )?;
+            wkt.ok_or_else(|| anyhow!("{} has no shapes to clip to", info.name))
+        })
+    }
+
+    /// Clip a lon/lat layer to a lon/lat WKT shape in place, keeping each
+    /// feature's dimension (lines stay lines).
+    fn clip_layer_to(&self, info: &LayerInfo, wkt: &str) -> Result<LayerInfo> {
+        let mut info = info.clone();
+        self.with_conn(|c| {
+            let t = ident(&info.table);
+            let g = format!("ST_GeomFromText({})", lit(wkt));
+            c.execute_batch(&format!(
+                "DELETE FROM {t} WHERE geom IS NULL OR NOT ST_Intersects(geom, {g});
+                 UPDATE {t} SET geom = ST_CollectionExtract(ST_Intersection(geom, {g}), ST_Dimension(geom) + 1) WHERE NOT ST_Within(geom, {g});
+                 DELETE FROM {t} WHERE ST_IsEmpty(geom);"
+            ))?;
+            layers::refresh_display(c, &mut info)?;
+            self.save_meta(c, &info)
+        })?;
+        Ok(info)
+    }
+
+    // ---------- sources & citations ----------
+
+    /// The project's data sources (annotated bibliography), in order of first use.
+    pub fn sources(&self) -> Result<Vec<sources::SourceEntry>> {
+        self.with_conn(sources::list)
+    }
+
+    pub fn update_source(&self, citation: &sources::Citation) -> Result<()> {
+        self.with_conn(|c| sources::update(c, citation))
+    }
+
+    pub fn remove_source(&self, key: &str) -> Result<()> {
+        self.with_conn(|c| sources::remove(c, key))
+    }
+
+    /// Log a source shown without a layer (e.g. a basemap).
+    pub fn record_source(&self, citation: &sources::Citation, used_as: &str) -> Result<()> {
+        self.with_conn(|c| {
+            if c.query_row("SELECT count(*) FROM __source_uses WHERE key = ? AND layer_name = ?", [&citation.key, used_as], |r| r.get::<_, i64>(0))? == 0 {
+                sources::record(c, citation, "", used_as)?;
+            }
+            Ok(())
+        })
     }
 
     /// Set or clear (empty/None) a layer's definition query. The query is
@@ -280,8 +519,11 @@ impl Engine {
     /// layer. Respects its definition query; `fids` copies only those features.
     pub fn copy_layer(&self, id: &str, name: &str, fids: Option<&[i64]>) -> Result<LayerInfo> {
         let src_info = self.layer(id)?;
+        let from: Vec<&str> = std::iter::once(id).chain(src_info.result_of.as_deref()).collect();
         if let Some(r) = &src_info.raster {
-            return self.import_raster(Path::new(&r.path), Some(name));
+            let info = self.import_raster(Path::new(&r.path), Some(name))?;
+            self.with_conn(|c| sources::inherit(c, &from, &info.id, &info.name))?;
+            return Ok(info);
         }
         let hidden = if src_info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
         let only = match fids {
@@ -301,6 +543,7 @@ impl Engine {
             let mut info = layers::build_layer(conn, &id, &src)?;
             info.source = src_info.source.clone();
             self.save_meta(conn, &info)?;
+            sources::inherit(conn, &from, &info.id, &info.name)?;
             Ok(info)
         })
     }
@@ -308,7 +551,10 @@ impl Engine {
     pub fn rename_layer(&self, id: &str, name: &str) -> Result<LayerInfo> {
         let mut info = self.layer(id)?;
         info.name = name.to_string();
-        self.with_conn(|c| self.save_meta(c, &info))?;
+        self.with_conn(|c| {
+            self.save_meta(c, &info)?;
+            sources::rename_layer(c, id, name)
+        })?;
         Ok(info)
     }
 
@@ -383,6 +629,8 @@ impl Engine {
             jobs.extend(tiles.into_iter().map(|(x, y)| (z, x, y)));
         }
         let n = jobs.len();
+        let task = Task::start(format!("Drawing {}", info.name));
+        let built = AtomicU64::new(0);
         let queue = Mutex::new(jobs);
         let workers = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8);
         std::thread::scope(|s| {
@@ -390,6 +638,10 @@ impl Engine {
                 s.spawn(|| loop {
                     let Some((z, x, y)) = queue.lock().pop() else { break };
                     let _ = self.tile(id, z, x, y, fields);
+                    let b = built.fetch_add(1, Ordering::Relaxed) + 1;
+                    if b % 8 == 0 || b as usize == n {
+                        task.set(b as f64 / n.max(1) as f64, Some(format!("Map tiles {b} of {n}")));
+                    }
                 });
             }
         });
@@ -498,7 +750,20 @@ impl Engine {
         let pool = self.pool.read();
         let conn = pool.get()?;
         let mut cache = self.graph_cache.lock();
-        graph::run(&conn, &self.tools, self, &mut cache, graph, target, on_status)
+        let total = graph::plan(graph, target).map(|o| o.len()).unwrap_or(1).max(1);
+        let task = Task::start("Running model");
+        let mut done = 0usize;
+        let mut report = |r: &NodeResult| {
+            let tool = graph.nodes.iter().find(|n| n.id == r.id).map(|n| n.tool.replace('_', " ")).unwrap_or_default();
+            if matches!(r.status, graph::Status::Running) {
+                task.detail(format!("Step {} of {total}: {tool}", done + 1));
+            } else {
+                done += 1;
+                task.set(done as f64 / total as f64, None::<&str>);
+            }
+            on_status(r);
+        };
+        graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report)
     }
 
     /// Show a node's cached output on the map as a temporary layer.

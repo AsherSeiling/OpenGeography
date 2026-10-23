@@ -304,6 +304,63 @@ pub async fn tiger_import(engine: Eng<'_>, datasets: Vec<String>, state: String,
     Ok(out)
 }
 
+#[tauri::command]
+pub async fn tnm_datasets() -> Res<Vec<engine::tnm_vector::Dataset>> {
+    Ok(engine::tnm_vector::DATASETS.to_vec())
+}
+
+#[tauri::command]
+pub async fn tnm_import(engine: Eng<'_>, datasets: Vec<String>, bbox: [f64; 4], clip_layer: Option<String>, clip: bool, label: String) -> Res<engine::TnmImport> {
+    let out = blocking(&engine, move |e| e.tnm_import(&datasets, bbox, clip_layer.as_deref(), clip, &label)).await?;
+    prewarm(&engine, out.layers.iter().map(|l| l.id.clone()).collect());
+    Ok(out)
+}
+
+/// Running long tasks, for progress bars.
+#[tauri::command]
+pub async fn progress() -> Res<Vec<engine::progress::TaskInfo>> {
+    Ok(engine::progress::snapshot())
+}
+
+#[tauri::command]
+pub async fn cancel_task(id: u64) -> Res<()> {
+    engine::progress::cancel(id);
+    Ok(())
+}
+
+// ---------- sources & citations ----------
+
+#[tauri::command]
+pub async fn sources(engine: Eng<'_>) -> Res<Vec<engine::sources::SourceEntry>> {
+    blocking(&engine, |e| e.sources()).await
+}
+
+#[tauri::command]
+pub async fn update_source(engine: Eng<'_>, citation: engine::sources::Citation) -> Res<()> {
+    blocking(&engine, move |e| e.update_source(&citation)).await
+}
+
+#[tauri::command]
+pub async fn remove_source(engine: Eng<'_>, key: String) -> Res<()> {
+    blocking(&engine, move |e| e.remove_source(&key)).await
+}
+
+/// Log the basemap in use as a data source.
+#[tauri::command]
+pub async fn record_basemap(engine: Eng<'_>, id: String) -> Res<()> {
+    blocking(&engine, move |e| match engine::sources::for_basemap(&id) {
+        Some(c) => e.record_source(&c, "Basemap"),
+        None => Ok(()),
+    })
+    .await
+}
+
+/// Write a text file chosen in a save dialog (bibliography exports).
+#[tauri::command]
+pub async fn save_text(path: String, text: String) -> Res<()> {
+    std::fs::write(&path, text).map_err(|e| format!("Could not save {path}: {e}"))
+}
+
 // ---------- rasters ----------
 
 #[tauri::command]

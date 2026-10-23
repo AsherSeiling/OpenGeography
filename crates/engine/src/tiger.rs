@@ -67,7 +67,7 @@ fn get_json(url: &str) -> Result<Value> {
     Ok(v)
 }
 
-fn enc(s: &str) -> String {
+pub(crate) fn enc(s: &str) -> String {
     s.bytes()
         .map(|b| match b {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
@@ -151,7 +151,7 @@ fn area_extent(state: &str, county: Option<&str>) -> Result<String> {
 
 /// Download a dataset for a state (and optionally one county) as a GeoJSON
 /// file in `cache_dir`, reusing an earlier download when present.
-pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path) -> Result<PathBuf> {
+pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path, report: &dyn Fn(f64, &str) -> Result<()>) -> Result<PathBuf> {
     let d = dataset(id)?;
     check_code(state, 2)?;
     if let Some(c) = county {
@@ -163,8 +163,10 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path) -> R
     std::fs::create_dir_all(cache_dir)?;
     let path = cache_dir.join(format!("tiger2_{}_{}{}.geojson", d.id, state, county.map(|c| format!("_{c}")).unwrap_or_default()));
     if path.exists() {
+        report(1.0, &format!("{} (already downloaded)", d.label))?;
         return Ok(path);
     }
+    report(0.0, &format!("{}: counting features…", d.label))?;
     let layer = layer_id(d.service, d.layer)?;
     let mut filter: Vec<(&str, String)> = if d.by_attribute {
         vec![("where", area_where(state, if d.id == "states" { None } else { county }))]
@@ -177,6 +179,10 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path) -> R
             ("spatialRel", "esriSpatialRelIntersects".into()),
         ]
     };
+    let mut count_q = filter.clone();
+    count_q.push(("returnCountOnly", "true".into()));
+    count_q.push(("f", "json".into()));
+    let total = get_json(&query_url(d.service, layer, &count_q)).ok().and_then(|v| v["count"].as_u64()).unwrap_or(0) as usize;
     filter.extend([
         ("outFields", "*".into()),
         ("returnGeometry", "true".into()),
@@ -194,6 +200,9 @@ pub fn fetch(id: &str, state: &str, county: Option<&str>, cache_dir: &Path) -> R
         let got = page["features"].as_array().cloned().unwrap_or_default();
         let n = got.len();
         features.extend(got);
+        if total > 0 {
+            report(features.len() as f64 / total as f64, &format!("{}: {} of {total} features", d.label, features.len()))?;
+        }
         let more = page["exceededTransferLimit"].as_bool().unwrap_or(false)
             || page["properties"]["exceededTransferLimit"].as_bool().unwrap_or(false);
         if n == 0 || (!more && n < PAGE) {

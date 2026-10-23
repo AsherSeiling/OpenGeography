@@ -1,10 +1,11 @@
 // Data → Elevation (3DEP): download USGS elevation for the map view or a
 // layer's extent, clipped to that area, in the local UTM zone (meters).
-import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, MessageBar, MessageBarBody, Option, Spinner } from "@fluentui/react-components";
+import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, MessageBar, MessageBarBody, Option } from "@fluentui/react-components";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent } from "../ipc/api";
 import { getMap, zoomToExtent } from "../map/mapController";
+import { isCancelled, TaskProgress } from "../progress/progress";
 import { useApp } from "../store/store";
 
 const RES: [number, string][] = [
@@ -44,7 +45,8 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
       zoomToExtent(info.extent);
       onClose();
     } catch (x) {
-      setErr(errorText(x));
+      if (isCancelled(x)) useApp.getState().setStatus("Elevation download cancelled");
+      else setErr(errorText(x));
     }
     setBusy(false);
   };
@@ -71,7 +73,7 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
                 ))}
               </Dropdown>
             </Field>
-            {busy && <Spinner size="small" label="Downloading elevation…" />}
+            <TaskProgress active={busy} label="Downloading elevation…" match={["Downloading elevation"]} />
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody>{err}</MessageBarBody>

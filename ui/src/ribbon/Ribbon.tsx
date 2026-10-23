@@ -18,7 +18,7 @@ interface Group {
 const TABS: Record<string, Group[]> = {
   Map: [
     { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }] },
-    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "tiger" }, { cmd: "elevation" }, { custom: <BasemapGallery /> }] },
+    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "tiger" }, { cmd: "nationalMap" }, { cmd: "elevation" }, { custom: <BasemapGallery /> }] },
     {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
@@ -36,11 +36,12 @@ const TABS: Record<string, Group[]> = {
     { label: "Tools", items: [{ custom: <ToolGallery /> }] },
   ],
   Data: [
-    { label: "Add", items: [{ cmd: "addData" }, { cmd: "tiger" }, { cmd: "elevation" }] },
+    { label: "Add", items: [{ cmd: "addData" }, { cmd: "tiger" }, { cmd: "nationalMap" }, { cmd: "elevation" }] },
     { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
     { label: "Coordinate Systems", items: [{ cmd: "defineProjection" }, { cmd: "mapCrs" }] },
     { label: "Export", items: [{ cmd: "exportLayer" }, { cmd: "layerFromSelection" }] },
     { label: "Filter", items: [{ cmd: "definitionQuery" }] },
+    { label: "Sources", items: [{ cmd: "sources" }] },
     { label: "Testing", items: [{ cmd: "testData" }] },
   ],
   View: [
@@ -52,6 +53,7 @@ const TABS: Record<string, Group[]> = {
         { cmd: "paneModel", size: "small" },
         { cmd: "paneProperties", size: "small" },
         { cmd: "paneTools", size: "small" },
+        { cmd: "paneSources", size: "small" },
         { cmd: "paneMap", size: "small" },
         { cmd: "resetPanes" },
       ],
@@ -89,7 +91,7 @@ export function Ribbon() {
           </MenuTrigger>
           <MenuPopover>
             <MenuList>
-              {["new", "open", "save", "saveAs"].map((id) => (
+              {["new", "open", "save", "saveAs", "sources"].map((id) => (
                 <MenuItem key={id} icon={commands[id].icon} secondaryContent={commands[id].keys} onClick={commands[id].run}>
                   {commands[id].label}
                 </MenuItem>

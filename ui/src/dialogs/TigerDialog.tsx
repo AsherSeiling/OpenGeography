@@ -1,9 +1,10 @@
 // Data → Sample Data (TIGER): download Census boundaries, roads and water
 // for a state or county straight from TIGERweb.
-import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, MessageBar, MessageBarBody, Option, Spinner } from "@fluentui/react-components";
+import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, MessageBar, MessageBarBody, Option } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { api, errorText, type TigerDataset } from "../ipc/api";
 import { zoomToExtent } from "../map/mapController";
+import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
 import { useApp } from "../store/store";
 
 export const STATES: [string, string, string][] = [
@@ -57,7 +58,8 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
       if (ext.length) zoomToExtent([Math.min(...ext.map((e) => e[0])), Math.min(...ext.map((e) => e[1])), Math.max(...ext.map((e) => e[2])), Math.max(...ext.map((e) => e[3]))]);
       onClose();
     } catch (e) {
-      setErr(errorText(e));
+      if (isCancelled(e)) useApp.getState().setStatus("TIGER download cancelled");
+      else setErr(errorText(e));
     }
     setBusy(false);
   };
@@ -88,7 +90,7 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
             </div>
             <Field label="Layers">
               <div className="tiger-list">
-                {datasets.length === 0 && <Spinner size="tiny" label="Contacting TIGERweb…" />}
+                {datasets.length === 0 && <WaitBar label="Contacting TIGERweb…" />}
                 {datasets.map((d) => (
                   <Checkbox
                     key={d.id}
@@ -100,7 +102,7 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             </Field>
-            {busy && <Spinner size="small" label={`Downloading ${pick.length} layer(s) for ${label}…`} />}
+            <TaskProgress active={busy} label={`Downloading ${pick.length} layer(s) for ${label}…`} match={["Downloading Census", "Adding"]} />
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody>{err}</MessageBarBody>

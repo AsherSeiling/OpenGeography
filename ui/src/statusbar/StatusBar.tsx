@@ -7,6 +7,7 @@ import { api } from "../ipc/api";
 import { getMap } from "../map/mapController";
 import { formatScale, parseScale, SCALE_PRESETS, scaleForZoom, zoomForScale } from "../map/style";
 import { useMapView } from "../panes/MapView";
+import { StatusProgress } from "../progress/progress";
 import { useApp } from "../store/store";
 
 function dms(v: number, pos: string, neg: string) {
@@ -107,6 +108,7 @@ export function StatusBar() {
         )}
       </div>
       <div className="sb-right">
+        <StatusProgress />
         {lon !== null && <span className="muted sb-msg">{status}</span>}
         <button className="sb-crs" onClick={pickMapCrs} title="Map coordinate system — click to change">
           {mapCrs ? mapCrs.name : "No coordinate system"}

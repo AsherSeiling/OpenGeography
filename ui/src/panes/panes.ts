@@ -2,7 +2,7 @@
 // floated; View → Reset Panes restores this default.
 import type { DockviewApi } from "dockview-react";
 
-export type PaneId = "contents" | "map" | "table" | "model" | "properties" | "tools";
+export type PaneId = "contents" | "map" | "table" | "model" | "properties" | "tools" | "sources";
 
 export const PANE_TITLES: Record<PaneId, string> = {
   contents: "Contents",
@@ -11,6 +11,7 @@ export const PANE_TITLES: Record<PaneId, string> = {
   model: "Model",
   properties: "Properties",
   tools: "Geoprocessing",
+  sources: "Sources",
 };
 
 let dock: DockviewApi | null = null;
@@ -79,6 +80,7 @@ export function showPane(id: PaneId) {
     contents: { direction: "left" },
     properties: { direction: "right" },
     tools: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : undefined,
+    sources: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : { direction: "right" },
     table: dock.getPanel("model") ? { referencePanel: "model", direction: "within" } : dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,
     model: dock.getPanel("table") ? { referencePanel: "table", direction: "within" } : dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,
   };

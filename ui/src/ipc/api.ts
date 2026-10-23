@@ -1,5 +1,6 @@
 // Typed wrappers around the Rust engine's Tauri commands.
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { track } from "../progress/progress";
 
 /** True inside the desktop app; false when the UI runs in a browser against `cargo run -p devserver`. */
 export const IN_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -33,6 +34,45 @@ export interface TigerDataset {
   id: string;
   label: string;
   needsCounty: boolean;
+}
+
+export interface TnmDataset {
+  id: string;
+  group: string;
+  label: string;
+}
+
+/** A running engine task (download, import, model run…). */
+export interface TaskInfo {
+  id: number;
+  label: string;
+  /** 0..1, or null while the total is unknown. */
+  fraction: number | null;
+  detail: string;
+  /** The task stops when asked (Cancel button). */
+  cancellable: boolean;
+}
+
+/** A data source citation (see crates/engine/src/sources.rs). */
+export interface Citation {
+  key: string;
+  author: string;
+  year: string;
+  title: string;
+  version: string;
+  publisher: string;
+  url: string;
+  kind: string;
+  license: string;
+  annotation: string;
+  complete: boolean;
+}
+
+export interface SourceEntry {
+  citation: Citation;
+  /** ISO date first used in this project (the "accessed" date). */
+  firstUsed: string;
+  uses: { layerId: string; layerName: string; at: string }[];
 }
 
 export type FieldType = "text" | "integer" | "double" | "date" | "boolean";
@@ -136,14 +176,24 @@ export const api = {
   listLayers: () => invoke<LayerInfo[]>("list_layers"),
   removeLayer: (id: string) => invoke<void>("remove_layer", { id }),
   renameLayer: (id: string, name: string) => invoke<LayerInfo>("rename_layer", { id, name }),
+  progress: () => invoke<TaskInfo[]>("progress"),
+  sources: () => invoke<SourceEntry[]>("sources"),
+  updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
+  removeSource: (key: string) => invoke<void>("remove_source", { key }),
+  recordBasemap: (id: string) => invoke<void>("record_basemap", { id }),
+  saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
+  cancelTask: (id: number) => invoke<void>("cancel_task", { id }),
+  tnmDatasets: () => invoke<TnmDataset[]>("tnm_datasets"),
+  tnmImport: (datasets: string[], bbox: Extent, clipLayer: string | null, clip: boolean, label: string) =>
+    track(invoke<{ layers: LayerInfo[]; empty: string[]; failed: string[] }>("tnm_import", { datasets, bbox, clipLayer, clip, label })),
   tigerDatasets: () => invoke<TigerDataset[]>("tiger_datasets"),
   tigerCounties: (state: string) => invoke<[string, string][]>("tiger_counties", { state }),
   tigerImport: (datasets: string[], state: string, county: string | null, label: string) =>
-    invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label }),
+    track(invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label })),
   measureFeature: (id: string, fid: number) =>
     invoke<{ area: number | null; perimeter: number | null; length: number | null; centroid: [number, number] | null }>("measure_feature", { id, fid }),
   createFeatures: (name: string, features: { wkt: string; props?: Record<string, unknown> }[]) => invoke<LayerInfo>("create_features", { name, features }),
-  downloadElevation: (bbox: Extent, resolution: number, label: string) => invoke<LayerInfo>("download_elevation", { bbox, resolution, label }),
+  downloadElevation: (bbox: Extent, resolution: number, label: string) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),

@@ -1,4 +1,5 @@
 // User-level actions shared by the ribbon, context menus and shortcuts.
+import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
@@ -24,7 +25,8 @@ export type DialogState =
   | { kind: "tiger" }
   | { kind: "export"; owner: string }
   | { kind: "nodeQuery"; nodeId: string; param: string }
-  | { kind: "elevation" };
+  | { kind: "elevation" }
+  | { kind: "nationalMap" };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,
@@ -37,7 +39,7 @@ const status = (s: string) => useApp.getState().setStatus(s);
 async function busy<T>(label: string, f: () => Promise<T>): Promise<T | undefined> {
   status(`${label}…`);
   try {
-    const r = await f();
+    const r = await track(f());
     return r;
   } catch (e) {
     status(`${label} failed: ${errorText(e)}`);
