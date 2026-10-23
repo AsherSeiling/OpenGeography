@@ -14,6 +14,8 @@ export interface ModelNodeData extends Record<string, unknown> {
   muted?: boolean;
   /** Settings hidden (Blender "hide"). */
   collapsed?: boolean;
+  /** Snapshot table (`__node_…`) of this node's last successful run; saved in the project so history survives reopening. */
+  lastOutput?: string;
 }
 
 export type ModelNode = Node<ModelNodeData>;
@@ -36,6 +38,8 @@ interface ModelState {
   connect: (c: Connection) => void;
   addNode: (tool: string, position: { x: number; y: number }, params?: Record<string, unknown>) => string;
   setParam: (nodeId: string, key: string, value: unknown) => void;
+  /** Record each node's snapshot table after a run (not an undo step, not a project edit). */
+  setLastOutputs: (outputs: Record<string, string>) => void;
   removeNodes: (ids: string[]) => void;
   load: (trees: Record<string, Tree>, layer: string | null) => void;
   allTrees: () => Record<string, Tree>;
@@ -109,6 +113,13 @@ export const useModel = create<ModelState>()(
           nodes: get().nodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, params: { ...n.data.params, [key]: value } } } : n)),
         });
         useApp.getState().set({ dirty: true });
+      },
+      setLastOutputs: (outputs) => {
+        if (!Object.keys(outputs).length) return;
+        useModel.temporal.getState().pause();
+        const tag = (n: ModelNode) => (outputs[n.id] && n.data.lastOutput !== outputs[n.id] ? { ...n, data: { ...n.data, lastOutput: outputs[n.id] } } : n);
+        set({ nodes: get().nodes.map(tag) });
+        useModel.temporal.getState().resume();
       },
       removeNodes: (all) => {
         const ids = all.filter((id) => !get().nodes.find((n) => n.id === id)?.data.fixed);

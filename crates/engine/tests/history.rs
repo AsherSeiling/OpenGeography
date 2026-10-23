@@ -193,6 +193,10 @@ fn h13_node_rows_page_stably_for_tables_and_layer_input_views() {
             sorted.sort();
             sorted.dedup();
             assert_eq!(sorted.len(), 5000, "positions are distinct");
+            if sort.is_none() {
+                assert!(whole.fids.windows(2).all(|w| w[0] < w[1]), "unsorted positions increase ({t})");
+                assert_eq!(whole.fids[0], 0);
+            }
             // The view and the table (a copy of it) agree on content.
         }
     }
@@ -290,4 +294,22 @@ fn h14_million_row_key_diff_performance() {
     assert_eq!(d.removed, 100_000);
     assert!(d.changed > 0 && d.added == 0);
     assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
+}
+
+#[test]
+fn diff_ids_are_unique_per_call_and_drops_are_independent() {
+    let _g = serial();
+    let e = Engine::new().unwrap();
+    sql(
+        &e,
+        "CREATE TABLE __node_a AS SELECT * FROM (VALUES (1, 'x'), (2, 'y')) t(GEOID, NAME);
+         CREATE TABLE __node_b AS SELECT * FROM (VALUES (1, 'x'), (3, 'z')) t(GEOID, NAME);",
+    );
+    let d1 = e.node_diff("__node_a", "__node_b", Some("GEOID")).unwrap();
+    let d2 = e.node_diff("__node_a", "__node_b", Some("GEOID")).unwrap();
+    assert_ne!(d1.diff_id, d2.diff_id);
+    e.drop_node_diff(&d1.diff_id).unwrap();
+    assert_eq!(kinds(&e, &d2.diff_id, "all").len(), 2, "the second comparison survives the first's drop");
+    assert!(e.node_diff_rows(&d1.diff_id, "all", 0, 10).is_err());
+    e.drop_node_diff(&d2.diff_id).unwrap();
 }

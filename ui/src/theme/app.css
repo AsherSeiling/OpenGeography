@@ -532,3 +532,28 @@ select.qe-val { width: 160px; }
 .cat-used { display: block; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .cat-row.missing .cat-name { color: var(--error); text-decoration: line-through; }
 .cat-row.missing .cat-used { color: var(--error); text-decoration: none; }
+
+/* Attribute history: node mode and comparison */
+.attr-label { font-size: 11.5px; color: var(--muted); margin-left: 2px; }
+.attr-banner.node { background: #e5f0fb; color: #1b3a5c; }
+.app.dark .attr-banner.node { background: #17304a; color: #b9d6f2; }
+.attr-missing { display: flex; gap: 10px; align-items: center; padding: 14px 12px; color: var(--muted); }
+.diffbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 3px 8px; border-bottom: 1px solid var(--border); background: var(--chrome); }
+.diffbar.err { color: var(--error); }
+.diffbar .muted { color: var(--muted); }
+.diff-chip { border: 1px solid var(--border-strong); border-radius: 10px; padding: 0 8px; line-height: 18px; background: var(--pane); color: inherit; font: inherit; cursor: pointer; }
+.diff-chip.fields { cursor: default; }
+.diff-chip.added { border-color: #107c10; color: #107c10; }
+.diff-chip.removed { border-color: #c50f1f; color: #c50f1f; }
+.diff-chip.changed { border-color: #c19c00; color: #8a6d00; }
+.diff-chip.on.added { background: #107c10; color: #fff; }
+.diff-chip.on.removed { background: #c50f1f; color: #fff; }
+.diff-chip.on.changed { background: #c19c00; color: #fff; }
+.diff-note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.grid-row.diff-added { box-shadow: inset 3px 0 0 #107c10; background: rgba(16, 124, 16, 0.08); }
+.grid-row.diff-removed { box-shadow: inset 3px 0 0 #c50f1f; background: rgba(197, 15, 31, 0.08); text-decoration: line-through; color: var(--muted); }
+.grid-row.diff-changed { box-shadow: inset 3px 0 0 #c19c00; }
+.cell.diff-chg { background: rgba(255, 185, 0, 0.35); font-weight: 600; }
+.cell.head.head-added { background: rgba(16, 124, 16, 0.18); }
+.cell.head.head-removed { background: rgba(197, 15, 31, 0.18); text-decoration: line-through; }
+.cell.head.head-changed { background: rgba(255, 185, 0, 0.3); }
