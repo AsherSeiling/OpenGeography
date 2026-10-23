@@ -351,6 +351,11 @@ pub async fn fs_list(engine: Eng<'_>, path: String) -> Res<engine::catalog::List
 }
 
 #[tauri::command]
+pub async fn fs_stat(paths: Vec<String>) -> Res<Vec<engine::catalog::PathState>> {
+    Ok(engine::catalog::stat(&paths))
+}
+
+#[tauri::command]
 pub async fn fs_inspect(engine: Eng<'_>, path: String) -> Res<engine::catalog::Details> {
     blocking(&engine, move |_| engine::catalog::inspect(&path)).await
 }

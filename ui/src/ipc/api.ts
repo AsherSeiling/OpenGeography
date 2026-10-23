@@ -216,6 +216,7 @@ export const api = {
   fsRoots: () => invoke<FsRoot[]>("fs_roots"),
   fsList: (path: string) => invoke<FsListing>("fs_list", { path }),
   fsInspect: (path: string) => invoke<FsDetails>("fs_inspect", { path }),
+  fsStat: (paths: string[]) => invoke<{ path: string; entry: FsEntry | null }[]>("fs_stat", { paths }),
   sources: () => invoke<SourceEntry[]>("sources"),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
   removeSource: (key: string) => invoke<void>("remove_source", { key }),

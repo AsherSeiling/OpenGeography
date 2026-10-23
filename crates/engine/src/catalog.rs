@@ -120,6 +120,34 @@ pub fn list(path: &str) -> Result<Listing> {
     Ok(Listing { path: dir.display().to_string(), parent: dir.parent().map(|p| p.display().to_string()), entries })
 }
 
+/// One path's current state, for listing a project's files (some may have
+/// been moved or deleted since they were added).
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PathState {
+    pub path: String,
+    /// Present on disk, with its item details.
+    pub entry: Option<Entry>,
+}
+
+/// Look up several paths at once; missing ones come back with no entry.
+pub fn stat(paths: &[String]) -> Vec<PathState> {
+    paths
+        .iter()
+        .map(|p| {
+            let path = Path::new(p);
+            let entry = std::fs::metadata(path).ok().map(|m| Entry {
+                name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.clone()),
+                path: p.clone(),
+                kind: kind_of(path, m.is_dir()),
+                size: (!m.is_dir()).then_some(m.len()),
+                modified: modified(&m),
+            });
+            PathState { path: p.clone(), entry }
+        })
+        .collect()
+}
+
 /// Home folder, the usual user folders, and drives/volumes for this OS.
 pub fn roots() -> Vec<Root> {
     let mut out = Vec::new();
@@ -263,6 +291,16 @@ mod tests {
         assert_eq!(shp.size, Some(4), "a shapefile's size includes its parts");
         assert!(l.parent.is_some());
         assert!(list(d.join("missing").to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn stats_present_and_missing_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("wells.gpkg");
+        std::fs::write(&f, b"xy").unwrap();
+        let s = stat(&[f.display().to_string(), dir.path().join("gone.shp").display().to_string()]);
+        assert_eq!(s[0].entry.as_ref().map(|e| (e.kind, e.size)), Some(("vector", Some(2))));
+        assert!(s[1].entry.is_none());
     }
 
     #[test]

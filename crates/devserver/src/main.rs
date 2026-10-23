@@ -149,6 +149,7 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
         "fs_roots" => json!(engine::catalog::roots()),
         "fs_list" => json!(engine::catalog::list(&s(a, "path")?)?),
         "fs_inspect" => json!(engine::catalog::inspect(&s(a, "path")?)?),
+        "fs_stat" => json!(engine::catalog::stat(&de::<Vec<String>>(a, "paths")?)),
         "save_text" => {
             let path = std::path::PathBuf::from(s(a, "path")?);
             if let Some(dir) = path.parent() {
