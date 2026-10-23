@@ -3,7 +3,7 @@
 _Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`, the feature inventory `docs/ROADMAP.md`._
 
 ## State
-- Branch `main`, pushed to https://github.com/AsherSeiling/OpenGeography (public). Untracked: `.claude/` (local launch config — don't commit), `PROJECT_SUMMARY.md` (superseded by this file and the roadmap).
+- Branch `main`, pushed to https://github.com/AsherSeiling/OpenGeography (public). Untracked: `.claude/` (local launch config — don't commit).
 - macOS arm64 built and tested locally. CI is green on macOS, Linux and Windows (build, tests, installers, clean self-test) — see `docs/CI_LOG.md`.
 - CI logs need a GitHub login; without one, read failures from the run's annotations (`scripts/ci-run.sh` publishes key output lines) and job summaries.
 
