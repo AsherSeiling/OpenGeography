@@ -1,6 +1,8 @@
 # Opus design prompts (paste one into an Opus session)
 
-## C1 — Layouts design (priority 2: map production; the biggest missing piece)
+## C1 — Layouts design — ✅ done 2026-10-23 → `docs/LAYOUTS_PLAN.md`
+
+### (original prompt) (priority 2: map production; the biggest missing piece)
 
 You are the Opus designer for GIS Studio (Tauri 2 + Rust engine + DuckDB Spatial + GDAL/PROJ + React/Fluent UI). Read CLAUDE.md, PROJECT_STATUS.md, docs/MASTER_PLAN.md (Phase C, F4 notes), then the roadmap rows for layouts and `ui/src/map/`, `ui/src/panes/`, `src-tauri/src/commands.rs`.
 
@@ -9,7 +11,9 @@ Decide: (1) rendering path for vector PDF — MapLibre canvas capture vs. engine
 Options I already see: A) capture MapLibre canvases at print resolution + SVG overlay → PDF via a JS lib; B) engine renders vectors to SVG/PDF itself from the same style spec. Choose and justify.
 Then write `docs/NEXT_SESSION_PROMPT.md` for the first Sonnet build session. Do not write feature code.
 
-## B1 — Attribute history ("git for tables") design
+## B1 — Attribute history ("git for tables") design — ✅ done 2026-10-23 → `docs/ATTRIBUTE_HISTORY_PLAN.md`
+
+### (original prompt)
 
 Same orientation reading, plus `crates/engine/src/graph.rs` (node cache, `__node_<hash>` tables) and `ui/src/panes/` table pane.
 Goal: write `docs/ATTRIBUTE_HISTORY_PLAN.md`: how a user sees how a table changed between any two nodes of a layer's tree.

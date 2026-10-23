@@ -19,13 +19,13 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 | [`docs/ROADMAP.md`](ROADMAP.md) | Feature inventory with status marks, platform matrix, licensing, priority list P0–P9 | Checking whether something exists or how well it is tested |
 | [`docs/PUBLIC_DATA_CATALOG.md`](PUBLIC_DATA_CATALOG.md) | Earth data: ~70 datasets by theme, connector strategy, connector order | Phase D |
 | [`docs/PLANETARY_PLAN.md`](PLANETARY_PLAN.md) | Moon/Mars: body-aware CRS, USGS importers, crater tools, ISIS/ASP bridges | Phase F |
+| [`docs/ATTRIBUTE_HISTORY_PLAN.md`](ATTRIBUTE_HISTORY_PLAN.md) | B1 design: snapshot persistence, diff rules, table pane UX, sessions B2.1–B2.3 | Phase B |
+| [`docs/LAYOUTS_PLAN.md`](LAYOUTS_PLAN.md) | C1 design: engine SVG→PDF/PNG renderer, document model, print scale/CRS rules, sessions C2.1–C3.2 | Phase C |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
 | [`docs/NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) | Ready-to-paste prompt for the current Sonnet task | Opening a new Sonnet session |
 | [`docs/SONNET_RUNNER_PROMPT.md`](SONNET_RUNNER_PROMPT.md) | Reusable Sonnet prompt that picks the next task from this plan and flags Opus tasks | Any Sonnet session without a task-specific prompt |
 
 **Plans still to be written.** Each is the output of an Opus design session, made before its phase starts:
-- `docs/LAYOUTS_PLAN.md` — phase C.
-- `docs/ATTRIBUTE_HISTORY_PLAN.md` — phase B.
 - `docs/TOPO_MAP_PLAN.md` — phase C2.
 - `docs/PYTHON_SDK_PLAN.md` — phase G.
 

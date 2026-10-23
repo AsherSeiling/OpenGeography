@@ -38,7 +38,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Progress for model runs | ✅ | step n of N |
 | Cancel a model run | ✅ | DuckDB interrupt + step checks; atomic result writes; slow for per-feature geodesic tools; GDAL raster steps finish first |
 | Copy/paste, duplicate, mute, collapse, make links | ✅ | auto-layout ⬜ |
-| Attribute history between nodes ("git for tables") | ⬜ | requested 2026-10-23: keep each node's output table as a versioned snapshot (what changed vs. the previous node: rows added/removed, fields added/changed); the Attribute Table shows the Output by default with a picker to view any earlier node's table and its diff. Builds on the node cache tables (`__node_<hash>`), which currently live only for a session. |
+| Attribute history between nodes ("git for tables") | ⬜ | designed 2026-10-23 in `docs/ATTRIBUTE_HISTORY_PLAN.md` (build B2.1–B2.3). Requested 2026-10-23: keep each node's output table as a versioned snapshot (what changed vs. the previous node: rows added/removed, fields added/changed); the Attribute Table shows the Output by default with a picker to view any earlier node's table and its diff. Builds on the node cache tables (`__node_<hash>`), which currently live only for a session. |
 | Model tests (graph semantics, persistence) | 🟠 | engine tests cover tools; no tests for UI graph ops (splice, undo, tree switching) |
 
 ### Processing tools (97 spec ids across `nodes/`, 48 tools)
@@ -84,7 +84,7 @@ P2 node-tree correctness — done: cancellation, one-step type-checked inserts, 
 P3 processing correctness — parameter validation; missing vector tools (union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay).
 P4 raster foundation — calculator, alignment, NoData, resample, mosaic.
 P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; docs/PUBLIC_DATA_CATALOG.md), Census join, NAIP, NASA.
-P6 layouts, then the Topo Map Builder.
+P6 layouts (designed: `docs/LAYOUTS_PLAN.md`, build C2.1–C3.2), then the Topo Map Builder.
 P7 Python tool SDK + headless CLI.
 P8 advanced analysis (hydrology, interpolation, statistics, remote sensing).
 P9 planetary GIS (Moon, Mars first): body-aware CRS/geodesics, USGS data importers, crater tools, ISIS/ASP bridges — plan in `docs/PLANETARY_PLAN.md` (not started).

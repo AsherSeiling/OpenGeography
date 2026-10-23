@@ -26,6 +26,8 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 3. Fixed 2026-10-23: deleted-layer references are flagged; parameter typing is one undo step; bundled GDAL/PROJ data always wins; rasters are copied into the project (portable); tool output fields come from the engine registry (`Tool::output_fields`, with a drift test).
 
 ## Recent decisions
+- 2026-10-23 **Layouts design (C1)**: the engine renders each page to SVG, then PDF (svg2pdf) and PNG (resvg). MapLibre can't draw a true CRS. Bundled fonts only, for identical output on every OS. Frames take an explicit CRS. Scale bar and north arrow are geodesic at the frame centre, through a `Body` (Earth only until F1). Layouts are stored in `__layouts`. See `docs/LAYOUTS_PLAN.md`.
+- 2026-10-23 **Attribute history design (B1)**: snapshots are the existing `__node_<hash>` cache tables, persisted with an index (`__node_cache`), an engine-version check, and a 2 GB LRU budget pruned to the UI's live outputs. The diff is tool-agnostic: user key → auto-detected unique key → content-hash multiset diff (added/removed only). Geometry is not compared across CRSs. See `docs/ATTRIBUTE_HISTORY_PLAN.md`.
 - 2026-10-23 **Setting validation**: before a tool runs, `nodes::validate_params` rejects non-numeric Number settings and Enum values outside the options (readable error on the node). Empty = unset.
 - 2026-10-23 **Overlay tools**: Union, Symmetrical Difference (`union.rs` holds the shared `minus_sql`/`overlay_ctes`) and Singlepart To Multipart (`collect`). Concave hull is a shape in Minimum Bounding Geometry (`ST_ConcaveHull`); Delaunay (`delaunay.rs`) triangulates through GDAL/GEOS and inlines the result as hex WKB (cap 200k features). B3 complete.
 - 2026-10-23 **Select By Location on the map** (Map → Selection): intersects / within distance (geodesic) / within / contains / touches / crosses, optionally only the comparison layer's selected features, invert, and new / add / remove / subset selection methods. Engine `select_by_location` shares `nodes::select_by_location::location_test` with the model node.
@@ -38,10 +40,10 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **Catalog pane** (file manager) with a "This project" view; TIGER downloads by year; bibliography auto-export (APA/MLA/Chicago, BibTeX, RIS).
 
 ## Next tasks (in order)
-1. Layouts (M2: page, map frame, legend, scale bar, north arrow, title, export PDF/PNG) — design in Opus first, then implement.
-2. Attribute history between nodes ("git for tables"; see roadmap).
+1. Attribute history between nodes (B2): designed in `docs/ATTRIBUTE_HISTORY_PLAN.md`; build B2.1 → B2.2 → B2.3. Prompt for B2.1 in `docs/NEXT_SESSION_PROMPT.md`.
+2. Layouts (C2–C3): designed in `docs/LAYOUTS_PLAN.md` (engine renders SVG → PDF/PNG; true CRS; body-aware); build C2.1 → C2.4, then C3.1–C3.2. Prompt for C2.1 in `docs/NEXT_SESSION_PROMPT.md`.
 3. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
 4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-A3: you check the Windows and Linux installers on real machines (open, import, run a model, save/reopen). Then tag the release: `git tag v0.1.0 && git push origin v0.1.0` (the `release` job in `build.yml` publishes a pre-release; untested until the first tag). Meanwhile Opus design sessions for C1 (layouts) and B1 (attribute history): paste-ready prompts in `docs/OPUS_PROMPTS.md`.
+A3: you check the Windows and Linux installers on real machines (open, import, run a model, save/reopen). Then tag the release: `git tag v0.1.0 && git push origin v0.1.0` (the `release` job in `build.yml` publishes a pre-release; untested until the first tag). Meanwhile a Sonnet session can build B2.1 (prompt 1 in `docs/NEXT_SESSION_PROMPT.md`). The C1 and B1 designs are done.
