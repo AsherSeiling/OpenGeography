@@ -2,31 +2,30 @@
 
 Open a new Claude Code session in this folder, pick **Sonnet**, and paste one block. Run them **one at a time**: both edit `crates/engine/src/lib.rs`. The general-purpose prompt is `docs/SONNET_RUNNER_PROMPT.md`.
 
-> Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B3 and B4 are done, B2.1 is done, so B2.2 is the next Sonnet task.
+> Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B3 and B4 are done, B2.1 and B2.2 are done, so B2.3 is the next Sonnet task.
 
 ---
 
-## 1. B2.2 — Diff and node-rows commands (attribute history, part 2)
+## 1. B2.3 — Table pane UI (attribute history, part 3)
 
 ```text
 You are continuing GIS Studio (Tauri 2 + Rust engine + DuckDB Spatial + GDAL/PROJ + React/Fluent UI) in this folder.
 
-Read CLAUDE.md, PROJECT_STATUS.md, then docs/ATTRIBUTE_HISTORY_PLAN.md (§2 D5–D7, §3 B2.2). Read only crates/engine/src/table.rs (RowsQuery / RowsPage), the graph.rs `Cache` and `run` parts (B2.1 persisted the node cache: `__node_cache` index, `Cache::prune`), the existing Tauri command + devserver route + ui/src/ipc/api.ts pattern for `rows`, and the progress/cancel pattern in `Engine::run_graph`. Grep before opening other files.
+Read CLAUDE.md, PROJECT_STATUS.md, then docs/ATTRIBUTE_HISTORY_PLAN.md (§2 D3, D7, D8, §3 B2.3). Read only ui/src/panes/AttributeTable.tsx, ui/src/store/model.ts, ui/src/nodes/ (node card + context menu), and the history types and functions in ui/src/ipc/api.ts (nodeTableInfo, nodeRows, nodeDiff, nodeDiffRows, dropNodeDiff, pruneNodeCache, setNodeCacheBudget: all done in B2.2). Grep before opening other files.
 
-TASK B2.2: new crates/engine/src/history.rs with node_table_info, node_rows, node_diff, node_diff_rows (D5–D7), Engine methods in lib.rs, plus `prune_node_cache` and a budget setter as Tauri commands (src-tauri/src/commands.rs + main.rs registration), crates/devserver routes and ui/src/ipc/api.ts functions. Engine + IPC only; no UI components.
+TASK B2.3: UI only. Node picker ("Table of:") in the table toolbar; "Compare with" dropdown defaulting to the node's primary input; diff bar (+added / −removed / ~changed chips that filter the grid, field-change chip, "Match rows by" key picker, the summary `note` line); diff-mode grid styling (D8); node mode read-only with the edit/selection buttons disabled and tooltipped; node card context menu "View table" and "Compare with input"; `lastOutput` stored in each node's data (saved in project.json); call `pruneNodeCache(live, pinned)` on save and after a tree is deleted; "Run to this node" for not-stored nodes (run_graph with `target`). If the table pane exceeds ~700 lines, split into ui/src/panes/table/NodePicker.tsx + DiffBar.tsx.
 
-Acceptance: H8–H15 in the plan; every command reachable through the devserver (curl check); all existing engine tests green.
+Engine facts you need (B2.2):
+- node_rows pages a snapshot; its `fids` are row positions, not layer fids. Sort/filter work as in get_rows. The geometry column is not returned.
+- node_diff(a, b, key?) returns a DiffSummary (keySource user|auto|none, note, fields order, fieldsAdded/Removed/Retyped, counts, geometryCompared). node_diff_rows(diffId, kind added|removed|changed|all, offset, limit) returns {kind, key, values:[{field, a, b, changed}]}; when geometry is compared the last field is "geom" (WKT preview). Call dropNodeDiff when the pane closes the diff or switches nodes.
+- A diff is lost when the project is reopened or first saved (Save As reopens the database): node_diff_rows then errors "no longer available" and the UI must re-run nodeDiff.
+- The diff runs in a cancellable progress task "Comparing tables" (the existing task UI shows Cancel).
+- A snapshot may be missing (evicted/never run): nodeTableInfo/nodeRows then error "is not stored"; show the "not stored" badge and Run-to-this-node.
 
-Notes:
-- B2.1 is done: `Engine::prune_node_cache(live, pinned)` and `Engine::set_node_cache_budget(bytes)` exist; wire them as commands (`prune_node_cache`, `set_node_cache_budget`). Layer Input snapshots are VIEWs; node tables are plain `__node_<hash>` tables (stable `rowid`).
-- Diff tables `__diff_*` are temporary: never indexed in `__node_cache`; drop them on new_project/open_db. Note the `__node_%` orphan sweep in `Cache::load` must not touch them (different prefix).
-- Run the diff in a progress::Task "Comparing tables" and cancel via the connection interrupt, as run_graph does (H15).
-- The ignored 1M-row performance test (H14): record the number in PROJECT_STATUS.md.
-- Bump graph::CACHE_FORMAT only if a tool's SQL changes meaning (not needed here).
+Acceptance: H16–H20 in the plan. Vitest for pure functions (`pickerEntries(tree, results)`, default compare input, prune payload with a mocked api). Check H19 in the browser (devserver + vite, http://localhost:1420), one screenshot. Then rebuild the Mac app (scripts/package-macos.sh), run --self-test, set the ROADMAP row "Attribute history" to ✅, update PROJECT_STATUS.md.
 
-Test: cargo test -p engine <filter>, then cargo test -p engine, then cargo build -p gis-studio -p devserver (PATH line from CLAUDE.md). Commit (Co-Authored-By line, never .claude/), push, wait for CI in the background with a long interval (public API, see docs/SONNET_RUNNER_PROMPT.md), and log CI rounds in docs/CI_LOG.md.
-Finish by updating PROJECT_STATUS.md (next action: B2.3) and replacing this block in docs/NEXT_SESSION_PROMPT.md with a B2.3 prompt built the same way from the plan.
-Stop and ask (OPUS NEEDED) if the plan doesn't settle something, e.g. paging a Layer Input VIEW stably.
+Test: npx vitest run && npx tsc -p tsconfig.json; cargo build -p gis-studio -p devserver (PATH line from CLAUDE.md). Commit (Co-Authored-By line, never .claude/), push, wait for CI in the background with a long interval (see docs/SONNET_RUNNER_PROMPT.md), log CI rounds in docs/CI_LOG.md.
+Finish by replacing this block in docs/NEXT_SESSION_PROMPT.md with the next Sonnet task from docs/MASTER_PLAN.md.
 ```
 
 ---

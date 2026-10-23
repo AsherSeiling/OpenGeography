@@ -208,6 +208,42 @@ export interface RowsPage {
   rows: (string | null)[][];
 }
 
+export interface NodeTableInfo {
+  fields: { name: string; type: string }[];
+  rows: number;
+  crs: string | null;
+  hasGeom: boolean;
+  /** Layer Input snapshots are views. */
+  kind: "table" | "view";
+}
+
+export type DiffKind = "added" | "removed" | "changed";
+
+export interface DiffSummary {
+  diffId: string;
+  keyUsed: string | null;
+  keySource: "user" | "auto" | "none";
+  note: string | null;
+  /** Field order of the rows `nodeDiffRows` returns (a trailing "geom" when geometry is compared). */
+  fields: string[];
+  fieldsAdded: string[];
+  fieldsRemoved: string[];
+  fieldsRetyped: { name: string; from: string; to: string }[];
+  rowsA: number;
+  rowsB: number;
+  added: number;
+  removed: number;
+  changed: number;
+  unchanged: number;
+  geometryCompared: boolean;
+}
+
+export interface DiffRow {
+  kind: DiffKind;
+  key: string | null;
+  values: { field: string; a: string | null; b: string | null; changed: boolean }[];
+}
+
 export interface LayerHits {
   layer: string;
   fids: number[];
@@ -284,6 +320,19 @@ export const api = {
   previewOutput: (output: string, crs: string | null, name: string) =>
     invoke<LayerInfo>("preview_output", { output, crs, name }),
   clearModelCache: () => invoke<void>("clear_model_cache"),
+  /** Drop node snapshots the UI no longer shows; returns how many were dropped. */
+  pruneNodeCache: (live: string[], pinned?: string | null) =>
+    invoke<number>("prune_node_cache", { live, pinned: pinned ?? null }),
+  setNodeCacheBudget: (bytes: number) => invoke<void>("set_node_cache_budget", { bytes }),
+  nodeTableInfo: (table: string) => invoke<NodeTableInfo>("node_table_info", { table }),
+  nodeRows: (table: string, query: RowsQuery) => invoke<RowsPage>("node_rows", { table, query }),
+  /** Compare two node snapshots; `key` = match rows by this field (else auto-detected). */
+  nodeDiff: (a: string, b: string, key?: string | null) =>
+    invoke<DiffSummary>("node_diff", { a, b, key: key ?? null }),
+  /** `kind` = added | removed | changed | all. */
+  nodeDiffRows: (diffId: string, kind: DiffKind | "all", offset: number, limit: number) =>
+    invoke<DiffRow[]>("node_diff_rows", { diffId, kind, offset, limit }),
+  dropNodeDiff: (diffId: string) => invoke<void>("drop_node_diff", { diffId }),
   generateTestLayer: (kind: "points" | "polygons", count: number, bbox: Extent) =>
     invoke<LayerInfo>("generate_test_layer", { kind, count, bbox }),
   saveProject: (dir: string, uiState: string) => invoke<void>("save_project", { dir, uiState }),
