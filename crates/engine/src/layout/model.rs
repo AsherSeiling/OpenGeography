@@ -1,0 +1,346 @@
+//! Layout document model (docs/LAYOUTS_PLAN.md L2). Page units are
+//! millimetres, origin top-left, y down; font sizes are points.
+
+use anyhow::{anyhow, bail, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
+
+pub const LAYOUT_VERSION: u32 = 1;
+
+fn one() -> u32 {
+    LAYOUT_VERSION
+}
+fn earth() -> String {
+    "earth".into()
+}
+fn yes() -> bool {
+    true
+}
+fn white() -> String {
+    "#ffffff".into()
+}
+fn black() -> String {
+    "#000000".into()
+}
+fn sans() -> String {
+    "sans".into()
+}
+fn map_layers() -> FrameLayers {
+    FrameLayers::Follow("map".into())
+}
+fn none() -> String {
+    "none".into()
+}
+fn size_pt() -> f64 {
+    10.0
+}
+fn left() -> String {
+    "left".into()
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Layout {
+    pub id: String,
+    pub name: String,
+    #[serde(default = "one")]
+    pub version: u32,
+    /// Planetary body (L4); only "earth" until phase F.
+    #[serde(default = "earth")]
+    pub body: String,
+    pub page: Page,
+    #[serde(default)]
+    pub elements: Vec<Element>,
+    /// Map series (C3.2); stored, not rendered yet.
+    #[serde(default)]
+    pub series: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Page {
+    pub width: f64,
+    pub height: f64,
+    #[serde(default = "mm")]
+    pub units: String,
+    #[serde(default)]
+    pub margin: f64,
+    #[serde(default = "white")]
+    pub background: String,
+}
+
+fn mm() -> String {
+    "mm".into()
+}
+
+/// Position on the page, shared by every element kind.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Placement {
+    pub id: String,
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+    /// Degrees clockwise about the element's centre.
+    #[serde(default)]
+    pub rotation: f64,
+    #[serde(default)]
+    pub locked: bool,
+    #[serde(default = "yes")]
+    pub visible: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum FrameLayers {
+    /// "map": follow the map's draw order and visibility.
+    Follow(String),
+    /// Explicit list, top layer first.
+    List(Vec<FrameLayer>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FrameLayer {
+    pub id: String,
+    #[serde(default = "yes")]
+    pub visible: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Border {
+    pub width: f64,
+    #[serde(default = "black")]
+    pub color: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Element {
+    MapFrame {
+        #[serde(flatten)]
+        at: Placement,
+        /// Explicit frame CRS; never guessed (L3). Empty = not set.
+        #[serde(default)]
+        crs: String,
+        /// Frame centre in frame-CRS units.
+        center: [f64; 2],
+        /// Nominal scale denominator.
+        scale: f64,
+        #[serde(default = "map_layers")]
+        layers: FrameLayers,
+        /// C2.4: "none" | "usgsTopo" | "usgsImagery" | "usgsRelief".
+        #[serde(default = "none")]
+        basemap: String,
+        /// C2.4.
+        #[serde(default)]
+        graticule: Option<serde_json::Value>,
+        /// C2.4.
+        #[serde(default)]
+        grid: Option<serde_json::Value>,
+        #[serde(default)]
+        border: Option<Border>,
+    },
+    Text {
+        #[serde(flatten)]
+        at: Placement,
+        text: String,
+        /// "sans" | "sans-bold" | "sans-italic".
+        #[serde(default = "sans")]
+        font: String,
+        #[serde(default = "size_pt")]
+        size: f64,
+        /// "left" | "center" | "right".
+        #[serde(default = "left")]
+        align: String,
+        #[serde(default = "black")]
+        color: String,
+    },
+    Legend {
+        #[serde(flatten)]
+        at: Placement,
+        frame: String,
+        #[serde(default)]
+        title: String,
+        #[serde(default)]
+        columns: u32,
+    },
+    ScaleBar {
+        #[serde(flatten)]
+        at: Placement,
+        frame: String,
+        #[serde(default)]
+        units: String,
+        #[serde(default)]
+        segments: u32,
+    },
+    NorthArrow {
+        #[serde(flatten)]
+        at: Placement,
+        frame: String,
+        #[serde(default)]
+        style: String,
+    },
+    Sources {
+        #[serde(flatten)]
+        at: Placement,
+        frame: String,
+        #[serde(default)]
+        size: f64,
+    },
+}
+
+impl Element {
+    pub fn at(&self) -> &Placement {
+        match self {
+            Element::MapFrame { at, .. }
+            | Element::Text { at, .. }
+            | Element::Legend { at, .. }
+            | Element::ScaleBar { at, .. }
+            | Element::NorthArrow { at, .. }
+            | Element::Sources { at, .. } => at,
+        }
+    }
+
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Element::MapFrame { .. } => "map_frame",
+            Element::Text { .. } => "text",
+            Element::Legend { .. } => "legend",
+            Element::ScaleBar { .. } => "scale_bar",
+            Element::NorthArrow { .. } => "north_arrow",
+            Element::Sources { .. } => "sources",
+        }
+    }
+}
+
+impl Layout {
+    /// Parse a stored layout. An unknown element `kind` is an error.
+    pub fn from_json(json: &str) -> Result<Layout> {
+        let l: Layout = serde_json::from_str(json).map_err(|e| anyhow!("Invalid layout: {e}"))?;
+        l.validate()?;
+        Ok(l)
+    }
+
+    /// Structural checks done on save and before every render.
+    pub fn validate(&self) -> Result<()> {
+        if self.version != LAYOUT_VERSION {
+            bail!("Layout '{}' has version {}; this build reads version {LAYOUT_VERSION}", self.name, self.version);
+        }
+        super::geo::Body::get(&self.body)?;
+        if self.page.units != "mm" {
+            bail!("Page units must be \"mm\" (got \"{}\")", self.page.units);
+        }
+        if !(self.page.width.is_finite() && self.page.height.is_finite() && self.page.width > 0.0 && self.page.height > 0.0) {
+            bail!("Page size must be positive");
+        }
+        let mut ids = BTreeSet::new();
+        for e in &self.elements {
+            let a = e.at();
+            if !ids.insert(a.id.as_str()) {
+                bail!("Duplicate element id '{}'", a.id);
+            }
+            if ![a.x, a.y, a.w, a.h, a.rotation].iter().all(|v| v.is_finite()) || a.w <= 0.0 || a.h <= 0.0 {
+                bail!("Element '{}' needs a finite position and a positive size", a.id);
+            }
+            if let Element::MapFrame { scale, center, layers, .. } = e {
+                if !(scale.is_finite() && *scale > 0.0) {
+                    bail!("Map frame '{}' needs a positive scale", a.id);
+                }
+                if !center.iter().all(|v| v.is_finite()) {
+                    bail!("Map frame '{}' needs a finite centre", a.id);
+                }
+                if let FrameLayers::Follow(s) = layers {
+                    if s != "map" {
+                        bail!("Map frame '{}': layers must be \"map\" or a list", a.id);
+                    }
+                }
+            }
+        }
+        for e in &self.elements {
+            let frame = match e {
+                Element::Legend { frame, .. } | Element::ScaleBar { frame, .. } | Element::NorthArrow { frame, .. } | Element::Sources { frame, .. } => frame,
+                _ => continue,
+            };
+            let ok = self.elements.iter().any(|f| matches!(f, Element::MapFrame { at, .. } if &at.id == frame));
+            if !ok {
+                bail!("Element '{}' refers to '{frame}', which is not a map frame", e.at().id);
+            }
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------- styles
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum StyleKind {
+    #[default]
+    Single,
+    Categorized,
+    Graduated,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct StyleClass {
+    pub value: String,
+    pub color: String,
+    pub label: String,
+}
+
+/// Mirror of `LayerStyle` in ui/src/store/store.ts. A drift test compares it
+/// with `tests/fixtures/layer_style.json`, which a vitest checks too.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LayerStyle {
+    pub kind: StyleKind,
+    pub fill: String,
+    pub stroke: String,
+    pub stroke_width: f64,
+    pub opacity: f64,
+    pub radius: f64,
+    #[serde(default)]
+    pub field: Option<String>,
+    #[serde(default)]
+    pub classes: Option<Vec<StyleClass>>,
+    #[serde(default)]
+    pub breaks: Option<Vec<f64>>,
+    #[serde(default)]
+    pub colors: Option<Vec<String>>,
+}
+
+impl Default for LayerStyle {
+    fn default() -> Self {
+        LayerStyle {
+            kind: StyleKind::Single,
+            fill: "#7aa8d8".into(),
+            stroke: "#4d4d4d".into(),
+            stroke_width: 0.7,
+            opacity: 1.0,
+            radius: 3.5,
+            field: None,
+            classes: None,
+            breaks: None,
+            colors: None,
+        }
+    }
+}
+
+/// Everything one render needs from the UI besides the layout itself.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderRequest {
+    pub layout: Layout,
+    /// Per layer id. BTreeMap: output order never depends on hashing.
+    #[serde(default)]
+    pub styles: BTreeMap<String, LayerStyle>,
+    /// Draw order, top layer first (as in the Contents pane).
+    #[serde(default)]
+    pub order: Vec<String>,
+    #[serde(default)]
+    pub visible: BTreeMap<String, bool>,
+    /// Text token `{project}`.
+    #[serde(default)]
+    pub project: String,
+    /// Text token `{date}`; supplied by the caller so renders stay reproducible.
+    #[serde(default)]
+    pub date: String,
+}

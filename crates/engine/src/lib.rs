@@ -8,6 +8,7 @@ pub mod db;
 pub mod graph;
 pub mod history;
 pub mod layers;
+pub mod layout;
 pub mod measure;
 pub mod nodes;
 pub mod progress;

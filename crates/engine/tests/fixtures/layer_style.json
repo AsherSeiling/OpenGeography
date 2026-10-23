@@ -1,0 +1,12 @@
+{
+  "kind": "graduated",
+  "fill": "#7aa8d8",
+  "stroke": "#4d4d4d",
+  "strokeWidth": 0.7,
+  "opacity": 0.75,
+  "radius": 3.5,
+  "field": "pop",
+  "classes": [{ "value": "a", "color": "#ff0000", "label": "A" }],
+  "breaks": [10.5, 20.5],
+  "colors": ["#111111", "#222222", "#333333"]
+}
