@@ -137,6 +137,10 @@ jobs:
         # Don't strip: stripping corrupts the DuckDB extension's trailing metadata.
         env: { NO_STRIP: "true" }
         run: RUSTFLAGS="$LINK_RUSTFLAGS" scripts/ci-run.sh "Package" npx tauri build --bundles appimage,deb
+      # Keep conda's GDAL stack in its own folder inside the image so its libraries
+      # can't overwrite (or be overwritten by) the system ones WebKitGTK uses.
+      - name: Make the conda libraries private inside the AppImage
+        run: scripts/ci-run.sh "Private libs" scripts/linux-private-libs.sh "$(ls target/release/bundle/appimage/*.AppImage | head -1)" "$CONDA_PREFIX"
       - name: Self-test the AppImage
         id: selftest
         run: |
