@@ -35,7 +35,6 @@ done | sort -u | while read -r lib; do
 done
 for f in $ROOTS; do cp -L "$f" "$PRIV/$(basename "$f")"; done
 chmod u+w "$PRIV"/*
-for f in "$PRIV"/*; do patchelf --force-rpath --set-rpath '$ORIGIN' "$f"; done
 
 # usr/lib must hold the system versions: put them back where the flat copy came from conda.
 for f in "$PRIV"/*; do
@@ -46,10 +45,28 @@ for f in "$PRIV"/*; do
   if [ -n "$sys" ]; then cp -L "$sys" "$flat"; elif cmp -s "$flat" "$CONDA/lib/$name"; then :; fi
 done
 
+# The dynamic loader reuses an already-loaded library with the same soname, so
+# rpaths alone don't isolate: WebKitGTK's libjpeg.so.8 (loaded first) would be
+# handed to conda's libtiff. Give every private library a unique soname.
+ORIG=$(ls "$PRIV")
+for name in $ORIG; do mv "$PRIV/$name" "$PRIV/gs_$name"; done
+rename_needed() {  # <elf file>
+  for dep in $(patchelf --print-needed "$1"); do
+    echo "$ORIG" | grep -qx "$dep" && patchelf --replace-needed "$dep" "gs_$dep" "$1"
+  done
+  return 0
+}
+for f in "$PRIV"/*; do
+  patchelf --set-soname "$(basename "$f")" "$f"
+  rename_needed "$f"
+  patchelf --force-rpath --set-rpath '$ORIGIN' "$f"
+done
+rename_needed "$BIN"
+
 # The app finds GDAL in the private folder (and everything else in usr/lib).
 patchelf --force-rpath --set-rpath '$ORIGIN/../lib/gdal-private:$ORIGIN/../lib' "$BIN"
 echo "Private libraries: $(ls "$PRIV" | wc -l) files, $(du -sh "$PRIV" | cut -f1)"
-echo "ldd of the app's GDAL resolution:"; LD_LIBRARY_PATH="$ROOT/usr/lib" ldd "$BIN" | grep -E 'gdal|proj|geos|jpeg|tiff' || true
+echo "ldd of the app's GDAL resolution:"; LD_LIBRARY_PATH="$ROOT/usr/lib" ldd "$BIN" | grep -E 'gdal|proj|geos|jpeg|tiff|stdc' || true
 
 # Repack with the original runtime.
 curl -fsSL -o appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
