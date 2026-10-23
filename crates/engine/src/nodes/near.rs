@@ -9,7 +9,7 @@ impl Tool for Near {
             name: "Near",
             category: "Proximity",
             role: Role::Tool,
-            description: "Distance from each input feature to the closest near feature (NEAR_DIST), plus that feature's row (NEAR_ROW).",
+            description: "Geodesic distance from each input feature to the closest near feature (NEAR_DIST), plus that feature's row (NEAR_ROW) (QGIS: Distance to nearest hub).",
             inputs: vec![
                 Port { id: "in", label: "Input", kind: PortKind::Vector },
                 Port { id: "near", label: "Near features", kind: PortKind::Vector },
@@ -33,14 +33,19 @@ impl Tool for Near {
         let ag = format!("ST_Transform(a.geom, {}, {}, true)", lit(&crs), lit(&utm));
         let bg = format!("ST_Transform({}, {}, {}, true)", ctx.geom_in(b, "b", &crs)?, lit(&crs), lit(&utm));
         let sql = format!(
-            "WITH a AS (SELECT row_number() OVER () AS __rid, *, {ag} AS __m FROM {at} a),
-             b AS (SELECT row_number() OVER () AS __nid, {bg} AS __m FROM {bt} b),
-             n AS (SELECT a.__rid, min(ST_Distance(a.__m, b.__m)) AS d, arg_min(b.__nid, ST_Distance(a.__m, b.__m)) AS nid
-                   FROM a JOIN b ON ST_DWithin(a.__m, b.__m, {r}) GROUP BY a.__rid)
-             SELECT a.* EXCLUDE (__rid, __m, geom), n.d / {per_unit} AS NEAR_DIST, n.nid AS NEAR_ROW, a.geom
+            "WITH a AS (SELECT row_number() OVER () AS __rid, *, {ag} AS __m, {aeqd} AS __aeqd FROM {at} a),
+             b AS (SELECT row_number() OVER () AS __nid, {bg} AS __m, {bgeom} AS __g FROM {bt} b),
+             cand AS (SELECT a.__rid, b.__nid,
+                          ST_Distance(ST_Transform(a.geom, {c}, a.__aeqd, true), ST_Transform(b.__g, {c}, a.__aeqd, true)) AS gd
+                      FROM a JOIN b ON ST_DWithin(a.__m, b.__m, {r} * 1.05)),
+             n AS (SELECT __rid, min(gd) AS d, arg_min(__nid, gd) AS nid FROM cand WHERE gd <= {r} GROUP BY __rid)
+             SELECT a.* EXCLUDE (__rid, __m, __aeqd, geom), n.d / {per_unit} AS NEAR_DIST, n.nid AS NEAR_ROW, a.geom
              FROM a LEFT JOIN n ON a.__rid = n.__rid",
             at = ident(&a.table),
-            bt = ident(&b.table)
+            bt = ident(&b.table),
+            c = lit(&crs::resolve(&crs)),
+            aeqd = aeqd_for("a.geom", &crs),
+            bgeom = ctx.geom_in(b, "b", &crs)?
         );
         Ok(Output::Select { sql, crs: Some(crs), view: false })
     }

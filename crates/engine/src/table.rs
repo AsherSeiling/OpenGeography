@@ -129,3 +129,39 @@ pub fn feature(conn: &Connection, info: &LayerInfo, fid: i64) -> Result<Vec<(Str
     let row = page.rows.into_iter().next().unwrap_or_default();
     Ok(info.fields.iter().map(|f| f.name.clone()).zip(row).collect())
 }
+
+#[derive(Serialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Measures {
+    /// Geodesic area (m²), polygons only.
+    pub area: Option<f64>,
+    /// Geodesic perimeter (m), polygons only.
+    pub perimeter: Option<f64>,
+    /// Geodesic length (m), lines only.
+    pub length: Option<f64>,
+    /// Centroid lon/lat.
+    pub centroid: Option<[f64; 2]>,
+}
+
+/// Geodesic measurements of one feature (on the WGS 84 ellipsoid).
+pub fn measure(conn: &Connection, info: &LayerInfo, fid: i64) -> Result<Measures> {
+    let Some(crs) = info.crs.as_deref() else { return Ok(Measures::default()) };
+    if !info.has_geometry() {
+        return Ok(Measures::default());
+    }
+    let ll = format!("ST_Transform(geom, {}, 'EPSG:4326', true)", crate::db::lit(&crate::crs::resolve(crs)));
+    let sql = format!(
+        "SELECT ST_Dimension(geom), ST_Area_Spheroid({ll}), ST_Perimeter_Spheroid({ll}), ST_Length_Spheroid({ll}), ST_X(ST_Centroid({ll})), ST_Y(ST_Centroid({ll}))
+         FROM {} WHERE __fid = {fid}",
+        ident(&info.table)
+    );
+    let r = conn.query_row(&sql, [], |r| {
+        Ok((r.get::<_, Option<i32>>(0)?, r.get::<_, Option<f64>>(1)?, r.get::<_, Option<f64>>(2)?, r.get::<_, Option<f64>>(3)?, r.get::<_, Option<f64>>(4)?, r.get::<_, Option<f64>>(5)?))
+    })?;
+    Ok(Measures {
+        area: if r.0 == Some(2) { r.1 } else { None },
+        perimeter: if r.0 == Some(2) { r.2 } else { None },
+        length: if r.0 == Some(1) { r.3 } else { None },
+        centroid: match (r.4, r.5) { (Some(x), Some(y)) => Some([x, y]), _ => None },
+    })
+}

@@ -35,12 +35,14 @@ impl Tool for SelectByLocation {
         let bg = ctx.geom_in(b, "b", &crs)?;
         let rel = p.str("relation").unwrap_or_else(|| "intersects".into());
         let (geom_a, geom_b, pred) = if rel == "distance" {
-            // Distances in real meters: compare both layers in the local UTM zone.
-            let utm = ctx.utm(a)?;
+            // Geodesic distance: measure in an azimuthal equidistant projection
+            // centered on each input feature.
             let d = to_meters(p.f64("distance").unwrap_or(0.0), &p.str("units").unwrap_or_else(|| "m".into()))?;
+            let c = lit(&crs::resolve(&crs));
+            let aeqd = aeqd_for("a.geom", &crs);
             (
-                format!("ST_Transform(a.geom, {}, {}, true)", lit(&crs), lit(&utm)),
-                format!("ST_Transform(b.g, {}, {}, true)", lit(&crs), lit(&utm)),
+                format!("ST_Transform(a.geom, {c}, {aeqd}, true)"),
+                format!("ST_Transform(b.g, {c}, {aeqd}, true)"),
                 format!("ST_DWithin(ga, gb, {d})"),
             )
         } else {

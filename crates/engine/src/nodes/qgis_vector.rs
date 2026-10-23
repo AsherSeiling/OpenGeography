@@ -199,7 +199,7 @@ tool!(JoinByNearest);
 impl Tool for JoinByNearest {
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "join_nearest", name: "Join Attributes by Nearest", category: "Proximity", role: Role::Tool,
-            description: "Attach the attributes of the closest feature from another layer, plus the distance (QGIS: Join attributes by nearest).",
+            description: "Attach the attributes of the closest feature from another layer, plus the geodesic distance (QGIS: Join attributes by nearest).",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }, Port { id: "near", label: "Join features", kind: PortKind::Vector }],
             output: Some(PortKind::Vector),
             params: vec![
@@ -223,13 +223,15 @@ impl Tool for JoinByNearest {
         let join = if p.bool("keep_all") { "LEFT JOIN" } else { "JOIN" };
         Ok(Output::Select {
             sql: format!(
-                "WITH a AS (SELECT row_number() OVER () AS __rid, *, {am} AS __m FROM {at} a),
-                 bb AS (SELECT row_number() OVER () AS __nid, *, {bm} AS __m FROM {bt} b),
-                 n AS (SELECT a.__rid, arg_min(bb.__nid, ST_Distance(a.__m, bb.__m)) AS nid, min(ST_Distance(a.__m, bb.__m)) AS d
-                       FROM a JOIN bb ON ST_DWithin(a.__m, bb.__m, {r}) GROUP BY a.__rid)
-                 SELECT a.* EXCLUDE (__rid, __m, geom){b_sel}, n.d / {per} AS DISTANCE, a.geom
+                "WITH a AS (SELECT row_number() OVER () AS __rid, *, {am} AS __m, {aeqd} AS __aeqd FROM {at} a),
+                 bb AS (SELECT row_number() OVER () AS __nid, *, {bm} AS __m, {bg} AS __g FROM {bt} b),
+                 cand AS (SELECT a.__rid, bb.__nid, ST_Distance(ST_Transform(a.geom, {c}, a.__aeqd, true), ST_Transform(bb.__g, {c}, a.__aeqd, true)) AS gd
+                          FROM a JOIN bb ON ST_DWithin(a.__m, bb.__m, {r} * 1.05)),
+                 n AS (SELECT __rid, arg_min(__nid, gd) AS nid, min(gd) AS d FROM cand WHERE gd <= {r} GROUP BY __rid)
+                 SELECT a.* EXCLUDE (__rid, __m, __aeqd, geom){b_sel}, n.d / {per} AS DISTANCE, a.geom
                  FROM a {join} n ON a.__rid = n.__rid LEFT JOIN bb ON bb.__nid = n.nid",
-                at = ident(&a.table), bt = ident(&b.table)
+                at = ident(&a.table), bt = ident(&b.table),
+                c = lit(&crs::resolve(&crs)), aeqd = aeqd_for("a.geom", &crs), bg = ctx.geom_in(b, "b", &crs)?
             ),
             crs: Some(crs), view: false,
         })

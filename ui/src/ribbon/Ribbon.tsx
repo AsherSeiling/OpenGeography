@@ -4,6 +4,7 @@ import { Combobox, Menu, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTri
 import { ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
 import { useMemo, useState, type ReactNode } from "react";
 import { useRun } from "../store/model";
+import { useNav } from "../nav/navStore";
 import { useApp } from "../store/store";
 import { BASEMAP_OPTIONS, commands, TOOL_BUTTONS, toolCommand, type Command } from "./commands";
 
@@ -22,7 +23,8 @@ const TABS: Record<string, Group[]> = {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
     },
-    { label: "Inquiry", items: [{ cmd: "identify" }] },
+    { label: "Inquiry", items: [{ cmd: "identify" }, { cmd: "measure" }, { cmd: "measureArea", size: "small" }] },
+    { label: "Land Nav", items: [{ cmd: "resection" }, { cmd: "intersection" }] },
     { label: "Coordinate System", items: [{ cmd: "mapCrs" }] },
   ],
   Insert: [
@@ -72,6 +74,8 @@ export function Ribbon() {
   useApp((s) => s.selection);
   useApp((s) => s.showFps);
   useApp((s) => s.dark);
+  useNav((s) => s.navPanel);
+  useNav((s) => s.measureMode);
   const active = useApp((s) => (s.activeLayer ? s.layers[s.activeLayer] : null));
   const contextual = active && active.geomType !== "Table";
   const current = tab === "Feature Layer" && !contextual ? "Map" : tab;

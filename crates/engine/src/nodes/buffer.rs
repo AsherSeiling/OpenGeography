@@ -10,7 +10,7 @@ impl Tool for Buffer {
             name: "Buffer",
             category: "Proximity",
             role: Role::Tool,
-            description: "Create polygons around features at a distance. Distances are true ground distances in any coordinate system.",
+            description: "Polygons around features at a distance. Geodesic: each feature is buffered in its own azimuthal equidistant projection, so the distance is true on the ellipsoid anywhere (like ArcGIS's geodesic buffer).",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],
             output: Some(PortKind::Vector),
             params: vec![
@@ -18,6 +18,10 @@ impl Tool for Buffer {
                 Param::new("distance_field", "Or distance from field", ParamKind::Field).field_of("in").optional()
                     .help("Each feature buffered by its own value (in the units below), like QGIS's data-defined distance"),
                 Param::new("units", "Units", ParamKind::Enum).default("m").options(LINEAR_UNITS),
+                Param::new("method", "Method", ParamKind::Enum).default("geodesic").options(&[
+                    ("geodesic", "Geodesic (true distance anywhere)"),
+                    ("planar", "Planar (local UTM zone, faster)"),
+                ]),
                 Param::new("dissolve", "Dissolve all output", ParamKind::Bool).default(false),
             ],
         }
@@ -32,15 +36,17 @@ impl Tool for Buffer {
             Some(f) => format!("(coalesce(TRY_CAST({} AS DOUBLE), 0) * {per})", ident(&f)),
             None => format!("{}", to_meters(p.f64("distance").ok_or_else(|| anyhow!("'Distance' is required"))?, &units)?),
         };
-        // Buffer in the local UTM zone so the distance is in real meters,
-        // whatever the input CRS (degrees, feet, Web Mercator...).
-        let (lon, lat) = ctx.center_lonlat(i)?;
-        let utm = utm_epsg(lon, lat);
-        let buffered = format!(
-            "ST_Transform(ST_Buffer(ST_Transform(geom, {c}, {u}, true), {d}, 16), {u}, {c}, true)",
-            c = lit(&crs),
-            u = lit(&utm)
-        );
+        let c = lit(&crate::crs::resolve(&crs));
+        let buffered = if p.str("method").as_deref() == Some("planar") {
+            // One UTM zone for the whole layer: fast, accurate for local data.
+            let (lon, lat) = ctx.center_lonlat(i)?;
+            let u = lit(&utm_epsg(lon, lat));
+            format!("ST_Transform(ST_Buffer(ST_Transform(geom, {c}, {u}, true), {d}, 16), {u}, {c}, true)")
+        } else {
+            // Geodesic: per-feature azimuthal equidistant projection centered on the feature.
+            let a = aeqd_for("geom", &crs);
+            format!("ST_Transform(ST_Buffer(ST_Transform(geom, {c}, {a}, true), {d}, 32), {a}, {c}, true)")
+        };
         let sql = if p.bool("dissolve") {
             format!("SELECT ST_Union_Agg({buffered}) AS geom FROM {}", ident(&i.table))
         } else {

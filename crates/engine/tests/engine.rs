@@ -630,3 +630,73 @@ fn qgis_equivalent_tools_run() {
     let summit: f64 = page.rows[0][idx].as_ref().unwrap().parse().unwrap();
     assert!(summit > 95.0, "summit {summit}");
 }
+
+#[test]
+fn geodesic_buffer_near_and_measure() {
+    let e = Engine::new().unwrap();
+    // Two points ~4,000 km apart in one layer: Seattle-ish and Maine-ish.
+    let pts = e
+        .create_features(
+            "far points",
+            &[
+                ("POINT(-122 47)".into(), serde_json::from_value(json!({"name": "west"})).unwrap()),
+                ("POINT(-69 45)".into(), serde_json::from_value(json!({"name": "east"})).unwrap()),
+            ],
+        )
+        .unwrap();
+    assert_eq!(pts.feature_count, 2);
+    let area_of = |method: &str| -> Vec<f64> {
+        let g = graph(json!({
+            "nodes": [
+                {"id": "in", "tool": "input_layer", "params": {"layer": pts.id}},
+                {"id": "b", "tool": "buffer", "params": {"distance": 100, "units": "km", "method": method}},
+                {"id": "a", "tool": "calculate_geometry", "params": {"field": "A", "property": "area", "area_units": "sqkm"}},
+                {"id": "o", "tool": "layer_output", "params": {"layer": pts.id}}
+            ],
+            "edges": [
+                {"source": "in", "target": "b", "targetHandle": "in"},
+                {"source": "b", "target": "a", "targetHandle": "in"},
+                {"source": "a", "target": "o", "targetHandle": "in"}
+            ]
+        }));
+        let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+        let out = res.iter().find(|r| r.id == "o").unwrap().layer.clone().unwrap();
+        let page = e.rows(&out.id, &RowsQuery { limit: 10, ..Default::default() }).unwrap();
+        let idx = out.fields.iter().position(|f| f.name == "A").unwrap();
+        page.rows.iter().map(|r| r[idx].as_ref().unwrap().parse().unwrap()).collect()
+    };
+    let truth = std::f64::consts::PI * 100.0 * 100.0;
+    for a in area_of("geodesic") {
+        assert!((a - truth).abs() / truth < 0.005, "geodesic buffer area {a} vs {truth}");
+    }
+    let planar = area_of("planar");
+    assert!(planar.iter().any(|a| (a - truth).abs() / truth > 0.05), "planar should distort far from the zone: {planar:?}");
+
+    // Geodesic Near: one degree of longitude at 60°N ≈ 55.80 km on WGS 84.
+    let a = e.create_features("a", &[("POINT(10 60)".into(), Default::default())]).unwrap();
+    let b = e.create_features("b", &[("POINT(11 60)".into(), Default::default())]).unwrap();
+    let g = graph(json!({
+        "nodes": [
+            {"id": "a", "tool": "input_layer", "params": {"layer": a.id}},
+            {"id": "b", "tool": "input_layer", "params": {"layer": b.id}},
+            {"id": "n", "tool": "near", "params": {"radius": 100, "units": "km"}},
+            {"id": "o", "tool": "layer_output", "params": {"layer": a.id}}
+        ],
+        "edges": [
+            {"source": "a", "target": "n", "targetHandle": "in"},
+            {"source": "b", "target": "n", "targetHandle": "near"},
+            {"source": "n", "target": "o", "targetHandle": "in"}
+        ]
+    }));
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    let out = res.iter().find(|r| r.id == "o").unwrap().layer.clone().unwrap();
+    let row = e.feature(&out.id, 1).unwrap();
+    let d: f64 = row.iter().find(|(k, _)| k == "NEAR_DIST").unwrap().1.as_ref().unwrap().parse().unwrap();
+    assert!((d - 55.80).abs() < 0.05, "near distance {d} km");
+
+    // Identify measurements: a 0.1° square at the equator ≈ 123.09 km² (cf. 12,308.78 km² for 1°).
+    let sq = e.create_features("sq", &[("POLYGON((0 0, 0.1 0, 0.1 0.1, 0 0.1, 0 0))".into(), Default::default())]).unwrap();
+    let m = e.measure_feature(&sq.id, 1).unwrap();
+    assert!((m.area.unwrap() / 1e6 - 123.09).abs() < 0.05, "area {:?}", m.area);
+    assert!(m.length.is_none());
+}

@@ -1,3 +1,4 @@
+import type { Feature, FeatureCollection } from "geojson";
 import { Map as MlMap, NavigationControl, ScaleControl, setWorkerUrl, type MapMouseEvent, type VectorTileSource } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -7,6 +8,10 @@ import { api, errorText, tileUrl } from "../ipc/api";
 import { setMap } from "../map/mapController";
 import { BASEMAPS, buildLayers, layerIds, styleFields } from "../map/style";
 import { displayInfo, drawableLayerIds, ownerOf, useApp } from "../store/store";
+import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
+import { MeasurePanel } from "../nav/MeasurePanel";
+import { NavPanel } from "../nav/NavPanel";
+import { useNav } from "../nav/navStore";
 
 // MapLibre 6 ships its tile-decoding worker as a separate module; Vite bundles it.
 setWorkerUrl(workerUrl);
@@ -163,15 +168,83 @@ export function MapView() {
     shown.current = Object.fromEntries(Object.entries(selection).map(([k, v]) => [k, [...v]]));
   }, [selection, ready]);
 
+  // Measure + land-nav sketch (drawn above all layers).
+  const nav = useNav();
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const feats: Feature[] = [];
+    const { points, measureMode, done, rays, fix, triangle, known } = nav;
+    if (tool === "measure" && points.length) {
+      const ring = measureMode === "area" && points.length > 2 ? [...points, points[0]] : points;
+      const line: LonLat[] = [];
+      for (let i = 1; i < ring.length; i++) line.push(...geodesicLine(ring[i - 1], ring[i], 48));
+      if (line.length) feats.push({ type: "Feature", properties: { kind: "measure" }, geometry: { type: "LineString", coordinates: line } });
+      if (measureMode === "area" && points.length > 2) feats.push({ type: "Feature", properties: { kind: "area" }, geometry: { type: "Polygon", coordinates: [line] } });
+      for (const p of points) feats.push({ type: "Feature", properties: { kind: done ? "vertex-done" : "vertex" }, geometry: { type: "Point", coordinates: p } });
+    }
+    for (const [a, b] of rays) feats.push({ type: "Feature", properties: { kind: "ray" }, geometry: { type: "LineString", coordinates: [a, b] } });
+    if (triangle.length > 2) feats.push({ type: "Feature", properties: { kind: "triangle" }, geometry: { type: "Polygon", coordinates: [[...triangle, triangle[0]]] } });
+    for (const k of known) feats.push({ type: "Feature", properties: { kind: "known" }, geometry: { type: "Point", coordinates: k } });
+    if (fix) feats.push({ type: "Feature", properties: { kind: "fix" }, geometry: { type: "Point", coordinates: fix } });
+    const data: FeatureCollection = { type: "FeatureCollection", features: feats };
+    const src = map.getSource("sketch") as { setData: (d: FeatureCollection) => void } | undefined;
+    if (src) src.setData(data);
+    else {
+      map.addSource("sketch", { type: "geojson", data });
+      map.addLayer({ id: "sketch-area", type: "fill", source: "sketch", filter: ["in", ["get", "kind"], ["literal", ["area", "triangle"]]], paint: { "fill-color": ["match", ["get", "kind"], "triangle", "#e81123", "#ffb900"], "fill-opacity": 0.18 } });
+      map.addLayer({ id: "sketch-line", type: "line", source: "sketch", filter: ["in", ["get", "kind"], ["literal", ["measure", "ray"]]], layout: { "line-cap": "round" },
+        paint: { "line-color": ["match", ["get", "kind"], "ray", "#c50f1f", "#d83b01"], "line-width": 2.5, "line-dasharray": ["match", ["get", "kind"], "ray", ["literal", [3, 2]], ["literal", [1, 0]]] } });
+      map.addLayer({ id: "sketch-pts", type: "circle", source: "sketch", filter: ["==", ["geometry-type"], "Point"],
+        paint: { "circle-radius": ["match", ["get", "kind"], "fix", 7, "known", 5, 4], "circle-color": ["match", ["get", "kind"], "fix", "#107c10", "known", "#0078d4", "#ffffff"], "circle-stroke-color": "#333", "circle-stroke-width": 1.5 } });
+    }
+    for (const id of ["sketch-area", "sketch-line", "sketch-pts"]) if (map.getLayer(id)) map.moveLayer(id);
+  }, [nav.points, nav.done, nav.measureMode, nav.rays, nav.fix, nav.triangle, nav.known, tool, ready, layers, order]);
+
+  // Esc clears the measurement.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && useApp.getState().tool === "measure" && !(e.target as HTMLElement)?.closest?.("input, textarea, select")) useNav.getState().clearMeasure();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Click: identify or select, depending on the active tool.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     map.getCanvas().style.cursor = tool === "pan" ? "" : "crosshair";
+    // Double-click finishes a measurement instead of zooming.
+    if (tool === "measure") map.doubleClickZoom.disable();
+    else map.doubleClickZoom.enable();
+    const onDbl = (e: MapMouseEvent) => {
+      if (tool !== "measure") return;
+      e.preventDefault();
+      useNav.getState().set({ done: true });
+    };
+    map.on("dblclick", onDbl);
     if (tool === "selectBox") map.dragPan.disable();
     else map.dragPan.enable();
     const onClick = async (e: MapMouseEvent) => {
       const s = useApp.getState();
+      const nav = useNav.getState();
+      // A land-nav panel asked for a point.
+      if (nav.pick) {
+        nav.pick([e.lngLat.lng, e.lngLat.lat]);
+        nav.set({ pick: null });
+        return;
+      }
+      if (tool === "measure") {
+        // The two clicks of a finishing double-click land on the same spot.
+        const last = nav.points[nav.points.length - 1];
+        if (last && !nav.done) {
+          const q = map.project(last);
+          if (Math.hypot(q.x - e.point.x, q.y - e.point.y) < 4) return;
+        }
+        nav.addPoint([e.lngLat.lng, e.lngLat.lat]);
+        return;
+      }
       if (tool === "pan" || tool === "selectBox") return;
       const ids = drawableLayerIds();
       try {
@@ -198,6 +271,15 @@ export function MapView() {
             return;
           }
           const attrs = await api.getFeature(top.layer, top.fids[0]);
+          try {
+            const m = await api.measureFeature(top.layer, top.fids[0]);
+            if (m.area !== null) attrs.push(["Area (geodesic)", `${formatArea(m.area, "acres")} · ${formatArea(m.area, "sqkm")}`]);
+            if (m.perimeter !== null) attrs.push(["Perimeter (geodesic)", `${formatLength(m.perimeter, "mi")} · ${formatLength(m.perimeter, "km")}`]);
+            if (m.length !== null) attrs.push(["Length (geodesic)", `${formatLength(m.length, "mi")} · ${formatLength(m.length, "km")}`]);
+            if (m.centroid) attrs.push(["Centroid (MGRS)", toMgrs(m.centroid)]);
+          } catch {
+            /* measurements are extra information */
+          }
           s.setSelection(ownerOf(top.layer), [top.fids[0]]);
           setIdentify({ x: e.point.x, y: e.point.y, layer: top.layer, fid: top.fids[0], attrs, more: top.fids.length - 1 });
         }
@@ -208,6 +290,7 @@ export function MapView() {
     map.on("click", onClick);
     return () => {
       map.off("click", onClick);
+      map.off("dblclick", onDbl);
     };
   }, [tool]);
 
@@ -256,6 +339,9 @@ export function MapView() {
         />
       )}
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
+      {tool === "measure" && <MeasurePanel />}
+      {nav.navPanel && <NavPanel />}
+      {nav.pick && <div className="map-hint">Click the map to pick the point · Esc to cancel</div>}
       {showFps && <FpsMeter />}
     </div>
   );

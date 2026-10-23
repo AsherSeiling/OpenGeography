@@ -242,6 +242,14 @@ impl<'a> Ctx<'a> {
     }
 }
 
+/// SQL for a PROJ string of an azimuthal equidistant projection centered on
+/// `geom_expr` (in `crs`). Distances measured from the center are true
+/// geodesic distances, so buffers/near done in it are geodesic.
+pub fn aeqd_for(geom_expr: &str, crs: &str) -> String {
+    let c = format!("ST_Transform(ST_Centroid({geom_expr}), {}, 'EPSG:4326', true)", lit(&crs::resolve(crs)));
+    format!("('+proj=aeqd +lat_0=' || ST_Y({c}) || ' +lon_0=' || ST_X({c}) || ' +datum=WGS84 +units=m +no_defs')")
+}
+
 pub fn need_raster(rel: &Rel) -> Result<&str> {
     rel.raster.as_deref().ok_or_else(|| anyhow!("This input must be a raster (e.g. an elevation layer)"))
 }

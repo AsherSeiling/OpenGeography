@@ -138,6 +138,15 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?)?;
             json!(l)
         }
+        "measure_feature" => json!(e.measure_feature(&s(a, "id")?, a["fid"].as_i64().unwrap_or(0))?),
+        "create_features" => {
+            let feats: Vec<serde_json::Value> = de(a, "features")?;
+            let list: Vec<(String, serde_json::Map<String, Value>)> = feats
+                .into_iter()
+                .map(|f| (f["wkt"].as_str().unwrap_or("").to_string(), f["props"].as_object().cloned().unwrap_or_default()))
+                .collect();
+            json!(e.create_features(&s(a, "name")?, &list)?)
+        }
         "raster_value" => json!(e.raster_value(&s(a, "id")?, f(a, "lon")?, f(a, "lat")?)?),
         "copy_layer" => {
             let fids: Option<Vec<i64>> = de(a, "fids")?;

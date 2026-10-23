@@ -2,6 +2,9 @@
 // and the "Tell me" search all read from it.
 import {
   AddCircleRegular,
+  MyLocationRegular,
+  ShapesRegular,
+  TargetArrowRegular,
   SettingsRegular,
   FilterRegular,
   LayerDiagonalAddRegular,
@@ -57,6 +60,7 @@ import {
 } from "../actions";
 import { zoomToExtent } from "../map/mapController";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
+import { useNav } from "../nav/navStore";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
@@ -105,6 +109,10 @@ const list: Command[] = [
   { id: "zoomSelection", label: "Zoom To Selection", icon: <ZoomFitRegular />, run: zoomToSelection, enabled: hasSelection },
   { id: "clearSelection", label: "Clear", icon: <DismissCircleRegular />, run: () => app().clearSelection(), enabled: hasSelection, tip: "Clear the selection in all layers" },
   { id: "identify", label: "Identify", icon: <InfoRegular />, run: setTool("identify"), checked: tool("identify"), tip: "Click a feature to see its attributes" },
+  { id: "measure", label: "Measure", icon: <RulerRegular />, run: () => { useNav.getState().set({ measureMode: "distance" }); app().setTool("measure"); }, checked: () => app().tool === "measure" && useNav.getState().measureMode === "distance", tip: "Geodesic distance and azimuths: click points, double-click to finish" },
+  { id: "measureArea", label: "Measure Area", icon: <ShapesRegular />, run: () => { useNav.getState().set({ measureMode: "area" }); app().setTool("measure"); }, checked: () => app().tool === "measure" && useNav.getState().measureMode === "area", tip: "Geodesic area and perimeter" },
+  { id: "resection", label: "Resection", icon: <MyLocationRegular />, run: () => useNav.getState().set({ navPanel: "resection" }), checked: () => useNav.getState().navPanel === "resection", tip: "Find your position from azimuths to known landmarks (MGRS, mils, G-M angle)" },
+  { id: "intersection", label: "Intersection", icon: <TargetArrowRegular />, run: () => useNav.getState().set({ navPanel: "intersection" }), checked: () => useNav.getState().navPanel === "intersection", tip: "Locate an unseen point from azimuths taken at known positions" },
   { id: "mapCrs", label: "Coordinate System", icon: <GlobeRegular />, run: pickMapCrs, tip: "Set the map's coordinate system (used for coordinates, measurements and layouts)" },
 
   // Data tab

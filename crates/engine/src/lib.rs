@@ -423,6 +423,56 @@ impl Engine {
         self.with_conn(|c| table::feature(c, &info, fid))
     }
 
+    pub fn measure_feature(&self, id: &str, fid: i64) -> Result<table::Measures> {
+        let info = self.layer(id)?;
+        self.with_conn(|c| table::measure(c, &info, fid))
+    }
+
+    /// New layer from WKT features in lon/lat (WGS 84), each with optional
+    /// attributes (e.g. a saved measurement or a resection fix).
+    pub fn create_features(&self, name: &str, features: &[(String, serde_json::Map<String, serde_json::Value>)]) -> Result<LayerInfo> {
+        if features.is_empty() {
+            return Err(anyhow!("Nothing to add"));
+        }
+        let mut keys: Vec<String> = Vec::new();
+        for (_, props) in features {
+            for k in props.keys() {
+                if !keys.contains(k) && k != "geom" {
+                    keys.push(k.clone());
+                }
+            }
+        }
+        let numeric = |k: &str| features.iter().all(|(_, p)| p.get(k).map(|v| v.is_number() || v.is_null()).unwrap_or(true));
+        let rows: Vec<String> = features
+            .iter()
+            .map(|(wkt, props)| {
+                let cols: Vec<String> = keys
+                    .iter()
+                    .map(|k| {
+                        let v = props.get(k).cloned().unwrap_or(serde_json::Value::Null);
+                        let val = match &v {
+                            serde_json::Value::Null => "NULL".to_string(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::String(s) => lit(s),
+                            other => lit(&other.to_string()),
+                        };
+                        let ty = if numeric(k) { "DOUBLE" } else { "VARCHAR" };
+                        format!("CAST({val} AS {ty}) AS {}", ident(k))
+                    })
+                    .collect();
+                let sep = if cols.is_empty() { "" } else { ", " };
+                format!("SELECT {}{sep}ST_GeomFromText({}) AS geom", cols.join(", "), lit(wkt))
+            })
+            .collect();
+        let src = ImportSource { name: name.into(), select: rows.join(" UNION ALL "), crs: Some(crs::WGS84.into()), crs_name: Some("WGS 84".into()), warnings: vec![] };
+        self.with_conn(|conn| {
+            let id = self.alloc_id();
+            let info = layers::build_layer(conn, &id, &src)?;
+            self.save_meta(conn, &info)?;
+            Ok(info)
+        })
+    }
+
     pub fn extent(&self, id: &str, fids: Option<Vec<i64>>) -> Result<Option<[f64; 4]>> {
         let info = self.layer(id)?;
         self.with_conn(|c| layers::features_extent(c, &info, fids.as_deref()))

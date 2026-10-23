@@ -140,6 +140,9 @@ export const api = {
   tigerCounties: (state: string) => invoke<[string, string][]>("tiger_counties", { state }),
   tigerImport: (datasets: string[], state: string, county: string | null, label: string) =>
     invoke<LayerInfo[]>("tiger_import", { datasets, state, county, label }),
+  measureFeature: (id: string, fid: number) =>
+    invoke<{ area: number | null; perimeter: number | null; length: number | null; centroid: [number, number] | null }>("measure_feature", { id, fid }),
+  createFeatures: (name: string, features: { wkt: string; props?: Record<string, unknown> }[]) => invoke<LayerInfo>("create_features", { name, features }),
   downloadElevation: (bbox: Extent, resolution: number, label: string) => invoke<LayerInfo>("download_elevation", { bbox, resolution, label }),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),

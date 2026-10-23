@@ -23,7 +23,7 @@ export interface LayerStyle {
   colors?: string[];
 }
 
-export type MapTool = "pan" | "identify" | "select" | "selectBox";
+export type MapTool = "pan" | "identify" | "select" | "selectBox" | "measure";
 export type Basemap = "usgsTopo" | "usgsImagery" | "usgsRelief" | "osm" | "none";
 
 export interface MapCrs {

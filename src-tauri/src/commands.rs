@@ -317,3 +317,22 @@ pub async fn download_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64
 pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
     blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
 }
+
+// ---------- measuring ----------
+
+#[tauri::command]
+pub async fn measure_feature(engine: Eng<'_>, id: String, fid: i64) -> Res<engine::table::Measures> {
+    blocking(&engine, move |e| e.measure_feature(&id, fid)).await
+}
+
+#[derive(serde::Deserialize)]
+pub struct NewFeature {
+    wkt: String,
+    #[serde(default)]
+    props: serde_json::Map<String, serde_json::Value>,
+}
+
+#[tauri::command]
+pub async fn create_features(engine: Eng<'_>, name: String, features: Vec<NewFeature>) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.create_features(&name, &features.into_iter().map(|f| (f.wkt, f.props)).collect::<Vec<_>>())).await
+}
