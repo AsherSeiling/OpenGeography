@@ -7,13 +7,26 @@ use parking_lot::Mutex;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
-/// Load the spatial extension: from the copy bundled with the app when there
-/// is one (no internet needed), otherwise DuckDB's normal install (dev builds).
-fn spatial_sql() -> String {
+/// Load the spatial extension on a connection: from the copy bundled with the
+/// app when there is one (no internet needed), otherwise DuckDB's normal
+/// install (dev builds and tests).
+pub fn load_spatial(conn: &Connection) -> Result<()> {
     match crate::resources::spatial_extension() {
-        Some(path) => format!("LOAD {}; SET geometry_always_xy = true;", lit(&path.display().to_string())),
-        None => "INSTALL spatial; LOAD spatial; SET geometry_always_xy = true;".to_string(),
+        Some(path) => conn.execute_batch(&format!("LOAD {}; SET geometry_always_xy = true;", lit(&path.display().to_string())))?,
+        None => {
+            // Install at most once per process: concurrent INSTALLs into
+            // ~/.duckdb collide on Windows ("Could not move file").
+            static INSTALLED: Mutex<bool> = Mutex::new(false);
+            let mut done = INSTALLED.lock();
+            if !*done {
+                conn.execute_batch("INSTALL spatial;")?;
+                *done = true;
+            }
+            drop(done);
+            conn.execute_batch("LOAD spatial; SET geometry_always_xy = true;")?;
+        }
     }
+    Ok(())
 }
 
 pub struct Pool {
@@ -27,7 +40,7 @@ impl Pool {
             Some(p) => Connection::open(p)?,
             None => Connection::open_in_memory()?,
         };
-        root.execute_batch(&spatial_sql())?;
+        load_spatial(&root)?;
         Ok(Self { root: Mutex::new(root), idle: Mutex::new(Vec::new()) })
     }
 
@@ -36,7 +49,7 @@ impl Pool {
             return Ok(Conn { conn: Some(c), pool: self });
         }
         let c = self.root.lock().try_clone()?;
-        c.execute_batch(&spatial_sql())?;
+        load_spatial(&c)?;
         Ok(Conn { conn: Some(c), pool: self })
     }
 }

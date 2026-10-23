@@ -7,7 +7,7 @@ use std::path::Path;
 /// Write a fixture file with DuckDB's GDAL writer.
 fn write_fixture(path: &Path, select: &str, driver: &str, srs: Option<&str>) {
     let c = engine::duckdb::Connection::open_in_memory().unwrap();
-    c.execute_batch("INSTALL spatial; LOAD spatial; SET geometry_always_xy = true;").unwrap();
+    engine::db::load_spatial(&c).unwrap();
     let srs = srs.map(|s| format!(", SRS '{s}'")).unwrap_or_default();
     c.execute_batch(&format!("COPY ({select}) TO '{}' (FORMAT GDAL, DRIVER '{driver}'{srs}, USE_TMP_FILE false)", path.display())).unwrap();
 }
