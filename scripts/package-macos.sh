@@ -26,8 +26,12 @@ rm -rf "$FW" && mkdir -p "$FW"
 
 # Copy all non-system libraries the binary needs (recursively) and repoint
 # them at @executable_path/../Frameworks.
+# Search Homebrew, plus any extra dirs in LIB_SEARCH (e.g. conda + libduckdb on CI).
+SEARCH=(-s /opt/homebrew/lib -s /opt/homebrew/opt)
+IFS=: read -ra EXTRA <<< "${LIB_SEARCH:-}"
+for d in "${EXTRA[@]}"; do [ -n "$d" ] && SEARCH+=(-s "$d"); done
 dylibbundler -of -b -x "$BIN" -d "$FW/" -p "@executable_path/../Frameworks/" \
-  -s /opt/homebrew/lib -s /opt/homebrew/opt > /tmp/gis-studio-dylibbundler.log
+  "${SEARCH[@]}" > /tmp/gis-studio-dylibbundler.log
 
 # dylibbundler can add the same LC_RPATH more than once; macOS refuses to
 # load a library with duplicate rpaths, so keep one of each.
@@ -42,8 +46,8 @@ dedupe_rpaths() {
 dedupe_rpaths "$BIN"
 for f in "$FW"/*.dylib; do dedupe_rpaths "$f"; done
 
-# Fail if anything still points outside the app (Homebrew/MacPorts).
-LEAKS=$( (otool -L "$BIN"; for f in "$FW"/*.dylib; do otool -L "$f"; done) | grep -E "^\s+/(opt|usr/local)/" || true)
+# Fail if anything still points outside the app (Homebrew, MacPorts, conda, home dirs).
+LEAKS=$( (otool -L "$BIN"; for f in "$FW"/*.dylib; do otool -L "$f"; done) | grep -E "^\s+/(opt|usr/local|Users|Library/Frameworks/Python)/" || true)
 if [ -n "$LEAKS" ]; then
   echo "Still linked outside the app:"; echo "$LEAKS"; exit 1
 fi

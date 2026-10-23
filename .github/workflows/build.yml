@@ -25,19 +25,41 @@ env:
 jobs:
   macos:
     runs-on: macos-14 # Apple Silicon
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - run: brew install gdal duckdb dylibbundler
+      # GDAL 3.12 from conda-forge (Homebrew only offers the newest GDAL, and
+      # gdal 0.19 doesn't support 3.13) + DuckDB 1.5.6 to match the crate.
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: gdal
+          conda-remove-defaults: "true"
+      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj pkg-config
+      - run: brew install dylibbundler
+      - name: Point the build at conda's GDAL and a prebuilt libduckdb
+        run: |
+          curl -fsSL -o libduckdb.zip "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-osx-universal.zip"
+          mkdir -p "$HOME/duckdb" && unzip -o libduckdb.zip -d "$HOME/duckdb"
+          echo "DUCKDB_LIB_DIR=$HOME/duckdb" >> "$GITHUB_ENV"
+          echo "DUCKDB_INCLUDE_DIR=$HOME/duckdb" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+          # Test binaries find libgdal/libduckdb through rpaths (macOS drops DYLD_* vars).
+          echo "TEST_RUSTFLAGS=-C link-arg=-Wl,-rpath,$CONDA_PREFIX/lib -C link-arg=-Wl,-rpath,$HOME/duckdb" >> "$GITHUB_ENV"
+          echo "LIB_SEARCH=$CONDA_PREFIX/lib:$HOME/duckdb" >> "$GITHUB_ENV"
+          rm -f .cargo/config.toml
       - run: npm ci
       - id: ui
         run: npm test
       - id: engine
-        run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
+        run: RUSTFLAGS="$TEST_RUSTFLAGS" scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - name: Map performance gate
-        run: cargo run --release -p engine --bin bench_tiles -- 300000 2000000
+        run: RUSTFLAGS="$TEST_RUSTFLAGS" cargo run --release -p engine --bin bench_tiles -- 300000 2000000
       - id: package
         run: scripts/ci-run.sh "Package" scripts/package-macos.sh
       - name: Self-test the packaged app (no Homebrew paths, empty home)
@@ -87,6 +109,8 @@ jobs:
       # The AppImage bundler copies every linked shared library (GDAL, PROJ,
       # GEOS, libduckdb, …) into the image.
       - id: package
+        # Don't strip: stripping corrupts the DuckDB extension's trailing metadata.
+        env: { NO_STRIP: "true" }
         run: scripts/ci-run.sh "Package" npx tauri build --bundles appimage,deb
       - name: Self-test the AppImage
         id: selftest
@@ -124,7 +148,7 @@ jobs:
         with:
           miniforge-version: latest
           activate-environment: gdal
-      - run: conda install -y -c conda-forge "libgdal-core=3.10" proj
+      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj
       - name: Point the build at conda's GDAL and a prebuilt libduckdb
         run: |
           LIB="$CONDA_PREFIX/Library"
@@ -133,7 +157,7 @@ jobs:
           echo "GDAL_HOME=$LIB" >> "$GITHUB_ENV"
           echo "GDAL_LIB_DIR=$LIB/lib" >> "$GITHUB_ENV"
           echo "GDAL_INCLUDE_DIR=$LIB/include" >> "$GITHUB_ENV"
-          echo "GDAL_VERSION=3.10.0" >> "$GITHUB_ENV"
+          echo "GDAL_VERSION=3.12.0" >> "$GITHUB_ENV"
           curl -fsSL -o libduckdb.zip "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-windows-amd64.zip"
           mkdir -p duckdb && unzip -o libduckdb.zip -d duckdb
           echo "DUCKDB_LIB_DIR=$PWD/duckdb" >> "$GITHUB_ENV"
