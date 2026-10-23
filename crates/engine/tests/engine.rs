@@ -834,3 +834,47 @@ fn model_run_can_be_cancelled_mid_query() {
     assert_eq!(page.rows.len(), 3, "the previous result is still readable");
     assert!(!e.tile_uncached(&after.id, 5, 7, 12, &[]).unwrap().is_empty(), "and still draws");
 }
+
+#[test]
+fn model_results_cite_every_input_layer() {
+    let dir = tempfile::tempdir().unwrap();
+    let wells_p = dir.path().join("wells.gpkg");
+    let county_p = dir.path().join("county.gpkg");
+    write_fixture(&wells_p, "SELECT * FROM (VALUES (1, ST_Point(-97.5, 35.4)), (2, ST_Point(-90.0, 30.0))) t(id, geom)", "GPKG", Some("EPSG:4326"));
+    write_fixture(&county_p, "SELECT 1 AS id, ST_GeomFromText('POLYGON((-98 35,-97 35,-97 36,-98 36,-98 35))') AS geom", "GPKG", Some("EPSG:4326"));
+    let e = Engine::new().unwrap();
+    let wells = e.import(&wells_p).unwrap().remove(0);
+    let county = e.import(&county_p).unwrap().remove(0);
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": wells.id}},
+            {"id": "c", "tool": "input_layer", "params": {"layer": county.id}},
+            {"id": "clip", "tool": "clip", "params": {}},
+            {"id": "o", "tool": "layer_output", "params": {"layer": wells.id}}
+        ],
+        "edges": [
+            {"source": "in", "target": "clip", "targetHandle": "in"},
+            {"source": "c", "target": "clip", "targetHandle": "clip"},
+            {"source": "clip", "target": "o", "targetHandle": "in"}
+        ]
+    }));
+    let uses_of = |e: &Engine, layer: &str| -> Vec<String> {
+        let mut keys: Vec<String> = e.sources().unwrap().into_iter().filter(|s| s.uses.iter().any(|u| u.layer_id == layer)).map(|s| s.citation.title).collect();
+        keys.sort();
+        keys
+    };
+    for _ in 0..2 {
+        let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+        let out = res.iter().find(|r| r.id == "o").unwrap().layer.clone().unwrap();
+        assert_eq!(out.feature_count, 1, "one well inside the county");
+        // Both inputs are credited for the result — once each, even after re-running.
+        assert_eq!(uses_of(&e, &out.id), vec!["county.gpkg".to_string(), "wells.gpkg".to_string()]);
+        let rows: usize = e.sources().unwrap().iter().map(|s| s.uses.iter().filter(|u| u.layer_id == out.id).count()).sum();
+        assert_eq!(rows, 2);
+    }
+    // Saving the result as a new layer keeps both citations.
+    let saved = e.copy_layer(&engine::result_id(&wells.id), "Wells in county", None).unwrap();
+    assert_eq!(uses_of(&e, &saved.id), vec!["county.gpkg".to_string(), "wells.gpkg".to_string()]);
+    let county_src = e.sources().unwrap().into_iter().find(|s| s.citation.title == "county.gpkg").unwrap();
+    assert!(county_src.uses.iter().any(|u| u.layer_name.ends_with("(model result)")), "{:?}", county_src.uses);
+}

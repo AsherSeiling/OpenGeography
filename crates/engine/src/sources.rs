@@ -281,6 +281,18 @@ pub fn inherit(conn: &Connection, from_ids: &[&str], layer_id: &str, layer_name:
     Ok(())
 }
 
+/// Set a derived layer's sources to those of `from_ids` (replacing any it had).
+pub fn replace_derived(conn: &Connection, from_ids: &[&str], layer_id: &str, layer_name: &str) -> Result<()> {
+    conn.execute("DELETE FROM __source_uses WHERE layer_id = ?", [layer_id])?;
+    inherit(conn, from_ids, layer_id, layer_name)?;
+    // One row per source, however many inputs shared it.
+    conn.execute(
+        "DELETE FROM __source_uses WHERE layer_id = ? AND rowid NOT IN (SELECT min(rowid) FROM __source_uses WHERE layer_id = ? GROUP BY key)",
+        [layer_id, layer_id],
+    )?;
+    Ok(())
+}
+
 /// Citation for a basemap id (see `BASEMAPS` in the UI's map/style.ts).
 pub fn for_basemap(id: &str) -> Option<Citation> {
     let basemap = |key: &str, title: &str, url: &str, annotation: &str| {

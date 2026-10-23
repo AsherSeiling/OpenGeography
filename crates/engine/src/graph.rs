@@ -74,12 +74,13 @@ impl NodeResult {
 /// What the executor needs from the engine besides SQL.
 pub trait Host {
     fn layers(&self) -> HashMap<String, LayerInfo>;
+    // `inputs`: every layer feeding the step (for provenance/citations).
     /// Create or replace the layer owned by `node_id`.
-    fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo>;
+    fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>, inputs: &[String]) -> Result<LayerInfo>;
     /// Create or replace the node-tree result of layer `owner`.
-    fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo>;
+    fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>, inputs: &[String]) -> Result<LayerInfo>;
     /// Create or replace a raster node-tree result of layer `owner`.
-    fn set_result_raster(&self, owner: &str, path: &str) -> Result<LayerInfo>;
+    fn set_result_raster(&self, owner: &str, path: &str, inputs: &[String]) -> Result<LayerInfo>;
 }
 
 #[derive(Default)]
@@ -271,13 +272,13 @@ pub fn run(
                     r.crs = crs;
                 }
                 Output::Layer { name, sql, crs } => {
-                    let info = host.upsert_layer(conn, &id, &name, &sql, crs)?;
+                    let info = host.upsert_layer(conn, &id, &name, &sql, crs, &upstream_layers(graph, &id))?;
                     r.rows = Some(info.feature_count);
                     r.message = Some(format!("Added '{}' to the map", info.name));
                     r.layer = Some(info);
                 }
                 Output::Result { owner, sql, crs } => {
-                    let info = host.set_result(conn, &owner, &sql, crs)?;
+                    let info = host.set_result(conn, &owner, &sql, crs, &upstream_layers(graph, &id))?;
                     r.rows = Some(info.feature_count);
                     r.message = Some(format!("{} now shows this result", info.name));
                     r.layer = Some(info);
@@ -290,7 +291,7 @@ pub fn run(
                     r.crs = crs;
                 }
                 Output::ResultRaster { owner, path } => {
-                    let info = host.set_result_raster(&owner, &path)?;
+                    let info = host.set_result_raster(&owner, &path, &upstream_layers(graph, &id))?;
                     r.message = Some(format!("{} now shows this raster", info.name));
                     r.layer = Some(info);
                 }
@@ -312,6 +313,29 @@ pub fn run(
         }
     }
     Ok(results)
+}
+
+/// Layers read by Layer Input nodes upstream of `node` (each once, in order).
+pub fn upstream_layers(graph: &Graph, node: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut seen = HashSet::new();
+    let mut stack = vec![node.to_string()];
+    while let Some(n) = stack.pop() {
+        if !seen.insert(n.clone()) {
+            continue;
+        }
+        if let Some(gn) = graph.nodes.iter().find(|x| x.id == n) {
+            if gn.tool == "input_layer" {
+                if let Some(l) = gn.params.get("layer").and_then(|v| v.as_str()) {
+                    if !out.iter().any(|x| x == l) {
+                        out.push(l.to_string());
+                    }
+                }
+            }
+        }
+        stack.extend(graph.edges.iter().filter(|e| e.target == n).map(|e| e.source.clone()));
+    }
+    out
 }
 
 fn count(conn: &Connection, table: &str) -> Result<i64> {

@@ -472,6 +472,21 @@ impl Engine {
 
     // ---------- sources & citations ----------
 
+    /// A model output's sources are those of every layer that fed it (a layer
+    /// showing its own model result counts with the layer it belongs to).
+    /// Replaces the output's previous provenance, so re-runs don't pile up.
+    fn record_derived(&self, conn: &Connection, info: &LayerInfo, inputs: &[String]) -> Result<()> {
+        let mut from: Vec<String> = Vec::new();
+        for id in inputs {
+            from.push(id.clone());
+            if let Some(owner) = self.layers.read().get(id).and_then(|l| l.result_of.clone()) {
+                from.push(owner);
+            }
+        }
+        let refs: Vec<&str> = from.iter().map(String::as_str).filter(|f| *f != info.id).collect();
+        sources::replace_derived(conn, &refs, &info.id, &format!("{} (model result)", info.name))
+    }
+
     /// The project's data sources (annotated bibliography), in order of first use.
     pub fn sources(&self) -> Result<Vec<sources::SourceEntry>> {
         self.with_conn(sources::list)
@@ -800,7 +815,7 @@ impl Engine {
         }
         let pool = self.pool.read();
         let conn = pool.get()?;
-        let mut info = self.upsert_layer(&conn, "__preview__", name, &format!("SELECT * FROM {}", ident(output_table)), crs)?;
+        let mut info = self.upsert_layer(&conn, "__preview__", name, &format!("SELECT * FROM {}", ident(output_table)), crs, &[])?;
         info.temporary = true;
         self.save_meta(&conn, &info)?;
         Ok(info)
@@ -905,7 +920,7 @@ impl Host for Engine {
         self.layers.read().clone()
     }
 
-    fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo> {
+    fn set_result(&self, conn: &Connection, owner: &str, sql: &str, crs: Option<String>, inputs: &[String]) -> Result<LayerInfo> {
         let base = self.layer(owner)?;
         let id = result_id(owner);
         let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
@@ -916,23 +931,29 @@ impl Host for Engine {
             info.version = prev_version + info.version;
             info.crs_name = if crs == base.crs { base.crs_name.clone() } else { None };
             info.result_of = Some(owner.to_string());
+            self.record_derived(conn, &info, inputs)?;
             self.save_meta(conn, &info)?;
             Ok(info)
         })
     }
 
-    fn set_result_raster(&self, owner: &str, path: &str) -> Result<LayerInfo> {
+    fn set_result_raster(&self, owner: &str, path: &str, inputs: &[String]) -> Result<LayerInfo> {
         let base = self.layer(owner)?;
         let id = result_id(owner);
         let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
         let mut info = layers::raster_layer(&id, &base.name, Path::new(path), base.source.clone())?;
         info.version = prev_version + 1;
         info.result_of = Some(owner.to_string());
-        self.with_conn(|c| self.save_meta(c, &info))?;
+        self.with_conn(|c| {
+            atomically(c, || {
+                self.record_derived(c, &info, inputs)?;
+                self.save_meta(c, &info)
+            })
+        })?;
         Ok(info)
     }
 
-    fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>) -> Result<LayerInfo> {
+    fn upsert_layer(&self, conn: &Connection, node_id: &str, name: &str, sql: &str, crs: Option<String>, inputs: &[String]) -> Result<LayerInfo> {
         let existing = self.node_layers.lock().get(node_id).cloned().filter(|l| self.layers.read().contains_key(l));
         let id = existing.unwrap_or_else(|| self.alloc_id());
         let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
@@ -942,6 +963,7 @@ impl Host for Engine {
             info.version = prev_version + info.version;
             info.crs_name = None;
             conn.execute("INSERT OR REPLACE INTO __model_layers VALUES (?, ?)", [node_id, id.as_str()])?;
+            self.record_derived(conn, &info, inputs)?;
             self.save_meta(conn, &info)?;
             Ok(info)
         })?;
