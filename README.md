@@ -178,8 +178,8 @@ GPL-only libraries some GDAL builds include (poppler for PDF, x265 for HEIF,
 librttopo for SpatiaLite topology). A license gate (`scripts/license-gate.sh`)
 fails the release build if any of them appears. Two cases still include them
 and are not for distribution: local macOS builds made with Homebrew's GDAL
-(the packaging script warns), and the Linux AppImage, which bundles Ubuntu's
-GDAL until Linux moves to conda-forge too. GIS Studio's own code is MIT OR
-Apache-2.0.
+(the packaging script warns). The Linux AppImage is built the same way as
+macOS and Windows (conda-forge GDAL, kept private inside the image) and also
+passes the license gate. GIS Studio's own code is MIT OR Apache-2.0.
 
 License: MIT OR Apache-2.0.

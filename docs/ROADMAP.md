@@ -59,7 +59,7 @@ Status levels: implemented → build-verified → tested → release-ready.
 |---|---|---|---|---|
 | Dev build + tests | tested | not attempted | not attempted | not attempted |
 | Release package | tested (DMG, self-test in clean env) | ⬜ | build-verified in CI (NSIS + MSI, self-test passes) | build-verified in CI (AppImage + deb, self-test passes) |
-| Native deps strategy | Homebrew + dylibbundler | ⬜ | conda-forge GDAL 3.10 + prebuilt libduckdb (unrun) | Ubuntu GDAL + AppImage (unrun) |
+| Native deps strategy | Homebrew + dylibbundler | ⬜ | conda-forge GDAL 3.12 + prebuilt libduckdb (CI, GPL-free gate) | conda-forge GDAL 3.12, private in the AppImage with unique sonames (CI, GPL-free gate) |
 | Map, vector, raster, projects | tested | — | — | — |
 | Clean-machine smoke test | `--self-test` with `env -i` | — | — | — |
 
