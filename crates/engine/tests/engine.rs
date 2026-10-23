@@ -765,3 +765,72 @@ fn data_sources_are_logged_with_citations() {
     assert!(engine::sources::for_tnm("nhd_flowlines").title.contains("National Hydrography Dataset"));
     assert_eq!(engine::sources::for_tiger("tracts", "Tracts").len(), 2, "tracts cite TIGER and the 2020 Census counts");
 }
+
+#[test]
+fn model_run_can_be_cancelled_mid_query() {
+    let e = std::sync::Arc::new(Engine::new().unwrap());
+    // DuckDB notices an interrupt between work units (up to ~100k rows per
+    // thread), so use a big but cheap-per-row query: a planar buffer.
+    let pts = e.generate_test_layer("points", 3_000_000, [-100.0, 30.0, -94.0, 36.0]).unwrap();
+    let owner = pts.id.clone();
+    let g = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": owner}},
+            {"id": "b", "tool": "buffer", "params": {"distance": 500, "units": "m", "method": "planar"}},
+            {"id": "o", "tool": "layer_output", "params": {"layer": owner}}
+        ],
+        "edges": [
+            {"source": "in", "target": "b", "targetHandle": "in"},
+            {"source": "b", "target": "o", "targetHandle": "in"}
+        ]
+    }));
+
+    // Press Cancel shortly after the buffer query starts.
+    let canceller = std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        // Tests run in parallel and the task list is global: pick this run by its layer name.
+        let t = engine::progress::snapshot().into_iter().find(|t| t.label == "Running model — Test points (3000000)").expect("model task is running");
+        assert!(t.cancellable);
+        engine::progress::cancel(t.id);
+        std::time::Instant::now()
+    });
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    let stopped = std::time::Instant::now();
+    let pressed = canceller.join().unwrap();
+    assert!(stopped.duration_since(pressed) < std::time::Duration::from_secs(2), "stopped {:?} after Cancel", stopped.duration_since(pressed));
+
+    let status = |id: &str| res.iter().find(|r| r.id == id).unwrap().status.clone();
+    assert_eq!(status("b"), Status::Cancelled, "the running buffer query was interrupted");
+    assert_eq!(status("o"), Status::Cancelled);
+    assert!(e.layer(&engine::result_id(&owner)).is_err(), "no half-made result layer");
+    assert!(engine::progress::snapshot().iter().all(|t| t.label != "Running model — Test points (3000000)"), "task ended");
+
+    // The engine (and its pooled connection) still works afterwards.
+    let quick = graph(json!({
+        "nodes": [
+            {"id": "in", "tool": "input_layer", "params": {"layer": owner}},
+            {"id": "o", "tool": "layer_output", "params": {"layer": owner}}
+        ],
+        "edges": [{"source": "in", "target": "o", "targetHandle": "in"}]
+    }));
+    let res = e.run_graph(&quick, None, &mut |_| {}).unwrap();
+    assert!(res.iter().all(|r| r.status == Status::Done || r.status == Status::Cached), "{res:?}");
+    let before = res.iter().find(|r| r.id == "o").unwrap().layer.clone().unwrap();
+    assert_eq!(before.feature_count, 3_000_000);
+
+    // Cancel while the Output step is writing the layer's result: the write is
+    // all-or-nothing, so the previous result survives intact.
+    let canceller = std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let t = engine::progress::snapshot().into_iter().find(|t| t.label == "Running model — Test points (3000000)").expect("model task is running");
+        engine::progress::cancel(t.id);
+    });
+    let res = e.run_graph(&quick, None, &mut |_| {}).unwrap();
+    canceller.join().unwrap();
+    assert_eq!(res.iter().find(|r| r.id == "o").unwrap().status, Status::Cancelled, "the result write was interrupted");
+    let after = e.layer(&before.id).unwrap();
+    assert_eq!((after.feature_count, after.version, after.fields.len()), (before.feature_count, before.version, before.fields.len()));
+    let page = e.rows(&after.id, &RowsQuery { limit: 3, ..Default::default() }).unwrap();
+    assert_eq!(page.rows.len(), 3, "the previous result is still readable");
+    assert!(!e.tile_uncached(&after.id, 5, 7, 12, &[]).unwrap().is_empty(), "and still draws");
+}

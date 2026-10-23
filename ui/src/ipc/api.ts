@@ -131,7 +131,7 @@ export interface ToolSpec {
   params: ToolParam[];
 }
 
-export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped";
+export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";
 
 export interface NodeResult {
   id: string;

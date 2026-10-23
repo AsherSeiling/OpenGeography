@@ -1,5 +1,5 @@
 import { Button, Toolbar, ToolbarDivider, Tooltip } from "@fluentui/react-components";
-import { AddRegular, ArrowRedoRegular, ArrowUndoRegular, DeleteRegular, EraserRegular, Play20Filled, ZoomFitRegular } from "@fluentui/react-icons";
+import { AddRegular, ArrowRedoRegular, ArrowUndoRegular, DeleteRegular, DismissRegular, EraserRegular, Play20Filled, ZoomFitRegular } from "@fluentui/react-icons";
 import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow, type Connection, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { api } from "../ipc/api";
 import { AddMenu, type AddItem } from "../nodes/AddMenu";
 import { nodeTypes } from "../nodes/ModelNodes";
 import { edgeUnder, splice } from "../nodes/splice";
+import { useProgress } from "../progress/progress";
 import { outputKind, specs, useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
 
@@ -39,6 +40,7 @@ function ModelCanvas() {
   const treeName = useApp((s) => (treeLayer ? s.layers[treeLayer]?.name : undefined));
   const edges = useModel((s) => s.edges);
   const running = useRun((s) => s.running);
+  const runTask = useProgress((s) => s.tasks.find((t) => t.label.startsWith("Running model")));
   const results = useRun((s) => s.results);
   const flow = useReactFlow();
   const wrap = useRef<HTMLDivElement>(null);
@@ -205,6 +207,13 @@ function ModelCanvas() {
         <Button appearance="primary" size="small" icon={<Play20Filled />} disabled={running || !treeLayer} onClick={() => runModel()}>
           {running ? "Running…" : "Run"}
         </Button>
+        {running && (
+          <Tooltip content="Stop the model run. The layer keeps showing its last result." relationship="label">
+            <Button size="small" icon={<DismissRegular />} disabled={!runTask || runTask.detail === "Cancelling…"} onClick={() => runTask && api.cancelTask(runTask.id)}>
+              {runTask?.detail === "Cancelling…" ? "Cancelling…" : "Cancel"}
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip content="Add a node (Shift+A over the canvas, or right-click)" relationship="label">
           <Button
             size="small"

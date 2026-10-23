@@ -2,7 +2,7 @@
 // tool, green = output), then output sockets (right edge), the step's
 // settings, and input sockets (left edge), one labeled row each.
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { ArrowSync16Regular, CheckmarkCircle16Filled, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
+import { ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
 import { saveResultAsLayer } from "../actions";
 import type { NodeResult } from "../ipc/api";
 import { useRun, type ModelNode } from "../store/model";
@@ -18,6 +18,8 @@ function Badge({ r }: { r?: NodeResult }) {
     case "error":
     case "skipped":
       return <ErrorCircle16Filled className={`badge ${r.status}`} title={title} />;
+    case "cancelled":
+      return <DismissCircle16Regular className="badge cancelled" title="Cancelled — this step didn't finish" />;
     case "cached":
       return <History16Regular className="badge cached" title={`Reused from cache · ${title}`} />;
     default:

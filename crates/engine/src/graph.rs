@@ -45,6 +45,8 @@ pub enum Status {
     Cached,
     Error,
     Skipped,
+    /// The user cancelled the run before this step finished.
+    Cancelled,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -152,6 +154,7 @@ pub fn run(
     graph: &Graph,
     target: Option<&str>,
     on_status: &mut dyn FnMut(&NodeResult),
+    cancelled: &dyn Fn() -> bool,
 ) -> Result<Vec<NodeResult>> {
     let order = plan(graph, target)?;
     let layers = host.layers();
@@ -165,6 +168,17 @@ pub fn run(
     for id in order {
         let node = node_by_id[id.as_str()];
         let started = Instant::now();
+        // Cancelled: this step and everything after it don't run. Nothing is
+        // half-written: outputs only enter the cache (or replace a layer's
+        // result) after their SQL has finished.
+        if cancelled() {
+            let mut r = NodeResult::new(&id, Status::Cancelled);
+            r.error = Some("Cancelled".into());
+            failed.insert(id.clone());
+            on_status(&r);
+            results.push(r);
+            continue;
+        }
         let finish = |mut r: NodeResult, on_status: &mut dyn FnMut(&NodeResult), results: &mut Vec<NodeResult>| {
             r.millis = started.elapsed().as_millis() as u64;
             on_status(&r);
@@ -288,8 +302,10 @@ pub fn run(
         match res {
             Ok(r) => finish(r, on_status, &mut results),
             Err(e) => {
-                let mut r = NodeResult::new(&id, Status::Error);
-                r.error = Some(clean_error(&e.to_string()));
+                // A query stopped by Cancel fails with DuckDB's "Interrupted" error.
+                let stopped = cancelled();
+                let mut r = NodeResult::new(&id, if stopped { Status::Cancelled } else { Status::Error });
+                r.error = Some(if stopped { "Cancelled".into() } else { clean_error(&e.to_string()) });
                 failed.insert(id.clone());
                 finish(r, on_status, &mut results);
             }

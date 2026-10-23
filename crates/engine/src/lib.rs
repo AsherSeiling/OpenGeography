@@ -751,7 +751,13 @@ impl Engine {
         let conn = pool.get()?;
         let mut cache = self.graph_cache.lock();
         let total = graph::plan(graph, target).map(|o| o.len()).unwrap_or(1).max(1);
-        let task = Task::start("Running model");
+        // Name the layer whose tree is running (its Output node's layer).
+        let owner = graph.nodes.iter().find(|n| n.tool == "layer_output").and_then(|n| n.params.get("layer")?.as_str()).and_then(|id| self.layer(id).ok());
+        let task = Task::start(match owner {
+            Some(l) => format!("Running model — {}", l.name),
+            None => "Running model".into(),
+        })
+        .cancellable();
         let mut done = 0usize;
         let mut report = |r: &NodeResult| {
             let tool = graph.nodes.iter().find(|n| n.id == r.id).map(|n| n.tool.replace('_', " ")).unwrap_or_default();
@@ -763,7 +769,28 @@ impl Engine {
             }
             on_status(r);
         };
-        graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report)
+        // Cancel interrupts the query that is running now (DuckDB), and the
+        // executor stops before the next step. GDAL raster steps can't be
+        // interrupted mid-way; they stop when they finish.
+        let handle = task.handle();
+        let interrupt = conn.interrupt_handle();
+        let finished = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                // Keep interrupting until the run returns: DuckDB clears the
+                // flag when a query starts, so a Cancel that lands between
+                // two queries must hit the next one too.
+                while !finished.load(Ordering::Relaxed) {
+                    if handle.check().is_err() {
+                        interrupt.interrupt();
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            });
+            let out = graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report, &|| handle.check().is_err());
+            finished.store(true, Ordering::Relaxed);
+            out
+        })
     }
 
     /// Show a node's cached output on the map as a temporary layer.
@@ -883,12 +910,15 @@ impl Host for Engine {
         let id = result_id(owner);
         let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
         let src = ImportSource { name: base.name.clone(), select: sql.into(), crs: crs.clone(), crs_name: None, warnings: vec![] };
-        let mut info = layers::build_layer(conn, &id, &src)?;
-        info.version = prev_version + info.version;
-        info.crs_name = if crs == base.crs { base.crs_name.clone() } else { None };
-        info.result_of = Some(owner.to_string());
-        self.save_meta(conn, &info)?;
-        Ok(info)
+        // All-or-nothing, so a cancelled or failed run keeps the previous result.
+        atomically(conn, || {
+            let mut info = layers::build_layer(conn, &id, &src)?;
+            info.version = prev_version + info.version;
+            info.crs_name = if crs == base.crs { base.crs_name.clone() } else { None };
+            info.result_of = Some(owner.to_string());
+            self.save_meta(conn, &info)?;
+            Ok(info)
+        })
     }
 
     fn set_result_raster(&self, owner: &str, path: &str) -> Result<LayerInfo> {
@@ -907,13 +937,32 @@ impl Host for Engine {
         let id = existing.unwrap_or_else(|| self.alloc_id());
         let prev_version = self.layers.read().get(&id).map(|l| l.version).unwrap_or(0);
         let src = ImportSource { name: name.into(), select: sql.into(), crs, crs_name: None, warnings: vec![] };
-        let mut info = layers::build_layer(conn, &id, &src)?;
-        info.version = prev_version + info.version;
-        info.crs_name = None;
-        conn.execute("INSERT OR REPLACE INTO __model_layers VALUES (?, ?)", [node_id, id.as_str()])?;
+        let info = atomically(conn, || {
+            let mut info = layers::build_layer(conn, &id, &src)?;
+            info.version = prev_version + info.version;
+            info.crs_name = None;
+            conn.execute("INSERT OR REPLACE INTO __model_layers VALUES (?, ?)", [node_id, id.as_str()])?;
+            self.save_meta(conn, &info)?;
+            Ok(info)
+        })?;
         self.node_layers.lock().insert(node_id.into(), id);
-        self.save_meta(conn, &info)?;
         Ok(info)
+    }
+}
+
+/// Run `f` in one DuckDB transaction: commit on success, roll back on any
+/// error (including a Cancel interrupt), leaving the database as it was.
+fn atomically<T>(conn: &Connection, f: impl FnOnce() -> Result<T>) -> Result<T> {
+    conn.execute_batch("BEGIN TRANSACTION")?;
+    match f() {
+        Ok(v) => {
+            conn.execute_batch("COMMIT")?;
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            Err(e)
+        }
     }
 }
 pub use duckdb;

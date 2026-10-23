@@ -235,6 +235,10 @@ export async function runModel(target?: string) {
     if (r.layer) useApp.getState().updateLayer(r.layer);
   }
   const errors = res.filter((r) => r.status === "error");
+  if (res.some((r) => r.status === "cancelled")) {
+    status(`Model run cancelled. ${useApp.getState().layers[owner]?.name ?? "The layer"} still shows its last result.`);
+    return;
+  }
   status(
     errors.length
       ? `Node tree finished with ${errors.length} error(s). Click a red step to see why.`
