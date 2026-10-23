@@ -190,6 +190,45 @@ pub async fn clear_model_cache(engine: Eng<'_>) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn prune_node_cache(engine: Eng<'_>, live: Vec<String>, pinned: Option<String>) -> Res<usize> {
+    blocking(&engine, move |e| e.prune_node_cache(&live, pinned.as_deref())).await
+}
+
+#[tauri::command]
+pub async fn set_node_cache_budget(engine: Eng<'_>, bytes: u64) -> Res<()> {
+    blocking(&engine, move |e| {
+        e.set_node_cache_budget(bytes);
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn node_table_info(engine: Eng<'_>, table: String) -> Res<engine::history::NodeTableInfo> {
+    blocking(&engine, move |e| e.node_table_info(&table)).await
+}
+
+#[tauri::command]
+pub async fn node_rows(engine: Eng<'_>, table: String, query: RowsQuery) -> Res<RowsPage> {
+    blocking(&engine, move |e| e.node_rows(&table, &query)).await
+}
+
+#[tauri::command]
+pub async fn node_diff(engine: Eng<'_>, a: String, b: String, key: Option<String>) -> Res<engine::history::DiffSummary> {
+    blocking(&engine, move |e| e.node_diff(&a, &b, key.as_deref())).await
+}
+
+#[tauri::command]
+pub async fn node_diff_rows(engine: Eng<'_>, diff_id: String, kind: String, offset: usize, limit: usize) -> Res<Vec<engine::history::DiffRow>> {
+    blocking(&engine, move |e| e.node_diff_rows(&diff_id, &kind, offset, limit)).await
+}
+
+#[tauri::command]
+pub async fn drop_node_diff(engine: Eng<'_>, diff_id: String) -> Res<()> {
+    blocking(&engine, move |e| e.drop_node_diff(&diff_id)).await
+}
+
+#[tauri::command]
 pub async fn generate_test_layer(engine: Eng<'_>, kind: String, count: u64, bbox: [f64; 4]) -> Res<LayerInfo> {
     let info = blocking(&engine, move |e| e.generate_test_layer(&kind, count, bbox)).await?;
     prewarm(&engine, vec![info.id.clone()]);

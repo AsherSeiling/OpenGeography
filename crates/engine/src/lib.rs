@@ -6,6 +6,7 @@ pub mod catalog;
 pub mod crs;
 pub mod db;
 pub mod graph;
+pub mod history;
 pub mod layers;
 pub mod measure;
 pub mod nodes;
@@ -59,6 +60,7 @@ pub struct Engine {
     tile_cache: Mutex<LruCache<TileKey, Arc<Vec<u8>>>>,
     tools: Vec<Box<dyn Tool>>,
     graph_cache: Mutex<Cache>,
+    diffs: Mutex<HashMap<String, history::DiffMeta>>,
 }
 
 const PROJECT_DB: &str = "project.duckdb";
@@ -75,6 +77,7 @@ impl Engine {
             tile_cache: Mutex::new(LruCache::new(NonZeroUsize::new(4096).unwrap())),
             tools: nodes::registry(),
             graph_cache: Mutex::new(Cache::default()),
+            diffs: Mutex::new(HashMap::new()),
         };
         e.init_schema()?;
         Ok(e)
@@ -88,6 +91,9 @@ impl Engine {
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);",
         )?;
         sources::init(&conn)?;
+        // Comparison tables are temporary: never kept from an earlier session.
+        history::drop_all_diffs(&conn);
+        self.diffs.lock().clear();
         // Reload persisted node snapshots (drops stale or orphaned ones).
         self.graph_cache.lock().load(&conn)?;
         let mut stmt = conn.prepare("SELECT info::VARCHAR FROM __layers")?;
@@ -903,6 +909,44 @@ impl Engine {
     /// Size budget for persisted node snapshots, in bytes (0 = keep none between saves).
     pub fn set_node_cache_budget(&self, bytes: u64) {
         self.graph_cache.lock().budget = bytes;
+    }
+
+    // ---------- attribute history ----------
+
+    pub fn node_table_info(&self, table: &str) -> Result<history::NodeTableInfo> {
+        self.with_conn(|c| history::table_info(c, table))
+    }
+
+    pub fn node_rows(&self, table: &str, q: &table::RowsQuery) -> Result<table::RowsPage> {
+        self.with_conn(|c| history::node_rows(c, table, q))
+    }
+
+    /// Compare two node snapshots (D5). The result is a temporary table the
+    /// returned `diff_id` names; cancellable like a model run.
+    pub fn node_diff(&self, a: &str, b: &str, key: Option<&str>) -> Result<history::DiffSummary> {
+        let pool = self.pool.read();
+        let conn = pool.get()?;
+        let task = Task::start("Comparing tables").cancellable();
+        let report = |f: f64, d: &str| task.set(f, Some(d));
+        let (summary, meta) = history::cancellable(&conn, task.handle(), || history::node_diff(&conn, a, b, key, task.handle(), &report))?;
+        self.diffs.lock().insert(summary.diff_id.clone(), meta);
+        Ok(summary)
+    }
+
+    pub fn node_diff_rows(&self, diff_id: &str, kind: &str, offset: usize, limit: usize) -> Result<Vec<history::DiffRow>> {
+        let meta = self.diffs.lock().get(diff_id).cloned().ok_or_else(|| anyhow!("This comparison is no longer available; run it again"))?;
+        self.with_conn(|c| history::diff_rows(c, &meta, kind, offset, limit))
+    }
+
+    /// Drop a comparison table (the table pane closed the diff).
+    pub fn drop_node_diff(&self, diff_id: &str) -> Result<()> {
+        if let Some(meta) = self.diffs.lock().remove(diff_id) {
+            self.with_conn(|c| {
+                history::drop_diff(c, &meta.table);
+                Ok(())
+            })?;
+        }
+        Ok(())
     }
 
     // ---------- test data ----------

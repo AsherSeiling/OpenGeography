@@ -237,6 +237,13 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
         }
         "preview_output" => json!(e.preview_output(&s(a, "output")?, a["crs"].as_str().map(String::from), &s(a, "name")?)?),
         "clear_model_cache" => json!(e.clear_model_cache()?),
+        "prune_node_cache" => json!(e.prune_node_cache(&de::<Vec<String>>(a, "live")?, a["pinned"].as_str())?),
+        "set_node_cache_budget" => json!(e.set_node_cache_budget(a["bytes"].as_u64().ok_or_else(|| anyhow!("Missing 'bytes'"))?)),
+        "node_table_info" => json!(e.node_table_info(&s(a, "table")?)?),
+        "node_rows" => json!(e.node_rows(&s(a, "table")?, &de::<RowsQuery>(a, "query")?)?),
+        "node_diff" => json!(e.node_diff(&s(a, "a")?, &s(a, "b")?, a["key"].as_str())?),
+        "node_diff_rows" => json!(e.node_diff_rows(&s(a, "diffId")?, &s(a, "kind")?, a["offset"].as_u64().unwrap_or(0) as usize, a["limit"].as_u64().unwrap_or(100) as usize)?),
+        "drop_node_diff" => json!(e.drop_node_diff(&s(a, "diffId")?)?),
         "generate_test_layer" => {
             let l = e.generate_test_layer(&s(a, "kind")?, a["count"].as_u64().unwrap_or(1000), de(a, "bbox")?)?;
             let _ = e.prewarm(&l.id, 8, &[]);

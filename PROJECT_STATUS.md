@@ -11,8 +11,8 @@ _Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`
 | Check | Result |
 |---|---|
 | `npx tsc` | pass |
-| `npx vitest run` | 55/55 pass |
-| `cargo test -p engine` | 35/35 integration + 7 unit pass (4 network tests ignored) |
+| `npx vitest run` | 57/57 pass |
+| `cargo test -p engine` | 35 + 8 (history) integration + 7 unit pass (4 network tests + H14 ignored) |
 | `cargo build -p gis-studio` | pass, 0 warnings |
 | Packaged app `--self-test` (clean env) | pass (rebuilt 2026-10-23 09:31 with node shortcuts) |
 | Browser check (devserver + vite) | model Cancel from toolbar stops a 3M-feature run in ~0.1 s |
@@ -26,6 +26,7 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 3. Fixed 2026-10-23: deleted-layer references are flagged; parameter typing is one undo step; bundled GDAL/PROJ data always wins; rasters are copied into the project (portable); tool output fields come from the engine registry (`Tool::output_fields`, with a drift test).
 
 ## Recent decisions
+- 2026-10-23 **Diff + node rows (B2.2, done)**: `history.rs` + Engine `node_table_info`, `node_rows`, `node_diff`, `node_diff_rows`, `drop_node_diff` (Tauri, devserver, `api.ts`; plus `prune_node_cache`, `set_node_cache_budget`). Diffs are `__diff_<a>_<b>_<key>` tables, never indexed, swept on open/new project (a first Save As reopens the DB, so an open diff must be re-run after it). Layer Input views page in insertion order (unsorted) or by `row_number()` (sorted); `fids` of node rows are row positions. **H14: 1M rows × 20 fields + point geometry key diff = 0.44 s (release, M-series).**
 - 2026-10-23 **Persisted node cache (B2.1, done)**: `__node_<hash>` tables are indexed in `__node_cache` (written in the same transaction as the CREATE). On open: other `engine_version` (`CARGO_PKG_VERSION+CACHE_FORMAT`, bump `graph::CACHE_FORMAT` when a tool's SQL changes meaning), missing/broken (deleted layer) and orphan tables are dropped. Save As keeps snapshots (DuckDB copies the Layer Input views too). `Engine::prune_node_cache(live, pinned)` drops non-live then applies the budget (default 2 GB, `set_node_cache_budget`; views count 0 bytes; budget 0 = prune on save only). Raster entries stay session-only. No UI/commands yet (B2.2).
 - 2026-10-23 **Layouts design (C1)**: the engine renders each page to SVG, then PDF (svg2pdf) and PNG (resvg). MapLibre can't draw a true CRS. Bundled fonts only, for identical output on every OS. Frames take an explicit CRS. Scale bar and north arrow are geodesic at the frame centre, through a `Body` (Earth only until F1). Layouts are stored in `__layouts`. See `docs/LAYOUTS_PLAN.md`.
 - 2026-10-23 **Attribute history design (B1)**: snapshots are the existing `__node_<hash>` cache tables, persisted with an index (`__node_cache`), an engine-version check, and a 2 GB LRU budget pruned to the UI's live outputs. The diff is tool-agnostic: user key → auto-detected unique key → content-hash multiset diff (added/removed only). Geometry is not compared across CRSs. See `docs/ATTRIBUTE_HISTORY_PLAN.md`.
@@ -41,10 +42,10 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 - 2026-10-23 **Catalog pane** (file manager) with a "This project" view; TIGER downloads by year; bibliography auto-export (APA/MLA/Chicago, BibTeX, RIS).
 
 ## Next tasks (in order)
-1. Attribute history between nodes (B2): B2.1 done; build B2.2 (diff + node-rows commands) → B2.3 (table pane UI), per `docs/ATTRIBUTE_HISTORY_PLAN.md`. Prompt for B2.2 in `docs/NEXT_SESSION_PROMPT.md`.
+1. Attribute history between nodes (B2): B2.1, B2.2 done; build B2.3 (table pane UI), per `docs/ATTRIBUTE_HISTORY_PLAN.md`. Prompt in `docs/NEXT_SESSION_PROMPT.md`.
 2. Layouts (C2–C3): designed in `docs/LAYOUTS_PLAN.md` (engine renders SVG → PDF/PNG; true CRS; body-aware); build C2.1 → C2.4, then C3.1–C3.2. Prompt for C2.1 in `docs/NEXT_SESSION_PROMPT.md`.
 3. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
 4. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
-A3: you check the Windows and Linux installers on real machines (open, import, run a model, save/reopen). Then tag the release: `git tag v0.1.0 && git push origin v0.1.0` (the `release` job in `build.yml` publishes a pre-release; untested until the first tag). Meanwhile a Sonnet session can build B2.2 (prompt 1 in `docs/NEXT_SESSION_PROMPT.md`). The C1 and B1 designs are done.
+Build **B2.3** (table pane UI: node picker, diff bar, `lastOutput` + prune on save; prompt 1 in `docs/NEXT_SESSION_PROMPT.md`). Meanwhile A3: you check the Windows and Linux installers on real machines, then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`).
