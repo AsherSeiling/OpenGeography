@@ -73,12 +73,12 @@ Known portability risks:
 The macOS package includes GPL-only libraries via Homebrew GDAL: poppler (linked by libgdal: PDF driver), x265 (via libheif: HEIF driver) and librttopo (via libspatialite: SQLite/SpatiaLite driver). Fix: build/obtain GDAL without PDF/HEIF/SpatiaLite (or with those drivers as removable plugins), re-run `third_party_notices.py`, confirm zero GPL-only entries. Apply to Windows/Linux packages too.
 
 ## 4. Priorities
-P0 baseline (done 2026-10-23: all tests green on macOS) →
-P1 release reliability: push to a remote so CI runs; fix Windows/Linux builds; GPL-free GDAL; bundled-data precedence; project-portable rasters →
-P2 node-tree correctness: ~~model-run cancellation~~ (done 2026-10-23); splice as one undo step + type check; stale-result marker; deleted-layer references; provenance from all inputs; graph tests →
-P3 processing correctness: parameter validation, missing vector tools (union/difference/repair/…) →
-P4 raster foundation: calculator, alignment, NoData, resample, mosaic →
-P5 data: file manager (next), Census join, public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; see docs/PUBLIC_DATA_CATALOG.md), NAIP, NASA →
-P6 layouts, then Topo Map Builder →
-P7 Python tool SDK + headless CLI →
+P0 baseline — done 2026-10-23 (all tests green on macOS).
+P1 release reliability — CI green on macOS, Linux and Windows (done 2026-10-23). Remaining: GPL-free GDAL; bundled-data precedence over GDAL_DATA/PROJ_DATA; project-portable rasters; macOS notarization and Intel build.
+P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts. Remaining: **attribute history between nodes** (next), flag deleted-layer references, one undo step per parameter edit, UI graph tests.
+P3 processing correctness — parameter validation; missing vector tools (union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay).
+P4 raster foundation — calculator, alignment, NoData, resample, mosaic.
+P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; docs/PUBLIC_DATA_CATALOG.md), Census join, NAIP, NASA.
+P6 layouts, then the Topo Map Builder.
+P7 Python tool SDK + headless CLI.
 P8 advanced analysis (hydrology, interpolation, statistics, remote sensing).
