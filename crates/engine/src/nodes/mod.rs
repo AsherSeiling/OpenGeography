@@ -280,6 +280,39 @@ pub fn join_columns(a_cols: &[String], b_cols: &[String], b_alias: &str) -> Stri
         .join(", ")
 }
 
+/// Reject settings that can't be right before a tool runs: numbers that
+/// aren't finite numbers, and choices that aren't one of the listed options.
+/// Empty values count as unset; each tool decides whether it needs them.
+pub fn validate_params(spec: &ToolSpec, params: &Map<String, Value>) -> Result<()> {
+    for def in &spec.params {
+        let Some(v) = params.get(def.id) else { continue };
+        let text = match v {
+            Value::Null => continue,
+            Value::String(s) if s.trim().is_empty() => continue,
+            Value::String(s) => Some(s.trim().to_string()),
+            _ => None,
+        };
+        match def.kind {
+            ParamKind::Number => {
+                let n = match v {
+                    Value::Number(n) => n.as_f64(),
+                    _ => text.as_deref().and_then(|t| t.parse::<f64>().ok()),
+                };
+                if !n.is_some_and(f64::is_finite) {
+                    bail!("'{}' must be a number", def.label);
+                }
+            }
+            ParamKind::Enum if !def.options.is_empty() => {
+                if !text.as_deref().is_some_and(|t| def.options.iter().any(|(id, _)| *id == t)) {
+                    bail!("'{}' must be one of: {}", def.label, def.options.iter().map(|(_, l)| *l).collect::<Vec<_>>().join(", "));
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Typed access to a node's parameter values.
 pub struct Params<'a>(pub &'a Map<String, Value>);
 

@@ -406,6 +406,31 @@ fn union_symmetrical_difference_and_collect() {
     assert_eq!(run("collect", json!({})), 1);
 }
 
+#[test]
+fn bad_settings_are_rejected_with_a_readable_message() {
+    let dir = tempfile::tempdir().unwrap();
+    let pa = dir.path().join("a.gpkg");
+    write_fixture(&pa, "SELECT 1 AS id, ST_MakePoint(-97.0, 35.0) AS geom", "GPKG", Some("EPSG:4326"));
+    let e = Engine::new().unwrap();
+    let a = e.import(&pa).unwrap().remove(0);
+    let run = |tool: &str, params: serde_json::Value| {
+        let nodes = vec![
+            json!({"id": "a", "tool": "input_layer", "params": {"layer": a.id}}),
+            json!({"id": "t", "tool": tool, "params": params}),
+        ];
+        let edges = vec![json!({"source": "a", "target": "t", "targetHandle": "in"})];
+        let res = e.run_graph(&graph(json!({"nodes": nodes, "edges": edges})), Some("t"), &mut |_| {}).unwrap();
+        res.into_iter().find(|r| r.id == "t").unwrap()
+    };
+    let bad = run("buffer", json!({"distance": "abc", "units": "m"}));
+    assert_eq!(bad.status, Status::Error);
+    assert!(bad.error.unwrap().contains("must be a number"));
+    let bad = run("bounding_geometry", json!({"shape": "blob", "group": "each"}));
+    assert_eq!(bad.status, Status::Error);
+    assert!(bad.error.unwrap().contains("must be one of"));
+    assert_eq!(run("buffer", json!({"distance": "250", "units": "m"})).status, Status::Done);
+}
+
 /// Needs internet access to tigerweb.geo.census.gov; run with --ignored.
 #[test]
 #[ignore]

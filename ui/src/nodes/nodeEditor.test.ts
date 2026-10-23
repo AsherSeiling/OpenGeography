@@ -219,3 +219,24 @@ describe("mute and change tracking", () => {
     expect(nodeSignature("out-L1")).not.toBe(out1); // the source layer was edited
   });
 });
+
+describe("switching layer trees", () => {
+  it("keeps each layer's edits, starts new trees fixed, and clears undo history", () => {
+    const b = add("buffer");
+    useModel.getState().setParam(b, "distance", "42");
+    flushParamEdit();
+    useModel.getState().openTree("L2");
+    const ids = useModel.getState().nodes.map((n) => n.data.tool);
+    expect(ids).toEqual(["input_layer", "layer_output"]); // fixed Layer Input/Output only
+    expect(useModel.temporal.getState().pastStates).toHaveLength(0);
+    useModel.getState().openTree("L1");
+    const back = useModel.getState().nodes.find((n) => n.id === b);
+    expect(back?.data.params).toMatchObject({ distance: "42" });
+  });
+
+  it("drops the tree of a layer that was deleted", () => {
+    useApp.setState({ layers: { L2: useApp.getState().layers.L2 } }); // the open layer L1 is removed
+    useModel.getState().openTree("L2");
+    expect(useModel.getState().trees.L1).toBeUndefined();
+  });
+});

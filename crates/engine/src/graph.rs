@@ -255,7 +255,7 @@ pub fn run(
 
         on_status(&NodeResult::new(&id, Status::Running));
         let ctx = Ctx::new(conn, &layers);
-        let built = tool.build(&ctx, &inputs, &Params(&node.params));
+        let built = crate::nodes::validate_params(&spec, &node.params).and_then(|_| tool.build(&ctx, &inputs, &Params(&node.params)));
         let res: Result<NodeResult> = (|| {
             let mut r = NodeResult::new(&id, Status::Done);
             match built? {
