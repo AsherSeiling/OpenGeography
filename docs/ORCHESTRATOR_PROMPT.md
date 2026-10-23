@@ -26,4 +26,4 @@ Read CLAUDE.md, PROJECT_STATUS.md, docs/MASTER_PLAN.md (§3 phases, §5 parallel
 What was delegated, accepted, merged; test/CI results (honest, with failures); sessions still running; what the user must do.
 
 ## Start
-Phase order right now: C1 layouts design (you) → C2 build (Sonnet), in parallel with B1 attribute-history design (you) → B2 build (Sonnet). C2 and B2 touch different areas but check each brief for Tauri commands before running them together.
+Phase order right now (2026-10-23): C1 and B1 designs are done (`docs/LAYOUTS_PLAN.md`, `docs/ATTRIBUTE_HISTORY_PLAN.md`); B2.1 is merged. Next: B2.2 (adds Tauri commands) → B2.3 (UI), then C2.1 (engine renderer, new files + `lib.rs`) → C2.2 (adds Tauri commands). B2.x and C2.1 both edit `crates/engine/src/lib.rs`, so run them one after another, not together. The user still owns A3 and the `v0.1.0` tag.
