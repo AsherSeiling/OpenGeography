@@ -52,6 +52,11 @@ if [ -n "$LEAKS" ]; then
   echo "Still linked outside the app:"; echo "$LEAKS"; exit 1
 fi
 
+# Licensing: GPL-only libraries must not ship in a release (RELEASE=1, set in
+# CI, fails the build). Homebrew's GDAL pulls them in, so local builds warn;
+# release installers come from CI, which uses conda-forge's GPL-free GDAL.
+scripts/license-gate.sh "$FW" $([ "${RELEASE:-}" = "1" ] || echo --warn)
+
 # Sign: libraries first, then the app (ad-hoc unless an identity is given).
 IDENTITY="${APPLE_SIGNING_IDENTITY:--}"
 for f in "$FW"/*.dylib; do codesign --force --timestamp=none -s "$IDENTITY" "$f"; done

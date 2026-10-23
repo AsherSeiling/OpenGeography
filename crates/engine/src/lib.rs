@@ -19,13 +19,13 @@ pub mod tiles;
 pub mod tnm;
 pub mod tnm_vector;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use db::{ident, lit, Pool};
 use duckdb::Connection;
 use graph::{Cache, Graph, Host, NodeResult};
 use layers::{ImportSource, LayerInfo};
 use lru::LruCache;
-use nodes::{Tool, ToolSpec};
+use nodes::Tool;
 use progress::Task;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
@@ -100,8 +100,15 @@ impl Engine {
         let mut layers = self.layers.write();
         layers.clear();
         let mut max_id = 0;
+        let project = self.project_dir();
         for j in infos {
-            let info: LayerInfo = serde_json::from_str(&j)?;
+            let mut info: LayerInfo = serde_json::from_str(&j)?;
+            // Rasters saved in the project folder are stored relative to it.
+            if let (Some(r), Some(dir)) = (info.raster.as_mut(), project.as_ref()) {
+                if Path::new(&r.path).is_relative() {
+                    r.path = dir.join(&r.path).display().to_string();
+                }
+            }
             if let Some(n) = info.id.trim_start_matches('L').parse::<u64>().ok() {
                 max_id = max_id.max(n);
             }
@@ -125,9 +132,17 @@ impl Engine {
     }
 
     fn save_meta(&self, conn: &Connection, info: &LayerInfo) -> Result<()> {
+        // A raster inside the project folder is stored relative to it, so the
+        // project can move between folders and machines.
+        let mut stored = info.clone();
+        if let (Some(r), Some(dir)) = (stored.raster.as_mut(), self.project_dir()) {
+            if let Ok(rel) = Path::new(&r.path).strip_prefix(&dir) {
+                r.path = rel.to_string_lossy().replace('\\', "/");
+            }
+        }
         conn.execute(
             "INSERT OR REPLACE INTO __layers VALUES (?, ?)",
-            duckdb::params![info.id, serde_json::to_string(info)?],
+            duckdb::params![info.id, serde_json::to_string(&stored)?],
         )?;
         self.layers.write().insert(info.id.clone(), info.clone());
         Ok(())
@@ -762,8 +777,8 @@ impl Engine {
 
     // ---------- model ----------
 
-    pub fn tool_specs(&self) -> Vec<ToolSpec> {
-        self.tools.iter().map(|t| t.spec()).collect()
+    pub fn tool_specs(&self) -> Vec<nodes::SpecOut> {
+        self.tools.iter().map(|t| nodes::SpecOut { spec: t.spec(), fields: t.output_fields() }).collect()
     }
 
     pub fn run_graph(&self, graph: &Graph, target: Option<&str>, on_status: &mut dyn FnMut(&NodeResult)) -> Result<Vec<NodeResult>> {
@@ -794,6 +809,7 @@ impl Engine {
         // interrupted mid-way; they stop when they finish.
         let handle = task.handle();
         let interrupt = conn.interrupt_handle();
+        let stop_rasters = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let finished = std::sync::atomic::AtomicBool::new(false);
         std::thread::scope(|s| {
             s.spawn(|| {
@@ -803,11 +819,12 @@ impl Engine {
                 while !finished.load(Ordering::Relaxed) {
                     if handle.check().is_err() {
                         interrupt.interrupt();
+                        stop_rasters.store(true, Ordering::Relaxed); // raster steps stop via GDAL's progress callback
                     }
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
             });
-            let out = graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report, &|| handle.check().is_err());
+            let out = progress::with_cancel_flag(stop_rasters.clone(), || graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report, &|| handle.check().is_err()));
             finished.store(true, Ordering::Relaxed);
             out
         })
@@ -868,6 +885,7 @@ impl Engine {
         std::fs::create_dir_all(dir)?;
         let same = self.project_dir().as_deref() == Some(dir);
         if same {
+            self.bring_rasters_into(dir)?;
             let pool = self.pool.read();
             pool.get()?.execute_batch("CHECKPOINT")?;
         } else {
@@ -886,10 +904,44 @@ impl Engine {
                     ident(&cur)
                 ))?;
             }
-            self.open_db(&db_path)?;
             *self.project_dir.write() = Some(dir.to_path_buf());
+            self.open_db(&db_path)?;
+            self.bring_rasters_into(dir)?;
+            self.pool.read().get()?.execute_batch("CHECKPOINT")?;
         }
         std::fs::write(dir.join(PROJECT_JSON), ui_state)?;
+        Ok(())
+    }
+
+    /// Copy every raster layer not yet in the project into `<project>/rasters`
+    /// (with GDAL's .ovr / .aux.xml sidecars), so the project is
+    /// self-contained and portable.
+    fn bring_rasters_into(&self, dir: &Path) -> Result<()> {
+        let rdir = dir.join("rasters");
+        for mut info in self.list_layers().into_iter().filter(|l| l.raster.is_some()) {
+            let src = PathBuf::from(&info.raster.as_ref().unwrap().path);
+            if src.starts_with(dir) || !src.is_file() {
+                continue;
+            }
+            std::fs::create_dir_all(&rdir)?;
+            let name = src.file_name().ok_or_else(|| anyhow!("Bad raster path {}", src.display()))?.to_string_lossy().into_owned();
+            let mut dest = rdir.join(&name);
+            let mut n = 2;
+            while dest.exists() {
+                dest = rdir.join(format!("{}-{n}.{}", src.file_stem().unwrap_or_default().to_string_lossy(), src.extension().unwrap_or_default().to_string_lossy()));
+                n += 1;
+            }
+            std::fs::copy(&src, &dest).with_context(|| format!("Copying {} into the project", src.display()))?;
+            for side in ["ovr", "aux.xml"] {
+                let s = PathBuf::from(format!("{}.{side}", src.display()));
+                if s.is_file() {
+                    std::fs::copy(&s, format!("{}.{side}", dest.display()))?;
+                }
+            }
+            info.raster.as_mut().unwrap().path = dest.display().to_string();
+            info.version += 1;
+            self.with_conn(|c| self.save_meta(c, &info))?;
+        }
         Ok(())
     }
 
@@ -899,8 +951,12 @@ impl Engine {
         if !db_path.exists() {
             return Err(anyhow!("{} is not a project folder (no {PROJECT_DB})", dir.display()));
         }
-        self.open_db(&db_path)?;
-        *self.project_dir.write() = Some(dir.to_path_buf());
+        // Set first: loading layers resolves raster paths stored relative to it.
+        let previous = self.project_dir.write().replace(dir.to_path_buf());
+        if let Err(e) = self.open_db(&db_path) {
+            *self.project_dir.write() = previous;
+            return Err(e);
+        }
         Ok(std::fs::read_to_string(dir.join(PROJECT_JSON)).unwrap_or_else(|_| "{}".into()))
     }
 

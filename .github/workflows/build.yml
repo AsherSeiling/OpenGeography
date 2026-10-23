@@ -40,7 +40,9 @@ jobs:
           miniforge-version: latest
           activate-environment: gdal
           conda-remove-defaults: "true"
-      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj pkg-config
+      # The "lgpl" SpatiaLite build has no GPL librttopo; libgdal-core has no
+      # poppler or libheif/x265 — so the installer stays permissively licensed.
+      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj pkg-config "libspatialite=*=lgpl*"
       - run: brew install dylibbundler
       - name: Point the build at conda's GDAL and a prebuilt libduckdb
         run: |
@@ -61,6 +63,7 @@ jobs:
       - name: Map performance gate
         run: RUSTFLAGS="$TEST_RUSTFLAGS" cargo run --release -p engine --bin bench_tiles -- 300000 2000000
       - id: package
+        env: { RELEASE: "1" }
         run: scripts/ci-run.sh "Package" scripts/package-macos.sh
       - name: Self-test the packaged app (no Homebrew paths, empty home)
         id: selftest
@@ -118,6 +121,11 @@ jobs:
           APPIMAGE=$(ls target/release/bundle/appimage/*.AppImage | head -1)
           chmod +x "$APPIMAGE"
           scripts/ci-run.sh "Self-test" env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin "$APPIMAGE" --appimage-extract-and-run --self-test
+      - name: License gate (report only until Linux uses conda-forge GDAL)
+        run: |
+          APPIMAGE=$(ls target/release/bundle/appimage/*.AppImage | head -1)
+          (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/$APPIMAGE" --appimage-extract >/dev/null)
+          scripts/license-gate.sh "$RUNNER_TEMP/squashfs-root" --warn
       - name: Job summary
         if: always()
         env:
@@ -152,6 +160,7 @@ jobs:
           create-args: >-
             libgdal-core=3.12
             proj
+            libspatialite=*=lgpl*
           condarc: |
             channels:
               - conda-forge
@@ -184,6 +193,7 @@ jobs:
           mkdir -p src-tauri/dlls
           cp "$CONDA_PREFIX"/Library/bin/*.dll src-tauri/dlls/
           cp duckdb/duckdb.dll src-tauri/dlls/
+          scripts/license-gate.sh src-tauri/dlls
           python - <<'PY'
           import json
           p = "src-tauri/tauri.conf.json"

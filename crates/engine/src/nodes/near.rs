@@ -23,6 +23,10 @@ impl Tool for Near {
         }
     }
 
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"]).add(NewField::new("NEAR_DIST", "DOUBLE")).add(NewField::new("NEAR_ROW", "BIGINT"))
+    }
+
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (a, b) = (&inputs["in"], &inputs["near"]);
         let crs = need_crs(a)?.to_string();

@@ -70,6 +70,20 @@ fn argv(args: &[String]) -> Result<CslStringList> {
     Ok(l)
 }
 
+/// GDAL progress callback: returning 0 makes GDAL stop ("User terminated"),
+/// which is how a model run's Cancel interrupts a raster step.
+pub(crate) unsafe extern "C" fn gdal_progress(_done: f64, _msg: *const std::ffi::c_char, arg: *mut std::ffi::c_void) -> std::ffi::c_int {
+    // `arg` is the running model's cancel flag (progress::cancel_arg), or null.
+    let cancelled = !arg.is_null() && (*(arg as *const std::sync::atomic::AtomicBool)).load(std::sync::atomic::Ordering::Relaxed);
+    i32::from(!cancelled)
+}
+
+/// Remove a partly written output after a failed or cancelled GDAL step.
+fn discard(path: &Path) {
+    let _ = std::fs::remove_file(path);
+    let _ = std::fs::remove_file(format!("{}.aux.xml", path.display()));
+}
+
 fn last_error(what: &str) -> anyhow::Error {
     let msg = unsafe { std::ffi::CStr::from_ptr(gdal_sys::CPLGetLastErrorMsg()) }.to_string_lossy().to_string();
     anyhow!("{what} failed{}", if msg.is_empty() { String::new() } else { format!(": {msg}") })
@@ -81,10 +95,12 @@ pub fn translate(src: &Dataset, dest: &Path, args: &[String]) -> Result<()> {
     let d = cstr(dest.to_str().ok_or_else(|| anyhow!("bad path"))?)?;
     unsafe {
         let opts = gdal_sys::GDALTranslateOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        gdal_sys::GDALTranslateOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut usage = 0;
         let out = gdal_sys::GDALTranslate(d.as_ptr(), src.c_dataset(), opts, &mut usage);
         gdal_sys::GDALTranslateOptionsFree(opts);
         if out.is_null() {
+            discard(dest);
             return Err(last_error("Raster copy"));
         }
         gdal_sys::GDALClose(out);
@@ -98,11 +114,15 @@ pub fn warp(src: &Dataset, dest: &str, args: &[String]) -> Result<Dataset> {
     let d = cstr(dest)?;
     unsafe {
         let opts = gdal_sys::GDALWarpAppOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        gdal_sys::GDALWarpAppOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut srcs = [src.c_dataset()];
         let mut usage = 0;
         let out = gdal_sys::GDALWarp(d.as_ptr(), null_mut(), 1, srcs.as_mut_ptr(), opts, &mut usage);
         gdal_sys::GDALWarpAppOptionsFree(opts);
         if out.is_null() {
+            if !dest.is_empty() {
+                discard(Path::new(dest));
+            }
             return Err(last_error("Raster warp"));
         }
         Ok(Dataset::from_c_dataset(out))
@@ -116,10 +136,12 @@ pub fn dem(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()
     let m = cstr(mode)?;
     unsafe {
         let opts = gdal_sys::GDALDEMProcessingOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        gdal_sys::GDALDEMProcessingOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut usage = 0;
         let out = gdal_sys::GDALDEMProcessing(d.as_ptr(), src.c_dataset(), m.as_ptr(), null(), opts, &mut usage);
         gdal_sys::GDALDEMProcessingOptionsFree(opts);
         if out.is_null() {
+            discard(dest);
             return Err(last_error(&format!("gdaldem {mode}")));
         }
         gdal_sys::GDALClose(out);
@@ -353,11 +375,13 @@ pub fn contours(src_path: &Path, interval: f64, base: f64) -> Result<PathBuf> {
             opts.push(format!("NODATA={nd}"));
         }
         let list = argv(&opts)?;
-        let err = gdal_sys::GDALContourGenerateEx(band.c_rasterband(), layer, list.as_ptr(), None, null_mut());
+        let err = gdal_sys::GDALContourGenerateEx(band.c_rasterband(), layer, list.as_ptr(), Some(gdal_progress), crate::progress::cancel_arg());
         gdal_sys::OSRDestroySpatialReference(srs);
         gdal_sys::GDALClose(vds);
         if err != gdal_sys::CPLErr::CE_None {
-            return Err(last_error("Contour generation"));
+            let e = last_error("Contour generation");
+            discard(&out); // cancelled or failed: no partial output
+            return Err(e);
         }
     }
     Ok(out)
@@ -454,11 +478,13 @@ pub fn polygonize(src_path: &Path) -> Result<PathBuf> {
         gdal_sys::OGR_L_CreateField(layer, f, 1);
         gdal_sys::OGR_Fld_Destroy(f);
         let mask = gdal_sys::GDALGetMaskBand(band.c_rasterband());
-        let err = gdal_sys::GDALFPolygonize(band.c_rasterband(), mask, layer, 0, null_mut(), None, null_mut());
+        let err = gdal_sys::GDALFPolygonize(band.c_rasterband(), mask, layer, 0, null_mut(), Some(gdal_progress), crate::progress::cancel_arg());
         gdal_sys::OSRDestroySpatialReference(srs);
         gdal_sys::GDALClose(vds);
         if err != gdal_sys::CPLErr::CE_None {
-            return Err(last_error("Polygonize"));
+            let e = last_error("Polygonize");
+            discard(&out); // cancelled or failed: no partial output
+            return Err(e);
         }
     }
     Ok(out)
@@ -514,6 +540,7 @@ pub fn zonal(src_path: &Path, zones_gpkg: &Path) -> Result<std::collections::Has
     let list = argv(&args)?;
     let zr = unsafe {
         let opts = gdal_sys::GDALRasterizeOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        gdal_sys::GDALRasterizeOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut usage = 0;
         let out = gdal_sys::GDALRasterize(cstr("")?.as_ptr(), null_mut(), zones_ds.c_dataset(), opts, &mut usage);
         gdal_sys::GDALRasterizeOptionsFree(opts);

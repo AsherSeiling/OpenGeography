@@ -104,8 +104,17 @@ export async function zoomToSelection() {
 export async function removeLayer(id: string) {
   const ok = await busy("Removing layer", () => api.removeLayer(id));
   if (ok === undefined) return;
+  const name = useApp.getState().layers[id]?.name ?? "Layer";
   useApp.getState().removeLayer(id);
-  status("Layer removed");
+  // Its own node tree goes with it; other trees that used it as an input keep
+  // their Layer node, which now says the layer is gone.
+  const m = useModel.getState();
+  if (m.layer === id) m.openTree(null);
+  const { [id]: _gone, ...trees } = useModel.getState().trees;
+  useModel.setState({ trees });
+  const using = Object.entries(m.allTrees()).filter(([owner, t]) => owner !== id && t.nodes.some((n) => n.data.tool === "input_layer" && n.data.params.layer === id));
+  const names = using.map(([owner]) => useApp.getState().layers[owner]?.name ?? owner);
+  status(names.length ? `${name} removed. ${names.length === 1 ? "The node tree of" : "Node trees of"} ${names.join(", ")} used it — its Layer node there is marked.` : `${name} removed`);
 }
 
 export async function defineProjection(layer: string, crs: string, name: string) {

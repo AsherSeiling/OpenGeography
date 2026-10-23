@@ -1,3 +1,4 @@
+use super::OutFields;
 use super::*;
 
 pub struct SpatialJoin;
@@ -24,6 +25,10 @@ impl Tool for SpatialJoin {
                 Param::new("keep_all", "Keep all target features", ParamKind::Bool).default(true),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["target", "join"])
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

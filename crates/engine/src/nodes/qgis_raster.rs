@@ -3,6 +3,7 @@
 //! documentation are cited per tool).
 //! QGIS docs: https://docs.qgis.org/latest/en/docs/user_manual/processing_algs/
 
+use super::{NewField, OutFields};
 use super::*;
 use crate::raster;
 use std::path::Path;
@@ -75,6 +76,10 @@ impl Tool for Polygonize {
         ToolSpec { id: "polygonize", name: "Polygonize (Raster to Vector)", category: "Raster", role: Role::Tool,
             description: "Polygons around connected cells that share a value, with that value in DN (QGIS: Polygonize). Best for classified rasters.", inputs: rin(), output: Some(PortKind::Vector), params: vec![] }
     }
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&[]).add(NewField::new("DN", "DOUBLE"))
+    }
+
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let gpkg = raster::polygonize(Path::new(need_raster(i)?))?;
@@ -92,6 +97,10 @@ impl Tool for SampleRaster {
             output: Some(PortKind::Vector),
             params: vec![Param::new("field", "Field name", ParamKind::Text).default("VALUE")] }
     }
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"]).add(NewField::new("VALUE", "DOUBLE").named_by("field"))
+    }
+
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (pts, r) = (&inputs["in"], &inputs["raster"]);
         let crs = crs::resolve(need_crs(pts)?);
@@ -135,6 +144,14 @@ impl Tool for ZonalStatistics {
             output: Some(PortKind::Vector),
             params: vec![Param::new("prefix", "Field prefix", ParamKind::Text).default("Z_")] }
     }
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"])
+            .add(NewField::new("COUNT", "DOUBLE").prefixed_by("prefix", "Z_"))
+            .add(NewField::new("MEAN", "DOUBLE").prefixed_by("prefix", "Z_"))
+            .add(NewField::new("MIN", "DOUBLE").prefixed_by("prefix", "Z_"))
+            .add(NewField::new("MAX", "DOUBLE").prefixed_by("prefix", "Z_"))
+    }
+
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (zones, r) = (&inputs["in"], &inputs["raster"]);
         let crs = crs::resolve(need_crs(zones)?);

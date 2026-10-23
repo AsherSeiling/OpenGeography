@@ -69,8 +69,16 @@ pub fn spatial_extension() -> Option<PathBuf> {
 /// GDAL or engine use. PROJ downloads datum grids on demand (cdn.proj.org).
 pub fn init() {
     let Some(dir) = dir() else { return };
+    // The installed app always uses its own GDAL/PROJ data: a GDAL_DATA or
+    // PROJ_DATA left by another GIS install would pair this GDAL/PROJ with
+    // mismatched files (wrong or missing coordinate systems). Set
+    // GIS_STUDIO_KEEP_ENV=1 to keep the environment's values (debugging).
+    let keep = std::env::var_os("GIS_STUDIO_KEEP_ENV").is_some();
     let set = |k: &str, v: &Path| {
-        if v.exists() && std::env::var_os(k).is_none() {
+        if v.exists() && (!keep || std::env::var_os(k).is_none()) {
+            if let Some(old) = std::env::var_os(k).filter(|o| Path::new(o) != v) {
+                eprintln!("GIS Studio: using bundled {k} instead of {}", Path::new(&old).display());
+            }
             std::env::set_var(k, v);
         }
     };
@@ -81,7 +89,7 @@ pub fn init() {
         std::env::set_var("PROJ_NETWORK", "ON");
     }
     // Don't pick up GDAL plugins from a system install.
-    if std::env::var_os("GDAL_DRIVER_PATH").is_none() {
+    if !keep || std::env::var_os("GDAL_DRIVER_PATH").is_none() {
         std::env::set_var("GDAL_DRIVER_PATH", dir.join("gdalplugins"));
     }
 }

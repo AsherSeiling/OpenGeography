@@ -45,7 +45,8 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Group | Status |
 |---|---|
 | Vector: buffer (geodesic/planar, field distance), clip, intersect, dissolve, project, spatial/attribute join, join by nearest, near, select by location, centroids, Voronoi, grids/hex, points along lines, extract vertices, summarize within, definition query, export | ✅ / 🟡 |
-| Vector still missing: union, difference, symmetrical difference, merge/append, repair geometry, multipart↔singlepart, simplify, convex/concave hull, Delaunay | ⬜ |
+| Vector already present: merge, repair, explode (multipart→singlepart), simplify, bounding geometry (hull/envelope), feature to point, select by location | ✅ |
+| Vector still missing: union, difference, symmetrical difference, singlepart→multipart, concave hull, Delaunay | ⬜ |
 | Raster: contours, hillshade, slope, aspect, ruggedness, clip, warp, polygonize, sample, zonal stats | 🟡 |
 | Raster missing: calculator, reclassify, resample/align, mosaic, rasterize, NoData tools, band select | ⬜ |
 | Hydrology, interpolation, spatial statistics, remote sensing | ⬜ |
@@ -70,6 +71,9 @@ Known portability risks:
 5. GDAL versions differ per platform (3.13 Homebrew, 3.10 conda, Ubuntu 3.8).
 
 ## 3. Licensing
+Update 2026-10-23: macOS and Windows CI builds use conda-forge `libgdal-core=3.12` + `libspatialite=*=lgpl*` (no poppler/x265/librttopo) and a license gate fails the build if any appears. Linux still bundles Ubuntu GDAL (gate reports only) — next: move Linux to conda-forge GDAL.
+
+Original finding:
 The macOS package includes GPL-only libraries via Homebrew GDAL: poppler (linked by libgdal: PDF driver), x265 (via libheif: HEIF driver) and librttopo (via libspatialite: SQLite/SpatiaLite driver). Fix: build/obtain GDAL without PDF/HEIF/SpatiaLite (or with those drivers as removable plugins), re-run `third_party_notices.py`, confirm zero GPL-only entries. Apply to Windows/Linux packages too.
 
 ## 4. Priorities

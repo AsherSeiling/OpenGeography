@@ -1,3 +1,4 @@
+use super::{NewField, OutFields};
 use super::*;
 
 pub struct CalculateGeometry;
@@ -20,6 +21,10 @@ impl Tool for CalculateGeometry {
                 Param::new("length_units", "Length units", ParamKind::Enum).default("km").options(LINEAR_UNITS),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"]).add(NewField::new("", "DOUBLE").named_by("field"))
     }
 
     fn build(&self, _ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

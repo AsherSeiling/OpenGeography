@@ -170,12 +170,16 @@ and GDAL support data (MIT); World Magnetic Model 2025 coefficients (public doma
 
 Data downloaded through the app is credited separately, per project, in **Data → Sources & Citations**.
 
-### Licensing note for the macOS installer
+### Licensing note for installers
 
-The macOS installer bundles GDAL as built by Homebrew, which links three
-GPL-only libraries for optional features: poppler (PDF driver), x265 (HEIF/HEVC
-images) and librttopo (SpatiaLite topology). Distributing that installer is
-therefore subject to the GPL for those components. GIS Studio's own source code
-is MIT OR Apache-2.0; building GDAL without those drivers removes the issue.
+Release installers for macOS and Windows are built in CI with conda-forge's
+`libgdal-core` 3.12 and its LGPL SpatiaLite build, which leave out the three
+GPL-only libraries some GDAL builds include (poppler for PDF, x265 for HEIF,
+librttopo for SpatiaLite topology). A license gate (`scripts/license-gate.sh`)
+fails the release build if any of them appears. Two cases still include them
+and are not for distribution: local macOS builds made with Homebrew's GDAL
+(the packaging script warns), and the Linux AppImage, which bundles Ubuntu's
+GDAL until Linux moves to conda-forge too. GIS Studio's own code is MIT OR
+Apache-2.0.
 
 License: MIT OR Apache-2.0.

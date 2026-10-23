@@ -1,3 +1,4 @@
+use super::OutFields;
 use super::*;
 
 pub struct AttributeJoin;
@@ -21,6 +22,10 @@ impl Tool for AttributeJoin {
                 Param::new("keep_all", "Keep all input rows", ParamKind::Bool).default(true),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["target", "join"])
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

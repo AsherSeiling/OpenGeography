@@ -1,3 +1,4 @@
+use super::OutFields;
 use super::*;
 use crate::crs::utm_epsg;
 
@@ -25,6 +26,10 @@ impl Tool for Buffer {
                 Param::new("dissolve", "Dissolve all output", ParamKind::Bool).default(false),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields { none_if: Some("dissolve"), ..OutFields::default() }
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

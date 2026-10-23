@@ -4,6 +4,7 @@
 //! parameters and results line up for people coming from QGIS.
 //! QGIS documentation: https://docs.qgis.org/latest/en/docs/user_manual/processing_algs/qgis/
 
+use super::{NewField, OutFields};
 use super::*;
 
 macro_rules! tool {
@@ -54,6 +55,10 @@ impl Tool for ExtractVertices {
         ToolSpec { id: "extract_vertices", name: "Extract Vertices", category: "Geometry", role: Role::Tool,
             description: "One point per vertex, with VERTEX_INDEX (QGIS: Extract vertices).", inputs: vin(), output: Some(PortKind::Vector), params: vec![] }
     }
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"]).add(NewField::new("VERTEX_INDEX", "BIGINT"))
+    }
+
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         sel(format!(
@@ -208,6 +213,10 @@ impl Tool for JoinByNearest {
                 Param::new("keep_all", "Keep features with no match", ParamKind::Bool).default(true),
             ] }
     }
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in", "near"]).add(NewField::new("DISTANCE", "DOUBLE"))
+    }
+
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (a, b) = (&inputs["in"], &inputs["near"]);
         let crs = need_crs(a)?.to_string();
@@ -273,6 +282,10 @@ impl Tool for PointsAlongLines {
                 Param::new("units", "Units", ParamKind::Enum).default("m").options(LINEAR_UNITS),
             ] }
     }
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"]).add(NewField::new("DISTANCE", "DOUBLE"))
+    }
+
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let crs = crs::resolve(need_crs(i)?);

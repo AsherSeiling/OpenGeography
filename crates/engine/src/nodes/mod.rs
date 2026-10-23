@@ -303,6 +303,89 @@ pub type Inputs<'a> = HashMap<&'a str, Rel>;
 pub trait Tool: Sync + Send {
     fn spec(&self) -> ToolSpec;
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output>;
+    /// The attribute fields the output has, so the UI can offer field pickers
+    /// before anything runs. Default: the same fields as the first input.
+    fn output_fields(&self) -> OutFields {
+        OutFields::default()
+    }
+}
+
+/// How a tool's output fields follow from its inputs and settings. This is
+/// the one place that knowledge lives; the UI evaluates it (store/model.ts).
+#[derive(Serialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct OutFields {
+    /// Input ports whose fields carry through, in order (None = the first input).
+    pub from: Option<Vec<&'static str>>,
+    /// Fields the tool adds.
+    pub add: Vec<NewField>,
+    /// Keep only the input field named by this setting (e.g. Dissolve's field).
+    pub keep_param: Option<&'static str>,
+    /// No attribute fields at all when this yes/no setting is on (Buffer's dissolve).
+    pub none_if: Option<&'static str>,
+    /// The fields of the layer chosen in this setting (Layer inputs).
+    pub layer_param: Option<&'static str>,
+}
+
+impl OutFields {
+    /// Fields carried from these ports ([] = none).
+    pub fn from(ports: &[&'static str]) -> Self {
+        Self { from: Some(ports.to_vec()), ..Self::default() }
+    }
+    pub fn add(mut self, f: NewField) -> Self {
+        self.add.push(f);
+        self
+    }
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct NewField {
+    /// Field name (or the default when `name_param` is empty).
+    pub name: &'static str,
+    /// DuckDB type, as shown in field pickers ("" = depends on the data).
+    #[serde(rename = "type")]
+    pub ty: &'static str,
+    /// A setting that names the field.
+    pub name_param: Option<&'static str>,
+    /// A setting holding a prefix for the name, and its default.
+    pub prefix_param: Option<(&'static str, &'static str)>,
+    /// Only added when this numeric setting is > 0.
+    pub when_positive: Option<&'static str>,
+}
+
+impl NewField {
+    pub const fn new(name: &'static str, ty: &'static str) -> Self {
+        Self { name, ty, name_param: None, prefix_param: None, when_positive: None }
+    }
+    /// Named by a setting (with `self.name` as its default).
+    pub const fn named_by(mut self, param: &'static str) -> Self {
+        self.name_param = Some(param);
+        self
+    }
+    pub const fn prefixed_by(mut self, param: &'static str, default: &'static str) -> Self {
+        self.prefix_param = Some((param, default));
+        self
+    }
+    pub const fn when_positive(mut self, param: &'static str) -> Self {
+        self.when_positive = Some(param);
+        self
+    }
+}
+
+/// A tool's spec as the UI receives it: the spec plus its output-field rule.
+#[derive(Serialize, Clone, Debug)]
+pub struct SpecOut {
+    #[serde(flatten)]
+    pub spec: ToolSpec,
+    pub fields: OutFields,
+}
+
+impl std::ops::Deref for SpecOut {
+    type Target = ToolSpec;
+    fn deref(&self) -> &ToolSpec {
+        &self.spec
+    }
 }
 
 pub fn registry() -> Vec<Box<dyn Tool>> {

@@ -1,3 +1,4 @@
+use super::{NewField, OutFields};
 use super::*;
 
 pub struct SummarizeWithin;
@@ -25,6 +26,10 @@ impl Tool for SummarizeWithin {
                 ]),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["polys"]).add(NewField::new("COUNT", "BIGINT"))
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

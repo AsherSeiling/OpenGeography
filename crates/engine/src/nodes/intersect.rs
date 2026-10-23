@@ -1,3 +1,4 @@
+use super::OutFields;
 use super::*;
 
 pub struct Intersect;
@@ -17,6 +18,10 @@ impl Tool for Intersect {
             output: Some(PortKind::Vector),
             params: vec![],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["a", "b"])
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {

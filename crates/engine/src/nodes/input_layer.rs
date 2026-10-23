@@ -1,3 +1,4 @@
+use super::OutFields;
 use super::*;
 
 pub struct InputLayer;
@@ -17,6 +18,10 @@ impl Tool for InputLayer {
                 Param::new("fids", "Only these features", ParamKind::Text).hidden(),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields { layer_param: Some("layer"), ..OutFields::default() }
     }
 
     fn build(&self, ctx: &Ctx, _inputs: &Inputs, p: &Params) -> Result<Output> {

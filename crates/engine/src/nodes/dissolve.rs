@@ -1,3 +1,4 @@
+use super::{NewField, OutFields};
 use super::*;
 
 pub struct Dissolve;
@@ -14,6 +15,10 @@ impl Tool for Dissolve {
             output: Some(PortKind::Vector),
             params: vec![Param::new("field", "Dissolve field", ParamKind::Field).field_of("in").optional()],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields { keep_param: Some("field"), ..OutFields::from(&["in"]) }.add(NewField::new("COUNT", "BIGINT"))
     }
 
     fn build(&self, _ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

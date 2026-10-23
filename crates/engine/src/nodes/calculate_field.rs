@@ -1,3 +1,4 @@
+use super::{NewField, OutFields};
 use super::*;
 
 pub struct CalculateField;
@@ -19,6 +20,10 @@ impl Tool for CalculateField {
                     .help("SQL expression, e.g. POP / AREA_SQMI  or  upper(NAME)"),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&["in"]).add(NewField::new("", "").named_by("field"))
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

@@ -1,3 +1,4 @@
+use super::{NewField, OutFields};
 use super::*;
 
 pub struct Fishnet;
@@ -19,6 +20,10 @@ impl Tool for Fishnet {
                 Param::new("clip", "Only cells touching features", ParamKind::Bool).default(true),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&[]).add(NewField::new("CELL_ID", "BIGINT")).add(NewField::new("COL", "BIGINT")).add(NewField::new("ROW", "BIGINT"))
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

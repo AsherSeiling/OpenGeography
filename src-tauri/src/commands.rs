@@ -4,7 +4,6 @@
 use engine::crs::Suggestion;
 use engine::graph::{Graph, NodeResult};
 use engine::layers::LayerInfo;
-use engine::nodes::ToolSpec;
 use engine::table::{RowsPage, RowsQuery};
 use engine::Engine;
 use serde::Serialize;
@@ -164,7 +163,7 @@ pub async fn quantile_breaks(engine: Eng<'_>, id: String, field: String, classes
 }
 
 #[tauri::command]
-pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<ToolSpec>> {
+pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<engine::nodes::SpecOut>> {
     blocking(&engine, |e| Ok(e.tool_specs())).await
 }
 

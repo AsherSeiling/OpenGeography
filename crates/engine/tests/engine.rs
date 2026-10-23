@@ -953,3 +953,134 @@ fn catalog_inspects_datasets() {
     assert!(l.crs.as_deref().unwrap_or("").contains("EPSG:4326"), "{:?}", l.crs);
     assert!(engine::catalog::inspect(dir.path().to_str().unwrap()).is_err(), "a folder isn't a dataset");
 }
+
+#[test]
+fn projects_carry_their_rasters_and_move_between_folders() {
+    let dir = tempfile::tempdir().unwrap();
+    let dem = dir.path().join("hill.tif");
+    write_test_dem(&dem);
+    let e = Engine::new().unwrap();
+    let l = e.import(&dem).unwrap().remove(0);
+    let proj = dir.path().join("a").join("Hill.gproj");
+    e.save_project(&proj, "{}").unwrap();
+    let saved = e.layer(&l.id).unwrap().raster.unwrap().path;
+    assert!(Path::new(&saved).starts_with(proj.join("rasters")), "raster copied into the project: {saved}");
+    assert!(Path::new(&saved).is_file());
+    // Saving again doesn't copy it twice.
+    e.save_project(&proj, "{}").unwrap();
+    assert_eq!(std::fs::read_dir(proj.join("rasters")).unwrap().filter(|f| f.as_ref().unwrap().path().extension().is_some_and(|x| x == "tif")).count(), 1);
+    drop(e);
+
+    // Move the whole project folder (another machine, another user) and reopen it.
+    let moved = dir.path().join("b").join("Hill moved.gproj");
+    std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+    std::fs::rename(&proj, &moved).unwrap();
+    let e2 = Engine::new().unwrap();
+    e2.open_project(&moved).unwrap();
+    let r = e2.layer(&l.id).unwrap().raster.unwrap();
+    assert!(Path::new(&r.path).starts_with(&moved), "resolved inside the moved project: {}", r.path);
+    // It still reads and draws.
+    assert!(e2.tile(&l.id, 8, 59, 104, &[]).is_ok());
+    assert!(e2.raster_value(&l.id, -97.88, 35.22).is_ok());
+}
+
+#[test]
+fn cancelling_stops_gdal_raster_steps_and_cleans_up() {
+    use std::sync::{atomic::AtomicBool, Arc};
+    let dir = tempfile::tempdir().unwrap();
+    let dem = dir.path().join("hill.tif");
+    write_test_dem(&dem);
+    let src = gdal::Dataset::open(&dem).unwrap();
+    let out = dir.path().join("copy.tif");
+    // A cancelled run: GDAL stops at its first progress report and the partial output is removed.
+    let cancelled = || Arc::new(AtomicBool::new(true));
+    let err = engine::progress::with_cancel_flag(cancelled(), || engine::raster::translate(&src, &out, &[])).unwrap_err();
+    assert!(err.to_string().contains("User terminated"), "{err}");
+    assert!(!out.exists(), "no half-written output left behind");
+    let err = engine::progress::with_cancel_flag(cancelled(), || engine::raster::warp(&src, out.to_str().unwrap(), &["-t_srs".into(), "EPSG:4326".into()]).map(|_| ())).unwrap_err();
+    assert!(err.to_string().contains("User terminated"), "{err}");
+    assert!(engine::progress::with_cancel_flag(cancelled(), || engine::raster::contours(&dem, 10.0, 0.0)).is_err());
+    assert!(engine::progress::with_cancel_flag(cancelled(), || engine::raster::polygonize(&dem)).is_err());
+    // Not cancelled, or outside any model run: they complete.
+    engine::progress::with_cancel_flag(Arc::new(AtomicBool::new(false)), || engine::raster::translate(&src, &out, &[])).unwrap();
+    assert!(out.exists());
+    engine::raster::contours(&dem, 10.0, 0.0).unwrap();
+}
+
+/// Each tool's declared output fields (`Tool::output_fields`, which the UI
+/// uses for field pickers before a run) must match what it really produces.
+#[test]
+fn declared_output_fields_match_real_outputs() {
+    let dir = tempfile::tempdir().unwrap();
+    let polys = dir.path().join("grid.gpkg");
+    write_fixture(
+        &polys,
+        "SELECT x*3+y AS id, CASE WHEN x < 2 THEN 'west' ELSE 'east' END AS side, ST_MakeEnvelope(-98 + x*0.25, 35 + y*0.25, -98 + (x+1)*0.25, 35 + (y+1)*0.25) AS geom FROM range(4) a(x), range(3) b(y)",
+        "GPKG",
+        Some("EPSG:4326"),
+    );
+    let e = Engine::new().unwrap();
+    let p = e.import(&polys).unwrap().remove(0);
+    let pts = e.generate_test_layer("points", 50, [-98.0, 35.0, -97.0, 35.75]).unwrap();
+    let names = |l: &engine::layers::LayerInfo| -> Vec<String> { l.fields.iter().map(|f| f.name.clone()).collect() };
+    let specs = e.tool_specs();
+
+    let check = |tool: &str, params: serde_json::Value, inputs: &[(&str, &engine::layers::LayerInfo)]| {
+        let spec = specs.iter().find(|s| s.id == tool).unwrap();
+        let mut nodes = vec![json!({"id": "t", "tool": tool, "params": params})];
+        let mut edges = vec![];
+        for (i, (port, l)) in inputs.iter().enumerate() {
+            nodes.push(json!({"id": format!("in{i}"), "tool": "input_layer", "params": {"layer": l.id}}));
+            edges.push(json!({"source": format!("in{i}"), "target": "t", "targetHandle": port}));
+        }
+        let res = e.run_graph(&graph(json!({"nodes": nodes, "edges": edges})), Some("t"), &mut |_| {}).unwrap();
+        let r = res.into_iter().find(|r| r.id == "t").unwrap();
+        assert_eq!(r.status, Status::Done, "{tool}: {:?}", r.error);
+        let out = e.preview_output(r.output.as_ref().unwrap(), r.crs.clone(), "check").unwrap();
+        let actual = names(&out);
+
+        // Evaluate the declared rule the way the UI does.
+        let f = &spec.fields;
+        let param = |k: &str| params.get(k).cloned().unwrap_or(serde_json::Value::Null);
+        let mut expected: Vec<String> = Vec::new();
+        if !f.none_if.is_some_and(|k| param(k).as_bool() == Some(true)) {
+            let ports: Vec<&str> = f.from.clone().unwrap_or_else(|| vec![spec.inputs[0].id]);
+            for port in ports {
+                let l = inputs.iter().find(|(p, _)| *p == port).map(|(_, l)| l).unwrap();
+                expected.extend(names(l).into_iter().filter(|n| f.keep_param.map_or(true, |k| param(k).as_str() == Some(n))));
+            }
+            for nf in &f.add {
+                if nf.when_positive.is_some_and(|k| param(k).as_f64().unwrap_or(0.0) <= 0.0) {
+                    continue;
+                }
+                let base = nf.name_param.and_then(|k| param(k).as_str().map(String::from)).filter(|s| !s.is_empty()).unwrap_or_else(|| nf.name.to_string());
+                let name = match nf.prefix_param {
+                    Some((k, d)) => format!("{}{base}", param(k).as_str().unwrap_or(d)),
+                    None => base,
+                };
+                if !name.is_empty() {
+                    expected.push(name);
+                }
+            }
+        }
+        for name in &expected {
+            assert!(actual.iter().any(|a| a.eq_ignore_ascii_case(name)), "{tool}: declares field {name}, output has {actual:?}");
+        }
+        if f.none_if.is_some_and(|k| param(k).as_bool() == Some(true)) {
+            assert!(actual.is_empty(), "{tool}: declares no fields, output has {actual:?}");
+        }
+    };
+
+    check("near", json!({"distance": 100, "units": "km"}), &[("in", &pts), ("near", &p)]);
+    check("join_nearest", json!({}), &[("in", &pts), ("near", &p)]);
+    check("summarize_within", json!({"field": "value", "stat": "sum"}), &[("polys", &p), ("items", &pts)]);
+    check("extract_vertices", json!({}), &[("in", &p)]);
+    check("fishnet", json!({"size": 20, "units": "km", "clip": true}), &[("in", &p)]);
+    check("dissolve", json!({"field": "side"}), &[("in", &p)]);
+    check("calculate_field", json!({"field": "TWICE", "expression": "id * 2"}), &[("in", &p)]);
+    check("calculate_geometry", json!({"field": "AREA_KM2", "property": "area", "area_units": "sqkm"}), &[("in", &p)]);
+    check("spatial_join", json!({}), &[("target", &pts), ("join", &p)]);
+    check("intersect", json!({}), &[("a", &p), ("b", &p)]);
+    check("buffer", json!({"distance": 1, "units": "km"}), &[("in", &pts)]);
+    check("buffer", json!({"distance": 1, "units": "km", "dissolve": true}), &[("in", &pts)]);
+}

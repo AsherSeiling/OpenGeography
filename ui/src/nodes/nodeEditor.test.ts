@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ToolSpec } from "../ipc/api";
-import { asOneStep, bypassMuted, connectProblem, defaultTree, nodeSignature, useModel, useRun } from "../store/model";
+import { asOneStep, bypassMuted, connectProblem, defaultTree, flushParamEdit, nodeSignature, outputFields, useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
 import { copySelection, deleteSelection, makeLinks, paste, toggleMute } from "./graphOps";
 import { actionFor, conflicts, defaultBindings, displayCombo, eventCombo, useKeymap } from "./keymap";
 import { splice } from "./splice";
 
-const spec = (id: string, role: ToolSpec["role"], inputs: ToolSpec["inputs"], output: ToolSpec["output"]): ToolSpec => ({ id, name: id, category: "T", role, description: "", inputs, output, params: [] });
+const spec = (id: string, role: ToolSpec["role"], inputs: ToolSpec["inputs"], output: ToolSpec["output"]): ToolSpec => ({ id, name: id, category: "T", role, description: "", inputs, output, params: [], fields: { from: null, add: [], keepParam: null, noneIf: null, layerParam: null } });
 const SPECS = [
   spec("input_layer", "data", [], "any"),
   spec("layer_output", "output", [{ id: "in", label: "Result", kind: "any" }], null),
@@ -148,6 +148,48 @@ describe("graph operations", () => {
     expect(makeLinks()).toBe(2);
     const es = useModel.getState().edges.map((e) => `${e.source}>${e.target}:${e.targetHandle}`);
     expect(es).toEqual([`in-L1>${b}:in`, `${b}>${c}:in`]);
+  });
+});
+
+describe("output fields from the engine's rule", () => {
+  it("evaluates carry-through, named, prefixed and conditional fields", () => {
+    useRun.getState().setSpecs([
+      ...SPECS,
+      { ...spec("zonal", "tool", [{ id: "in", label: "Zones", kind: "vector" }], "vector"), fields: { from: ["in"], add: [{ name: "MEAN", type: "DOUBLE", nameParam: null, prefixParam: ["prefix", "Z_"], whenPositive: null }], keepParam: null, noneIf: null, layerParam: null } },
+      { ...spec("calc", "tool", [{ id: "in", label: "Input", kind: "vector" }], "vector"), fields: { from: ["in"], add: [{ name: "", type: "", nameParam: "field", prefixParam: null, whenPositive: null }], keepParam: null, noneIf: null, layerParam: null } },
+      { ...spec("contour", "tool", [], "vector"), fields: { from: [], add: [{ name: "ELEV", type: "DOUBLE", nameParam: null, prefixParam: null, whenPositive: null }, { name: "INDEX", type: "INTEGER", nameParam: null, prefixParam: null, whenPositive: "index_every" }], keepParam: null, noneIf: null, layerParam: null } },
+      { ...spec("input_layer", "data", [], "any"), fields: { from: null, add: [], keepParam: null, noneIf: null, layerParam: "layer" } },
+    ]);
+    useApp.setState({ layers: { ...useApp.getState().layers, L1: { ...useApp.getState().layers.L1, fields: [{ name: "NAME", type: "VARCHAR" }] } } });
+    const z = add("zonal");
+    const c = add("calc");
+    useModel.setState({ edges: [edge("in-L1", z), edge(z, c)] });
+    useModel.getState().setParam(c, "field", "TWICE");
+    expect(outputFields(c).map((f) => f.name)).toEqual(["NAME", "Z_MEAN", "TWICE"]);
+    useModel.getState().setParam(z, "prefix", "ELEV_");
+    expect(outputFields(z).map((f) => f.name)).toEqual(["NAME", "ELEV_MEAN"]);
+    const k = add("contour");
+    expect(outputFields(k).map((f) => f.name)).toEqual(["ELEV"]);
+    useModel.getState().setParam(k, "index_every", 5);
+    expect(outputFields(k).map((f) => f.name)).toEqual(["ELEV", "INDEX"]);
+    flushParamEdit();
+  });
+});
+
+describe("undo grouping", () => {
+  it("a burst of edits to one setting is one undo step", () => {
+    const b = add("buffer");
+    useModel.temporal.getState().clear();
+    for (const v of ["2", "25", "250"]) useModel.getState().setParam(b, "distance", v);
+    useModel.getState().setParam(b, "units", "km"); // a different setting starts a new step
+    flushParamEdit();
+    const p = () => useModel.getState().nodes.find((n) => n.id === b)!.data.params;
+    expect(p()).toMatchObject({ distance: "250", units: "km" });
+    useModel.temporal.getState().undo();
+    expect(p().units).not.toBe("km");
+    expect(p().distance).toBe("250");
+    useModel.temporal.getState().undo();
+    expect(p().distance).toBeUndefined();
   });
 });
 

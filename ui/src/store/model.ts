@@ -104,6 +104,7 @@ export const useModel = create<ModelState>()(
         return id;
       },
       setParam: (nodeId, key, value) => {
+        groupParamEdit(`${nodeId}:${key}`);
         set({
           nodes: get().nodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, params: { ...n.data.params, [key]: value } } } : n)),
         });
@@ -142,10 +143,37 @@ const snapshot = () => {
 };
 
 /**
+ * Typing in a node setting edits it once per keystroke; a burst of edits to
+ * the same setting is one undo step, ending after a pause or when anything
+ * else starts its own step.
+ */
+let paramBurst: { key: string; end: () => void; timer: ReturnType<typeof setTimeout> } | null = null;
+
+export function flushParamEdit() {
+  const b = paramBurst;
+  if (!b) return;
+  paramBurst = null;
+  clearTimeout(b.timer);
+  b.end();
+}
+
+function groupParamEdit(key: string) {
+  if (paramBurst?.key !== key) {
+    flushParamEdit();
+    const end = beginStep();
+    paramBurst = { key, end, timer: setTimeout(flushParamEdit, 800) };
+  } else {
+    clearTimeout(paramBurst.timer);
+    paramBurst.timer = setTimeout(flushParamEdit, 800);
+  }
+}
+
+/**
  * Group several edits (possibly across async steps) into ONE undo step.
  * Call the returned function when done; nothing is recorded if nothing changed.
  */
 export function beginStep(): () => void {
+  if (paramBurst) flushParamEdit(); // a typing burst ends before anything else
   const before = snapshot();
   const t = useModel.temporal.getState();
   t.pause();
@@ -302,61 +330,37 @@ export function nodeSignature(id: string, memo = new Map<string, string>(), seen
   return sig;
 }
 
-/** Best guess at the fields a node outputs, for field pickers before running. */
+/**
+ * The fields a node outputs, for field pickers before running — evaluated
+ * from the tool's declared rule (engine `Tool::output_fields`), so there is
+ * no second copy of each tool's behavior here.
+ */
 export function outputFields(nodeId: string, seen = new Set<string>()): Field[] {
   if (seen.has(nodeId)) return [];
   seen.add(nodeId);
   const node = useModel.getState().nodes.find((n) => n.id === nodeId);
-  if (!node) return [];
+  const spec = node && specs()[node.data.tool];
+  if (!node || !spec) return [];
   const p = node.data.params;
-  const from = (port: string) => {
-    const src = upstream(nodeId, port);
-    return src ? outputFields(src, seen) : [];
-  };
-  const add = (fields: Field[], name: unknown, type = "") =>
-    typeof name === "string" && name && !fields.some((f) => f.name === name) ? [...fields, { name, type }] : fields;
-  switch (node.data.tool) {
-    case "input_layer":
-      return useApp.getState().layers[String(p.layer ?? "")]?.fields ?? [];
-    case "calculate_field":
-    case "calculate_geometry":
-      return add(from("in"), p.field);
-    case "dissolve":
-      return add(p.field ? from("in").filter((f) => f.name === p.field) : [], "COUNT", "BIGINT");
-    case "buffer":
-      return p.dissolve ? [] : from("in");
-    case "sample_raster":
-      return add(from("in"), p.field || "VALUE", "DOUBLE");
-    case "zonal_statistics": {
-      const pre = String(p.prefix ?? "Z_");
-      return ["COUNT", "MEAN", "MIN", "MAX"].reduce((f, s) => add(f, `${pre}${s}`, "DOUBLE"), from("in"));
-    }
-    case "extract_vertices":
-      return add(from("in"), "VERTEX_INDEX", "BIGINT");
-    case "points_along_lines":
-      return add(from("in"), "DISTANCE", "DOUBLE");
-    case "join_nearest":
-      return add([...from("in"), ...from("near")], "DISTANCE", "DOUBLE");
-    case "near":
-      return add(add(from("in"), "NEAR_DIST", "DOUBLE"), "NEAR_ROW", "BIGINT");
-    case "summarize_within":
-      return add(from("polys"), "COUNT", "BIGINT");
-    case "polygonize":
-      return [{ name: "DN", type: "DOUBLE" }];
-    case "fishnet":
-      return [{ name: "CELL_ID", type: "BIGINT" }, { name: "COL", type: "BIGINT" }, { name: "ROW", type: "BIGINT" }];
-    case "contours":
-      return [{ name: "ID", type: "INTEGER" }, { name: "ELEV", type: "DOUBLE" }, ...(Number(p.index_every) > 0 ? [{ name: "INDEX", type: "INTEGER" }] : [])];
-    case "intersect":
-      return [...from("a"), ...from("b")];
-    case "spatial_join":
-    case "attribute_join":
-      return [...from("target"), ...from("join")];
-    default: {
-      const spec = specs()[node.data.tool];
-      return spec?.inputs[0] ? from(spec.inputs[0].id) : [];
-    }
+  const rule = spec.fields;
+  if (!rule) return spec.inputs[0] ? fieldsFrom(nodeId, spec.inputs[0].id, seen) : [];
+  if (rule.layerParam) return useApp.getState().layers[String(p[rule.layerParam] ?? "")]?.fields ?? [];
+  if (rule.noneIf && p[rule.noneIf] === true) return [];
+  let out: Field[] = (rule.from ?? (spec.inputs[0] ? [spec.inputs[0].id] : [])).flatMap((port) => fieldsFrom(nodeId, port, seen));
+  const keep = rule.keepParam;
+  if (keep) out = p[keep] ? out.filter((f) => f.name === p[keep]) : [];
+  for (const f of rule.add) {
+    if (f.whenPositive && !(Number(p[f.whenPositive]) > 0)) continue;
+    const base = (f.nameParam && typeof p[f.nameParam] === "string" && p[f.nameParam]) || f.name;
+    const name = f.prefixParam ? `${p[f.prefixParam[0]] ?? f.prefixParam[1]}${base}` : base;
+    if (name && !out.some((x) => x.name === name)) out = [...out, { name: String(name), type: f.type }];
   }
+  return out;
+}
+
+function fieldsFrom(nodeId: string, port: string, seen: Set<string>): Field[] {
+  const src = upstream(nodeId, port);
+  return src ? outputFields(src, seen) : [];
 }
 
 export function fieldsForPort(nodeId: string, port: string): Field[] {

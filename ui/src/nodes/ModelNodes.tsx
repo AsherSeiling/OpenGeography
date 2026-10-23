@@ -57,6 +57,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
       </div>
       {fixedInput && <LayerName id={String(data.params.layer ?? "")} />}
       {kind === "data" && !fixedInput && !data.params.layer && <div className="bnode-drop">Drop a layer here from Contents</div>}
+      {kind === "data" && !fixedInput && !!data.params.layer && <MissingLayer id={String(data.params.layer)} />}
 
       {spec.output && (
         <div className="bnode-row out">
@@ -90,6 +91,12 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
       {r?.status === "error" && <div className="bnode-error" title={r.error ?? ""}>{r.error}</div>}
     </div>
   );
+}
+
+/** A Layer node whose layer was removed from the project. */
+function MissingLayer({ id }: { id: string }) {
+  const exists = useApp((s) => !!s.layers[id]);
+  return exists ? null : <div className="bnode-error">This layer was removed from the project. Drop another layer here from Contents, or delete this node.</div>;
 }
 
 function LayerName({ id }: { id: string }) {

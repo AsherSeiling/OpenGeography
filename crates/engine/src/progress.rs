@@ -21,6 +21,26 @@ pub struct TaskInfo {
     cancel_requested: bool,
 }
 
+thread_local! {
+    /// The cancel flag of the model run executing on this thread, if any.
+    static RUN_CANCEL: std::cell::RefCell<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Run `f` with `flag` as this thread's cancel flag: GDAL raster steps it
+/// starts stop when the flag is set (see `raster::gdal_progress`).
+pub fn with_cancel_flag<R>(flag: std::sync::Arc<std::sync::atomic::AtomicBool>, f: impl FnOnce() -> R) -> R {
+    let prev = RUN_CANCEL.with(|c| c.replace(Some(flag)));
+    let out = f();
+    RUN_CANCEL.with(|c| *c.borrow_mut() = prev);
+    out
+}
+
+/// The `pProgressArg` for GDAL calls: this thread's run cancel flag, or null
+/// (never cancelled) outside a model run. Valid while `with_cancel_flag` runs.
+pub(crate) fn cancel_arg() -> *mut std::ffi::c_void {
+    RUN_CANCEL.with(|c| c.borrow().as_ref().map_or(std::ptr::null_mut(), |f| std::sync::Arc::as_ptr(f) as *mut std::ffi::c_void))
+}
+
 /// Error message used when a task stops because the user cancelled it.
 pub const CANCELLED: &str = "Cancelled";
 

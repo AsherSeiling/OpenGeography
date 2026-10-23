@@ -21,12 +21,9 @@ _Updated 2026-10-23. Read this first; the roadmap is `docs/ROADMAP.md`._
 Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet editing · definition queries · rasters + 3DEP · 48 native tools · self-contained macOS installer · geodesic measuring + resection/intersection · National Map downloads · progress bars + cancel for downloads · sources & citations · third-party notices.
 
 ## Known issues / technical debt
-1. Cancel lands between DuckDB work units (~100k rows/thread); GDAL raster steps can't be interrupted mid-step.
-2. Trees referencing a deleted layer aren't flagged until run.
-3. Typing in a node parameter makes one undo step per keystroke.
-4. GPL-only libraries (poppler, x265, librttopo) in the macOS package.
-5. Projects with rasters aren't portable (rasters in a per-user store).
-6. `store/model.ts::outputFields` duplicates per-tool knowledge (can drift from the registry).
+1. Cancel lands between DuckDB work units (~100k rows/thread). GDAL translate/warp/contours/polygonize/rasterize stop mid-step; gdaldem (hillshade/slope/aspect/ruggedness) ignores GDAL's progress callback, so those finish first.
+2. Linux AppImage still bundles Ubuntu's GDAL with GPL-only libraries (license gate reports); local Homebrew macOS builds too (warns). CI macOS/Windows release builds are GPL-free.
+3. Fixed 2026-10-23: deleted-layer references are flagged; parameter typing is one undo step; bundled GDAL/PROJ data always wins; rasters are copied into the project (portable); tool output fields come from the engine registry (`Tool::output_fields`, with a drift test).
 
 ## Recent decisions
 - 2026-10-23 **Model-run cancellation** (done): Cancel on the Model toolbar and status bar. A watcher thread calls DuckDB `interrupt()` repeatedly until the run returns (DuckDB clears the flag at each query start, so a single interrupt can miss); the executor checks before each step and marks remaining steps `cancelled`. Result writes (`set_result`, `upsert_layer`) run in one transaction, so a cancelled/failed write keeps the previous result (a test proves the layer corrupts without it). Run tasks are labelled "Running model — <layer>".

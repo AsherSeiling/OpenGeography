@@ -165,6 +165,17 @@ export interface ToolSpec {
   inputs: { id: string; label: string; kind: PortKind }[];
   output: PortKind | null;
   params: ToolParam[];
+  /** How the output's fields follow from the inputs and settings (engine: nodes::OutFields). */
+  fields: OutFieldsRule;
+}
+
+export interface OutFieldsRule {
+  /** Input ports whose fields carry through, in order (null = the first input). */
+  from: string[] | null;
+  add: { name: string; type: string; nameParam: string | null; prefixParam: [string, string] | null; whenPositive: string | null }[];
+  keepParam: string | null;
+  noneIf: string | null;
+  layerParam: string | null;
 }
 
 export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";

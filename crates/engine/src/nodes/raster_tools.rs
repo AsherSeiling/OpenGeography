@@ -1,6 +1,7 @@
 //! Raster tools. Each mirrors a QGIS/GDAL processing algorithm (cited per
 //! tool) and runs the corresponding GDAL utility through raster.rs.
 
+use super::{NewField, OutFields};
 use super::*;
 use crate::raster;
 use std::path::Path;
@@ -26,6 +27,13 @@ impl Tool for Contours {
                 Param::new("index_every", "Index contour every", ParamKind::Number).default(5).help("Adds INDEX = 1 on every nth line (for heavier symbols/labels); 0 for none"),
             ],
         }
+    }
+
+    fn output_fields(&self) -> OutFields {
+        OutFields::from(&[])
+            .add(NewField::new("ID", "INTEGER"))
+            .add(NewField::new("ELEV", "DOUBLE"))
+            .add(NewField::new("INDEX", "INTEGER").when_positive("index_every"))
     }
 
     fn build(&self, _ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {

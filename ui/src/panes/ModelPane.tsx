@@ -13,7 +13,7 @@ import { copySelection, cutLinks, deleteSelection, duplicateSelection, invertSel
 import { actionFor, displayCombo, eventCombo, useKeymap, type NodeAction } from "../nodes/keymap";
 import { edgeUnder, splice } from "../nodes/splice";
 import { useProgress } from "../progress/progress";
-import { beginStep, connectProblem, specs, useModel, useRun } from "../store/model";
+import { beginStep, connectProblem, flushParamEdit, specs, useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
 
 let addAtCenter: ((tool: string, params?: Record<string, unknown>) => void) | null = null;
@@ -315,8 +315,10 @@ function ModelCanvas() {
         return void flow.fitView({ nodes: sel.length ? sel : undefined, padding: 0.3, duration: 200, maxZoom: 1.5 });
       }
       case "undo":
+        flushParamEdit();
         return temporal.undo();
       case "redo":
+        flushParamEdit();
         return temporal.redo();
       case "run":
         return void runModel();
@@ -443,10 +445,10 @@ function ModelCanvas() {
         </Tooltip>
         <ToolbarDivider />
         <Tooltip content={`Undo${keys("undo")}`} relationship="label">
-          <Button size="small" appearance="subtle" icon={<ArrowUndoRegular />} disabled={!canUndo} onClick={() => temporal.getState().undo()} />
+          <Button size="small" appearance="subtle" icon={<ArrowUndoRegular />} disabled={!canUndo} onClick={() => (flushParamEdit(), temporal.getState().undo())} />
         </Tooltip>
         <Tooltip content={`Redo${keys("redo")}`} relationship="label">
-          <Button size="small" appearance="subtle" icon={<ArrowRedoRegular />} disabled={!canRedo} onClick={() => temporal.getState().redo()} />
+          <Button size="small" appearance="subtle" icon={<ArrowRedoRegular />} disabled={!canRedo} onClick={() => (flushParamEdit(), temporal.getState().redo())} />
         </Tooltip>
         <Tooltip content={`Delete selected${keys("delete")}`} relationship="label">
           <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => deleteSelection(false)} />
