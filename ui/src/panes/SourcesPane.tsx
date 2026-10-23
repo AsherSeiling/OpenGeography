@@ -2,13 +2,15 @@
 // bibliography (APA-style reference, annotation, layers it was used for,
 // license). Local files start incomplete and can be edited; the list exports
 // to Markdown or BibTeX.
-import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input, Menu, MenuItem, MenuList, MenuPopover, MenuTrigger, Textarea, Tooltip } from "@fluentui/react-components";
+import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input, Menu, MenuDivider, MenuGroup, MenuGroupHeader, MenuItem, MenuList, MenuPopover, MenuTrigger, Textarea, Tooltip } from "@fluentui/react-components";
 import { ArrowClockwiseRegular, ArrowDownloadRegular, CopyRegular, DeleteRegular, EditRegular, WarningRegular } from "@fluentui/react-icons";
-import { save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, IN_TAURI, type Citation, type SourceEntry } from "../ipc/api";
-import { reference, referenceText, toBibtex, toMarkdown } from "../sources/cite";
+import { exportBibliography } from "../actions";
+import { annotation, reference, referenceText, sorted, STYLES, toBibtex, toHtml, toMarkdown, toRis, type Style } from "../sources/cite";
+import { useBibPrefs } from "../sources/prefs";
 import { useApp } from "../store/store";
 
 const projectName = () => useApp.getState().projectDir?.split(/[\\/]/).pop()?.replace(/\.gproj$/, "") ?? "Untitled project";
@@ -46,13 +48,22 @@ export function SourcesPane() {
     return () => clearTimeout(t);
   }, [layerKey, basemap, refresh]);
 
+  const style = useBibPrefs((s) => s.style);
+  const autoExport = useBibPrefs((s) => s.autoExport);
+  const shown = sorted(entries, style);
   const incomplete = entries.filter((e) => !e.citation.complete).length;
   const copyAll = async () => {
-    const text = entries.map((e) => `${referenceText(e.citation, e.firstUsed)}\n    ${e.citation.annotation}`).join("\n\n");
+    const text = shown.map((e) => `${referenceText(e.citation, e.firstUsed, style)}\n    ${annotation(e)}`).join("\n\n");
     await navigator.clipboard.writeText(text);
     useApp.getState().setStatus(`Copied ${entries.length} citation(s)`);
   };
-  const slug = projectName().replace(/[^\w-]+/g, "_");
+  const slug = projectName();
+  const exportAll = async () => {
+    const folder = await open({ title: "Choose a folder for the bibliography files", directory: true });
+    if (!folder || Array.isArray(folder)) return;
+    const n = await exportBibliography(folder);
+    if (n) useApp.getState().setStatus(`Wrote ${n} source(s) in APA, MLA, Chicago, BibTeX and RIS to ${folder}`);
+  };
 
   return (
     <div className="pane sources-pane">
@@ -68,17 +79,49 @@ export function SourcesPane() {
           </MenuTrigger>
           <MenuPopover>
             <MenuList>
-              <MenuItem onClick={() => saveTextFile(toMarkdown(entries, projectName()), `${slug}_sources.md`, "md", "Annotated bibliography")}>Annotated bibliography (Markdown)…</MenuItem>
-              <MenuItem onClick={() => saveTextFile(toBibtex(entries), `${slug}_sources.bib`, "bib", "BibTeX")}>BibTeX (.bib)…</MenuItem>
+              {IN_TAURI && (
+                <>
+                  <MenuItem onClick={exportAll}>All formats to a folder…</MenuItem>
+                  <MenuDivider />
+                </>
+              )}
+              {STYLES.map((s) => (
+                <MenuGroup key={s.id}>
+                  <MenuGroupHeader>Annotated bibliography — {s.label}</MenuGroupHeader>
+                  <MenuItem onClick={() => saveTextFile(toHtml(entries, projectName(), s.id), `${slug} data sources (${s.file}).html`, "html", `${s.file} bibliography`)}>
+                    Formatted page (.html — opens in Word)…
+                  </MenuItem>
+                  <MenuItem onClick={() => saveTextFile(toMarkdown(entries, projectName(), s.id), `${slug} data sources (${s.file}).md`, "md", `${s.file} bibliography`)}>Markdown (.md)…</MenuItem>
+                </MenuGroup>
+              ))}
+              <MenuDivider />
+              <MenuItem onClick={() => saveTextFile(toBibtex(entries), `${slug} data sources.bib`, "bib", "BibTeX")}>BibTeX (.bib, for LaTeX)…</MenuItem>
+              <MenuItem onClick={() => saveTextFile(toRis(entries), `${slug} data sources.ris`, "ris", "RIS")}>RIS (.ris, for Zotero / EndNote / Mendeley)…</MenuItem>
             </MenuList>
           </MenuPopover>
         </Menu>
+        <select className="src-style" value={style} title="Citation style" onChange={(e) => useBibPrefs.getState().set({ style: e.target.value as Style })}>
+          {STYLES.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
         <Tooltip content="Refresh" relationship="label">
           <Button size="small" appearance="subtle" icon={<ArrowClockwiseRegular />} onClick={refresh} />
         </Tooltip>
         <span className="muted small" style={{ marginLeft: "auto" }}>
           {entries.length} source{entries.length === 1 ? "" : "s"}
         </span>
+      </div>
+      <div className="src-auto">
+        <Checkbox
+          size="medium"
+          checked={autoExport}
+          onChange={(_, d) => useBibPrefs.getState().set({ autoExport: !!d.checked })}
+          label="Export the bibliography with every project save"
+        />
+        <span className="muted small">APA, MLA, Chicago (HTML + Markdown), BibTeX and RIS → the project's Bibliography folder</span>
       </div>
       {incomplete > 0 && (
         <div className="src-warn">
@@ -88,8 +131,8 @@ export function SourcesPane() {
       {err && <div className="src-warn">{err}</div>}
       {entries.length === 0 && <div className="muted pane-empty">Data you add — files, TIGER, National Map, elevation, basemaps — is listed here with a citation, ready to export as an annotated bibliography.</div>}
       <div className="src-list">
-        {entries.map((e) => {
-          const r = reference(e.citation, e.firstUsed);
+        {shown.map((e) => {
+          const r = reference(e.citation, e.firstUsed, style);
           const names = [...new Map(e.uses.map((u) => [u.layerName, u])).values()];
           return (
             <div key={e.citation.key} className={`src-entry ${e.citation.complete ? "" : "incomplete"}`}>
@@ -113,7 +156,7 @@ export function SourcesPane() {
               {e.citation.license && <div className="src-license">License: {e.citation.license}</div>}
               <div className="src-actions">
                 <span className="src-kind">{e.citation.kind}</span>
-                <Button size="small" appearance="subtle" icon={<CopyRegular />} onClick={() => navigator.clipboard.writeText(referenceText(e.citation, e.firstUsed))}>
+                <Button size="small" appearance="subtle" icon={<CopyRegular />} onClick={() => navigator.clipboard.writeText(referenceText(e.citation, e.firstUsed, style))}>
                   Copy
                 </Button>
                 <Button size="small" appearance="subtle" icon={<EditRegular />} onClick={() => setEditing(e.citation)}>
@@ -172,7 +215,13 @@ function CitationDialog({ citation, onClose, onSave }: { citation: Citation; onC
             <Field label="Annotation" hint="What the data is and how you used it">
               <Textarea rows={3} value={c.annotation} onChange={(_, d) => setC({ ...c, annotation: d.value })} />
             </Field>
-            <div className="muted small">Preview: {referenceText(c, new Date().toISOString().slice(0, 10))}</div>
+            <div className="muted small">
+              {STYLES.map((s) => (
+                <div key={s.id}>
+                  {s.file}: {referenceText(c, new Date().toISOString().slice(0, 10), s.id)}
+                </div>
+              ))}
+            </div>
             {err && <div className="src-warn">{err}</div>}
           </DialogContent>
           <DialogActions>

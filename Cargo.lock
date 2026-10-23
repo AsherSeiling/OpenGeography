@@ -1034,6 +1034,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "duckdb",
+ "flate2",
  "gdal",
  "gdal-sys",
  "hex",

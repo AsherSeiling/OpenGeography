@@ -32,9 +32,37 @@ pub fn dir() -> Option<&'static Path> {
 }
 
 /// DuckDB spatial extension shipped with the app.
+///
+/// It ships gzip-compressed: Linux packagers (AppImage) rewrite every ELF
+/// library they find, which corrupts the metadata DuckDB appends to an
+/// extension. It is unpacked once into a per-user cache and loaded from there.
 pub fn spatial_extension() -> Option<PathBuf> {
-    let p = dir()?.join("duckdb/spatial.duckdb_extension");
-    p.is_file().then_some(p)
+    let dir = dir()?.join("duckdb");
+    let plain = dir.join("spatial.duckdb_extension");
+    if plain.is_file() {
+        return Some(plain);
+    }
+    let gz = dir.join("spatial.duckdb_extension.gz");
+    let size = std::fs::metadata(&gz).ok()?.len();
+    // Keyed by the archive's size so an updated app unpacks its own copy.
+    let out = std::env::temp_dir().join(format!("gis-studio-{size}")).join("spatial.duckdb_extension");
+    if out.is_file() {
+        return Some(out);
+    }
+    let unpack = || -> std::io::Result<()> {
+        std::fs::create_dir_all(out.parent().unwrap())?;
+        let tmp = out.with_extension("part");
+        let mut r = flate2::read::GzDecoder::new(std::fs::File::open(&gz)?);
+        std::io::copy(&mut r, &mut std::fs::File::create(&tmp)?)?;
+        std::fs::rename(&tmp, &out)
+    };
+    match unpack() {
+        Ok(()) => Some(out),
+        Err(e) => {
+            eprintln!("Could not unpack the DuckDB spatial extension: {e}");
+            None
+        }
+    }
 }
 
 /// Point GDAL and PROJ at the bundled data. Call once, early, before any

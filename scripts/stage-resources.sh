@@ -16,13 +16,16 @@ detect() {
 PLATFORM="${1:-$(detect)}"
 mkdir -p "$OUT/duckdb" "$OUT/gdal" "$OUT/proj" "$OUT/gdalplugins"
 
-# 1. DuckDB spatial extension (signed by DuckDB; loaded from this file, so no download at run time).
-EXT="$OUT/duckdb/spatial.duckdb_extension"
+# 1. DuckDB spatial extension (signed by DuckDB), shipped gzip-compressed so
+#    Linux packagers don't rewrite it as a library; the app unpacks it on
+#    first use (engine/src/resources.rs), so no download at run time.
+EXT="$OUT/duckdb/spatial.duckdb_extension.gz"
+rm -f "$OUT/duckdb/spatial.duckdb_extension"
 CACHED="$HOME/.duckdb/extensions/$DUCKDB_VERSION/$PLATFORM/spatial.duckdb_extension"
 if [ -f "$CACHED" ]; then
-  cp "$CACHED" "$EXT"
+  gzip -c "$CACHED" > "$EXT"
 else
-  curl -fsSL "https://extensions.duckdb.org/$DUCKDB_VERSION/$PLATFORM/spatial.duckdb_extension.gz" | gunzip > "$EXT"
+  curl -fsSL -o "$EXT" "https://extensions.duckdb.org/$DUCKDB_VERSION/$PLATFORM/spatial.duckdb_extension.gz"
 fi
 
 # 2. GDAL data (projections helpers, driver support files).

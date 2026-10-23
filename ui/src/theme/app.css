@@ -475,3 +475,8 @@ select.qe-val { width: 160px; }
 .keychip.rec { padding: 0 6px; border-color: var(--accent); color: var(--accent); font-family: inherit; }
 .keyadd { border: 1px dashed var(--border-strong); background: none; border-radius: 3px; width: 20px; height: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 12px; padding: 0; }
 .keyadd:hover { color: var(--accent); border-color: var(--accent); }
+.model.shortcuts-on .model-canvas { box-shadow: inset 0 0 0 1px var(--accent); }
+.model-active { font-size: 11px; color: var(--accent); border: 1px solid var(--accent); border-radius: 2px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+.src-style { margin-left: 6px; font: inherit; font-size: 11.5px; height: 22px; border: 1px solid var(--border-strong); background: var(--pane); color: var(--text); }
+.src-auto { display: flex; flex-direction: column; padding: 2px 8px 4px; border-bottom: 1px solid var(--border); }
+.src-auto .muted { margin-left: 30px; margin-top: -6px; font-size: 11px; }

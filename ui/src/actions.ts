@@ -1,4 +1,6 @@
 // User-level actions shared by the ribbon, context menus and shortcuts.
+import { bibliographyFiles } from "./sources/cite";
+import { useBibPrefs } from "./sources/prefs";
 import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
@@ -333,7 +335,26 @@ export async function saveProject(saveAs = false) {
   if (ok === undefined) return;
   useApp.getState().set({ projectDir: dir, dirty: false });
   useRun.getState().set({ results: {} }); // cache tables are not saved
-  status(`Saved ${dir}`);
+  const bib = useBibPrefs.getState().autoExport ? await exportBibliography(`${dir}/Bibliography`) : 0;
+  status(`Saved ${dir}${bib ? ` · annotated bibliography (APA, MLA, Chicago, BibTeX, RIS) in Bibliography/` : ""}`);
+}
+
+/**
+ * Write the project's annotated bibliography in every format (APA, MLA and
+ * Chicago as Markdown + HTML; BibTeX; RIS) into `folder`. Returns how many
+ * sources were written (0 if the project has none or writing failed).
+ */
+export async function exportBibliography(folder: string): Promise<number> {
+  try {
+    const entries = await api.sources();
+    if (!entries.length) return 0;
+    const project = folder.split(/[\\/]/).slice(-2, -1)[0]?.replace(/\.gproj$/, "") || "Untitled project";
+    for (const [name, text] of Object.entries(bibliographyFiles(entries, project))) await api.saveText(`${folder}/${name}`, text);
+    return entries.length;
+  } catch (e) {
+    status(`Saved, but the bibliography couldn't be written: ${errorText(e)}`);
+    return 0;
+  }
 }
 
 export async function openProject() {

@@ -144,6 +144,14 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             json!(out)
         }
         "progress" => json!(engine::progress::snapshot()),
+        "save_text" => {
+            let path = std::path::PathBuf::from(s(a, "path")?);
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            std::fs::write(&path, s(a, "text")?)?;
+            json!(null)
+        }
         "sources" => json!(e.sources()?),
         "update_source" => {
             e.update_source(&de(a, "citation")?)?;

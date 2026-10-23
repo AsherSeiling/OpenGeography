@@ -185,6 +185,34 @@ function ModelCanvas() {
     const r = wrap.current?.getBoundingClientRect();
     return !!m && !!r && m.x >= r.left && m.x <= r.right && m.y >= r.top && m.y <= r.bottom;
   };
+  // Is the node editor the active area? Pointer over it (Blender-style). If
+  // the window never reports pointer movement (seen in some desktop
+  // webviews), the last click decides instead: clicking in the editor
+  // activates it until you click elsewhere.
+  const sawMove = useRef(false);
+  const clickedIn = useRef(false);
+  const [active, setActive] = useState(false);
+  const editorActive = (target?: Element | null) =>
+    !!useModel.getState().layer && (sawMove.current ? overCanvas() || !!target?.closest?.(".model .react-flow__node") : clickedIn.current);
+  useEffect(() => {
+    // Window-level, capture phase: nothing inside the editor can swallow these.
+    const track = (e: PointerEvent | MouseEvent) => {
+      mouse.current = { x: e.clientX, y: e.clientY };
+      if (e.type === "pointermove" || e.type === "mousemove") sawMove.current = true;
+      if (e.type === "pointerdown") clickedIn.current = !!(e.target as Element)?.closest?.(".model");
+      const a = editorActive();
+      setActive((was) => (was === a ? was : a));
+    };
+    const opts = { capture: true, passive: true };
+    window.addEventListener("pointermove", track, opts);
+    window.addEventListener("mousemove", track, opts);
+    window.addEventListener("pointerdown", track, opts);
+    return () => {
+      window.removeEventListener("pointermove", track, opts);
+      window.removeEventListener("mousemove", track, opts);
+      window.removeEventListener("pointerdown", track, opts);
+    };
+  }, []);
   const pointerFlow = () => {
     const m = mouse.current;
     const r = wrap.current!.getBoundingClientRect();
@@ -276,9 +304,7 @@ function ModelCanvas() {
       const target = e.target as HTMLElement;
       if (target?.closest?.("input, textarea, select, [contenteditable]")) return;
       if (document.querySelector(".addmenu, [role=dialog]")) return;
-      const inPane = !!target?.closest?.(".model");
-      if (!inPane && !overCanvas()) return;
-      if (!useModel.getState().layer) return;
+      if (!editorActive(target)) return;
       const combo = eventCombo(e);
       const action = combo && actionFor(useKeymap.getState().bindings, combo);
       if (!action) return;
@@ -344,7 +370,7 @@ function ModelCanvas() {
   const hasErrors = Object.values(results).some((r) => r.status === "error");
 
   return (
-    <div className="model">
+    <div className={`model ${active ? "shortcuts-on" : ""}`}>
       <Toolbar size="small" className="model-bar">
         <span className="model-title" title="Each layer has its own node tree. Select a layer in Contents to switch.">
           {treeName ? <>Node tree: <b>{treeName}</b></> : "No layer selected"}
@@ -402,6 +428,11 @@ function ModelCanvas() {
         <Tooltip content="Node editor keyboard shortcuts — view and change them" relationship="label">
           <Button size="small" appearance="subtle" icon={<KeyboardRegular />} onClick={() => useDialog.getState().show({ kind: "nodeShortcuts" })} />
         </Tooltip>
+        {active && (
+          <span className="model-active" title="Node editor shortcuts are active (pointer is over the editor). Change them with the keyboard button.">
+            Shortcuts on
+          </span>
+        )}
         <span className="model-hint">
           {hasErrors
               ? "Some steps failed — select a red step to see the error in Properties."

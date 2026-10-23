@@ -67,7 +67,9 @@ impl Tool for Export {
                     let excl = reserved.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
                     format!("SELECT * EXCLUDE ({excl}), {} FROM {}", renames.join(", "), ident(&i.table))
                 };
-                format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}{srs})", lit(&path), lit(driver))
+                // USE_TMP_FILE false: write in place. DuckDB otherwise writes a temp
+                // file and renames it, which Windows refuses while GDAL holds it open.
+                format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}{srs}, USE_TMP_FILE false)", lit(&path), lit(driver))
             }
         };
         ctx.conn.execute_batch(&sql)?;

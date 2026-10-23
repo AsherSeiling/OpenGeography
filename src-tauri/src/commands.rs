@@ -358,7 +358,11 @@ pub async fn record_basemap(engine: Eng<'_>, id: String) -> Res<()> {
 /// Write a text file chosen in a save dialog (bibliography exports).
 #[tauri::command]
 pub async fn save_text(path: String, text: String) -> Res<()> {
-    std::fs::write(&path, text).map_err(|e| format!("Could not save {path}: {e}"))
+    let p = std::path::Path::new(&path);
+    if let Some(dir) = p.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("Could not create {}: {e}", dir.display()))?;
+    }
+    std::fs::write(p, text).map_err(|e| format!("Could not save {path}: {e}"))
 }
 
 // ---------- rasters ----------

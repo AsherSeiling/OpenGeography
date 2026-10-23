@@ -147,7 +147,7 @@ impl Tool for ZonalStatistics {
         let gpkg = raster::new_store_path("zones", "gpkg");
         ctx.conn.execute_batch(&format!(
             "COPY (SELECT __z::INTEGER AS ZONE, ST_Transform(geom, {c}, {w}, true) AS geom FROM {t})
-             TO {out} (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'zones', SRS {w})",
+             TO {out} (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'zones', SRS {w}, USE_TMP_FILE false)",
             c = lit(&crs), w = lit(&rwkt), t = ident(&numbered), out = lit(gpkg.to_str().unwrap())
         ))?;
         let stats = raster::zonal(Path::new(rpath), &gpkg)?;

@@ -9,7 +9,7 @@ fn write_fixture(path: &Path, select: &str, driver: &str, srs: Option<&str>) {
     let c = engine::duckdb::Connection::open_in_memory().unwrap();
     c.execute_batch("INSTALL spatial; LOAD spatial; SET geometry_always_xy = true;").unwrap();
     let srs = srs.map(|s| format!(", SRS '{s}'")).unwrap_or_default();
-    c.execute_batch(&format!("COPY ({select}) TO '{}' (FORMAT GDAL, DRIVER '{driver}'{srs})", path.display())).unwrap();
+    c.execute_batch(&format!("COPY ({select}) TO '{}' (FORMAT GDAL, DRIVER '{driver}'{srs}, USE_TMP_FILE false)", path.display())).unwrap();
 }
 
 fn graph(v: serde_json::Value) -> Graph {
@@ -197,6 +197,7 @@ fn save_and_reopen_project() {
     let e = Engine::new().unwrap();
     let l = e.generate_test_layer("points", 100, [-98.0, 35.0, -97.0, 36.0]).unwrap();
     e.save_project(&proj, r#"{"hello":1}"#).unwrap();
+    drop(e); // release the project file (Windows locks it while open)
     let e2 = Engine::new().unwrap();
     let ui = e2.open_project(&proj).unwrap();
     assert_eq!(ui, r#"{"hello":1}"#);
