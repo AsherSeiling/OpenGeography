@@ -85,47 +85,69 @@ jobs:
 
   linux:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v5
         with: { node-version: 22 }
-      - name: System packages (Tauri + GDAL)
+      # apt only supplies Tauri's system packages (the system WebKitGTK stays the
+      # web view); GDAL comes from conda-forge so no GPL-only libraries are linked.
+      - name: System packages (Tauri)
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
-            libgdal-dev gdal-bin proj-bin libclang-dev pkg-config
-      - name: Prebuilt libduckdb
+            libclang-dev pkg-config
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: gdal
+          create-args: >-
+            libgdal-core=3.12
+            proj
+            libspatialite=*=lgpl*
+          condarc: |
+            channels:
+              - conda-forge
+          init-shell: bash
+      - name: Point the build at conda's GDAL and a prebuilt libduckdb
         run: |
           curl -fsSL -o libduckdb.zip "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-amd64.zip"
           mkdir -p "$HOME/duckdb" && unzip -o libduckdb.zip -d "$HOME/duckdb"
           echo "DUCKDB_LIB_DIR=$HOME/duckdb" >> "$GITHUB_ENV"
           echo "DUCKDB_INCLUDE_DIR=$HOME/duckdb" >> "$GITHUB_ENV"
-          echo "LD_LIBRARY_PATH=$HOME/duckdb" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "GDAL_DATA_SRC=$CONDA_PREFIX/share/gdal" >> "$GITHUB_ENV"
+          echo "PROJ_DATA_SRC=$CONDA_PREFIX/share/proj" >> "$GITHUB_ENV"
+          # conda's libraries are found through rpaths on our binaries only —
+          # never LD_LIBRARY_PATH, which would shadow the system libraries that
+          # WebKitGTK links against (libstdc++, libcurl, libxml2, glib, ...).
+          echo "LINK_RUSTFLAGS=-C link-arg=-Wl,-rpath,$CONDA_PREFIX/lib -C link-arg=-Wl,-rpath,$HOME/duckdb" >> "$GITHUB_ENV"
           rm -f .cargo/config.toml
       - run: npm ci
       - id: ui
         run: npm test
       - id: engine
-        run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
+        run: RUSTFLAGS="$LINK_RUSTFLAGS" scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - run: scripts/stage-resources.sh linux_amd64
       # The AppImage bundler copies every linked shared library (GDAL, PROJ,
-      # GEOS, libduckdb, …) into the image.
+      # GEOS, libduckdb, ...) into the image; it finds conda's through the rpath.
       - id: package
         # Don't strip: stripping corrupts the DuckDB extension's trailing metadata.
         env: { NO_STRIP: "true" }
-        run: scripts/ci-run.sh "Package" npx tauri build --bundles appimage,deb
+        run: RUSTFLAGS="$LINK_RUSTFLAGS" scripts/ci-run.sh "Package" npx tauri build --bundles appimage,deb
       - name: Self-test the AppImage
         id: selftest
         run: |
           APPIMAGE=$(ls target/release/bundle/appimage/*.AppImage | head -1)
           chmod +x "$APPIMAGE"
           scripts/ci-run.sh "Self-test" env -i HOME="$(mktemp -d)" PATH=/usr/bin:/bin "$APPIMAGE" --appimage-extract-and-run --self-test
-      - name: License gate (report only until Linux uses conda-forge GDAL)
+      - name: License gate (GPL-free AppImage)
         run: |
           APPIMAGE=$(ls target/release/bundle/appimage/*.AppImage | head -1)
           (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/$APPIMAGE" --appimage-extract >/dev/null)
-          scripts/license-gate.sh "$RUNNER_TEMP/squashfs-root" --warn
+          scripts/license-gate.sh "$RUNNER_TEMP/squashfs-root"
       - name: Job summary
         if: always()
         env:
