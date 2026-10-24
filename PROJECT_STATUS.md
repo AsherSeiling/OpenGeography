@@ -12,7 +12,7 @@ _Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`
 |---|---|
 | `npx tsc` | pass |
 | `npx vitest run` | 68/68 pass (incl. LayerStyle drift fixture) |
-| `cargo test -p engine` | 35 + 8 (history) + 8 (layout) integration + 14 unit pass (4 network tests, H14 and P6 ignored) |
+| `cargo test -p engine` | 35 + 9 (history) + 8 (layout) integration + 14 unit pass (4 network tests, H14 and P6 ignored) |
 | `cargo build -p gis-studio` | pass, 0 warnings |
 | Packaged app `--self-test` (clean env) | pass (rebuilt 2026-10-23 after B2.3, closes Phase B; 187 libs, DMG 96 MB; first `package-macos.sh` attempt failed once in dylibbundler on libabsl_time, retry passed) |
 | Browser check (devserver + vite) | model Cancel from toolbar stops a 3M-feature run in ~0.1 s |
