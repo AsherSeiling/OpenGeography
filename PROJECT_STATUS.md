@@ -4,8 +4,8 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 
 ## Exact next action
 - **Orchestrator (Opus, `docs/prompts/orchestrator.md`):**
-  1. Confirm the P3 golden SVG hash of C2.1 passed on Linux and Windows CI.
-  2. Then delegate **C2.2** (layout view UI + commands; brief in `docs/prompts/next-session.md`).
+  1. ✅ C2.1 CI green on all three platforms (run 40047865204): the P3 golden SVG hash matches on Linux and Windows too.
+  2. Delegate **C2.2** (layout view UI + commands; brief in `docs/prompts/next-session.md`).
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
 
 ## State
