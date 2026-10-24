@@ -91,6 +91,11 @@ export function showPane(id: PaneId) {
   add(id, anchor[id]);
 }
 
+/** Close every layout tab (the project changed). */
+export function closeLayoutPanels() {
+  for (const p of [...(dock?.panels ?? [])]) if (p.id.startsWith("layout:")) p.api.close();
+}
+
 export function togglePane(id: PaneId) {
   const p = dock?.getPanel(id);
   if (p) p.api.close();

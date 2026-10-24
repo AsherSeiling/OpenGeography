@@ -7,10 +7,11 @@ import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getMap, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
-import { showPane } from "./panes/panes";
+import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle, type SelectMode } from "./store/store";
+import { flushLayoutSaves, useLayouts } from "./store/layout";
 
 // ---------- dialogs ----------
 
@@ -377,6 +378,7 @@ export async function saveProject(saveAs = false) {
     dir = picked.endsWith(".gproj") ? picked : `${picked}.gproj`;
   }
   await pruneSnapshots();
+  await flushLayoutSaves();
   const ok = await busy("Saving project", () => api.saveProject(dir!, JSON.stringify(uiState())));
   if (ok === undefined) return;
   useApp.getState().set({ projectDir: dir, dirty: false });
@@ -414,11 +416,13 @@ export async function openProject(path?: string) {
   } catch {
     /* older or hand-edited project: fall back to defaults */
   }
+  await loadLayouts();
   restoreState(res.layers, ui, picked);
   status(`Opened ${picked}`);
 }
 
 function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string | null) {
+  closeLayoutPanels(); // the dock layout below brings back the new project's layout tabs
   const byId = Object.fromEntries(layers.filter((l) => !l.temporary && !l.resultOf).map((l) => [l.id, l]));
   const results = Object.fromEntries(layers.filter((l) => l.resultOf && byId[l.resultOf]).map((l) => [l.resultOf!, l]));
   const order = (ui.order ?? []).filter((id) => byId[id]);
@@ -444,10 +448,20 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
   if (ui.dock) dockRestorer?.(ui.dock);
 }
 
+/** Read the project's layouts from the engine; their tabs come back with the dock layout. */
+async function loadLayouts() {
+  try {
+    useLayouts.getState().loadAll(await api.listLayouts());
+  } catch (e) {
+    status(`Layouts could not be read: ${errorText(e)}`);
+  }
+}
+
 export async function newProject() {
   if (useApp.getState().dirty && !confirm("Discard unsaved changes?")) return;
   const ok = await busy("Creating project", () => api.newProject());
   if (ok === undefined) return;
+  useLayouts.getState().loadAll([]);
   restoreState([], {}, null);
   status("New project");
 }

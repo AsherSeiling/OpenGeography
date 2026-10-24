@@ -6,7 +6,9 @@ import {
   FilterRegular,
   LayerDiagonalAddRegular,
   FlowchartRegular,
+  CopyRegular,
   DeleteRegular,
+  DocumentPdfRegular,
   EditRegular,
   GlobeRegular,
   MapRegular,
@@ -21,6 +23,8 @@ import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
+import { useLayouts } from "../store/layout";
+import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } from "../layout/actions";
 import { showPane } from "./panes";
 
 export function Swatch({ info, style }: { info: LayerInfo; style?: LayerStyle }) {
@@ -186,7 +190,36 @@ export function ContentsPane() {
           );
         })}
       </div>
+      <LayoutsSection />
       {menu && <LayerMenu {...menu} onClose={() => setMenu(null)} />}
+    </div>
+  );
+}
+
+/** The project's print layouts: click opens the layout tab. */
+function LayoutsSection() {
+  useLayouts((s) => s.docs);
+  useLayouts((s) => s.doc);
+  const active = useLayouts((s) => s.id);
+  const layouts = useLayouts.getState().list();
+  return (
+    <div className="layouts" onClick={(e) => e.stopPropagation()}>
+      <div className="layouts-head">
+        <span>Layouts</span>
+        <button className="linkbtn" onClick={() => newLayout()}>New</button>
+      </div>
+      {layouts.length === 0 && <div className="empty-hint">No layouts yet. Insert → New Layout creates a print map page.</div>}
+      {layouts.map((l) => (
+        <div key={l.id} className={`layout-row ${active === l.id ? "active" : ""}`} onClick={() => openLayout(l.id)} onDoubleClick={() => openLayout(l.id)}>
+          <DocumentPdfRegular />
+          <span className="tree-name">{l.name}</span>
+          <span className="row-actions">
+            <button title="Rename" aria-label={`Rename ${l.name}`} onClick={(e) => { e.stopPropagation(); renameLayout(l.id); }}><EditRegular /></button>
+            <button title="Duplicate" aria-label={`Duplicate ${l.name}`} onClick={(e) => { e.stopPropagation(); duplicateLayout(l.id); }}><CopyRegular /></button>
+            <button title="Delete" aria-label={`Delete ${l.name}`} onClick={(e) => { e.stopPropagation(); deleteLayout(l.id); }}><DeleteRegular /></button>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -3,9 +3,11 @@ import * as actions from "./actions";
 import { api } from "./ipc/api";
 import { getMap } from "./map/mapController";
 import { useModel, useRun } from "./store/model";
+import * as layoutActions from "./layout/actions";
+import { useLayouts } from "./store/layout";
 import { useApp } from "./store/store";
 
 if (import.meta.env.DEV) {
-  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap };
+  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap, useLayouts, layoutActions };
 }
 

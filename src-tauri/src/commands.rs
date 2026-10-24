@@ -473,3 +473,31 @@ pub struct NewFeature {
 pub async fn create_features(engine: Eng<'_>, name: String, features: Vec<NewFeature>) -> Res<LayerInfo> {
     blocking(&engine, move |e| e.create_features(&name, &features.into_iter().map(|f| (f.wkt, f.props)).collect::<Vec<_>>())).await
 }
+
+// ---------- layouts ----------
+
+#[tauri::command]
+pub async fn list_layouts(engine: Eng<'_>) -> Res<Vec<engine::layout::model::Layout>> {
+    blocking(&engine, |e| e.list_layouts()).await
+}
+
+#[tauri::command]
+pub async fn save_layout(engine: Eng<'_>, layout: engine::layout::model::Layout) -> Res<()> {
+    blocking(&engine, move |e| e.save_layout(&layout)).await
+}
+
+#[tauri::command]
+pub async fn delete_layout(engine: Eng<'_>, id: String) -> Res<()> {
+    blocking(&engine, move |e| e.delete_layout(&id)).await
+}
+
+#[tauri::command]
+pub async fn render_layout_preview(engine: Eng<'_>, req: engine::layout::model::RenderRequest, dpi: f64) -> Res<engine::layout::LayoutPreview> {
+    blocking(&engine, move |e| e.render_layout_preview(&req, dpi)).await
+}
+
+/// Returns the render's warnings.
+#[tauri::command]
+pub async fn export_layout(engine: Eng<'_>, req: engine::layout::model::RenderRequest, format: String, dpi: f64, path: PathBuf) -> Res<Vec<String>> {
+    blocking(&engine, move |e| e.export_layout(&req, engine::layout::ExportFormat::parse(&format)?, dpi, &path)).await
+}

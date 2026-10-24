@@ -33,7 +33,7 @@ export interface MapCrs {
   name: string;
 }
 
-export type PropertiesTarget = { kind: "layer"; id: string } | { kind: "node"; id: string } | null;
+export type PropertiesTarget = { kind: "layer"; id: string } | { kind: "node"; id: string } | { kind: "layoutElement"; layout: string; id: string } | null;
 
 // Default fills, in the spirit of ArcGIS Pro's random-but-pleasant symbols.
 const PALETTE = ["#7aa8d8", "#e6a35c", "#8cc084", "#d77a7a", "#b09ad6", "#d6c36a", "#6fc3c0", "#c98fb4"];

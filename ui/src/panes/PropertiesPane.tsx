@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
 import { api, errorText, type ToolParam } from "../ipc/api";
+import { LayoutElementProperties } from "../layout/ElementProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
 import { QueryEditor } from "../query/QueryEditor";
 import { fieldsForPort, useModel, useRun } from "../store/model";
@@ -29,6 +30,7 @@ export function PropertiesPane() {
   const target = useApp((s) => s.properties);
   if (target?.kind === "node") return <NodeProperties id={target.id} />;
   if (target?.kind === "layer") return <LayerProperties id={target.id} />;
+  if (target?.kind === "layoutElement") return <LayoutElementProperties layout={target.layout} id={target.id} />;
   return <div className="empty-hint pad">Select a layer in Contents or a step in the Model to see its properties.</div>;
 }
 

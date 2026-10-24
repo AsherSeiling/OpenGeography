@@ -1,6 +1,7 @@
 // Typed wrappers around the Rust engine's Tauri commands.
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { track } from "../progress/progress";
+import type { Layout, LayoutPreview, RenderRequest } from "../layout/types";
 
 /** True inside the desktop app; false when the UI runs in a browser against `cargo run -p devserver`. */
 export const IN_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -338,6 +339,14 @@ export const api = {
   saveProject: (dir: string, uiState: string) => invoke<void>("save_project", { dir, uiState }),
   openProject: (dir: string) => invoke<{ uiState: string; layers: LayerInfo[] }>("open_project", { dir }),
   newProject: () => invoke<void>("new_project"),
+  listLayouts: () => invoke<Layout[]>("list_layouts"),
+  saveLayout: (layout: Layout) => invoke<void>("save_layout", { layout }),
+  deleteLayout: (id: string) => invoke<void>("delete_layout", { id }),
+  /** A PNG of the page (base64) at `dpi`, plus the render's warnings. */
+  renderLayoutPreview: (req: RenderRequest, dpi: number) => invoke<LayoutPreview>("render_layout_preview", { req, dpi }),
+  /** Write the page to `path` as "svg" | "pdf" | "png"; returns the render's warnings. Cancellable (progress task). */
+  exportLayout: (req: RenderRequest, format: "svg" | "pdf" | "png", dpi: number, path: string) =>
+    track(invoke<string[]>("export_layout", { req, format, dpi, path })),
 };
 
 // Custom protocol base: Windows WebView2 maps custom schemes to http://<scheme>.localhost.

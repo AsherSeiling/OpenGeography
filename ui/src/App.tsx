@@ -17,6 +17,8 @@ import { defaultLayout, setDock, type PaneId } from "./panes/panes";
 import { CatalogPane } from "./panes/CatalogPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
 import { SourcesPane } from "./panes/SourcesPane";
+import { LayoutView } from "./layout/LayoutView";
+import { useLayouts } from "./store/layout";
 import { ToolsPane } from "./panes/ToolsPane";
 import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
@@ -39,7 +41,8 @@ const officeLight: Theme = {
 };
 const officeDark: Theme = { ...webDarkTheme, fontFamilyBase: officeLight.fontFamilyBase, borderRadiusMedium: "2px", borderRadiusSmall: "2px" };
 
-const components: Record<PaneId, React.FunctionComponent<IDockviewPanelProps>> = {
+const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPanelProps>> = {
+  layout: (p) => <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />,
   contents: () => <ContentsPane />,
   catalog: () => <CatalogPane />,
   map: () => <MapView />,
@@ -113,6 +116,11 @@ export function App() {
       },
     );
     defaultLayout();
+    // The Layout ribbon tab and Properties follow the active layout tab.
+    e.api.onDidActivePanelChange((ev) => {
+      const lid = (ev.panel?.params as { layoutId?: string } | undefined)?.layoutId;
+      useLayouts.getState().open(lid ?? null);
+    });
   };
 
   return (

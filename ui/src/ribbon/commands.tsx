@@ -43,6 +43,8 @@ import {
   WrenchRegular,
   DataUsageRegular,
   ZoomFitRegular,
+  TextTRegular,
+  ImageRegular,
 } from "@fluentui/react-icons";
 import type { ReactElement } from "react";
 import {
@@ -63,6 +65,8 @@ import {
 import { zoomToExtent } from "../map/mapController";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
+import { exportLayout, insertMapFrame, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
+import { addText, useLayouts } from "../store/layout";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
@@ -91,6 +95,8 @@ const canEditActive = () => {
 const hasSelection = () => Object.values(app().selection).some((f) => f.length > 0);
 const setTool = (t: MapTool) => () => app().setTool(t);
 const tool = (t: MapTool) => () => app().tool === t;
+const inLayout = () => !!useLayouts.getState().doc;
+const hasFrame = () => !!useLayouts.getState().doc?.elements.some((e) => e.kind === "map_frame");
 const comingSoon = (what: string, milestone: string) => () =>
   app().setStatus(`${what} is planned for ${milestone}. See the project plan for details.`);
 
@@ -137,8 +143,17 @@ const list: Command[] = [
   { id: "tools", label: "Tools", icon: <WrenchRegular />, run: () => showPane("tools"), tip: "Open the Geoprocessing pane" },
 
   // Insert tab (later milestones)
-  { id: "newLayout", label: "New Layout", icon: <DocumentPdfRegular />, run: comingSoon("The layout view", "Milestone 2") },
+  { id: "newLayout", label: "New Layout", icon: <DocumentPdfRegular />, run: () => newLayout(), tip: "Create a print layout (Letter landscape); more page sizes are in the Insert tab's gallery" },
   { id: "topoMap", label: "Topo Map", icon: <MountainTrailRegular />, run: comingSoon("The Topo Map Builder", "Milestone 4") },
+
+  // Layout contextual tab (shown while a layout tab is active)
+  { id: "layoutMapFrame", label: "Map Frame", icon: <MapRegular />, run: insertMapFrame, enabled: inLayout, tip: "Insert a map frame in the map's coordinate system, centred on the map view" },
+  { id: "layoutText", label: "Text", icon: <TextTRegular />, run: () => void addText(), enabled: inLayout, tip: "Insert a text box ({layout_name}, {scale}, {date} … are replaced when drawn)" },
+  { id: "layoutFromMap", label: "Set from Map View", icon: <ZoomFitRegular />, run: () => void setFrameFromMapView(), enabled: hasFrame, tip: "Centre the selected frame on the map view and use the nearest standard scale that shows it" },
+  { id: "layoutFrameCrs", label: "Frame CRS", icon: <GlobeRegular />, run: () => pickFrameCrs(), enabled: hasFrame, tip: "Choose the coordinate system the frame is drawn in (true scale needs a projected one)" },
+  { id: "layoutPdf", label: "PDF", icon: <DocumentPdfRegular />, run: () => void exportLayout("pdf"), enabled: inLayout, tip: "Export the page as a vector PDF" },
+  { id: "layoutPng", label: "PNG", icon: <ImageRegular />, run: () => void exportLayout("png"), enabled: inLayout, tip: "Export the page as a 300 dpi PNG" },
+  { id: "layoutSvg", label: "SVG", icon: <ShapesRegular />, run: () => void exportLayout("svg"), enabled: inLayout, tip: "Export the page as SVG for finishing in Inkscape or Illustrator" },
 
   // View tab
   { id: "paneContents", label: "Contents", icon: <PanelLeftRegular />, run: () => togglePane("contents") },

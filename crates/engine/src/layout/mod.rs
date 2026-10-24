@@ -11,10 +11,12 @@ pub mod svg;
 
 use crate::layers::LayerInfo;
 use crate::Engine;
-use anyhow::Result;
+use crate::progress::Task;
+use anyhow::{Context, Result};
 use duckdb::Connection;
-use model::{Element, RenderRequest};
+use model::{Element, Layout, RenderRequest};
 use std::fmt::Write;
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct LayoutSvg {
@@ -117,7 +119,109 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     Ok(LayoutSvg { svg: s, warnings })
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutPreview {
+    /// PNG, base64-encoded.
+    pub png: String,
+    pub png_bytes: usize,
+    pub warnings: Vec<String>,
+}
+
+/// Output formats of [`Engine::export_layout`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportFormat {
+    Svg,
+    Pdf,
+    Png,
+}
+
+impl ExportFormat {
+    pub fn parse(s: &str) -> Result<ExportFormat> {
+        match s.to_ascii_lowercase().as_str() {
+            "svg" => Ok(ExportFormat::Svg),
+            "pdf" => Ok(ExportFormat::Pdf),
+            "png" => Ok(ExportFormat::Png),
+            other => anyhow::bail!("Unknown layout export format '{other}' (use svg, pdf or png)"),
+        }
+    }
+}
+
+/// Write `bytes` to a temp file beside `path`, then rename: a cancelled or
+/// failed export never leaves a partial file.
+fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir).with_context(|| format!("Could not create {}", dir.display()))?;
+    }
+    let tmp = path.with_extension(format!("{}.part", path.extension().and_then(|e| e.to_str()).unwrap_or("out")));
+    std::fs::write(&tmp, bytes).with_context(|| format!("Could not write {}", tmp.display()))?;
+    std::fs::rename(&tmp, path).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        anyhow::anyhow!("Could not save {}: {e}", path.display())
+    })
+}
+
 impl Engine {
+    /// Saved layouts, in name order.
+    pub fn list_layouts(&self) -> Result<Vec<Layout>> {
+        self.with_conn(|c| {
+            let mut stmt = c.prepare("SELECT json::VARCHAR FROM __layouts ORDER BY updated, id")?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            let mut out = Vec::new();
+            for r in rows {
+                out.push(Layout::from_json(&r?)?);
+            }
+            out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.id.cmp(&b.id)));
+            Ok(out)
+        })
+    }
+
+    /// Validate and store a layout (insert or replace).
+    pub fn save_layout(&self, layout: &Layout) -> Result<()> {
+        layout.validate()?;
+        let json = serde_json::to_string(layout)?;
+        self.with_conn(|c| {
+            c.execute("INSERT OR REPLACE INTO __layouts VALUES (?, ?::JSON, now()::TIMESTAMP)", duckdb::params![layout.id, json])?;
+            Ok(())
+        })
+    }
+
+    pub fn delete_layout(&self, id: &str) -> Result<()> {
+        self.with_conn(|c| {
+            c.execute("DELETE FROM __layouts WHERE id = ?", duckdb::params![id])?;
+            Ok(())
+        })
+    }
+
+    /// Render a page to a PNG preview (base64, so it crosses IPC as one string).
+    pub fn render_layout_preview(&self, req: &RenderRequest, dpi: f64) -> Result<LayoutPreview> {
+        use base64::Engine as _;
+        let out = self.render_layout_svg(req, &|| Ok(()))?;
+        let png = export::svg_to_png(&out.svg, dpi)?;
+        Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings })
+    }
+
+    /// Export a layout page to `path` as a cancellable task ("Exporting
+    /// layout — <name>"). Cancel is checked between layers and before
+    /// encoding; the file is written to a temp name and renamed on success.
+    /// Returns the render warnings.
+    pub fn export_layout(&self, req: &RenderRequest, format: ExportFormat, dpi: f64, path: &Path) -> Result<Vec<String>> {
+        let task = Task::start(format!("Exporting layout — {}", req.layout.name)).cancellable();
+        task.detail("Drawing the page");
+        let out = self.render_layout_svg(req, &|| task.check())?;
+        task.check()?;
+        task.set(0.8, Some("Encoding"));
+        let bytes = match format {
+            ExportFormat::Svg => out.svg.into_bytes(),
+            ExportFormat::Pdf => export::svg_to_pdf(&out.svg)?,
+            ExportFormat::Png => export::svg_to_png(&out.svg, dpi)?,
+        };
+        task.check()?;
+        task.set(0.95, Some("Writing the file"));
+        write_atomic(path, &bytes)?;
+        Ok(out.warnings)
+    }
+
     /// Render a layout page to SVG against the open project's layers.
     pub fn render_layout_svg(&self, req: &RenderRequest, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
         let lookup = |id: &str| self.layer(id).ok();
