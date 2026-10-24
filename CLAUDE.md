@@ -17,7 +17,7 @@ cargo test -p engine                     # engine (add -- --ignored <name> for n
 npx vitest run && npx tsc -p tsconfig.json
 cargo build --release -p devserver && ./target/release/devserver   # + `npx vite` → http://localhost:1420 (window.__gis dev hooks)
 scripts/package-macos.sh                 # macOS app + DMG; then run the app with --self-test and copy both into the project folder
-npm run build && mkdir -p src-tauri/resources   # once in a fresh git worktree, before building gis-studio
+npm run build && scripts/stage-resources.sh   # once in a fresh git worktree, before building gis-studio (an empty resources/ fails the build)
 python3 scripts/third_party_notices.py   # after dependency changes
 ```
 
