@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 /// UI styles are in CSS pixels (96 per inch); the page is in millimetres.
-const PX_MM: f64 = 25.4 / 96.0;
+pub(super) const PX_MM: f64 = 25.4 / 96.0;
 /// Features are cut at the frame plus this much paper, so strokes reach the edge.
 const CLIP_MARGIN_MM: f64 = 2.0;
 /// Print generalization tolerance on the page (L3).
@@ -168,7 +168,7 @@ fn class_count(style: &LayerStyle) -> usize {
     }
 }
 
-fn class_color(style: &LayerStyle, i: usize) -> String {
+pub(super) fn class_color(style: &LayerStyle, i: usize) -> String {
     let c = match style.kind {
         StyleKind::Single => None,
         StyleKind::Categorized => style.classes.as_ref().and_then(|c| c.get(i)).map(|c| c.color.as_str()),

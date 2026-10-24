@@ -15,6 +15,15 @@ pub fn font_family() -> &'static str {
     FAMILY
 }
 
+/// Bundled face for a layout font name ("sans" | "sans-bold" | "sans-italic").
+pub fn font_bytes(font: &str) -> &'static [u8] {
+    match font {
+        "sans-bold" => BOLD,
+        "sans-italic" => ITALIC,
+        _ => REGULAR,
+    }
+}
+
 fn fontdb() -> Arc<usvg::fontdb::Database> {
     static DB: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
     DB.get_or_init(|| {

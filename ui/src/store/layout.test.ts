@@ -8,8 +8,8 @@ vi.mock("../ipc/api", () => ({
 
 import { api } from "../ipc/api";
 import { resized } from "../layout/LayoutView";
-import { newLayoutDoc, roundScaleUp, type MapFrame, type TextElement } from "../layout/types";
-import { addMapFrame, addText, beginStep, flushLayoutSaves, useLayouts } from "./layout";
+import { newLayoutDoc, rounded, roundScaleUp, type MapFrame, type TextElement } from "../layout/types";
+import { addMapFrame, addSurround, addText, beginStep, flushLayoutSaves, useLayouts } from "./layout";
 import { useApp } from "./store";
 
 const L = useLayouts;
@@ -24,6 +24,11 @@ beforeEach(() => {
 });
 
 describe("layout store", () => {
+  it("rounds displayed values without changing them", () => {
+    expect(rounded(253.99999999999997, 1)).toBe(254);
+    expect(rounded(4649776.123456, 2)).toBe(4649776.12);
+  });
+
   it("inserts a map frame in the map CRS, and refuses without one", () => {
     const id = addMapFrame()!;
     const f = doc().elements.find((e) => e.id === id) as MapFrame;
@@ -33,7 +38,23 @@ describe("layout store", () => {
     useApp.setState({ mapCrs: null });
     expect(addMapFrame()).toBeNull();
     expect(useApp.getState().status).toMatch(/Set a coordinate system for the map frame/);
-    expect(doc().elements).toHaveLength(1);
+    expect(doc().elements).toHaveLength(2); // the frame and its Sources line
+  });
+
+  it("a new frame gets a Sources line under it; surround elements attach to a frame", () => {
+    const id = addMapFrame()!;
+    const src = doc().elements.find((e) => e.kind === "sources")!;
+    expect(src).toMatchObject({ frame: id, size: 6 });
+    const f = doc().elements.find((e) => e.id === id) as MapFrame;
+    expect(src.y).toBeGreaterThanOrEqual(f.y + f.h); // under the frame, inside the page
+    expect(src.y + src.h).toBeLessThanOrEqual(doc().page.height);
+    expect(L.getState().selected).toEqual([id]);
+    for (const kind of ["legend", "scale_bar", "north_arrow"] as const) {
+      const eid = addSurround(kind, id)!;
+      expect(doc().elements.find((e) => e.id === eid)).toMatchObject({ kind, frame: id });
+    }
+    expect(addSurround("legend", "nope")).toBeNull();
+    expect(doc().elements.map((e) => e.id)).toEqual([id, "src1", "lg1", "sb1", "na1"]);
   });
 
   it("move, resize, undo and redo", () => {

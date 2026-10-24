@@ -44,6 +44,9 @@ import {
   DataUsageRegular,
   ZoomFitRegular,
   TextTRegular,
+  TextBulletListRegular,
+  NavigationRegular,
+  BookInformationRegular,
   ImageRegular,
 } from "@fluentui/react-icons";
 import type { ReactElement } from "react";
@@ -65,7 +68,7 @@ import {
 import { zoomToExtent } from "../map/mapController";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
-import { exportLayout, insertMapFrame, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
+import { exportLayout, insertMapFrame, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
 import { addText, useLayouts } from "../store/layout";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
@@ -149,6 +152,10 @@ const list: Command[] = [
   // Layout contextual tab (shown while a layout tab is active)
   { id: "layoutMapFrame", label: "Map Frame", icon: <MapRegular />, run: insertMapFrame, enabled: inLayout, tip: "Insert a map frame in the map's coordinate system, centred on the map view" },
   { id: "layoutText", label: "Text", icon: <TextTRegular />, run: () => void addText(), enabled: inLayout, tip: "Insert a text box ({layout_name}, {scale}, {date} … are replaced when drawn)" },
+  { id: "layoutLegend", label: "Legend", icon: <TextBulletListRegular />, run: () => insertSurround("legend"), enabled: hasFrame, tip: "Insert a legend listing the frame's visible layers and their classes" },
+  { id: "layoutScaleBar", label: "Scale Bar", icon: <RulerRegular />, run: () => insertSurround("scale_bar"), enabled: hasFrame, tip: "Insert a scale bar that is true to ground distance at the frame centre" },
+  { id: "layoutNorthArrow", label: "North Arrow", icon: <NavigationRegular />, run: () => insertSurround("north_arrow"), enabled: hasFrame, tip: "Insert a north arrow pointing to true north (follows meridian convergence and frame rotation)" },
+  { id: "layoutSources", label: "Sources", icon: <BookInformationRegular />, run: () => insertSurround("sources"), enabled: hasFrame, tip: "Insert the data sources (citations) of the layers drawn in the frame" },
   { id: "layoutFromMap", label: "Set from Map View", icon: <ZoomFitRegular />, run: () => void setFrameFromMapView(), enabled: hasFrame, tip: "Centre the selected frame on the map view and use the nearest standard scale that shows it" },
   { id: "layoutFrameCrs", label: "Frame CRS", icon: <GlobeRegular />, run: () => pickFrameCrs(), enabled: hasFrame, tip: "Choose the coordinate system the frame is drawn in (true scale needs a projected one)" },
   { id: "layoutPdf", label: "PDF", icon: <DocumentPdfRegular />, run: () => void exportLayout("pdf"), enabled: inLayout, tip: "Export the page as a vector PDF" },

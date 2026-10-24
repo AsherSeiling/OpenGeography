@@ -1,12 +1,13 @@
 //! Print layouts (docs/LAYOUTS_PLAN.md): the engine renders each page to SVG
 //! in page millimetres, then converts it to PDF or PNG. C2.1 draws map frames
-//! (vector layers) and text; the other element kinds and basemaps arrive in
-//! C2.3 and C2.4 and are reported as warnings meanwhile.
+//! (vector layers), text, legends, scale bars, north arrows and sources;
+//! rasters, graticules and basemaps arrive in C2.4.
 
 pub mod export;
 pub mod frame;
 pub mod geo;
 pub mod model;
+pub mod surround;
 pub mod svg;
 
 use crate::layers::LayerInfo;
@@ -15,6 +16,7 @@ use crate::progress::Task;
 use anyhow::{Context, Result};
 use duckdb::Connection;
 use model::{Element, Layout, RenderRequest};
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::Path;
 
@@ -80,9 +82,10 @@ fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, siz
 }
 
 /// Render one page. `lookup` resolves a layer id (the UI sends ids of the
-/// layers or node-tree results it wants drawn); `check` is polled between
-/// layers so an export can be cancelled.
-pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
+/// layers or node-tree results it wants drawn); `cites` gives the short
+/// citations recorded for a layer id; `check` is polled between layers so an
+/// export can be cancelled.
+pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, cites: &dyn Fn(&str) -> Vec<String>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
     let layout = &req.layout;
     layout.validate()?;
     let body = geo::Body::get(&layout.body)?;
@@ -96,27 +99,86 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
         w = svg::mm(p.width),
         h = svg::mm(p.height)
     );
+    // Frames first: legends, scale bars and arrows read what each one drew.
+    let mut frames: HashMap<&str, (String, surround::FrameCtx)> = HashMap::new();
+    for e in layout.elements.iter().filter(|e| e.at().visible) {
+        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border } = e {
+            check()?;
+            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref() };
+            let out = frame::render_frame(conn, &body, &f, req, lookup, check)?;
+            warnings.extend(out.warnings);
+            if basemap != "none" {
+                warnings.push(format!("Frame '{}': basemaps are drawn in a later release", at.id));
+            }
+            if graticule.is_some() || grid.is_some() {
+                warnings.push(format!("Frame '{}': graticule and grid are drawn in a later release", at.id));
+            }
+            let ctx = surround::FrameCtx { id: at.id.clone(), scale: *scale, rotation: at.rotation, factors: out.factors, drawn: out.drawn.iter().rev().cloned().collect() };
+            frames.insert(at.id.as_str(), (out.svg, ctx));
+        }
+    }
     for e in layout.elements.iter().filter(|e| e.at().visible) {
         check()?;
+        let ctx_of = |frame: &str, warnings: &mut Vec<String>| {
+            let c = frames.get(frame).map(|f| &f.1);
+            if c.is_none() {
+                warnings.push(format!("Element '{}' belongs to map frame '{frame}', which is hidden; not drawn", e.at().id));
+            }
+            c
+        };
         match e {
-            Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border } => {
-                let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref() };
-                let out = frame::render_frame(conn, &body, &f, req, lookup, check)?;
-                s.push_str(&out.svg);
-                warnings.extend(out.warnings);
-                if basemap != "none" {
-                    warnings.push(format!("Frame '{}': basemaps are drawn in a later release", at.id));
-                }
-                if graticule.is_some() || grid.is_some() {
-                    warnings.push(format!("Frame '{}': graticule and grid are drawn in a later release", at.id));
+            Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
+            Element::Text { at, text, font, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, *size, align, color),
+            Element::Legend { at, frame, title, columns } => {
+                if let Some(c) = ctx_of(frame, &mut warnings) {
+                    surround::legend(&mut s, &mut warnings, at, title, *columns, c, req, lookup);
                 }
             }
-            Element::Text { at, text, font, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, *size, align, color),
-            other => warnings.push(format!("Element '{}' ({}) is drawn in a later release", other.at().id, other.kind())),
+            Element::ScaleBar { at, frame, units, segments } => {
+                if let Some(c) = ctx_of(frame, &mut warnings) {
+                    surround::scale_bar(&mut s, &mut warnings, at, units, *segments, c);
+                }
+            }
+            Element::NorthArrow { at, frame, style } => {
+                if let Some(c) = ctx_of(frame, &mut warnings) {
+                    surround::north_arrow(&mut s, at, style, c);
+                }
+            }
+            Element::Sources { at, frame, size } => {
+                if let Some(c) = ctx_of(frame, &mut warnings) {
+                    surround::sources(&mut s, &mut warnings, at, *size, c, cites, &[]);
+                }
+            }
         }
     }
     s.push_str("</svg>");
     Ok(LayoutSvg { svg: s, warnings })
+}
+
+/// "U.S. Census Bureau, TIGER/Line Shapefiles (2024)" for the Sources element.
+fn short_citation(c: &crate::sources::Citation) -> String {
+    // "TIGERweb: Topologically Integrated…" → "TIGERweb"; "3D Elevation Program (3DEP) — best…" → "3D Elevation Program (3DEP)".
+    let title = c.title.split(": ").next().unwrap_or(&c.title).split(" — ").next().unwrap_or(&c.title);
+    let mut s = if c.author.is_empty() { title.to_string() } else { format!("{}, {title}", c.author) };
+    if !c.year.is_empty() && c.year != "n.d." {
+        let _ = write!(s, " ({})", c.year);
+    }
+    s
+}
+
+/// Layer id → short citations of every source it (or its inputs) used.
+fn short_citations(conn: &Connection) -> Result<HashMap<String, Vec<String>>> {
+    let mut m: HashMap<String, Vec<String>> = HashMap::new();
+    for entry in crate::sources::list(conn)? {
+        let short = short_citation(&entry.citation);
+        for u in entry.uses {
+            let v = m.entry(u.layer_id).or_default();
+            if !v.contains(&short) {
+                v.push(short.clone());
+            }
+        }
+    }
+    Ok(m)
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -225,6 +287,9 @@ impl Engine {
     /// Render a layout page to SVG against the open project's layers.
     pub fn render_layout_svg(&self, req: &RenderRequest, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
         let lookup = |id: &str| self.layer(id).ok();
-        self.with_conn(|c| render_svg(c, req, &lookup, check))
+        self.with_conn(|c| {
+            let cites = short_citations(c)?;
+            render_svg(c, req, &lookup, &|id| cites.get(id).cloned().unwrap_or_default(), check)
+        })
     }
 }

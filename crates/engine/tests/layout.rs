@@ -339,3 +339,231 @@ fn cancelled_render_writes_nothing() {
     let err = e.render_layout_svg(&req, &|| anyhow::bail!(engine::progress::CANCELLED)).unwrap_err();
     assert!(engine::progress::is_cancelled(&err));
 }
+
+// ---------------------------------------------------------------- C2.3
+
+mod surround {
+    use super::*;
+    use engine::layout::geo::{self, Body, FrameCrs};
+    use geographiclib_rs::{Geodesic, InverseGeodesic};
+
+    /// A frame (no data layers) plus a scale bar and a north arrow.
+    fn bare(crs: &str, center: [f64; 2], scale: f64, rotation: f64, extra: serde_json::Value) -> RenderRequest {
+        let mut elements = vec![
+            json!({ "kind": "map_frame", "id": "f1", "x": 12.7, "y": 30.0, "w": 200.0, "h": 160.0, "rotation": rotation, "crs": crs, "center": center, "scale": scale, "layers": "map" }),
+            json!({ "kind": "scale_bar", "id": "sb", "frame": "f1", "x": 220.0, "y": 120.0, "w": 46.0, "h": 10.0, "units": "km", "segments": 4 }),
+            json!({ "kind": "north_arrow", "id": "na", "frame": "f1", "x": 250.0, "y": 140.0, "w": 12.0, "h": 18.0, "style": "simple" }),
+        ];
+        elements.extend(extra.as_array().cloned().unwrap_or_default());
+        serde_json::from_value(json!({
+            "layout": { "id": "L1", "name": "Bare", "page": { "width": 279.4, "height": 215.9 }, "elements": elements },
+            "order": [], "project": "Demo", "date": "2026-01-01"
+        }))
+        .unwrap()
+    }
+
+    fn group<'a>(svg: &'a str, id: &str) -> &'a str {
+        let start = svg.find(&format!("<g id=\"{id}\"")).unwrap_or_else(|| panic!("no group {id}"));
+        let end = svg[start..].find("</g>").unwrap() + start;
+        &svg[start..end]
+    }
+
+    fn attr(tag: &str, name: &str) -> f64 {
+        let i = tag.find(&format!(" {name}=\"")).unwrap() + name.len() + 3;
+        tag[i..].split('"').next().unwrap().parse().unwrap()
+    }
+
+    fn texts(svg: &str) -> Vec<String> {
+        svg.split("<text ").skip(1).map(|t| t.split_once('>').unwrap().1.split("</text>").next().unwrap().to_string()).collect()
+    }
+
+    /// Bar length (mm) and label (value, unit) of the scale bar `sb`.
+    fn bar(svg: &str) -> (f64, f64, String) {
+        let g = group(svg, "scalebar-sb");
+        let len: f64 = g.split("<rect ").skip(1).map(|r| attr(r, "width")).sum();
+        let last = texts(g).pop().unwrap();
+        let (v, u) = last.split_once(' ').unwrap();
+        (len, v.parse().unwrap(), u.to_string())
+    }
+
+    #[test]
+    fn p11_scale_bar_matches_geodesic_distance() {
+        let body = Body::get("earth").unwrap();
+        let e = Engine::new().unwrap();
+        // (CRS, lon, lat, scale, units, metres per unit)
+        for (crs, lon, lat, scale, units, m) in [
+            ("EPSG:26915", -96.0, 45.0, 100_000.0, "km", 1000.0),
+            ("EPSG:2276", -97.3, 32.8, 100_000.0, "mi", 1609.344), // State Plane, US survey feet
+            ("EPSG:5070", -110.0, 35.0, 250_000.0, "km", 1000.0),  // Albers CONUS
+        ] {
+            let fc = FrameCrs::new(crs, &body).unwrap();
+            let c = fc.from_lonlat(lon, lat).unwrap();
+            let mut req = bare(crs, [c.0, c.1], scale, 0.0, json!([]));
+            if let engine::layout::model::Element::ScaleBar { units: u, .. } = &mut req.layout.elements[1] {
+                *u = units.into();
+            }
+            let svg = render(&e, &req).svg;
+            let (len_mm, label, unit) = bar(&svg);
+            assert_eq!(unit, units);
+            // Inverse-project the drawn bar's end points (grid east of the frame centre).
+            let half = len_mm / 1000.0 * scale / fc.unit_m / 2.0;
+            let (a, b) = (fc.to_lonlat(c.0 - half, c.1).unwrap(), fc.to_lonlat(c.0 + half, c.1).unwrap());
+            let ground: f64 = Geodesic::new(body.a, body.f).inverse(a.1, a.0, b.1, b.0);
+            assert!((ground / (label * m) - 1.0).abs() < 1e-3, "{crs}: drawn bar spans {ground} m, label says {label} {unit}");
+            assert!(len_mm <= 46.0 - 1.0 - 7.0 + 1e-6, "{crs}: bar fits its box ({len_mm} mm)");
+        }
+    }
+
+    #[test]
+    fn p12_north_arrow_follows_convergence_and_frame_rotation() {
+        let body = Body::get("earth").unwrap();
+        let e = Engine::new().unwrap();
+        let fc = FrameCrs::new("EPSG:26915", &body).unwrap();
+        let angle = |lon: f64, rot: f64, style: &str| {
+            let c = fc.from_lonlat(lon, 45.0).unwrap();
+            let mut req = bare("EPSG:26915", [c.0, c.1], 24_000.0, rot, json!([]));
+            if let engine::layout::model::Element::NorthArrow { style: s, .. } = &mut req.layout.elements[2] {
+                *s = style.into();
+            }
+            let svg = render(&e, &req).svg;
+            let tag = svg.split("<g id=\"northarrow-na\"").nth(1).unwrap_or_else(|| panic!("no arrow in {style}")).split('>').next().unwrap().to_string();
+            let a: f64 = tag.split("rotate(").nth(1).unwrap().split_whitespace().next().unwrap().parse().unwrap();
+            let gamma = geo::factors(&body, &fc, c.0, c.1).unwrap().convergence_deg;
+            (a, gamma)
+        };
+        for style in ["simple", "compass"] {
+            let (a, gamma) = angle(-96.0, 0.0, style);
+            assert!((a - (-gamma)).abs() < 0.01, "{a} vs convergence {gamma}");
+            assert!(a > 2.0 && a < 2.3, "west of the central meridian true north leans east: {a}");
+            let (a, _) = angle(-90.0, 0.0, style);
+            assert!(a < -2.0 && a > -2.3, "east of it, west: {a}");
+            let (a, gamma) = angle(-96.0, 30.0, style);
+            assert!((a - (30.0 - gamma)).abs() < 0.01, "frame rotation adds: {a}");
+        }
+    }
+
+    #[test]
+    fn p15_scale_variation_warning_for_web_mercator_at_60n() {
+        let body = Body::get("earth").unwrap();
+        let fc = FrameCrs::new("EPSG:3857", &body).unwrap();
+        let c = fc.from_lonlat(10.0, 60.0).unwrap();
+        let e = Engine::new().unwrap();
+        let out = render(&e, &bare("EPSG:3857", [c.0, c.1], 5_000_000.0, 0.0, json!([])));
+        assert!(out.warnings.iter().any(|w| w.contains("scale varies") && w.contains("f1")), "{:?}", out.warnings);
+        // The bar is still true at the centre: k at 60°N is 2, so 1 km is twice as long as at k = 1.
+        let utm = bare("EPSG:32632", [fc.from_lonlat(9.0, 60.0).map(|_| 500_000.0).unwrap(), 6_651_000.0], 5_000_000.0, 0.0, json!([]));
+        assert!(!render(&e, &utm).warnings.iter().any(|w| w.contains("scale varies")));
+    }
+
+    fn with_surround(ids: &[String; 4], style: serde_json::Value) -> RenderRequest {
+        let mut req = request(ids, style);
+        let extra = [
+            json!({ "kind": "legend", "id": "lg", "frame": "f1", "x": 215.0, "y": 30.0, "w": 55.0, "h": 80.0, "title": "Legend", "columns": 1 }),
+            json!({ "kind": "scale_bar", "id": "sb", "frame": "f1", "x": 215.0, "y": 120.0, "w": 55.0, "h": 10.0, "units": "km", "segments": 4 }),
+            json!({ "kind": "north_arrow", "id": "na", "frame": "f1", "x": 235.0, "y": 140.0, "w": 14.0, "h": 20.0, "style": "simple" }),
+            json!({ "kind": "sources", "id": "src", "frame": "f1", "x": 12.7, "y": 192.0, "w": 200.0, "h": 12.0, "size": 6 }),
+        ];
+        for x in extra {
+            req.layout.elements.push(serde_json::from_value(x).unwrap());
+        }
+        req
+    }
+
+    #[test]
+    fn p13_legend_lists_visible_frame_layers_in_draw_order_with_class_labels() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        let mut req = with_surround(&ids, categorized());
+        let legend = |req: &RenderRequest| texts(group(&render(&e, req).svg, "legend-lg"));
+        // order (top first): pts, lines, polys, nocrs (no CRS → not drawn, not listed).
+        assert_eq!(legend(&req), ["Legend", "pts", "lines", "polys", "A", "B", "Other"]);
+        req.visible.insert(ids[1].clone(), false);
+        assert_eq!(legend(&req), ["Legend", "pts", "polys", "A", "B", "Other"]);
+        let grad = json!({ "kind": "graduated", "fill": "#999999", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 1, "radius": 3.5, "field": "pop",
+                           "breaks": [20, 40], "colors": ["#aa0000", "#00aa00", "#0000aa"] });
+        let req = with_surround(&ids, grad);
+        assert_eq!(legend(&req)[4..], ["&lt; 20", "20 – 40", "≥ 40"]);
+        // Swatch colours are the colours the frame draws.
+        let svg = render(&e, &req).svg;
+        let g = group(&svg, "legend-lg");
+        for c in ["#aa0000", "#00aa00", "#0000aa"] {
+            assert!(g.contains(&format!("fill=\"{c}\"")), "{c}");
+        }
+    }
+
+    #[test]
+    fn legend_reports_when_it_does_not_fit() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        let mut req = with_surround(&ids, categorized());
+        if let engine::layout::model::Element::Legend { at, .. } = &mut req.layout.elements[2] {
+            at.h = 20.0;
+        }
+        let out = render(&e, &req);
+        assert!(out.warnings.iter().any(|w| w.contains("Legend 'lg' does not fit")), "{:?}", out.warnings);
+    }
+
+    #[test]
+    fn p14_sources_cite_every_drawn_layer_including_derived_ones() {
+        use engine::sources;
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        e.with_conn_for_tests(|c| {
+            for cite in sources::for_tiger("counties", "Counties", "ACS2024") {
+                sources::record(c, &cite, &ids[0], "polys")?;
+            }
+            sources::record(c, &sources::for_3dep(), &ids[2], "pts")?;
+            // The line layer is a model result of the other two: it carries their sources.
+            sources::replace_derived(c, &[ids[0].as_str(), ids[2].as_str()], &ids[1], "lines (model result)")
+        })
+        .unwrap();
+        let sources_text = |req: &RenderRequest| texts(group(&render(&e, req).svg, "sources-src")).join(" ");
+        let mut req = with_surround(&ids, categorized());
+        let all = sources_text(&req);
+        assert!(all.starts_with("Data: ") && all.contains("TIGERweb (2024)") && all.contains("3D Elevation Program (3DEP)"), "{all}");
+        // Only the derived layer is drawn: both inputs' citations still appear.
+        req.visible.insert(ids[0].clone(), false);
+        req.visible.insert(ids[2].clone(), false);
+        let derived = sources_text(&req);
+        assert!(derived.contains("TIGERweb") && derived.contains("3DEP"), "{derived}");
+        // A hidden layer's source is not cited.
+        req.visible.insert(ids[1].clone(), false);
+        let none = render(&e, &req).svg;
+        assert!(!none.contains("sources-src"), "no drawn layers, no sources text");
+    }
+
+    #[test]
+    fn surround_of_a_hidden_frame_is_reported_not_drawn() {
+        let e = Engine::new().unwrap();
+        let mut req = bare("EPSG:26915", [500_000.0, 4_649_776.0], 24_000.0, 0.0, json!([]));
+        if let engine::layout::model::Element::MapFrame { at, .. } = &mut req.layout.elements[0] {
+            at.visible = false;
+        }
+        let out = render(&e, &req);
+        assert!(!out.svg.contains("scalebar-sb") && out.warnings.iter().filter(|w| w.contains("hidden")).count() == 2, "{:?}", out.warnings);
+    }
+
+    #[test]
+    fn all_elements_page_is_deterministic_and_golden() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        e.with_conn_for_tests(|c| {
+            engine::sources::record(c, &engine::sources::for_3dep(), &ids[2], "pts")?;
+            engine::sources::record(c, &engine::sources::for_tiger("counties", "Counties", "ACS2024")[0], &ids[0], "polys")
+        })
+        .unwrap();
+        let req = with_surround(&ids, categorized());
+        let a = render(&e, &req).svg;
+        assert_eq!(a, render(&e, &req).svg);
+        let sha = hex::encode(Sha256::digest(a.as_bytes()));
+        if std::env::var("GOLDEN_PRINT").is_ok() {
+            println!("GOLDEN_ALL {sha}");
+            std::fs::write(std::env::temp_dir().join("layout_all.png"), export::svg_to_png(&a, 110.0).unwrap()).unwrap();
+            std::fs::write(std::env::temp_dir().join("layout_all.pdf"), export::svg_to_pdf(&a).unwrap()).unwrap();
+        }
+        assert_eq!(sha, GOLDEN_ALL_SHA256, "SVG output changed; if intended, regenerate with GOLDEN_PRINT=1");
+        assert!(export::svg_to_pdf(&a).unwrap().starts_with(b"%PDF-"));
+    }
+
+    const GOLDEN_ALL_SHA256: &str = "d061737a73398da134248e68b96a9d48a5bb1914328f7cc92b34ecd3899e3b47";
+}

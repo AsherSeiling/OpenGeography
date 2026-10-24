@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { pickFrameCrs, setFrameFromMapView } from "./actions";
-import type { LayoutElement, MapFrame, TextElement } from "./types";
+import { rounded, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type ScaleBarElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
-function Num({ label, value, onChange, min, step }: { label: string; value: number; onChange: (v: number) => void; min?: number; step?: number }) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText((t) => (Number(t) === value ? t : String(value))), [value]);
+/** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
+function Num({ label, value, onChange, min, max, step, decimals }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; decimals?: number }) {
+  const show = (v: number) => String(decimals === undefined ? v : rounded(v, decimals));
+  const [text, setText] = useState(show(value));
+  useEffect(() => setText((t) => (Number(t) === value ? t : show(value))), [value]);
   return (
     <Field label={label} size="small">
       <Input
@@ -20,7 +22,7 @@ function Num({ label, value, onChange, min, step }: { label: string; value: numb
         onChange={(_, d) => {
           setText(d.value);
           const v = Number(d.value);
-          if (d.value.trim() !== "" && Number.isFinite(v) && (min === undefined || v >= min)) onChange(v);
+          if (d.value.trim() !== "" && Number.isFinite(v) && (min === undefined || v >= min) && (max === undefined || v <= max)) onChange(v);
         }}
       />
     </Field>
@@ -39,12 +41,16 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
       <div className="props-body stack">
         {el.kind === "map_frame" && <FrameFields el={el} set={set} />}
         {el.kind === "text" && <TextFields el={el} set={set} />}
+        {el.kind === "legend" && <LegendFields el={el} set={set} />}
+        {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
+        {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
+        {el.kind === "sources" && <SourcesFields el={el} set={set} />}
         <div className="props-grid">
-          <Num label="X (mm)" value={el.x} step={0.5} onChange={(x) => set({ x }, "x")} />
-          <Num label="Y (mm)" value={el.y} step={0.5} onChange={(y) => set({ y }, "y")} />
-          <Num label="Width (mm)" value={el.w} min={1} step={0.5} onChange={(w) => set({ w }, "w")} />
-          <Num label="Height (mm)" value={el.h} min={1} step={0.5} onChange={(h) => set({ h }, "h")} />
-          <Num label="Rotation (°)" value={el.rotation} onChange={(rotation) => set({ rotation }, "rotation")} />
+          <Num label="X (mm)" value={el.x} step={0.5} decimals={1} onChange={(x) => set({ x }, "x")} />
+          <Num label="Y (mm)" value={el.y} step={0.5} decimals={1} onChange={(y) => set({ y }, "y")} />
+          <Num label="Width (mm)" value={el.w} min={1} step={0.5} decimals={1} onChange={(w) => set({ w }, "w")} />
+          <Num label="Height (mm)" value={el.h} min={1} step={0.5} decimals={1} onChange={(h) => set({ h }, "h")} />
+          <Num label="Rotation (°)" value={el.rotation} decimals={2} onChange={(rotation) => set({ rotation }, "rotation")} />
         </div>
         <Checkbox label="Locked" checked={el.locked} onChange={(_, d) => set({ locked: !!d.checked })} />
         <Checkbox label="Visible" checked={el.visible} onChange={(_, d) => set({ visible: !!d.checked })} />
@@ -66,13 +72,52 @@ function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
       </Field>
       <Num label="Scale 1 :" value={el.scale} min={1} step={1000} onChange={(scale) => set({ scale }, "scale")} />
       <div className="props-grid">
-        <Num label="Centre X" value={el.center[0]} onChange={(v) => set({ center: [v, el.center[1]] }, "cx")} />
-        <Num label="Centre Y" value={el.center[1]} onChange={(v) => set({ center: [el.center[0], v] }, "cy")} />
+        <Num label="Centre X" value={el.center[0]} decimals={2} onChange={(v) => set({ center: [v, el.center[1]] }, "cx")} />
+        <Num label="Centre Y" value={el.center[1]} decimals={2} onChange={(v) => set({ center: [el.center[0], v] }, "cy")} />
       </div>
       <Button size="small" onClick={() => void setFrameFromMapView(el.id)}>Set from Map View</Button>
-      <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />
+      <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} decimals={2} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />
     </>
   );
+}
+
+function Choice<T extends string>({ label, value, options, onPick }: { label: string; value: T; options: [T, string][]; onPick: (v: T) => void }) {
+  return (
+    <Field label={label} size="small">
+      <Dropdown size="small" value={options.find((o) => o[0] === value)?.[1]} selectedOptions={[value]} onOptionSelect={(_, d) => onPick(d.optionValue as T)}>
+        {options.map(([v, l]) => <Option key={v} value={v}>{l}</Option>)}
+      </Dropdown>
+    </Field>
+  );
+}
+
+function LegendFields({ el, set }: { el: LegendElement; set: Set }) {
+  return (
+    <>
+      <Field label="Title" size="small">
+        <Input size="small" value={el.title} onChange={(_, d) => set({ title: d.value }, "title")} />
+      </Field>
+      <Num label="Columns" value={el.columns || 1} min={1} max={6} step={1} onChange={(columns) => set({ columns: Math.round(columns) }, "columns")} />
+    </>
+  );
+}
+
+function ScaleBarFields({ el, set }: { el: ScaleBarElement; set: Set }) {
+  const units: [ScaleBarElement["units"], string][] = [["km", "Kilometres"], ["mi", "Miles"], ["m", "Metres"], ["ft", "Feet"]];
+  return (
+    <>
+      <Choice label="Units" value={el.units || "km"} options={units} onPick={(units) => set({ units })} />
+      <Num label="Segments" value={el.segments || 4} min={1} max={10} step={1} onChange={(segments) => set({ segments: Math.round(segments) })} />
+    </>
+  );
+}
+
+function NorthArrowFields({ el, set }: { el: NorthArrowElement; set: Set }) {
+  return <Choice label="Style" value={el.style || "simple"} options={[["simple", "Simple"], ["compass", "Compass"]]} onPick={(style) => set({ style })} />;
+}
+
+function SourcesFields({ el, set }: { el: SourcesElement; set: Set }) {
+  return <Num label="Text size (pt)" value={el.size || 6} min={1} step={0.5} decimals={1} onChange={(size) => set({ size }, "size")} />;
 }
 
 function TextFields({ el, set }: { el: TextElement; set: Set }) {

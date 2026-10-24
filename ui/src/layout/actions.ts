@@ -5,7 +5,7 @@ import { api, errorText, IN_TAURI } from "../ipc/api";
 import { getMap } from "../map/mapController";
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
-import { addMapFrame, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
+import { addMapFrame, addSurround, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
 import { frames, metersPerPixel, newLayoutDoc, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 
@@ -89,6 +89,15 @@ export function targetFrame(): MapFrame | null {
   if (!s.doc) return null;
   const all = frames(s.doc);
   return all.find((f) => s.selected.includes(f.id)) ?? all[0] ?? null;
+}
+
+const SURROUND_NAMES = { legend: "legend", scale_bar: "scale bar", north_arrow: "north arrow", sources: "sources line" } as const;
+
+/** Insert a legend, scale bar, north arrow or sources line for the selected (else first) map frame. */
+export function insertSurround(kind: keyof typeof SURROUND_NAMES) {
+  const frame = targetFrame();
+  if (!frame) return status(`Insert a map frame first, then the ${SURROUND_NAMES[kind]} (Layout tab → Map Frame).`);
+  addSurround(kind, frame.id);
 }
 
 export function insertMapFrame() {
