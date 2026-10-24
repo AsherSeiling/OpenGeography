@@ -2,11 +2,11 @@
 
 Open a new Claude Code session in this folder, pick **Sonnet**, and paste one block. Run them **one at a time**. The general-purpose prompt is `docs/prompts/sonnet-runner.md`.
 
-> Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B2–B4 are done, C2.1 (layout renderer core) and C2.2 (Layout view, commands, storage) are done, so C2.3 is the next Sonnet task.
+> Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B2–B4 are done, C2.1 (layout renderer core) and C2.2 (Layout view, commands, storage) are done, so C2.3 + C2.4 (one session, two commits) is the next Sonnet task. After it: the projected map view M1–M4 (`docs/MAP_PROJECTION_PLAN.md`).
 
 ---
 
-## 1. C2.3 — Surround elements (layouts, part 3)
+## 1. C2.3 + C2.4 — Surround elements, then graticule/grid, rasters and basemaps (layouts, parts 3–4)
 
 C2.1/C2.2 are finished: the engine renders map frames and text to SVG/PDF/PNG (`crates/engine/src/layout/`), stores layouts in `__layouts`, and the Layout view edits them (`ui/src/layout/`, `ui/src/store/layout.ts`). Legend, scale bar, north arrow and sources elements exist in the model (`model.rs` `Element::Legend` etc.) but `render_svg` only emits a "drawn in a later release" warning for them.
 
@@ -31,5 +31,5 @@ Acceptance: P11–P15 in the plan (scale bar vs inverse-projected geodesic dista
 
 Rules: no new Tauri commands expected (if you add one, add it to src-tauri, crates/devserver and ui/src/ipc/api.ts); explicit CRS, never guess; GIS correctness first; Fluent UI v9 + existing ribbon style; no GPL code.
 
-Test narrow, then cargo test -p engine, npx vitest run && npx tsc -p tsconfig.json, cargo build -p gis-studio -p devserver. Commit. Update PROJECT_STATUS.md and write the C2.4 prompt (graticule/grid, raster layers via render_extent, USGS basemaps) into docs/prompts/next-session.md the same way.
+Test narrow, then cargo test -p engine, npx vitest run && npx tsc -p tsconfig.json, cargo build -p gis-studio -p devserver. Commit C2.3 on its own. Then do **C2.4** in the same session: docs/LAYOUTS_PLAN.md §4 C2.4 (graticule via `Body`, projected grid, raster layers through `raster::render_extent(info, crs, extent, w_px, h_px)` with `render_tile` calling it, USGS basemaps via GDAL WMS/XYZ warped to the frame CRS with citations; OSM disabled for print). Keep `render_extent`'s signature exactly as in the plan: the projected map view (MAP_PROJECTION_PLAN M4) reuses it. Acceptance P16–P18 (skip P19, the Mac rebuild; the orchestrator does it). Basemap tests that need the network are `#[ignore]` with a local fixture for the default run. Test again, then commit C2.4 separately. Update PROJECT_STATUS.md (short), add DECISIONS.md entries, and replace this block with a brief for **M1** (docs/MAP_PROJECTION_PLAN.md §3 M1), built the same way.
 ```

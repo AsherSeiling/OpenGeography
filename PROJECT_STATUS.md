@@ -31,6 +31,6 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 3. Fixed 2026-10-23: the one `package-macos.sh` failure (dylibbundler, libabsl_time) came from two sessions packaging at once in the same folder; each run's `rm -rf Frameworks` deleted the other's libraries. The script now takes a lock (`target/.package-macos.lock`), so a second run exits at once.
 
 ## Next tasks (in order)
-1. Layouts: C2.3 → C2.4 → C3.1–C3.2 (`docs/LAYOUTS_PLAN.md`).
+1. Layouts C2.3 + C2.4 (`docs/LAYOUTS_PLAN.md`) → projected map view M1–M4 (`docs/MAP_PROJECTION_PLAN.md`; the map view follows the map's CRS) → layouts C3.1–C3.2.
 2. Public data toolkit: generic ArcGIS REST catalog first (`docs/PUBLIC_DATA_CATALOG.md`).
 3. Census data join (user enters the API key; OS keychain).
