@@ -16,6 +16,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 export PATH="/opt/homebrew/opt/rustup/bin:/opt/homebrew/bin:$PATH"
 
+# One packaging run at a time: two runs share target/ and each one's
+# `rm -rf Frameworks` deletes libraries the other is still bundling.
+LOCK="$ROOT/target/.package-macos.lock"
+mkdir -p "$ROOT/target"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  echo "Another package-macos.sh run is in progress (lock: $LOCK). Wait for it, or remove the lock if no run is active." >&2
+  exit 1
+fi
+trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+
 scripts/stage-resources.sh
 npx tauri build --bundles app
 

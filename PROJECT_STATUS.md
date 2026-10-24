@@ -26,7 +26,7 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 ## Known issues
 1. Cancel lands between DuckDB work units (~100k rows/thread). GDAL translate/warp/contours/polygonize/rasterize stop mid-step; gdaldem (hillshade/slope/aspect/ruggedness) ignores GDAL's progress callback and finishes first.
 2. Undoing a node-tree edit can drop a node's `lastOutput`. The table pane then shows "not run" until the next run, which is a cache hit.
-3. `scripts/package-macos.sh` failed once in dylibbundler (libabsl_time); a retry passed.
+3. Fixed 2026-10-23: the one `package-macos.sh` failure (dylibbundler, libabsl_time) came from two sessions packaging at once in the same folder; each run's `rm -rf Frameworks` deleted the other's libraries. The script now takes a lock (`target/.package-macos.lock`), so a second run exits at once.
 
 ## Next tasks (in order)
 1. Layouts: C2.2 → C2.3 → C2.4 → C3.1–C3.2 (`docs/LAYOUTS_PLAN.md`).
