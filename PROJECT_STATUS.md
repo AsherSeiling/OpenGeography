@@ -3,7 +3,7 @@
 _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Session prompts: `docs/prompts/`._
 
 ## Exact next action
-- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** C2.2 (layout view, `__layouts` storage, export commands) is merged and the Mac app is rebuilt with it. Next: delegate **C2.3** (surround elements; brief in `docs/prompts/next-session.md`).
+- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** C2.2 (layout view, `__layouts` storage, export commands) is merged and the Mac app is rebuilt with it. Next: **C2.3 + C2.4** in one Sonnet session (surround elements, then graticule/grid, rasters and basemaps; brief in `docs/prompts/next-session.md`), then the projected map view M1–M4 (`docs/MAP_PROJECTION_PLAN.md`).
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
 
 ## State

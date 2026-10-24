@@ -2,6 +2,9 @@
 
 Newest first. One entry per decision that isn't obvious from the code; details live in the linked plan files. Read this only when a task touches the area. `PROJECT_STATUS.md` keeps the current state and the next action.
 
+## Map view — `docs/MAP_PROJECTION_PLAN.md`
+- **2026-10-23 Projected map view (design):** OpenLayers (BSD-2) replaces MapLibre for every CRS. The existing style JSON is reused through `ol-mapbox-style`. Web Mercator tiles stay byte-identical. Other CRSs use an engine tile grid from the CRS's area of use, and lazily built `__disp_<layer>_<crsKey>` tables projected from the source geometry, so the poles work. Features outside the area of use are reported, not drawn. proj4 in the UI maps only pixels to the map CRS; every shown or stored number goes through the engine. Planetary D2 (Mercator plus a pole spike) is superseded; there's no 3D globe.
+
 ## Layouts (Phase C) — `docs/LAYOUTS_PLAN.md`
 - **2026-10-23 C2.1 renderer core** (`crates/engine/src/layout/`):
   - **Modules:** `model.rs` is the L2 model plus a `LayerStyle` mirror. `geo.rs` holds `Body`, `FrameCrs`, the scale factor k, convergence and extent. `frame.rs` turns a layer into styled SVG paths: DuckDB transform → clip → simplify at 0.1 mm. `svg.rs` does fixed-precision numbers. `export.rs` does PDF (svg2pdf) and PNG (resvg).

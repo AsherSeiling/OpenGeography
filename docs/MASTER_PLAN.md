@@ -21,6 +21,7 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 | [`docs/PLANETARY_PLAN.md`](PLANETARY_PLAN.md) | Moon/Mars: body-aware CRS, USGS importers, crater tools, ISIS/ASP bridges | Phase F |
 | [`docs/ATTRIBUTE_HISTORY_PLAN.md`](ATTRIBUTE_HISTORY_PLAN.md) | B1 design: snapshot persistence, diff rules, table pane UX, sessions B2.1–B2.3 | Phase B |
 | [`docs/LAYOUTS_PLAN.md`](LAYOUTS_PLAN.md) | C1 design: engine SVG→PDF/PNG renderer, document model, print scale/CRS rules, sessions C2.1–C3.2 | Phase C |
+| [`docs/MAP_PROJECTION_PLAN.md`](MAP_PROJECTION_PLAN.md) | Map view draws in the map's CRS: OpenLayers replaces MapLibre, engine tiles per CRS grid, sessions M1–M4 | Phase C (C5) |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
 | [`docs/DECISIONS.md`](DECISIONS.md) | Decision log: why things are the way they are, newest first | When a task touches that area |
 | [`docs/prompts/orchestrator.md`](prompts/orchestrator.md) | Opus orchestrator: delegates to Sonnet sessions, reviews in tiers, merges | Running several tasks from one Opus session |
@@ -100,6 +101,7 @@ The biggest missing piece: the app currently can't make a printable map.
 |---|---|---|---|
 | C1. Layouts design | 1 | Opus | Writes `LAYOUTS_PLAN.md`. Must take a **`body`** parameter from day one so planetary maps (F4) are styling, not a rewrite. Decide the rendering path (MapLibre canvas vs. engine-rendered) for vector PDF. |
 | C2. Layouts M2: page, map frame in the true CRS, legend, scale bar, north arrow, title, text, graticule; PNG + PDF export | 4–6 | Sonnet | Office-style Layout ribbon tab. |
+| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed 2026-10-23, Sonnet builds | `docs/MAP_PROJECTION_PLAN.md`. OpenLayers replaces MapLibre. Runs after C2.4 (M4 needs `render_extent`) and before C3. |
 | C3. Layout templates and map series | 1–2 | Sonnet | |
 | C4. Topo Map Builder (M4): design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
@@ -141,7 +143,7 @@ Details, sources and decisions D1–D5 are in [`PLANETARY_PLAN.md`](PLANETARY_PL
 
 | Task | Effort | Depends on |
 |---|---|---|
-| F0. Design + MapLibre pole spike | 1 (Opus) | — |
+| F0. Design (the pole spike is no longer needed: polar CRSs through the C5 map view) | 1 (Opus) | — |
 | F1. Body foundation: one body per project; body-aware geodesics, gdaldem scale and display | 2–3 | F0 |
 | F2. Importers: planetary files, USGS STAC data, global mosaics, OGC vector, place names, geologic maps, PDS image search | 3–4 | F1, D3, D5 |
 | F3. Crater tools, crater statistics with model ages, morphometry, height reference | 1 (Opus method review) + 2–3 | F1, E1 |

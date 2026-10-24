@@ -35,7 +35,9 @@ _Plan only, written 2026-10-23; nothing here is implemented yet. Roadmap entry: 
 
 **D1 — one body per project.** A project gets a `body` (default `earth`). Every layer's CRS must belong to that body. An import whose CRS is on another body is refused with a clear message; we never reproject across bodies. PROJ forbids such transforms anyway, and mixing bodies in one map is meaningless. *Recommended.*
 
-**D2 — how to draw other bodies in MapLibre.** Treat the body's planetocentric longitude and latitude as the map's lon/lat, and tile them with the same spherical-Mercator math. The display is a picture only; all measurement, the scale bar and the coordinate readout use the body's radius.
+> **Superseded 2026-10-23 by `docs/MAP_PROJECTION_PLAN.md`:** the map view draws in any CRS (OpenLayers), so bodies use polar stereographic and equirectangular CRSs from PROJ's IAU catalogue. No Mercator workaround, no pole spike, no 3D globe.
+
+**D2 (old) — how to draw other bodies in MapLibre.** Treat the body's planetocentric longitude and latitude as the map's lon/lat, and tile them with the same spherical-Mercator math. The display is a picture only; all measurement, the scale bar and the coordinate readout use the body's radius.
 - This is the standard approach of the OpenPlanetaryMap community (<https://github.com/OpenPlanetary/opm>).
 - **Risk: poles.** Mercator can't show above ~85°, and the lunar south pole is the main Artemis region.
 - **Spike first:** test MapLibre's globe projection near the poles.
