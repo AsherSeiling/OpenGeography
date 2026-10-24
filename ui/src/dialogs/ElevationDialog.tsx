@@ -4,7 +4,7 @@ import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent } from "../ipc/api";
-import { getMap, zoomToExtent } from "../map/mapController";
+import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress } from "../progress/progress";
 import { useApp } from "../store/store";
 
@@ -24,8 +24,8 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
 
   const extent = (): [Extent, string] | null => {
     if (area === "view") {
-      const b = getMap()?.getBounds();
-      return b ? [[b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], "map view"] : null;
+      const b = getViewBounds();
+      return b ? [b, "map view"] : null;
     }
     const l = layers.find((x) => x.id === area);
     return l?.extent ? [l.extent, l.name] : null;

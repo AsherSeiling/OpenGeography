@@ -1,11 +1,10 @@
 // Status bar: editable map scale, cursor coordinates in the map CRS, decimal
 // degrees / DMS, MGRS, and the map CRS (click to change).
 import { forward as toMgrs } from "mgrs";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { pickMapCrs } from "../actions";
-import { api } from "../ipc/api";
-import { getMap } from "../map/mapController";
-import { formatScale, parseScale, SCALE_PRESETS, scaleForZoom, zoomForScale } from "../map/style";
+import { getActiveCrs, setScale } from "../map/mapController";
+import { formatScale, parseScale, SCALE_PRESETS } from "../map/style";
 import { useMapView } from "../panes/MapView";
 import { StatusProgress } from "../progress/progress";
 import { useApp } from "../store/store";
@@ -31,42 +30,21 @@ export function mgrsOf(lon: number, lat: number): string {
 }
 
 export function StatusBar() {
-  const { lon, lat, zoom, centerLat } = useMapView();
+  const pointer = useMapView((s) => s.pointer);
+  const scale = useMapView((s) => s.scale);
   const status = useApp((s) => s.status);
   const mapCrs = useApp((s) => s.mapCrs);
   const projectDir = useApp((s) => s.projectDir);
   const dirty = useApp((s) => s.dirty);
-  const [projected, setProjected] = useState<[number, number] | null>(null);
-  const scale = scaleForZoom(zoom, centerLat);
   const [scaleText, setScaleText] = useState<string | null>(null);
-
-  // Project the cursor into the map CRS (throttled engine call).
-  const pending = useRef(false);
-  const latest = useRef<[number, number] | null>(null);
-  useEffect(() => {
-    if (lon === null || lat === null || !mapCrs || /^EPSG:(4326|4269|4267)$/.test(mapCrs.id)) {
-      setProjected(null);
-      return;
-    }
-    latest.current = [lon, lat];
-    if (pending.current) return;
-    pending.current = true;
-    const t = setTimeout(async () => {
-      const p = latest.current!;
-      try {
-        setProjected(await api.transformPoint(p[0], p[1], "EPSG:4326", mapCrs.id));
-      } catch {
-        setProjected(null);
-      }
-      pending.current = false;
-    }, 50);
-    return () => clearTimeout(t);
-  }, [lon, lat, mapCrs]);
+  // Every number comes from the engine with the pointer (R2): lon/lat from `transformPoint`, E/N are the view coordinates it was asked about.
+  const lon = pointer?.lon ?? null;
+  const lat = pointer?.lat ?? null;
+  const projected = pointer && getActiveCrs() && !getActiveCrs()!.info.geographic ? ([pointer.x, pointer.y] as const) : null;
 
   const applyScale = (text: string) => {
     const s = parseScale(text);
-    const map = getMap();
-    if (s && map) map.easeTo({ zoom: zoomForScale(s, map.getCenter().lat), duration: 300 });
+    if (s) void setScale(s);
     setScaleText(null);
   };
 
@@ -75,9 +53,9 @@ export function StatusBar() {
       <div className="sb-scale">
         <input
           list="scale-presets"
-          value={scaleText ?? formatScale(scale)}
+          value={scaleText ?? (scale ? formatScale(scale) : "")}
           onFocus={(e) => {
-            setScaleText(formatScale(scale));
+            setScaleText(scale ? formatScale(scale) : "");
             e.target.select();
           }}
           onChange={(e) => setScaleText(e.target.value)}

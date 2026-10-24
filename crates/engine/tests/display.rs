@@ -145,6 +145,14 @@ fn display_info_grids() {
     let (x, y) = e.transform_point(-93.0, 40.0, "EPSG:4326", "EPSG:26915").unwrap();
     assert!(x > g.extent[0] && x < g.extent[2] && y > g.extent[1] && y < g.extent[3]);
 
+    // R1: datum offset of the basemap. NAD83 is within a metre or two; NAD27 is worse or unknown-but-reported.
+    let nad27 = e.crs_display_info("EPSG:26715", None).unwrap();
+    println!("basemap offset: NAD83 {:?}, NAD27 {:?}", u.basemap_offset_m, nad27.basemap_offset_m);
+    assert!(u.basemap_offset_m.map_or(true, |m| m <= 5.0), "{:?}", u.basemap_offset_m);
+    assert!(nad27.basemap_offset_m.map_or(false, |m| m > 5.0), "NAD27 must report an offset > 5 m: {:?}", nad27.basemap_offset_m);
+    let k = e.map_scale_factor("EPSG:26915", 500000.0, 4400000.0).unwrap();
+    assert!((k - 0.9996).abs() < 1e-6, "UTM central meridian k: {k}");
+
     let geo = e.crs_display_info("EPSG:4326", None).unwrap();
     assert!(geo.geographic && geo.grid.extent == [-180.0, -90.0, 180.0, 90.0]);
     assert!((geo.grid.resolutions[0] - 180.0 / 256.0).abs() < 1e-12, "two tiles across at z0");

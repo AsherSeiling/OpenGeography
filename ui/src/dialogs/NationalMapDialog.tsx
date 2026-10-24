@@ -5,7 +5,7 @@ import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, Dia
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent, type TnmDataset } from "../ipc/api";
-import { getMap, zoomToExtent } from "../map/mapController";
+import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
 import { useApp } from "../store/store";
 
@@ -31,8 +31,7 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
   const layer = layers.find((l) => l.id === layerId);
   const extent: Extent | null = (() => {
     if (area === "view") {
-      const b = getMap()?.getBounds();
-      return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null;
+      return getViewBounds();
     }
     return layer?.extent ?? null;
   })();

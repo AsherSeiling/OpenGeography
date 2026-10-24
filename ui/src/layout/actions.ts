@@ -2,12 +2,12 @@
 import { save } from "@tauri-apps/plugin-dialog";
 import { useDialog } from "../actions";
 import { api, errorText, IN_TAURI } from "../ipc/api";
-import { getMap } from "../map/mapController";
+import { getCenterLonLat, getGroundPerPixel, getMap } from "../map/mapController";
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { addMapFrame, addSurround, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
-import { frames, metersPerPixel, newLayoutDoc, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
+import { frames, newLayoutDoc, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 
 const status = (s: string) => useApp.getState().setStatus(s);
 
@@ -111,13 +111,14 @@ export async function setFrameFromMapView(frameId?: string) {
   const map = getMap();
   if (!frame || !map) return status("Insert a map frame first (Layout tab → Map Frame).");
   if (!frame.crs) return status("Set a coordinate system for the map frame.");
-  const c = map.getCenter();
+  const c = getCenterLonLat();
+  const mpp = getGroundPerPixel();
+  const size = map.getSize();
+  if (!c || !mpp || !size) return status("The map view isn't ready yet.");
   try {
-    const center = await api.transformPoint(c.lng, c.lat, "EPSG:4326", frame.crs);
-    const mpp = metersPerPixel(c.lat, map.getZoom());
-    const canvas = map.getCanvas();
-    const w = (canvas.clientWidth * mpp) / (frame.w / 1000);
-    const h = (canvas.clientHeight * mpp) / (frame.h / 1000);
+    const center = await api.transformPoint(c[0], c[1], "EPSG:4326", frame.crs);
+    const w = (size[0] * mpp) / (frame.w / 1000);
+    const h = (size[1] * mpp) / (frame.h / 1000);
     useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)) });
   } catch (e) {
     status(`Could not place the frame: ${errorText(e)}`);
