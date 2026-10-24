@@ -116,6 +116,27 @@ Tiles in a non-Mercator grid need geometry in that CRS. Transforming `__g` for e
 - **proj4 can't express a CRS:** rare projections. The engine says so in `crs_display_info`, and the UI keeps the previous CRS with a message.
 - **Display-table size:** a multi-GB layer in a new CRS takes another copy. The budget and LRU eviction bound it; the progress bar and Cancel make it visible.
 
+### Review notes (Opus second review, 2026-10-23): fold into M2–M4
+
+**R1. Basemap datum offset.** OL reprojects the Web Mercator basemaps with proj4. proj4 has no datum grid shifts, but the engine's data tiles use PROJ, which does. For a map CRS on a datum other than WGS 84/NAD83, the basemap and the data can disagree:
+- **How far:** tens of metres on NAD27 (CONUS); about 1–2 m on NAD83.
+- **Rule:** `crs_display_info` also returns `basemapOffsetM`, the accuracy of PROJ's best transform between the map CRS and EPSG:4326 (`proj_coordoperation_get_accuracy`). It's `null` when PROJ doesn't know the value.
+- **Above 5 m:**
+  - The UI shows a chip: "Basemap may be offset ≈N m in this coordinate system (datum shift)".
+  - Data layers are never moved to match the basemap.
+  - Optional in M4: draw basemaps through the engine (`render_extent` on a GDAL XYZ source), so they get the same PROJ transform.
+- **Acceptance (M2):** P9b. For EPSG:26715 (NAD27 / UTM 15N), the chip appears and states an offset. For EPSG:26915 (NAD83), the chip doesn't appear.
+
+**R2. Engine-backed status-bar coordinates must not flood IPC.** M-D5 sends every displayed number through the engine. Pointer moves can fire at more than 100 Hz.
+- **Rule:** at most one `transformPoint` in flight. Coalesce to about 20 Hz, and drop responses that arrive after a newer move. The readout shows the last engine value, never a proj4 value.
+- **Acceptance (M2):** P8b. A 5 s mouse sweep sends ≤ 110 transform calls and never shows a stale value after the pointer stops.
+
+**R3. Docs after M3.** Replace MapLibre wording with OpenLayers in:
+- `README.md` and `docs/prompts/sonnet-runner.md`;
+- the current-state lines of `docs/DECISIONS.md` and `docs/MASTER_PLAN.md`.
+
+Leave the historical decisions as they are. LAYOUTS_PLAN L1 still holds: print stays engine-rendered for vector PDF, determinism and the CLI. Only its "MapLibre can't draw a true CRS" wording changes, to "the screen view isn't the print path".
+
 ## 5. Effects on other plans
 - **PLANETARY_PLAN D2** (Mercator display plus the MapLibre pole spike) is superseded. Bodies use polar stereographic and equirectangular CRSs from PROJ's IAU catalogue through the same display path. F0 no longer needs the pole spike. There's no 3D globe.
 - **LAYOUTS_PLAN:** "Set from Map View" becomes exact (same CRS). Nothing else changes.
