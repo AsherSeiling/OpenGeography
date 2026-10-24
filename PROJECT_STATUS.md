@@ -3,9 +3,7 @@
 _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Session prompts: `docs/prompts/`._
 
 ## Exact next action
-- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):**
-  1. ✅ C2.1 CI green on all three platforms (run 40047865204): the P3 golden SVG hash matches on Linux and Windows too.
-  2. Delegate **C2.2** (layout view UI + commands; brief in `docs/prompts/next-session.md`).
+- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** C2.1's P3 golden hash passed on all three CI platforms (run 40047865204). C2.2 (layout view UI + commands) is being built on branch `claude/c2-2-layout-view-*`; review and merge it, then rebuild the Mac app so layouts open in the desktop build.
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
 
 ## State
