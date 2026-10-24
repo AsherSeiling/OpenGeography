@@ -22,6 +22,8 @@ pub struct FrameCtx {
     pub factors: Factors,
     /// Layers drawn in the frame, top first.
     pub drawn: Vec<String>,
+    /// Citations of what else the frame drew (its base map).
+    pub extra_cites: Vec<String>,
 }
 
 const PT_MM: f64 = 25.4 / 72.0;
@@ -115,7 +117,7 @@ fn open_group(out: &mut String, tag: &str, at: &Placement) {
 }
 
 /// 0.25 → "0.25", 2.0 → "2": round to 6 decimals first so 0.1 × 3 prints as 0.3.
-fn num(v: f64) -> String {
+pub(super) fn num(v: f64) -> String {
     format!("{}", (v * 1e6).round() / 1e6)
 }
 
@@ -132,7 +134,7 @@ fn unit_m(units: &str) -> (&'static str, f64) {
 }
 
 /// Largest 1-2-5 × 10^k value not above `max` (> 0).
-fn nice_floor(max: f64) -> f64 {
+pub(super) fn nice_floor(max: f64) -> f64 {
     let p = 10f64.powf(max.log10().floor());
     [5.0, 2.0, 1.0].iter().map(|m| m * p).find(|v| *v <= max * (1.0 + 1e-9)).unwrap_or(p)
 }
@@ -244,6 +246,8 @@ enum Sym {
     Poly,
     Line,
     Point,
+    /// A raster layer: its elevation ramp (true) or a neutral chip (imagery).
+    Raster(bool),
 }
 
 struct Row {
@@ -259,6 +263,9 @@ fn format_break(v: f64) -> String {
 
 /// Legend rows for one drawn layer, mirroring how `frame.rs` colours it.
 fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
+    if let Some(r) = &info.raster {
+        return vec![Row { swatch: Some((Sym::Raster(r.kind != "rgb"), String::new())), label: info.name.clone(), style: style.clone() }];
+    }
     let sym = match info.geom_type.as_str() {
         "Line" => Sym::Line,
         "Point" => Sym::Point,
@@ -309,6 +316,18 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
         }
         Sym::Line => {
             let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{color}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"round\"/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), mm(sw.max(0.3)));
+        }
+        Sym::Raster(ramped) => {
+            let chips: Vec<String> = if ramped {
+                (0..4).map(|i| crate::raster::ramp(i as f32 / 3.0)).map(|c| format!("#{:02x}{:02x}{:02x}", c[0] as u8, c[1] as u8, c[2] as u8)).collect()
+            } else {
+                vec!["#c8c8c8".into()]
+            };
+            let w = SWATCH_W / chips.len() as f64;
+            for (i, c) in chips.iter().enumerate() {
+                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{c}\"/>", mm(x + w * i as f64), mm(y + 0.75), mm(w));
+            }
+            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.2\"/>", mm(x), mm(y + 0.75), mm(SWATCH_W));
         }
         Sym::Point => {
             let r = (style.radius.max(0.0) * PX_MM).min(1.8);

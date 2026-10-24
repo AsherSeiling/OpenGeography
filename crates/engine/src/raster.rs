@@ -246,7 +246,7 @@ const RAMP: [[f32; 3]; 6] = [
     [245.0, 245.0, 245.0],
 ];
 
-fn ramp(t: f32) -> [f32; 3] {
+pub(crate) fn ramp(t: f32) -> [f32; 3] {
     let t = t.clamp(0.0, 1.0) * (RAMP.len() - 1) as f32;
     let i = (t.floor() as usize).min(RAMP.len() - 2);
     let f = t - i as f32;
@@ -256,15 +256,27 @@ fn ramp(t: f32) -> [f32; 3] {
 
 /// One 256×256 Web Mercator PNG tile of a raster.
 pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32) -> Result<Vec<u8>> {
-    const N: usize = 256;
     let world = 20037508.342789244;
     let size = 2.0 * world / 2f64.powi(z as i32);
     let (x0, y1) = (-world + x as f64 * size, world - y as f64 * size);
-    let (x1, y0) = (x0 + size, y1 - size);
+    render_extent(info, crate::crs::WEB_MERCATOR, [x0, y1 - size, x0 + size, y1], 256, 256)
+}
+
+/// A PNG of `extent` (`[xmin, ymin, xmax, ymax]` in `crs`) at `w_px` × `h_px`:
+/// the raster warped to that grid and coloured like the map (elevation ramp
+/// with hillshade, or RGB). Pixels with no data are transparent. Map tiles
+/// (`render_tile`), layouts and the projected map view all draw through this.
+pub fn render_extent(info: &RasterInfo, crs: &str, extent: [f64; 4], w_px: u32, h_px: u32) -> Result<Vec<u8>> {
+    let (w, h) = (w_px as usize, h_px as usize);
+    if w == 0 || h == 0 || w.saturating_mul(h) > 100_000_000 {
+        bail!("Raster image size {w_px}×{h_px} px is not supported");
+    }
+    let [x0, y0, x1, y1] = extent;
+    let target = crate::crs::resolve(crs);
     let src = Dataset::open(&info.path)?;
     let rgb = info.kind == "rgb";
-    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", "EPSG:3857", "-r", "bilinear", "-dstalpha"].map(String::from).to_vec();
-    args.extend(["-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(), "-ts".into(), N.to_string(), N.to_string()]);
+    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", "bilinear", "-dstalpha"].map(String::from).to_vec();
+    args.extend(["-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(), "-ts".into(), w.to_string(), h.to_string()]);
     if rgb {
         args.extend(["-b", "1", "-b", "2", "-b", "3"].map(String::from));
     } else {
@@ -272,34 +284,32 @@ pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32) -> Result<Vec<u8>>
     }
     let tile = warp(&src, "", &args)?;
     let nb = tile.raster_count();
-    let alpha: Vec<f32> = tile.rasterband(nb)?.read_as::<f32>((0, 0), (N, N), (N, N), None)?.data().to_vec();
-    let mut rgba = vec![0u8; N * N * 4];
+    let alpha: Vec<f32> = tile.rasterband(nb)?.read_as::<f32>((0, 0), (w, h), (w, h), None)?.data().to_vec();
+    let mut rgba = vec![0u8; w * h * 4];
     if rgb {
-        let bands: Vec<Vec<f32>> = (1..=3).map(|i| tile.rasterband(i).and_then(|b| b.read_as::<f32>((0, 0), (N, N), (N, N), None)).map(|b| b.data().to_vec())).collect::<Result<_, _>>()?;
-        for i in 0..N * N {
+        let bands: Vec<Vec<f32>> = (1..=3).map(|i| tile.rasterband(i).and_then(|b| b.read_as::<f32>((0, 0), (w, h), (w, h), None)).map(|b| b.data().to_vec())).collect::<Result<_, _>>()?;
+        for i in 0..w * h {
             for c in 0..3 {
                 rgba[i * 4 + c] = bands[c][i].clamp(0.0, 255.0) as u8;
             }
             rgba[i * 4 + 3] = alpha[i].clamp(0.0, 255.0) as u8;
         }
     } else {
-        let v: Vec<f32> = tile.rasterband(1)?.read_as::<f32>((0, 0), (N, N), (N, N), None)?.data().to_vec();
+        let v: Vec<f32> = tile.rasterband(1)?.read_as::<f32>((0, 0), (w, h), (w, h), None)?.data().to_vec();
         let (lo, hi) = (info.min as f32, info.max as f32);
         let span = (hi - lo).max(1e-6);
-        // Ground size of a tile pixel (meters) for shading.
-        let lat = (2.0 * ((y0 + y1) / 2.0 / 6378137.0).exp().atan() - std::f64::consts::FRAC_PI_2).cos();
-        let px = (size / N as f64 * lat) as f32;
-        let at = |r: isize, c: isize| v[(r.clamp(0, N as isize - 1) as usize) * N + c.clamp(0, N as isize - 1) as usize];
+        let (pxx, pxy) = ground_pixel_m(&target, extent, w, h)?;
+        let at = |r: isize, c: isize| v[(r.clamp(0, h as isize - 1) as usize) * w + c.clamp(0, w as isize - 1) as usize];
         let (az, alt) = (315f32.to_radians(), 45f32.to_radians());
-        for r in 0..N as isize {
-            for c in 0..N as isize {
-                let i = r as usize * N + c as usize;
+        for r in 0..h as isize {
+            for c in 0..w as isize {
+                let i = r as usize * w + c as usize;
                 if alpha[i] < 1.0 || (info.nodata.map(|nd| (v[i] - nd as f32).abs() < 1e-6).unwrap_or(false)) {
                     continue;
                 }
                 // Horn slope/aspect for hillshading.
-                let dzdx = ((at(r - 1, c + 1) + 2.0 * at(r, c + 1) + at(r + 1, c + 1)) - (at(r - 1, c - 1) + 2.0 * at(r, c - 1) + at(r + 1, c - 1))) / (8.0 * px);
-                let dzdy = ((at(r + 1, c - 1) + 2.0 * at(r + 1, c) + at(r + 1, c + 1)) - (at(r - 1, c - 1) + 2.0 * at(r - 1, c) + at(r - 1, c + 1))) / (8.0 * px);
+                let dzdx = ((at(r - 1, c + 1) + 2.0 * at(r, c + 1) + at(r + 1, c + 1)) - (at(r - 1, c - 1) + 2.0 * at(r, c - 1) + at(r + 1, c - 1))) / (8.0 * pxx);
+                let dzdy = ((at(r + 1, c - 1) + 2.0 * at(r + 1, c) + at(r + 1, c + 1)) - (at(r - 1, c - 1) + 2.0 * at(r - 1, c) + at(r - 1, c + 1))) / (8.0 * pxy);
                 let slope = (dzdx * dzdx + dzdy * dzdy).sqrt().atan();
                 let aspect = dzdy.atan2(-dzdx);
                 let shade = (alt.sin() * slope.cos() + alt.cos() * slope.sin() * (az - std::f32::consts::FRAC_PI_2 - aspect).cos()).max(0.0);
@@ -314,13 +324,35 @@ pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32) -> Result<Vec<u8>>
     }
     let mut out = Vec::new();
     {
-        let mut enc = png::Encoder::new(&mut out, N as u32, N as u32);
+        let mut enc = png::Encoder::new(&mut out, w_px, h_px);
         enc.set_color(png::ColorType::Rgba);
         enc.set_depth(png::BitDepth::Eight);
-        let mut w = enc.write_header()?;
-        w.write_image_data(&rgba)?;
+        let mut wr = enc.write_header()?;
+        wr.write_image_data(&rgba)?;
     }
     Ok(out)
+}
+
+/// Ground size in metres of one output pixel (east, north) for hillshading.
+/// Web Mercator pixels shrink by cos(latitude) on the ground; other
+/// projected CRSs use their linear unit (the scale factor is within ~0.1%
+/// over a frame); geographic CRSs convert degrees on the CRS's ellipsoid.
+fn ground_pixel_m(target: &str, e: [f64; 4], w: usize, h: usize) -> Result<(f32, f32)> {
+    let (dx, dy) = ((e[2] - e[0]) / w as f64, (e[3] - e[1]) / h as f64);
+    if target == crate::crs::WEB_MERCATOR {
+        let lat = (2.0 * ((e[1] + e[3]) / 2.0 / 6378137.0).exp().atan() - std::f64::consts::FRAC_PI_2).cos();
+        return Ok(((dx * lat) as f32, (dy * lat) as f32));
+    }
+    let srs = gdal::spatial_ref::SpatialRef::from_definition(target).map_err(|e| anyhow!("Unknown coordinate system '{target}': {e}"))?;
+    if srs.is_geographic() {
+        let a = srs.semi_major().map_err(|e| anyhow!("{e}"))?;
+        let m_per_deg = a * std::f64::consts::PI / 180.0;
+        let lat = ((e[1] + e[3]) / 2.0).to_radians().cos().max(1e-6);
+        Ok(((dx * m_per_deg * lat) as f32, (dy * m_per_deg) as f32))
+    } else {
+        let u = srs.linear_units();
+        Ok(((dx * u) as f32, (dy * u) as f32))
+    }
 }
 
 /// Value of band 1 at a lon/lat (for identify).

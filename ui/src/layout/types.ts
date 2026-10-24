@@ -30,6 +30,12 @@ export interface Border {
 
 export type FrameLayers = "map" | { id: string; visible: boolean }[];
 
+/** Graticule (interval in degrees) or projected grid (interval in CRS units). */
+export interface GridSpec {
+  interval: "auto" | number;
+  labels: boolean;
+}
+
 export interface MapFrame extends Placement {
   kind: "map_frame";
   /** Explicit frame CRS; "" = not set (the engine refuses to render it). */
@@ -39,9 +45,10 @@ export interface MapFrame extends Placement {
   /** Nominal scale denominator. */
   scale: number;
   layers: FrameLayers;
+  /** OpenStreetMap is not offered: its tile policy forbids bulk downloads (the engine refuses it). */
   basemap: "none" | "usgsTopo" | "usgsImagery" | "usgsRelief";
-  graticule: unknown | null;
-  grid: unknown | null;
+  graticule: GridSpec | null;
+  grid: GridSpec | null;
   border: Border | null;
 }
 

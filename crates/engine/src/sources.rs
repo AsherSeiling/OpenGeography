@@ -234,6 +234,16 @@ pub fn record(conn: &Connection, citation: &Citation, layer_id: &str, layer_name
     Ok(())
 }
 
+/// As [`record`], but a source already logged for `layer_id` is left alone
+/// (a layout re-renders on every edit and must not grow the log).
+pub fn record_once(conn: &Connection, citation: &Citation, layer_id: &str, layer_name: &str) -> Result<()> {
+    let n: i64 = conn.query_row("SELECT count(*) FROM __source_uses WHERE key = ? AND layer_id = ?", [&citation.key, layer_id], |r| r.get(0))?;
+    if n == 0 {
+        record(conn, citation, layer_id, layer_name)?;
+    }
+    Ok(())
+}
+
 /// Keep the log's layer names current after a rename.
 pub fn rename_layer(conn: &Connection, layer_id: &str, name: &str) -> Result<()> {
     conn.execute("UPDATE __source_uses SET layer_name = ? WHERE layer_id = ?", [name, layer_id])?;

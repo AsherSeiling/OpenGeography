@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { pickFrameCrs, setFrameFromMapView } from "./actions";
-import { rounded, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type ScaleBarElement, type SourcesElement, type TextElement } from "./types";
+import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type ScaleBarElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -76,7 +76,46 @@ function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
         <Num label="Centre Y" value={el.center[1]} decimals={2} onChange={(v) => set({ center: [el.center[0], v] }, "cy")} />
       </div>
       <Button size="small" onClick={() => void setFrameFromMapView(el.id)}>Set from Map View</Button>
+      <Field label="Basemap" size="small">
+        <Dropdown size="small" value={BASEMAPS.find((b) => b[0] === el.basemap)?.[1] ?? "None"} selectedOptions={[el.basemap]} onOptionSelect={(_, d) => set({ basemap: d.optionValue })}>
+          {BASEMAPS.map(([v, l]) => <Option key={v} value={v}>{l}</Option>)}
+          <Option value="osm" disabled title="OpenStreetMap's tile policy forbids bulk downloads, so it can't be used in a print layout.">OpenStreetMap (not for print)</Option>
+        </Dropdown>
+      </Field>
+      <GridFields label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
+      <GridFields label="Grid (map coordinates)" unit="CRS units" value={el.grid} onChange={(grid) => set({ grid }, "grid")} />
       <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} decimals={2} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />
+    </>
+  );
+}
+
+const BASEMAPS: [MapFrame["basemap"], string][] = [["none", "None"], ["usgsTopo", "USGS Topo"], ["usgsImagery", "USGS Imagery"], ["usgsRelief", "USGS Shaded Relief"]];
+
+/** Graticule/grid: off, or on with an interval ("auto" or a number) and edge labels. */
+function GridFields({ label, unit, value, onChange }: { label: string; unit: string; value: GridSpec | null; onChange: (v: GridSpec | null) => void }) {
+  const [text, setText] = useState(value ? String(value.interval) : "auto");
+  useEffect(() => setText((t) => (value && (value.interval === "auto" ? t.trim() === "auto" : Number(t) === value.interval) ? t : value ? String(value.interval) : t)), [value?.interval]);
+  return (
+    <>
+      <Checkbox label={label} checked={!!value} onChange={(_, d) => onChange(d.checked ? { interval: "auto", labels: true } : null)} />
+      {value && (
+        <div className="props-grid">
+          <Field label={`Interval (${unit})`} size="small">
+            <Input
+              size="small"
+              value={text}
+              onChange={(_, d) => {
+                setText(d.value);
+                const t = d.value.trim();
+                const v = Number(t);
+                if (t.toLowerCase() === "auto") onChange({ ...value, interval: "auto" });
+                else if (t !== "" && Number.isFinite(v) && v > 0) onChange({ ...value, interval: v });
+              }}
+            />
+          </Field>
+          <Checkbox label="Labels" checked={value.labels} onChange={(_, d) => onChange({ ...value, labels: !!d.checked })} />
+        </div>
+      )}
     </>
   );
 }

@@ -3,9 +3,11 @@
 //! (vector layers), text, legends, scale bars, north arrows and sources;
 //! rasters, graticules and basemaps arrive in C2.4.
 
+pub mod basemap;
 pub mod export;
 pub mod frame;
 pub mod geo;
+pub mod grid;
 pub mod model;
 pub mod surround;
 pub mod svg;
@@ -15,7 +17,7 @@ use crate::Engine;
 use crate::progress::Task;
 use anyhow::{Context, Result};
 use duckdb::Connection;
-use model::{Element, Layout, RenderRequest};
+use model::{Element, GridSpec, Layout, RenderRequest};
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::path::Path;
@@ -24,6 +26,8 @@ use std::path::Path;
 pub struct LayoutSvg {
     pub svg: String,
     pub warnings: Vec<String>,
+    /// Basemap ids that were drawn (their citations are recorded by the engine).
+    pub basemaps: Vec<String>,
 }
 
 /// "24000" → "24,000".
@@ -83,14 +87,16 @@ fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, siz
 
 /// Render one page. `lookup` resolves a layer id (the UI sends ids of the
 /// layers or node-tree results it wants drawn); `cites` gives the short
-/// citations recorded for a layer id; `check` is polled between layers so an
+/// citations recorded for a layer id; `open_basemap` opens a basemap's tile
+/// service; `check` is polled between layers so an
 /// export can be cancelled.
-pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, cites: &dyn Fn(&str) -> Vec<String>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
+pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, cites: &dyn Fn(&str) -> Vec<String>, open_basemap: &dyn Fn(&str) -> Result<gdal::Dataset>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
     let layout = &req.layout;
     layout.validate()?;
     let body = geo::Body::get(&layout.body)?;
     let p = &layout.page;
     let mut warnings = Vec::new();
+    let mut basemaps: Vec<String> = Vec::new();
     let mut s = String::new();
     let _ = write!(
         s,
@@ -104,16 +110,18 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     for e in layout.elements.iter().filter(|e| e.at().visible) {
         if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border } = e {
             check()?;
-            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref() };
+            let (graticule, grid) = (graticule.as_ref().map(|g| GridSpec::parse(g, "graticule")).transpose()?, grid.as_ref().map(|g| GridSpec::parse(g, "grid")).transpose()?);
+            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref(), graticule: graticule.as_ref(), grid: grid.as_ref(), basemap, open_basemap };
             let out = frame::render_frame(conn, &body, &f, req, lookup, check)?;
             warnings.extend(out.warnings);
-            if basemap != "none" {
-                warnings.push(format!("Frame '{}': basemaps are drawn in a later release", at.id));
+            let mut extra_cites = Vec::new();
+            if let Some(b) = &out.basemap {
+                extra_cites.extend(crate::sources::for_basemap(b).map(|c| short_citation(&c)));
+                if !basemaps.contains(b) {
+                    basemaps.push(b.clone());
+                }
             }
-            if graticule.is_some() || grid.is_some() {
-                warnings.push(format!("Frame '{}': graticule and grid are drawn in a later release", at.id));
-            }
-            let ctx = surround::FrameCtx { id: at.id.clone(), scale: *scale, rotation: at.rotation, factors: out.factors, drawn: out.drawn.iter().rev().cloned().collect() };
+            let ctx = surround::FrameCtx { id: at.id.clone(), scale: *scale, rotation: at.rotation, factors: out.factors, drawn: out.drawn.iter().rev().cloned().collect(), extra_cites };
             frames.insert(at.id.as_str(), (out.svg, ctx));
         }
     }
@@ -146,13 +154,13 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             }
             Element::Sources { at, frame, size } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::sources(&mut s, &mut warnings, at, *size, c, cites, &[]);
+                    surround::sources(&mut s, &mut warnings, at, *size, c, cites, &c.extra_cites);
                 }
             }
         }
     }
     s.push_str("</svg>");
-    Ok(LayoutSvg { svg: s, warnings })
+    Ok(LayoutSvg { svg: s, warnings, basemaps })
 }
 
 /// "U.S. Census Bureau, TIGER/Line Shapefiles (2024)" for the Sources element.
@@ -258,7 +266,9 @@ impl Engine {
     /// Render a page to a PNG preview (base64, so it crosses IPC as one string).
     pub fn render_layout_preview(&self, req: &RenderRequest, dpi: f64) -> Result<LayoutPreview> {
         use base64::Engine as _;
-        let out = self.render_layout_svg(req, &|| Ok(()))?;
+        let mut req = req.clone();
+        req.raster_dpi.get_or_insert(dpi); // a screen preview needn't carry 300 dpi images
+        let out = self.render_layout_svg(&req, &|| Ok(()))?;
         let png = export::svg_to_png(&out.svg, dpi)?;
         Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings })
     }
@@ -270,7 +280,11 @@ impl Engine {
     pub fn export_layout(&self, req: &RenderRequest, format: ExportFormat, dpi: f64, path: &Path) -> Result<Vec<String>> {
         let task = Task::start(format!("Exporting layout — {}", req.layout.name)).cancellable();
         task.detail("Drawing the page");
-        let out = self.render_layout_svg(req, &|| task.check())?;
+        let mut req = req.clone();
+        if format == ExportFormat::Png {
+            req.raster_dpi.get_or_insert(dpi);
+        }
+        let out = self.render_layout_svg(&req, &|| task.check())?;
         task.check()?;
         task.set(0.8, Some("Encoding"));
         let bytes = match format {
@@ -286,10 +300,23 @@ impl Engine {
 
     /// Render a layout page to SVG against the open project's layers.
     pub fn render_layout_svg(&self, req: &RenderRequest, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
+        self.render_layout_svg_with(req, &basemap::open, check)
+    }
+
+    /// As [`Engine::render_layout_svg`] with the basemap tile service supplied
+    /// (the tests use a local raster instead of the network). Every basemap
+    /// drawn is recorded in the project's sources.
+    pub fn render_layout_svg_with(&self, req: &RenderRequest, open_basemap: &dyn Fn(&str) -> Result<gdal::Dataset>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
         let lookup = |id: &str| self.layer(id).ok();
         self.with_conn(|c| {
             let cites = short_citations(c)?;
-            render_svg(c, req, &lookup, &|id| cites.get(id).cloned().unwrap_or_default(), check)
+            let out = render_svg(c, req, &lookup, &|id| cites.get(id).cloned().unwrap_or_default(), open_basemap, check)?;
+            for b in &out.basemaps {
+                if let Some(cite) = crate::sources::for_basemap(b) {
+                    crate::sources::record_once(c, &cite, &format!("basemap:{b}"), &cite.title)?;
+                }
+            }
+            Ok(out)
         })
     }
 }

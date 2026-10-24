@@ -3,12 +3,12 @@
 _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Session prompts: `docs/prompts/`._
 
 ## Exact next action
-- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** C2.2 (layout view, `__layouts` storage, export commands) is merged and the Mac app is rebuilt with it. Next: **C2.3 + C2.4** in one Sonnet session (surround elements, then graticule/grid, rasters and basemaps; brief in `docs/prompts/next-session.md`), then the projected map view M1–M4 (`docs/MAP_PROJECTION_PLAN.md`).
+- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** review and merge branch `claude/c2-3-4-layout-elements-0bebf9` (C2.3 + C2.4, two commits; geodesy hunks: `layout/surround.rs` scale bar and north arrow, `layout/grid.rs` graticule, `raster.rs::ground_pixel_m`), then rebuild the Mac app and run `--self-test` (P19). Next Sonnet task: **M1** of the projected map view (brief in `docs/prompts/next-session.md`), then M2–M4.
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
 
 ## State
 - `main` is pushed to https://github.com/AsherSeiling/OpenGeography (public). Never commit `.claude/` (local launch config and worktrees).
-- Phases A (except A3 and the tag) and B are done. Phase C: C1 designed, C2.1 merged, C2.2 (Layout view, commands, `__layouts` storage) merged.
+- Phases A (except A3 and the tag) and B are done. Phase C: C1 designed, C2.1 and C2.2 merged, C2.3 + C2.4 (surround elements, graticule/grid, rasters, USGS basemaps) done on their branch awaiting review.
 - CI is green on macOS, Linux and Windows through Phase B (`docs/CI_LOG.md`). CI logs need a GitHub login: read failures from the run annotations (`scripts/ci-run.sh` publishes key lines).
 - The packaged Mac app and DMG are copied into the project folder (`GIS Studio.app`, `GIS-Studio-<version>-macos-arm64.dmg`) and rebuilt once per phase.
 
@@ -16,13 +16,13 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 | Check | Result |
 |---|---|
 | `npx tsc` | pass |
-| `npx vitest run` | 78/78 |
-| `cargo test -p engine` | 14 unit + 35 + 9 (history) + 12 (layout) integration; 4 network tests, H14 and P6 ignored |
+| `npx vitest run` | 80/80 |
+| `cargo test -p engine` | 19 unit + 35 + 9 (history) + 25 (layout) integration; 4 network tests, H14, P6 and the USGS basemap network test ignored |
 | `cargo build -p gis-studio` | pass, 0 warnings |
 | Packaged app `--self-test` (clean env) | pass |
 
-## Known gaps (layouts, C2.2)
-- The Layout view has no rulers yet and no Arrange group (bring forward/back, align). Legend, scale bar, north arrow and sources are C2.3; graticule, rasters and basemaps are C2.4.
+## Known gaps (layouts)
+- The Layout view has no rulers yet and no Arrange group (bring forward/back, align). Scale bar has no "1:N" label option. Preview with a basemap re-fetches tiles on each edit (4–5 s). Feature labels and GeoPDF are later (C4).
 - Export dialog has no dpi box yet: PNG is 300 dpi. In the browser build the file path comes from a prompt.
 
 ## Known issues
@@ -31,6 +31,6 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 3. Fixed 2026-10-23: the one `package-macos.sh` failure (dylibbundler, libabsl_time) came from two sessions packaging at once in the same folder; each run's `rm -rf Frameworks` deleted the other's libraries. The script now takes a lock (`target/.package-macos.lock`), so a second run exits at once.
 
 ## Next tasks (in order)
-1. Layouts C2.3 + C2.4 (`docs/LAYOUTS_PLAN.md`) → projected map view M1–M4 (`docs/MAP_PROJECTION_PLAN.md`; the map view follows the map's CRS) → layouts C3.1–C3.2.
+1. Projected map view M1–M4 (`docs/MAP_PROJECTION_PLAN.md`; the map view follows the map's CRS) → layouts C3.1–C3.2.
 2. Public data toolkit: generic ArcGIS REST catalog first (`docs/PUBLIC_DATA_CATALOG.md`).
 3. Census data join (user enters the API key; OS keychain).
