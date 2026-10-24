@@ -291,6 +291,7 @@ fn layouts_are_stored_in_the_project_and_survive_reopening() {
     assert_eq!(e.list_layouts().unwrap().len(), 1);
     let proj = dir.path().join("p.gproj");
     e.save_project(&proj, "{}").unwrap();
+    drop(e); // release the project file (Windows locks it while open)
     let e2 = Engine::new().unwrap();
     e2.open_project(&proj).unwrap();
     let back = e2.list_layouts().unwrap();
