@@ -102,6 +102,11 @@ pub async fn transform_point(engine: Eng<'_>, x: f64, y: f64, from: String, to: 
     blocking(&engine, move |e| e.transform_point(x, y, &from, &to)).await
 }
 
+#[tauri::command]
+pub async fn map_scale_factor(engine: Eng<'_>, crs: String, x: f64, y: f64) -> Res<f64> {
+    blocking(&engine, move |e| e.map_scale_factor(&crs, x, y)).await
+}
+
 /// Grid, proj4 string and key for drawing the map in `crs`.
 #[tauri::command]
 pub async fn crs_display_info(engine: Eng<'_>, crs: String, fallback_extent: Option<[f64; 4]>) -> Res<DisplayInfo> {

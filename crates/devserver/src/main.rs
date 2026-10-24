@@ -210,6 +210,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "suggest_crs" => json!(e.suggest_crs(&s(a, "id")?)?),
         "validate_crs" => json!(e.validate_crs(&s(a, "crs")?)?),
         "transform_point" => json!(e.transform_point(f(a, "x")?, f(a, "y")?, &s(a, "from")?, &s(a, "to")?)?),
+        "map_scale_factor" => json!(e.map_scale_factor(&s(a, "crs")?, f(a, "x")?, f(a, "y")?)?),
         "crs_display_info" => json!(e.crs_display_info(&s(a, "crs")?, de(a, "fallbackExtent").ok())?),
         "build_display" => json!(e.build_display(&s(a, "layer")?, &s(a, "crs")?)?),
         "display_status" => json!(e.display_status(&s(a, "layer")?, &s(a, "crs")?)?),

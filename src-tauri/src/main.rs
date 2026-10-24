@@ -37,6 +37,7 @@ fn main() {
             commands::suggest_crs,
             commands::validate_crs,
             commands::transform_point,
+            commands::map_scale_factor,
             commands::crs_display_info,
             commands::build_display,
             commands::display_status,

@@ -33,7 +33,7 @@ import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
 import { QueryEditor } from "../query/QueryEditor";
-import { benchmarkFlight, getMap, type FlightResult } from "../map/mapController";
+import { benchmarkFlight, getCenterLonLat, type FlightResult } from "../map/mapController";
 import { displayInfo, useApp, type SelectMode } from "../store/store";
 
 export function Dialogs() {
@@ -79,8 +79,7 @@ export function Dialogs() {
 }
 
 function mapCenter(): [number, number] | null {
-  const c = getMap()?.getCenter();
-  return c ? [c.lng, c.lat] : null;
+  return getCenterLonLat();
 }
 
 // ---------- CRS picker ----------
@@ -183,6 +182,7 @@ function CrsPickerDialog({ title, initial, onPick, onClose }: { title: string; i
         <DialogBody>
           <DialogTitle>{title}</DialogTitle>
           <DialogContent>
+            <Button size="small" appearance="subtle" onClick={() => setSel({ id: "EPSG:3857", name: "WGS 84 / Pseudo-Mercator (Web Mercator)" })}>Web Mercator (EPSG:3857)</Button>
             <CrsPicker value={sel?.id ?? null} onChange={(id, name) => setSel({ id, name })} />
             {sel && <div className="crs-current">Selected: <b>{sel.name}</b> ({sel.id})</div>}
           </DialogContent>

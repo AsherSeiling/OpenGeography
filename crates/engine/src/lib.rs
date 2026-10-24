@@ -638,6 +638,14 @@ impl Engine {
         self.with_conn(|c| crs::transform_point(c, x, y, from, to))
     }
 
+    /// Point scale factor k of `crs` at (x, y) in that CRS: ground distance = grid distance / k
+    /// (1 for geographic CRSs). The map's `1:N` scale uses it (M-D5).
+    pub fn map_scale_factor(&self, crs: &str, x: f64, y: f64) -> Result<f64> {
+        let body = layout::geo::Body::get("earth")?;
+        let fc = layout::geo::FrameCrs::new(crs, &body)?;
+        Ok(layout::geo::factors(&body, &fc, x, y)?.k)
+    }
+
     pub fn validate_crs(&self, crs: &str) -> Result<()> {
         self.with_conn(|c| crs::validate(c, crs))
     }

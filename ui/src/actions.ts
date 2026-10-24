@@ -5,7 +5,7 @@ import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
-import { getMap, zoomToExtent } from "./map/mapController";
+import { getViewBounds, restoreCamera, snapshotCamera, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
@@ -140,7 +140,7 @@ export function pickMapCrs() {
     initial: cur?.id,
     onPick: (id, name) => {
       useApp.getState().setMapCrs({ id, name });
-      status(`Map coordinate system: ${name}. Coordinates, measurements and layouts use it; the screen draws in Web Mercator.`);
+      status(`Map coordinate system: ${name}. The map, coordinates, measurements and layouts use it.`);
     },
   });
 }
@@ -245,9 +245,7 @@ export async function selectByLocation(
 }
 
 export async function generateTestData(kind: "points" | "polygons", count: number) {
-  const map = getMap();
-  const b = map?.getBounds();
-  const bbox: [number, number, number, number] = b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : [-106, 26, -94, 36];
+  const bbox: [number, number, number, number] = getViewBounds() ?? [-106, 26, -94, 36];
   const info = await busy(`Generating ${count.toLocaleString()} ${kind}`, () => api.generateTestLayer(kind, count, bbox));
   if (!info) return;
   useApp.getState().addLayers([info]);
@@ -348,7 +346,6 @@ export function registerDock(serialize: () => unknown, restore: (d: unknown) => 
 function uiState(): UiStateV1 {
   const s = useApp.getState();
   const m = useModel.getState();
-  const map = getMap();
   return {
     version: 1,
     order: s.order,
@@ -356,7 +353,7 @@ function uiState(): UiStateV1 {
     styles: s.styles,
     mapCrs: s.mapCrs,
     basemap: s.basemap,
-    camera: map ? { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() } : null,
+    camera: snapshotCamera(),
     trees: m.allTrees(),
     dock: dockSerializer?.() ?? null,
   };
@@ -444,7 +441,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
   });
   useModel.getState().load(ui.trees ?? {}, order[0] ?? null);
   useRun.getState().set({ results: {} });
-  if (ui.camera) getMap()?.jumpTo(ui.camera);
+  if (ui.camera) restoreCamera(ui.camera);
   if (ui.dock) dockRestorer?.(ui.dock);
 }
 

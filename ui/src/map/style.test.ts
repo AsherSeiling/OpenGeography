@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LayerStyle } from "../store/store";
-import { buildLayers, parseScale, rampColors, scaleForZoom, styleFields, zoomForScale } from "./style";
+import { buildLayers, parseScale, rampColors, styleFields } from "./style";
 
 const base: LayerStyle = { kind: "single", fill: "#ff0000", stroke: "#000000", strokeWidth: 1, opacity: 0.8, radius: 3 };
 
@@ -24,12 +24,15 @@ describe("symbology", () => {
   });
 });
 
-describe("scale", () => {
-  it("round-trips scale and zoom", () => {
-    const z = zoomForScale(24000, 35);
-    expect(scaleForZoom(z, 35)).toBeCloseTo(24000, 6);
+describe("OpenLayers variant", () => {
+  it("carries no feature-state expressions (OL draws the selection itself)", () => {
+    const all = JSON.stringify(buildLayers("L1", "Mixed", base, true));
+    expect(all).not.toContain("feature-state");
+    expect(JSON.stringify(buildLayers("L1", "Mixed", base))).toContain("feature-state");
   });
+});
 
+describe("scale", () => {
   it("parses typed scales", () => {
     expect(parseScale("1:24,000")).toBe(24000);
     expect(parseScale("50k")).toBe(50000);

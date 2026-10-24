@@ -163,11 +163,6 @@ export function roundScaleUp(scale: number): number {
   return STANDARD_SCALES.find((s) => s >= scale * 0.999) ?? Math.ceil(scale / 1e6) * 1e6;
 }
 
-/** Ground metres a MapLibre screen pixel spans at `lat` and `zoom` (512 px tiles). */
-export function metersPerPixel(lat: number, zoom: number): number {
-  return (40075016.686 * Math.cos((lat * Math.PI) / 180)) / (512 * 2 ** zoom);
-}
-
 export function frames(l: Layout): MapFrame[] {
   return l.elements.filter((e): e is MapFrame => e.kind === "map_frame");
 }

@@ -1,10 +1,23 @@
-// Converts layer symbology into MapLibre style layers. Pure functions (tested).
-import type { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
+// Converts layer symbology into Mapbox-style layers (drawn by OpenLayers through ol-mapbox-style). Pure functions (tested).
 import type { GeomType } from "../ipc/api";
 import type { Basemap, LayerStyle } from "../store/store";
 
 /** ArcGIS-style cyan selection highlight. */
 export const SELECTION_COLOR = "#00ffff";
+
+/** A style expression (Mapbox style spec); kept loose because ol-mapbox-style evaluates it. */
+export type ExpressionSpecification = unknown[];
+/** One Mapbox-style layer as `buildLayers` emits it. */
+export interface LayerSpecification {
+  id: string;
+  type: "raster" | "fill" | "line" | "circle";
+  source?: string;
+  "source-layer"?: string;
+  filter?: ExpressionSpecification;
+  layout?: Record<string, unknown>;
+  paint?: Record<string, unknown>;
+}
+
 const selected: ExpressionSpecification = ["boolean", ["feature-state", "selected"], false];
 
 /** Attribute fields a style needs inside the vector tiles. */
@@ -15,24 +28,31 @@ export function styleFields(style: LayerStyle): string[] {
 function colorExpr(style: LayerStyle, base: string): ExpressionSpecification | string {
   if (style.kind === "categorized" && style.field && style.classes?.length) {
     const pairs = style.classes.flatMap((c) => [c.value, c.color]);
-    return ["match", ["to-string", ["get", style.field]], ...pairs, base] as unknown as ExpressionSpecification;
+    return ["match", ["to-string", ["get", style.field]], ...pairs, base] ;
   }
   if (style.kind === "graduated" && style.field && style.breaks?.length && style.colors?.length) {
     const steps = style.breaks.flatMap((b, i) => [b, style.colors![i + 1]]);
-    return ["step", ["to-number", ["get", style.field], 0], style.colors[0], ...steps] as unknown as ExpressionSpecification;
+    return ["step", ["to-number", ["get", style.field], 0], style.colors[0], ...steps] ;
   }
   return base;
 }
 
-function withSelection(expr: ExpressionSpecification | string): ExpressionSpecification {
-  return ["case", selected, SELECTION_COLOR, expr] as ExpressionSpecification;
+function selectionExpr(expr: ExpressionSpecification | string): ExpressionSpecification {
+  return ["case", selected, SELECTION_COLOR, expr];
 }
 
 export function layerIds(id: string): string[] {
   return [`${id}-raster`, `${id}-fill`, `${id}-line`, `${id}-circle`];
 }
 
-export function buildLayers(id: string, geom: GeomType, style: LayerStyle): LayerSpecification[] {
+/**
+ * `forOl`: OpenLayers draws the selection highlight itself (ol-mapbox-style has no
+ * `feature-state`), so the layers carry no selection expressions.
+ */
+export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl = false): LayerSpecification[] {
+  const withSelection = (expr: ExpressionSpecification | string): ExpressionSpecification | string => (forOl ? expr : selectionExpr(expr));
+  const lineWidth = forOl ? style.strokeWidth : ["case", selected, Math.max(2, style.strokeWidth + 1), style.strokeWidth];
+  const circleStroke = forOl ? "#333333" : ["case", selected, "#0060a0", "#333333"];
   const source = `src-${id}`;
   const common = { source, "source-layer": "layer" } as const;
   const fill = colorExpr(style, style.fill);
@@ -59,7 +79,7 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle): Laye
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
         "line-color": withSelection(lineColor),
-        "line-width": ["case", selected, Math.max(2, style.strokeWidth + 1), style.strokeWidth],
+        "line-width": lineWidth,
         "line-opacity": geom === "Line" ? style.opacity : 1,
       },
     });
@@ -74,7 +94,7 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle): Laye
         "circle-color": withSelection(fill),
         "circle-radius": style.radius,
         "circle-opacity": style.opacity,
-        "circle-stroke-color": ["case", selected, "#0060a0", "#333333"],
+        "circle-stroke-color": circleStroke,
         "circle-stroke-width": style.radius > 2 ? 0.6 : 0,
       },
     });
@@ -91,18 +111,6 @@ export const BASEMAPS: Record<Basemap, { label: string; tiles: string[]; attribu
   osm: { label: "OpenStreetMap", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], attribution: "© OpenStreetMap contributors", maxzoom: 19 },
   none: null,
 };
-
-// --- Scale ↔ zoom (96 DPI screen, MapLibre's 512px tiles) ---
-const EARTH = 40075016.686;
-const PX_PER_M = 96 / 0.0254;
-
-export function scaleForZoom(zoom: number, lat: number): number {
-  return ((EARTH * Math.cos((lat * Math.PI) / 180)) / (512 * 2 ** zoom)) * PX_PER_M;
-}
-
-export function zoomForScale(scale: number, lat: number): number {
-  return Math.log2((EARTH * Math.cos((lat * Math.PI) / 180) * PX_PER_M) / (512 * scale));
-}
 
 export const SCALE_PRESETS = [1000, 5000, 10000, 24000, 25000, 50000, 100000, 250000, 500000, 1000000, 5000000];
 

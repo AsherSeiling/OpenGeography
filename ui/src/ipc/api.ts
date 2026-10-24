@@ -139,6 +139,8 @@ export interface CrsDisplayInfo {
   areaOfUse: [number, number, number, number];
   /** False when PROJ has no area of use and the grid came from the fallback extent. */
   areaOfUseKnown: boolean;
+  /** Accuracy (m) of PROJ's best transform to WGS 84: how far an online basemap can sit from data in this CRS. Null when unknown. */
+  basemapOffsetM: number | null;
 }
 
 export interface DisplayStatus {
@@ -336,6 +338,8 @@ export const api = {
   validateCrs: (crs: string) => invoke<void>("validate_crs", { crs }),
   transformPoint: (x: number, y: number, from: string, to: string) =>
     invoke<[number, number]>("transform_point", { x, y, from, to }),
+  /** Point scale factor k of `crs` at (x, y) in that CRS (ground = grid / k); the status-bar `1:N` uses it. */
+  mapScaleFactor: (crs: string, x: number, y: number) => invoke<number>("map_scale_factor", { crs, x, y }),
   /** Grid, proj4 string and key for drawing the map in `crs`. `fallbackExtent` ([w, s, e, n] degrees) is used only when the CRS has no area of use. */
   crsDisplayInfo: (crs: string, fallbackExtent?: [number, number, number, number]) =>
     invoke<CrsDisplayInfo>("crs_display_info", { crs, fallbackExtent: fallbackExtent ?? null }),

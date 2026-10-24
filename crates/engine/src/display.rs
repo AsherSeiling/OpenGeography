@@ -17,6 +17,7 @@ use crate::{history, Engine};
 use anyhow::{anyhow, bail, Result};
 use duckdb::Connection;
 use gdal::spatial_ref::{AxisMappingStrategy, CoordTransform, SpatialRef};
+use geographiclib_rs::InverseGeodesic;
 use parking_lot::Mutex;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -73,6 +74,9 @@ pub struct DisplayInfo {
     /// False when PROJ has no area of use and the grid came from the
     /// fallback extent the caller gave.
     pub area_of_use_known: bool,
+    /// Metres PROJ's datum shift to WGS 84 moves the middle of the area of use: how far an online
+    /// (proj4-reprojected) basemap can sit from data shown in this CRS. `None` when unknown.
+    pub basemap_offset_m: Option<f64>,
 }
 
 fn srs(def: &str) -> Result<SpatialRef> {
@@ -152,7 +156,25 @@ pub fn display_info(crs: &str, fallback: Option<[f64; 4]>) -> Result<DisplayInfo
     } else {
         (projected_grid(&s, aou)?, s.linear_units())
     };
-    Ok(DisplayInfo { crs_key: key, proj4, geographic, unit_m, grid, area_of_use: aou, area_of_use_known })
+    let basemap_offset_m = basemap_offset(&s, aou);
+    Ok(DisplayInfo { crs_key: key, proj4, geographic, unit_m, grid, area_of_use: aou, area_of_use_known, basemap_offset_m })
+}
+
+/// How far (m) PROJ's best transform to WGS 84 moves the centre of the CRS's area of use, compared
+/// with reading its geographic coordinates as WGS 84 (R1). Online basemaps are reprojected by proj4,
+/// which has no datum grids, so this is how far they can sit from data tiles that PROJ projected.
+/// `None` when the CRS has no geographic base or the transform fails.
+fn basemap_offset(s: &SpatialRef, aou: [f64; 4]) -> Option<f64> {
+    let mut geog = s.geog_cs().ok()?;
+    geog.set_axis_mapping_strategy(AxisMappingStrategy::TraditionalGisOrder);
+    let wgs = srs(WGS84).ok()?;
+    let t = CoordTransform::new(&geog, &wgs).ok()?;
+    let (lon, lat) = ((aou[0] + if aou[2] < aou[0] { aou[2] + 360.0 } else { aou[2] }) / 2.0, (aou[1] + aou[3]) / 2.0);
+    let (mut x, mut y, mut z) = ([lon], [lat], [0.0]);
+    t.transform_coords(&mut x, &mut y, &mut z).ok()?;
+    let geod = crate::layout::geo::Body::get("earth").ok()?.geodesic();
+    let d: f64 = geod.inverse(lat, lon, y[0], x[0]);
+    d.is_finite().then_some(d)
 }
 
 /// Square grid around the area of use: its boundary (64 points per edge) is
