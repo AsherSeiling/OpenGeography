@@ -24,6 +24,9 @@ gdal = "0.19"
 gdal-sys = "0.12"
 png = "0.18"
 flate2 = "1"
+svg2pdf = "0.13"
+resvg = { version = "0.45", default-features = false, features = ["text", "raster-images"] }
+geographiclib-rs = "0.2.7"
 
 [dev-dependencies]
 tempfile = "3"

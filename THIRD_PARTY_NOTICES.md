@@ -1,6 +1,6 @@
 # Third-party notices
 
-GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-10-22 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
+GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-10-23 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
 
 ## Licensing note for the macOS installer
 
@@ -19,6 +19,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | GDAL data files | MIT | https://gdal.org/ |
 | DuckDB spatial extension | MIT | https://github.com/duckdb/duckdb-spatial |
 | World Magnetic Model 2025 coefficients (via `geomagnetism`) | Public domain (NOAA NCEI / British Geological Survey) | https://www.ncei.noaa.gov/products/world-magnetic-model |
+| Noto Sans Regular, Bold, Italic (`crates/engine/assets/fonts/`, embedded in print layouts; license text in `OFL.txt` there) | SIL Open Font License 1.1, © The Noto Project Authors | https://github.com/notofonts/latin-greek-cyrillic |
 | Extra CRS definitions (`crates/engine/assets/extra_crs.json`) | Derived from PROJ / EPSG (terms above) | https://proj.org/ |
 
 ## Native libraries bundled in the macOS app (187 files from 85 projects)
@@ -266,10 +267,11 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | [zustand](https://www.npmjs.com/package/zustand) | 4.5.7 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 5.0.15 | MIT |
 
-## Rust crates compiled into the app (516)
+## Rust crates compiled into the app (575)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
+| accurate | 0.3.1 | MIT OR Apache-2.0 | https://github.com/bsteinb/accurate |
 | adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 | https://github.com/oyvindln/adler2 |
 | ahash | 0.8.12 | MIT OR Apache-2.0 | https://github.com/tkaitchuck/ahash |
 | aho-corasick | 1.1.5 | Unlicense OR MIT | https://github.com/BurntSushi/aho-corasick |
@@ -279,6 +281,8 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | android_system_properties | 0.1.6 | MIT OR Apache-2.0 | https://github.com/nical/android_system_properties |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 | https://github.com/dtolnay/anyhow |
 | approx | 0.5.1 | Apache-2.0 | https://github.com/brendanzab/approx |
+| arrayref | 0.3.9 | BSD-2-Clause | https://github.com/droundy/arrayref |
+| arrayvec | 0.7.8 | MIT OR Apache-2.0 | https://github.com/bluss/arrayvec |
 | arrow | 58.4.0 | Apache-2.0 | https://github.com/apache/arrow-rs |
 | arrow-arith | 58.4.0 | Apache-2.0 | https://github.com/apache/arrow-rs |
 | arrow-array | 58.4.0 | Apache-2.0 AND MIT | https://github.com/apache/arrow-rs |
@@ -310,7 +314,9 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | bs58 | 0.5.1 | MIT/Apache-2.0 | https://github.com/Nullus157/bs58-rs |
 | bumpalo | 3.20.3 | MIT OR Apache-2.0 | https://github.com/fitzgen/bumpalo |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/bytemuck |
+| bytemuck_derive | 1.12.1 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/bytemuck |
 | byteorder | 1.5.0 | Unlicense OR MIT | https://github.com/BurntSushi/byteorder |
+| byteorder-lite | 0.1.0 | Unlicense OR MIT | https://github.com/image-rs/byteorder-lite |
 | bytes | 1.12.1 | MIT | https://github.com/tokio-rs/bytes |
 | cairo-rs | 0.18.5 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | cairo-sys-rs | 0.18.2 | MIT | https://github.com/gtk-rs/gtk-rs-core |
@@ -327,6 +333,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | cfg_aliases | 0.2.2 | MIT | https://github.com/katharostech/cfg_aliases |
 | chrono | 0.4.45 | MIT OR Apache-2.0 | https://github.com/chronotope/chrono |
 | chunked_transfer | 1.5.0 | MIT OR Apache-2.0 | https://github.com/frewsxcv/rust-chunked-transfer |
+| color_quant | 1.1.0 | MIT | https://github.com/image-rs/color_quant.git |
 | combine | 4.6.9 | MIT | https://github.com/Marwes/combine |
 | comfy-table | 7.1.4 | MIT | https://github.com/nukesor/comfy-table |
 | const-random | 0.1.18 | MIT OR Apache-2.0 | https://github.com/tkaitchuck/constrandom |
@@ -336,6 +343,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core-graphics | 0.25.0 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core-graphics-types | 0.2.0 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
+| core_maths | 0.1.1 | MIT | https://github.com/robertbastian/core_maths |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
 | crc32fast | 1.5.3 | MIT OR Apache-2.0 | https://github.com/srijs/rust-crc32fast |
 | crossbeam-channel | 0.5.17 | MIT OR Apache-2.0 | https://github.com/crossbeam-rs/crossbeam |
@@ -350,6 +358,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | darling | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
 | darling_core | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
 | darling_macro | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
+| data-url | 0.3.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url |
 | dbus | 0.9.12 | Apache-2.0/MIT | https://github.com/diwic/dbus-rs |
 | defmt | 1.2.0 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
 | defmt-macros | 1.2.0 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
@@ -376,6 +385,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | equivalent | 1.0.3 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/equivalent |
 | erased-serde | 0.4.10 | MIT OR Apache-2.0 | https://github.com/dtolnay/erased-serde |
 | errno | 0.3.14 | MIT OR Apache-2.0 | https://github.com/lambda-fairy/rust-errno |
+| euclid | 0.22.14 | MIT OR Apache-2.0 | https://github.com/servo/euclid |
 | fallible-iterator | 0.3.0 | MIT/Apache-2.0 | https://github.com/sfackler/rust-fallible-iterator |
 | fallible-streaming-iterator | 0.1.9 | MIT/Apache-2.0 | https://github.com/sfackler/fallible-streaming-iterator |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/fastrand |
@@ -384,9 +394,13 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | filetime | 0.2.29 | MIT/Apache-2.0 | https://github.com/alexcrichton/filetime |
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 | https://github.com/rust-lang/cc-rs |
 | flate2 | 1.1.10 | MIT OR Apache-2.0 | https://github.com/rust-lang/flate2-rs |
+| float-cmp | 0.9.0 | MIT | https://github.com/mikedilger/float-cmp |
 | fnv | 1.0.7 | Apache-2.0 / MIT | https://github.com/servo/rust-fnv |
 | foldhash | 0.1.5 | Zlib | https://github.com/orlp/foldhash |
 | foldhash | 0.2.0 | Zlib | https://github.com/orlp/foldhash |
+| font-types | 0.11.3 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
+| fontconfig-parser | 0.5.8 | MIT | https://github.com/Riey/fontconfig-parser |
+| fontdb | 0.23.0 | MIT | https://github.com/RazrFalcon/fontdb |
 | foreign-types | 0.5.0 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
 | foreign-types-macros | 0.2.4 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
 | foreign-types-shared | 0.3.1 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
@@ -410,9 +424,12 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | gdkx11-sys | 0.18.2 | MIT | https://github.com/gtk-rs/gtk3-rs |
 | generic-array | 0.14.7 | MIT | https://github.com/fizyk20/generic-array.git |
 | geo-types | 0.7.20 | MIT OR Apache-2.0 | https://github.com/georust/geo |
+| geographiclib-rs | 0.2.7 | MIT | https://github.com/georust/geographiclib-rs |
 | getrandom | 0.2.17 | MIT OR Apache-2.0 | https://github.com/rust-random/getrandom |
 | getrandom | 0.3.4 | MIT OR Apache-2.0 | https://github.com/rust-random/getrandom |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 | https://github.com/rust-random/getrandom |
+| gif | 0.13.3 | MIT OR Apache-2.0 | https://github.com/image-rs/image-gif |
+| gif | 0.14.2 | MIT OR Apache-2.0 | https://github.com/image-rs/image-gif |
 | gio | 0.18.4 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | gio-sys | 0.18.1 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | glib | 0.18.5 | MIT | https://github.com/gtk-rs/gtk-rs-core |
@@ -453,6 +470,10 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | ident_case | 1.0.1 | MIT/Apache-2.0 | https://github.com/TedDriggs/ident_case |
 | idna | 1.1.0 | MIT OR Apache-2.0 | https://github.com/servo/rust-url/ |
 | idna_adapter | 1.2.2 | Apache-2.0 OR MIT | https://github.com/hsivonen/idna_adapter |
+| ieee754 | 0.2.6 | MIT/Apache-2.0 | https://github.com/huonw/ieee754 |
+| image | 0.25.10 | MIT OR Apache-2.0 | https://github.com/image-rs/image |
+| image-webp | 0.2.4 | MIT OR Apache-2.0 | https://github.com/image-rs/image-webp |
+| imagesize | 0.13.0 | MIT | https://github.com/Roughsketch/imagesize |
 | indexmap | 1.9.3 | Apache-2.0 OR MIT | https://github.com/bluss/indexmap |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/indexmap |
 | infer | 0.22.0 | MIT | https://github.com/bojand/infer |
@@ -473,6 +494,8 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | json-patch | 4.2.0 | MIT/Apache-2.0 | https://github.com/idubrov/json-patch |
 | jsonptr | 0.7.1 | MIT OR Apache-2.0 | https://github.com/chanced/jsonptr |
 | keyboard-types | 0.8.3 | MIT OR Apache-2.0 | https://github.com/rust-windowing/keyboard-types |
+| kurbo | 0.11.3 | Apache-2.0 OR MIT | https://github.com/linebender/kurbo |
+| kurbo | 0.13.1 | Apache-2.0 OR MIT | https://github.com/linebender/kurbo |
 | lexical-core | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |
 | lexical-parse-float | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |
 | lexical-parse-integer | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |
@@ -495,11 +518,13 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | lru | 0.16.4 | MIT | https://github.com/jeromefroe/lru-rs.git |
 | markup5ever | 0.39.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | memchr | 2.8.3 | Unlicense OR MIT | https://github.com/BurntSushi/memchr |
+| memmap2 | 0.9.12 | MIT OR Apache-2.0 | https://github.com/RazrFalcon/memmap2-rs |
 | memoffset | 0.9.1 | MIT | https://github.com/Gilnaa/memoffset |
 | mime | 0.3.17 | MIT OR Apache-2.0 | https://github.com/hyperium/mime |
 | miniz_oxide | 0.8.9 | MIT OR Zlib OR Apache-2.0 | https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide |
 | miniz_oxide | 0.9.1 | MIT OR Zlib OR Apache-2.0 | https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide |
 | mio | 1.2.4 | MIT | https://github.com/tokio-rs/mio |
+| moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/moxcms.git |
 | muda | 0.20.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/muda |
 | ndk | 0.9.0 | MIT OR Apache-2.0 | https://github.com/rust-mobile/ndk |
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rust-windowing/android-ndk-rs |
@@ -536,16 +561,20 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | pango-sys | 0.18.0 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | parking_lot | 0.12.5 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
 | parking_lot_core | 0.9.12 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
+| pdf-writer | 0.12.1 | MIT OR Apache-2.0 | https://github.com/typst/pdf-writer |
 | percent-encoding | 2.3.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url/ |
 | phf | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | phf_codegen | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | phf_generator | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | phf_macros | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | phf_shared | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
+| pico-args | 0.5.0 | MIT | https://github.com/RazrFalcon/pico-args |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT | https://github.com/taiki-e/pin-project-lite |
 | pkg-config | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/pkg-config-rs |
 | plist | 1.10.3 | MIT | https://github.com/ebarnard/rust-plist/ |
+| png | 0.17.16 | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
 | png | 0.18.1 | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
+| polycool | 0.4.0 | MIT OR Apache-2.0 | https://github.com/linebender/kurbo |
 | portable-atomic | 1.15.0 | Apache-2.0 OR MIT | https://github.com/taiki-e/portable-atomic |
 | portable-atomic-util | 0.2.8 | Apache-2.0 OR MIT | https://github.com/taiki-e/portable-atomic-util |
 | potential_utf | 0.1.6 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
@@ -557,11 +586,14 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | proc-macro-error | 1.0.4 | MIT OR Apache-2.0 | https://gitlab.com/CreepySkeleton/proc-macro-error |
 | proc-macro-error-attr | 1.0.4 | MIT OR Apache-2.0 | https://gitlab.com/CreepySkeleton/proc-macro-error |
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 | https://github.com/dtolnay/proc-macro2 |
+| pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/pxfm |
+| quick-error | 2.0.1 | MIT/Apache-2.0 | http://github.com/tailhook/quick-error |
 | quick-xml | 0.42.0 | MIT | https://github.com/tafia/quick-xml |
 | quote | 1.0.47 | MIT OR Apache-2.0 | https://github.com/dtolnay/quote |
 | r-efi | 5.3.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later | https://github.com/r-efi/r-efi |
 | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later | https://github.com/r-efi/r-efi |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib | https://github.com/rust-windowing/raw-window-handle |
+| read-fonts | 0.39.2 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | redox_syscall | 0.5.18 | MIT | https://gitlab.redox-os.org/redox-os/syscall |
 | redox_users | 0.5.3 | MIT | https://gitlab.redox-os.org/redox-os/users |
 | ref-cast | 1.0.27 | MIT OR Apache-2.0 | https://github.com/dtolnay/ref-cast |
@@ -570,8 +602,11 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | regex-automata | 0.4.18 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
 | regex-syntax | 0.8.11 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
 | reqwest | 0.13.5 | MIT OR Apache-2.0 | https://github.com/seanmonstar/reqwest |
+| resvg | 0.45.1 | Apache-2.0 OR MIT | https://github.com/linebender/resvg |
 | rfd | 0.16.0 | MIT | https://github.com/PolyMeilex/rfd |
+| rgb | 0.8.53 | MIT | https://github.com/kornelski/rust-rgb |
 | ring | 0.17.14 | Apache-2.0 AND ISC | https://github.com/briansmith/ring |
+| roxmltree | 0.20.0 | MIT OR Apache-2.0 | https://github.com/RazrFalcon/roxmltree |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |
 | rustc_version | 0.4.1 | MIT OR Apache-2.0 | https://github.com/djc/rustc-version-rs |
 | rustix | 0.38.44 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/rustix |
@@ -580,6 +615,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | rustls-pki-types | 1.15.1 | MIT OR Apache-2.0 | https://github.com/rustls/pki-types |
 | rustls-webpki | 0.103.16 | ISC | https://github.com/rustls/webpki |
 | rustversion | 1.0.23 | MIT OR Apache-2.0 | https://github.com/dtolnay/rustversion |
+| rustybuzz | 0.20.1 | MIT | https://github.com/harfbuzz/rustybuzz |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 | https://github.com/dtolnay/ryu |
 | same-file | 1.0.6 | Unlicense/MIT | https://github.com/BurntSushi/same-file |
 | schemars | 0.8.22 | MIT | https://github.com/GREsau/schemars |
@@ -606,8 +642,11 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | shlex | 2.0.1 | MIT OR Apache-2.0 | https://github.com/comex/rust-shlex |
 | simd-adler32 | 0.3.10 | MIT | https://github.com/mcountryman/simd-adler32 |
+| simplecss | 0.2.2 | Apache-2.0 OR MIT | https://github.com/linebender/simplecss |
 | siphasher | 1.0.4 | MIT OR Apache-2.0 | https://github.com/jedisct1/rust-siphash |
+| skrifa | 0.42.1 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | slab | 0.4.12 | MIT | https://github.com/tokio-rs/slab |
+| slotmap | 1.1.1 | Zlib | https://github.com/orlp/slotmap |
 | smallvec | 1.16.3 | MIT OR Apache-2.0 | https://github.com/servo/rust-smallvec |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 | https://github.com/rust-lang/socket2 |
 | softbuffer | 0.4.8 | MIT OR Apache-2.0 | https://github.com/rust-windowing/softbuffer |
@@ -615,12 +654,16 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | soup3-sys | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | https://github.com/storyyeller/stable_deref_trait |
 | static_vcruntime | 3.0.0 | MIT OR Apache-2.0 OR Zlib | https://github.com/ChrisDenton/static_vcruntime |
+| strict-num | 0.1.1 | MIT | https://github.com/RazrFalcon/strict-num |
 | string_cache | 0.9.0 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
 | string_cache_codegen | 0.6.1 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
 | strsim | 0.11.1 | MIT | https://github.com/rapidfuzz/strsim-rs |
 | strum | 0.27.2 | MIT | https://github.com/Peternator7/strum |
 | strum_macros | 0.27.2 | MIT | https://github.com/Peternator7/strum |
+| subsetter | 0.2.6 | MIT OR Apache-2.0 | https://github.com/typst/subsetter |
 | subtle | 2.6.1 | BSD-3-Clause | https://github.com/dalek-cryptography/subtle |
+| svg2pdf | 0.13.0 | MIT OR Apache-2.0 | https://github.com/typst/svg2pdf |
+| svgtypes | 0.15.3 | Apache-2.0 OR MIT | https://github.com/linebender/svgtypes |
 | swift-rs | 1.0.9 | MIT OR Apache-2.0 | https://github.com/Brendonovich/swift-rs |
 | syn | 1.0.109 | MIT OR Apache-2.0 | https://github.com/dtolnay/syn |
 | syn | 2.0.119 | MIT OR Apache-2.0 | https://github.com/dtolnay/syn |
@@ -653,6 +696,8 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | time-core | 0.1.9 | MIT OR Apache-2.0 | https://github.com/time-rs/time |
 | time-macros | 0.2.32 | MIT OR Apache-2.0 | https://github.com/time-rs/time |
 | tiny-keccak | 2.0.2 | CC0-1.0 | https://github.com/debris/tiny-keccak |
+| tiny-skia | 0.11.4 | BSD-3-Clause | https://github.com/RazrFalcon/tiny-skia |
+| tiny-skia-path | 0.11.4 | BSD-3-Clause | https://github.com/RazrFalcon/tiny-skia/tree/master/path |
 | tiny_http | 0.12.0 | MIT OR Apache-2.0 | https://github.com/tiny-http/tiny-http |
 | tinystr | 0.8.4 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | tinyvec | 1.13.3 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/tinyvec |
@@ -675,11 +720,18 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | tracing-core | 0.1.36 | MIT | https://github.com/tokio-rs/tracing |
 | tray-icon | 0.25.1 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tray-icon |
 | try-lock | 0.2.5 | MIT | https://github.com/seanmonstar/try-lock |
+| ttf-parser | 0.25.1 | MIT OR Apache-2.0 | https://github.com/harfbuzz/ttf-parser |
 | typed-path | 0.12.4 | MIT OR Apache-2.0 | https://github.com/chipsenkbeil/typed-path |
 | typeid | 1.0.3 | MIT OR Apache-2.0 | https://github.com/dtolnay/typeid |
 | typenum | 1.20.1 | MIT OR Apache-2.0 | https://github.com/paholg/typenum |
+| unicode-bidi | 0.3.18 | MIT OR Apache-2.0 | https://github.com/servo/unicode-bidi |
+| unicode-bidi-mirroring | 0.4.0 | MIT/Apache-2.0 | https://github.com/RazrFalcon/unicode-bidi-mirroring |
+| unicode-ccc | 0.4.0 | MIT/Apache-2.0 | https://github.com/RazrFalcon/unicode-ccc |
 | unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 | https://github.com/dtolnay/unicode-ident |
+| unicode-properties | 0.1.4 | MIT/Apache-2.0 | https://github.com/unicode-rs/unicode-properties |
+| unicode-script | 0.5.8 | MIT OR Apache-2.0 | https://github.com/unicode-rs/unicode-script |
 | unicode-segmentation | 1.13.3 | MIT OR Apache-2.0 | https://github.com/unicode-rs/unicode-segmentation |
+| unicode-vo | 0.1.0 | MIT/Apache-2.0 | https://github.com/RazrFalcon/unicode-vo |
 | unicode-width | 0.2.2 | MIT OR Apache-2.0 | https://github.com/unicode-rs/unicode-width |
 | untrusted | 0.9.0 | ISC | https://github.com/briansmith/untrusted |
 | ureq | 2.12.1 | MIT OR Apache-2.0 | https://github.com/algesten/ureq |
@@ -687,6 +739,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | ureq-proto | 0.6.5 | MIT OR Apache-2.0 | https://github.com/algesten/ureq-proto |
 | url | 2.5.8 | MIT OR Apache-2.0 | https://github.com/servo/rust-url |
 | urlpattern | 0.6.0 | MIT | https://github.com/denoland/rust-urlpattern |
+| usvg | 0.45.1 | Apache-2.0 OR MIT | https://github.com/linebender/resvg |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 | https://github.com/algesten/utf8-zero |
 | utf8_iter | 1.0.4 | Apache-2.0 OR MIT | https://github.com/hsivonen/utf8_iter |
 | uuid | 1.28.0 | Apache-2.0 OR MIT | https://github.com/uuid-rs/uuid |
@@ -715,6 +768,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | webview2-com | 0.39.1 | MIT | https://github.com/wravery/webview2-rs |
 | webview2-com-macros | 0.8.1 | MIT | https://github.com/wravery/webview2-rs |
 | webview2-com-sys | 0.39.1 | MIT | https://github.com/wravery/webview2-rs |
+| weezl | 0.1.12 | MIT OR Apache-2.0 | https://github.com/image-rs/weezl |
 | winapi | 0.3.9 | MIT/Apache-2.0 | https://github.com/retep998/winapi-rs |
 | winapi-i686-pc-windows-gnu | 0.4.0 | MIT/Apache-2.0 | https://github.com/retep998/winapi-rs |
 | winapi-util | 0.1.11 | Unlicense OR MIT | https://github.com/BurntSushi/winapi-util |
@@ -767,11 +821,13 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | winnow | 1.0.4 | MIT | https://github.com/winnow-rs/winnow |
 | winreg | 0.56.0 | MIT | https://github.com/gentoo90/winreg-rs |
 | wit-bindgen | 0.57.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/wit-bindgen |
+| write-fonts | 0.48.1 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | writeable | 0.6.4 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | wry | 0.57.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/wry |
 | x11 | 2.21.0 | MIT | https://github.com/AltF02/x11-rs.git |
 | x11-dl | 2.21.0 | MIT | https://github.com/AltF02/x11-rs.git |
 | xattr | 1.6.1 | MIT OR Apache-2.0 | https://github.com/Stebalien/xattr |
+| xmlwriter | 0.1.0 | MIT | https://github.com/RazrFalcon/xmlwriter |
 | yoke | 0.8.3 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | yoke-derive | 0.8.4 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
@@ -786,3 +842,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | zlib-rs | 0.6.8 | Zlib | https://github.com/trifectatechfoundation/zlib-rs |
 | zmij | 1.0.23 | MIT | https://github.com/dtolnay/zmij |
 | zopfli | 0.8.4 | Apache-2.0 | https://github.com/zopfli-rs/zopfli |
+| zune-core | 0.4.12 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/zune-core |
+| zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image |
+| zune-jpeg | 0.4.21 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg |
+| zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg |
