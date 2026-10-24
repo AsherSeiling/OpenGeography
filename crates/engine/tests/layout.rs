@@ -339,3 +339,444 @@ fn cancelled_render_writes_nothing() {
     let err = e.render_layout_svg(&req, &|| anyhow::bail!(engine::progress::CANCELLED)).unwrap_err();
     assert!(engine::progress::is_cancelled(&err));
 }
+
+// ---------------------------------------------------------------- C2.3
+
+mod surround {
+    use super::*;
+    use engine::layout::geo::{self, Body, FrameCrs};
+    use geographiclib_rs::{Geodesic, InverseGeodesic};
+
+    /// A frame (no data layers) plus a scale bar and a north arrow.
+    fn bare(crs: &str, center: [f64; 2], scale: f64, rotation: f64, extra: serde_json::Value) -> RenderRequest {
+        let mut elements = vec![
+            json!({ "kind": "map_frame", "id": "f1", "x": 12.7, "y": 30.0, "w": 200.0, "h": 160.0, "rotation": rotation, "crs": crs, "center": center, "scale": scale, "layers": "map" }),
+            json!({ "kind": "scale_bar", "id": "sb", "frame": "f1", "x": 220.0, "y": 120.0, "w": 46.0, "h": 10.0, "units": "km", "segments": 4 }),
+            json!({ "kind": "north_arrow", "id": "na", "frame": "f1", "x": 250.0, "y": 140.0, "w": 12.0, "h": 18.0, "style": "simple" }),
+        ];
+        elements.extend(extra.as_array().cloned().unwrap_or_default());
+        serde_json::from_value(json!({
+            "layout": { "id": "L1", "name": "Bare", "page": { "width": 279.4, "height": 215.9 }, "elements": elements },
+            "order": [], "project": "Demo", "date": "2026-01-01"
+        }))
+        .unwrap()
+    }
+
+    fn group<'a>(svg: &'a str, id: &str) -> &'a str {
+        let start = svg.find(&format!("<g id=\"{id}\"")).unwrap_or_else(|| panic!("no group {id}"));
+        let end = svg[start..].find("</g>").unwrap() + start;
+        &svg[start..end]
+    }
+
+    fn attr(tag: &str, name: &str) -> f64 {
+        let i = tag.find(&format!(" {name}=\"")).unwrap() + name.len() + 3;
+        tag[i..].split('"').next().unwrap().parse().unwrap()
+    }
+
+    fn texts(svg: &str) -> Vec<String> {
+        svg.split("<text ").skip(1).map(|t| t.split_once('>').unwrap().1.split("</text>").next().unwrap().to_string()).collect()
+    }
+
+    /// Bar length (mm) and label (value, unit) of the scale bar `sb`.
+    fn bar(svg: &str) -> (f64, f64, String) {
+        let g = group(svg, "scalebar-sb");
+        let len: f64 = g.split("<rect ").skip(1).map(|r| attr(r, "width")).sum();
+        let last = texts(g).pop().unwrap();
+        let (v, u) = last.split_once(' ').unwrap();
+        (len, v.parse().unwrap(), u.to_string())
+    }
+
+    #[test]
+    fn p11_scale_bar_matches_geodesic_distance() {
+        let body = Body::get("earth").unwrap();
+        let e = Engine::new().unwrap();
+        // (CRS, lon, lat, scale, units, metres per unit)
+        for (crs, lon, lat, scale, units, m) in [
+            ("EPSG:26915", -96.0, 45.0, 100_000.0, "km", 1000.0),
+            ("EPSG:2276", -97.3, 32.8, 100_000.0, "mi", 1609.344), // State Plane, US survey feet
+            ("EPSG:5070", -110.0, 35.0, 250_000.0, "km", 1000.0),  // Albers CONUS
+        ] {
+            let fc = FrameCrs::new(crs, &body).unwrap();
+            let c = fc.from_lonlat(lon, lat).unwrap();
+            let mut req = bare(crs, [c.0, c.1], scale, 0.0, json!([]));
+            if let engine::layout::model::Element::ScaleBar { units: u, .. } = &mut req.layout.elements[1] {
+                *u = units.into();
+            }
+            let svg = render(&e, &req).svg;
+            let (len_mm, label, unit) = bar(&svg);
+            assert_eq!(unit, units);
+            // Inverse-project the drawn bar's end points (grid east of the frame centre).
+            let half = len_mm / 1000.0 * scale / fc.unit_m / 2.0;
+            let (a, b) = (fc.to_lonlat(c.0 - half, c.1).unwrap(), fc.to_lonlat(c.0 + half, c.1).unwrap());
+            let ground: f64 = Geodesic::new(body.a, body.f).inverse(a.1, a.0, b.1, b.0);
+            assert!((ground / (label * m) - 1.0).abs() < 1e-3, "{crs}: drawn bar spans {ground} m, label says {label} {unit}");
+            assert!(len_mm <= 46.0 - 1.0 - 7.0 + 1e-6, "{crs}: bar fits its box ({len_mm} mm)");
+        }
+    }
+
+    #[test]
+    fn p12_north_arrow_follows_convergence_and_frame_rotation() {
+        let body = Body::get("earth").unwrap();
+        let e = Engine::new().unwrap();
+        let fc = FrameCrs::new("EPSG:26915", &body).unwrap();
+        let angle = |lon: f64, rot: f64, style: &str| {
+            let c = fc.from_lonlat(lon, 45.0).unwrap();
+            let mut req = bare("EPSG:26915", [c.0, c.1], 24_000.0, rot, json!([]));
+            if let engine::layout::model::Element::NorthArrow { style: s, .. } = &mut req.layout.elements[2] {
+                *s = style.into();
+            }
+            let svg = render(&e, &req).svg;
+            let tag = svg.split("<g id=\"northarrow-na\"").nth(1).unwrap_or_else(|| panic!("no arrow in {style}")).split('>').next().unwrap().to_string();
+            let a: f64 = tag.split("rotate(").nth(1).unwrap().split_whitespace().next().unwrap().parse().unwrap();
+            let gamma = geo::factors(&body, &fc, c.0, c.1).unwrap().convergence_deg;
+            (a, gamma)
+        };
+        for style in ["simple", "compass"] {
+            let (a, gamma) = angle(-96.0, 0.0, style);
+            assert!((a - (-gamma)).abs() < 0.01, "{a} vs convergence {gamma}");
+            assert!(a > 2.0 && a < 2.3, "west of the central meridian true north leans east: {a}");
+            let (a, _) = angle(-90.0, 0.0, style);
+            assert!(a < -2.0 && a > -2.3, "east of it, west: {a}");
+            let (a, gamma) = angle(-96.0, 30.0, style);
+            assert!((a - (30.0 - gamma)).abs() < 0.01, "frame rotation adds: {a}");
+        }
+    }
+
+    #[test]
+    fn p15_scale_variation_warning_for_web_mercator_at_60n() {
+        let body = Body::get("earth").unwrap();
+        let fc = FrameCrs::new("EPSG:3857", &body).unwrap();
+        let c = fc.from_lonlat(10.0, 60.0).unwrap();
+        let e = Engine::new().unwrap();
+        let out = render(&e, &bare("EPSG:3857", [c.0, c.1], 5_000_000.0, 0.0, json!([])));
+        assert!(out.warnings.iter().any(|w| w.contains("scale varies") && w.contains("f1")), "{:?}", out.warnings);
+        // The bar is still true at the centre: k at 60°N is 2, so 1 km is twice as long as at k = 1.
+        let utm = bare("EPSG:32632", [fc.from_lonlat(9.0, 60.0).map(|_| 500_000.0).unwrap(), 6_651_000.0], 5_000_000.0, 0.0, json!([]));
+        assert!(!render(&e, &utm).warnings.iter().any(|w| w.contains("scale varies")));
+    }
+
+    fn with_surround(ids: &[String; 4], style: serde_json::Value) -> RenderRequest {
+        let mut req = request(ids, style);
+        let extra = [
+            json!({ "kind": "legend", "id": "lg", "frame": "f1", "x": 215.0, "y": 30.0, "w": 55.0, "h": 80.0, "title": "Legend", "columns": 1 }),
+            json!({ "kind": "scale_bar", "id": "sb", "frame": "f1", "x": 215.0, "y": 120.0, "w": 55.0, "h": 10.0, "units": "km", "segments": 4 }),
+            json!({ "kind": "north_arrow", "id": "na", "frame": "f1", "x": 235.0, "y": 140.0, "w": 14.0, "h": 20.0, "style": "simple" }),
+            json!({ "kind": "sources", "id": "src", "frame": "f1", "x": 12.7, "y": 192.0, "w": 200.0, "h": 12.0, "size": 6 }),
+        ];
+        for x in extra {
+            req.layout.elements.push(serde_json::from_value(x).unwrap());
+        }
+        req
+    }
+
+    #[test]
+    fn p13_legend_lists_visible_frame_layers_in_draw_order_with_class_labels() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        let mut req = with_surround(&ids, categorized());
+        let legend = |req: &RenderRequest| texts(group(&render(&e, req).svg, "legend-lg"));
+        // order (top first): pts, lines, polys, nocrs (no CRS → not drawn, not listed).
+        assert_eq!(legend(&req), ["Legend", "pts", "lines", "polys", "A", "B", "Other"]);
+        req.visible.insert(ids[1].clone(), false);
+        assert_eq!(legend(&req), ["Legend", "pts", "polys", "A", "B", "Other"]);
+        let grad = json!({ "kind": "graduated", "fill": "#999999", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 1, "radius": 3.5, "field": "pop",
+                           "breaks": [20, 40], "colors": ["#aa0000", "#00aa00", "#0000aa"] });
+        let req = with_surround(&ids, grad);
+        assert_eq!(legend(&req)[4..], ["&lt; 20", "20 – 40", "≥ 40"]);
+        // Swatch colours are the colours the frame draws.
+        let svg = render(&e, &req).svg;
+        let g = group(&svg, "legend-lg");
+        for c in ["#aa0000", "#00aa00", "#0000aa"] {
+            assert!(g.contains(&format!("fill=\"{c}\"")), "{c}");
+        }
+    }
+
+    #[test]
+    fn legend_reports_when_it_does_not_fit() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        let mut req = with_surround(&ids, categorized());
+        if let engine::layout::model::Element::Legend { at, .. } = &mut req.layout.elements[2] {
+            at.h = 20.0;
+        }
+        let out = render(&e, &req);
+        assert!(out.warnings.iter().any(|w| w.contains("Legend 'lg' does not fit")), "{:?}", out.warnings);
+    }
+
+    #[test]
+    fn p14_sources_cite_every_drawn_layer_including_derived_ones() {
+        use engine::sources;
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        e.with_conn_for_tests(|c| {
+            for cite in sources::for_tiger("counties", "Counties", "ACS2024") {
+                sources::record(c, &cite, &ids[0], "polys")?;
+            }
+            sources::record(c, &sources::for_3dep(), &ids[2], "pts")?;
+            // The line layer is a model result of the other two: it carries their sources.
+            sources::replace_derived(c, &[ids[0].as_str(), ids[2].as_str()], &ids[1], "lines (model result)")
+        })
+        .unwrap();
+        let sources_text = |req: &RenderRequest| texts(group(&render(&e, req).svg, "sources-src")).join(" ");
+        let mut req = with_surround(&ids, categorized());
+        let all = sources_text(&req);
+        assert!(all.starts_with("Data: ") && all.contains("TIGERweb (2024)") && all.contains("3D Elevation Program (3DEP)"), "{all}");
+        // Only the derived layer is drawn: both inputs' citations still appear.
+        req.visible.insert(ids[0].clone(), false);
+        req.visible.insert(ids[2].clone(), false);
+        let derived = sources_text(&req);
+        assert!(derived.contains("TIGERweb") && derived.contains("3DEP"), "{derived}");
+        // A hidden layer's source is not cited.
+        req.visible.insert(ids[1].clone(), false);
+        let none = render(&e, &req).svg;
+        assert!(!none.contains("sources-src"), "no drawn layers, no sources text");
+    }
+
+    #[test]
+    fn surround_of_a_hidden_frame_is_reported_not_drawn() {
+        let e = Engine::new().unwrap();
+        let mut req = bare("EPSG:26915", [500_000.0, 4_649_776.0], 24_000.0, 0.0, json!([]));
+        if let engine::layout::model::Element::MapFrame { at, .. } = &mut req.layout.elements[0] {
+            at.visible = false;
+        }
+        let out = render(&e, &req);
+        assert!(!out.svg.contains("scalebar-sb") && out.warnings.iter().filter(|w| w.contains("hidden")).count() == 2, "{:?}", out.warnings);
+    }
+
+    #[test]
+    fn all_elements_page_is_deterministic_and_golden() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        e.with_conn_for_tests(|c| {
+            engine::sources::record(c, &engine::sources::for_3dep(), &ids[2], "pts")?;
+            engine::sources::record(c, &engine::sources::for_tiger("counties", "Counties", "ACS2024")[0], &ids[0], "polys")
+        })
+        .unwrap();
+        let req = with_surround(&ids, categorized());
+        let a = render(&e, &req).svg;
+        assert_eq!(a, render(&e, &req).svg);
+        let sha = hex::encode(Sha256::digest(a.as_bytes()));
+        if std::env::var("GOLDEN_PRINT").is_ok() {
+            println!("GOLDEN_ALL {sha}");
+            std::fs::write(std::env::temp_dir().join("layout_all.png"), export::svg_to_png(&a, 110.0).unwrap()).unwrap();
+            std::fs::write(std::env::temp_dir().join("layout_all.pdf"), export::svg_to_pdf(&a).unwrap()).unwrap();
+        }
+        assert_eq!(sha, GOLDEN_ALL_SHA256, "SVG output changed; if intended, regenerate with GOLDEN_PRINT=1");
+        assert!(export::svg_to_pdf(&a).unwrap().starts_with(b"%PDF-"));
+    }
+
+    const GOLDEN_ALL_SHA256: &str = "d061737a73398da134248e68b96a9d48a5bb1914328f7cc92b34ecd3899e3b47";
+}
+
+// ---------------------------------------------------------------- C2.4
+
+mod c24 {
+    use super::*;
+    use engine::layout::geo::{self, Body, FrameCrs};
+    use engine::layout::model::{Element, Layout};
+
+    fn frame_req(crs: &str, center: [f64; 2], scale: f64, w: f64, h: f64, extra: serde_json::Value) -> RenderRequest {
+        let mut frame = json!({ "kind": "map_frame", "id": "f1", "x": 12.7, "y": 30.0, "w": w, "h": h, "crs": crs, "center": center, "scale": scale, "layers": "map" });
+        for (k, v) in extra.as_object().unwrap() {
+            frame[k] = v.clone();
+        }
+        serde_json::from_value(json!({
+            "layout": { "id": "L1", "name": "Grid", "page": { "width": 279.4, "height": 215.9 }, "elements": [frame] },
+            "order": [], "project": "Demo", "date": "2026-01-01"
+        }))
+        .unwrap()
+    }
+
+    fn path_points(svg: &str, id: &str) -> Vec<(f64, f64)> {
+        let i = svg.find(&format!("id=\"{id}\"")).unwrap_or_else(|| panic!("no path {id}"));
+        let d = svg[i..].split(" d=\"").nth(1).unwrap().split('"').next().unwrap();
+        d.split(|c| c == 'M' || c == 'L').filter(|t| !t.is_empty()).map(|t| {
+            let mut n = t.split_whitespace().map(|v| v.parse::<f64>().unwrap());
+            (n.next().unwrap(), n.next().unwrap())
+        }).collect()
+    }
+
+    fn texts(svg: &str) -> Vec<String> {
+        svg.split("<text ").skip(1).map(|t| t.split_once('>').unwrap().1.split("</text>").next().unwrap().to_string()).collect()
+    }
+
+    /// Page mm → frame-CRS coordinates for frame f1 at (12.7, 30) of size w × h.
+    fn to_crs(body: &Body, crs: &FrameCrs, center: [f64; 2], scale: f64, w: f64, h: f64) -> impl Fn((f64, f64)) -> (f64, f64) {
+        let e = geo::frame_extent(body, crs, center, scale, w, h).unwrap();
+        move |(px, py)| (e[0] + (px - 12.7) / w * (e[2] - e[0]), e[3] - (py - 30.0) / h * (e[3] - e[1]))
+    }
+
+    #[test]
+    fn p16_graticule_follows_the_projection() {
+        let body = Body::get("earth").unwrap();
+        let e = Engine::new().unwrap();
+        let fc = FrameCrs::new("EPSG:2154", &body).unwrap(); // Lambert-93 (Lambert Conformal Conic)
+        let c = fc.from_lonlat(3.0, 45.0).unwrap();
+        let center = [c.0, c.1];
+        // 1:50,000: every vertex of the 45°N line inverse-projects to 45° within 1e-6.
+        let req = frame_req("EPSG:2154", center, 50_000.0, 200.0, 160.0, json!({ "graticule": { "interval": "auto", "labels": true } }));
+        let svg = render(&e, &req).svg;
+        let inv = to_crs(&body, &fc, center, 50_000.0, 200.0, 160.0);
+        let line = path_points(&svg, "graticule-f1-lat45");
+        assert!(line.len() > 10);
+        for p in &line {
+            let (lon, lat) = fc.to_lonlat(inv(*p).0, inv(*p).1).unwrap();
+            assert!((lat - 45.0).abs() < 1e-6, "vertex at lon {lon} has latitude {lat}");
+        }
+        let meridian = path_points(&svg, "graticule-f1-lon3");
+        for p in &meridian {
+            let (lon, _) = fc.to_lonlat(inv(*p).0, inv(*p).1).unwrap();
+            assert!((lon - 3.0).abs() < 1e-6, "{lon}");
+        }
+        assert!(texts(&svg).iter().any(|t| t == "45.00°N") && texts(&svg).iter().any(|t| t.ends_with("°E")), "{:?}", texts(&svg));
+        // 1:2,000,000: the parallel is an arc, not a chord.
+        let req = frame_req("EPSG:2154", center, 2_000_000.0, 200.0, 160.0, json!({ "graticule": { "interval": "auto", "labels": false } }));
+        let svg = render(&e, &req).svg;
+        let line = path_points(&svg, "graticule-f1-lat45");
+        let (a, b) = (line[0], *line.last().unwrap());
+        let dev = line.iter().map(|p| ((b.0 - a.0) * (a.1 - p.1) - (a.0 - p.0) * (b.1 - a.1)).abs() / ((b.0 - a.0).hypot(b.1 - a.1))).fold(0.0, f64::max);
+        assert!(dev > 1.0, "45°N is curved in a conic projection: deviation {dev} mm");
+        assert!(!texts(&svg).iter().any(|t| t.contains('°')), "labels off");
+    }
+
+    #[test]
+    fn grid_lines_are_straight_at_round_coordinates_and_need_a_projected_crs() {
+        let e = Engine::new().unwrap();
+        let req = frame_req("EPSG:26915", [500_000.0, 4_649_776.0], 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": "auto", "labels": true } }));
+        let out = render(&e, &req);
+        let v = path_points(&out.svg, "grid-f1-x500000");
+        assert_eq!(v.len(), 2);
+        assert!((v[0].0 - v[1].0).abs() < 1e-9 && (v[0].0 - (12.7 + 100.0)).abs() < 0.001, "{v:?}"); // centre line
+        assert!(texts(&out.svg).iter().any(|t| t == "500000") && texts(&out.svg).iter().any(|t| t == "4650000"), "{:?}", texts(&out.svg));
+        let req = frame_req("EPSG:26915", [500_000.0, 4_649_776.0], 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 250, "labels": false } }));
+        assert!(render(&e, &req).svg.contains("id=\"grid-f1-x500250\""));
+        let geo = frame_req("EPSG:4326", [-93.0, 45.0], 500_000.0, 200.0, 160.0, json!({ "grid": { "interval": "auto" } }));
+        assert!(render(&e, &geo).warnings.iter().any(|w| w.contains("grid needs a projected")));
+        let too_fine = frame_req("EPSG:26915", [500_000.0, 4_649_776.0], 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1 } }));
+        assert!(render(&e, &too_fine).warnings.iter().any(|w| w.contains("more than 200 lines")));
+    }
+
+    #[test]
+    fn model_rejects_bad_grid_specs_and_unprintable_basemaps() {
+        let e = Engine::new().unwrap();
+        for (extra, needle) in [
+            (json!({ "basemap": "osm" }), "bulk downloads"),
+            (json!({ "basemap": "bing" }), "Unknown basemap"),
+            (json!({ "graticule": { "interval": -1 } }), "interval"),
+            (json!({ "grid": { "interval": "often" } }), "interval"),
+        ] {
+            let layout: Layout = frame_req("EPSG:26915", [0.0, 0.0], 24_000.0, 100.0, 100.0, extra).layout;
+            let err = e.save_layout(&layout).unwrap_err().to_string();
+            assert!(err.contains(needle), "{err}");
+        }
+        let ok = frame_req("EPSG:26915", [0.0, 0.0], 24_000.0, 100.0, 100.0, json!({ "basemap": "usgsTopo", "graticule": { "interval": 0.5 }, "grid": { "labels": false } })).layout;
+        e.save_layout(&ok).unwrap();
+        assert!(matches!(&ok.elements[0], Element::MapFrame { basemap, .. } if basemap == "usgsTopo"));
+    }
+
+    /// A DEM in UTM 15N, 100 m cells, a smooth hill: 200 × 200 cells around the fixture centre.
+    fn dem(path: &Path) {
+        use gdal::raster::Buffer;
+        let drv = gdal::DriverManager::get_driver_by_name("GTiff").unwrap();
+        let mut ds = drv.create_with_band_type::<f32, _>(path, 200, 200, 1).unwrap();
+        ds.set_geo_transform(&[CENTER[0] - 10_000.0, 100.0, 0.0, CENTER[1] + 10_000.0, 0.0, -100.0]).unwrap();
+        ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(26915).unwrap()).unwrap();
+        let data: Vec<f32> = (0..200 * 200).map(|i| { let (x, y) = ((i % 200) as f32 - 100.0, (i / 200) as f32 - 100.0); 300.0 + 200.0 * (-(x * x + y * y) / 3000.0).exp() }).collect();
+        ds.rasterband(1).unwrap().write((0, 0), (200, 200), &mut Buffer::new((200, 200), data)).unwrap();
+    }
+
+    fn count(hay: &[u8], needle: &str) -> usize {
+        hay.windows(needle.len()).filter(|w| *w == needle.as_bytes()).count()
+    }
+
+    #[test]
+    fn p17_raster_is_one_image_in_the_pdf_at_most_300_dpi() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("dem.tif");
+        dem(&p);
+        let e = Engine::new().unwrap();
+        let id = e.import(&p).unwrap()[0].id.clone();
+        let mut req = frame_req("EPSG:26915", CENTER, 24_000.0, 100.0, 80.0, json!({}));
+        req.order = vec![id.clone()];
+        req.layout.elements.push(serde_json::from_value(json!({ "kind": "legend", "id": "lg", "frame": "f1", "x": 120.0, "y": 30.0, "w": 40.0, "h": 20.0, "title": "Legend" })).unwrap());
+        let out = render(&e, &req);
+        assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+        assert_eq!(count(out.svg.as_bytes(), "<image "), 1);
+        let pdf = export::svg_to_pdf(&out.svg).unwrap();
+        // One picture, with its soft mask for the transparent corners if the encoder writes one.
+        let images = count(&pdf, "/Subtype /Image");
+        assert!((1..=2).contains(&images), "{images} image objects");
+        // 100 mm at 300 dpi = 1181 px; the embedded width never exceeds it (+1 for rounding).
+        let w: usize = String::from_utf8_lossy(&pdf).split("/Width ").skip(1).filter_map(|t| t.split(|c: char| !c.is_ascii_digit()).next()?.parse().ok()).max().unwrap();
+        assert!((1180..=1182).contains(&w), "image is {w} px wide");
+        // The legend lists the raster, and a screen preview carries a smaller image.
+        assert!(out.svg.contains("id=\"legend-lg\""));
+        let small = e.render_layout_preview(&req, 96.0).unwrap();
+        assert!(small.warnings.is_empty());
+        let mut lo = req.clone();
+        lo.raster_dpi = Some(96.0);
+        let svg_lo = render(&e, &lo).svg;
+        assert!(svg_lo.len() < out.svg.len() / 3, "{} vs {}", svg_lo.len(), out.svg.len());
+    }
+
+    /// A stand-in tile service: an RGB raster in Web Mercator covering ±50 km around the frame centre.
+    fn fake_basemap(_: &str) -> anyhow::Result<gdal::Dataset> {
+        use gdal::raster::Buffer;
+        let body = Body::get("earth").unwrap();
+        let merc = FrameCrs::new("EPSG:3857", &body)?;
+        let utm = FrameCrs::new("EPSG:26915", &body)?;
+        let (lon, lat) = utm.to_lonlat(CENTER[0], CENTER[1])?;
+        let (cx, cy) = merc.from_lonlat(lon, lat)?;
+        let drv = gdal::DriverManager::get_driver_by_name("MEM")?;
+        let mut ds = drv.create_with_band_type::<u8, _>("", 256, 256, 3)?;
+        ds.set_geo_transform(&[cx - 50_000.0, 390.625, 0.0, cy + 50_000.0, 0.0, -390.625])?;
+        ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(3857)?)?;
+        for (b, v) in [(1, 20u8), (2, 200), (3, 40)] {
+            ds.rasterband(b)?.write((0, 0), (256, 256), &mut Buffer::new((256, 256), vec![v; 256 * 256]))?;
+        }
+        Ok(ds)
+    }
+
+    #[test]
+    fn p18_basemap_is_warped_to_the_frame_and_cited() {
+        let e = Engine::new().unwrap();
+        let mut req = frame_req("EPSG:26915", CENTER, 24_000.0, 100.0, 80.0, json!({ "basemap": "usgsTopo" }));
+        req.layout.elements.push(serde_json::from_value(json!({ "kind": "sources", "id": "src", "frame": "f1", "x": 12.7, "y": 112.0, "w": 100.0, "h": 10.0, "size": 6 })).unwrap());
+        let out = e.render_layout_svg_with(&req, &fake_basemap, &|| Ok(())).unwrap();
+        assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+        assert_eq!(out.basemaps, vec!["usgsTopo".to_string()]);
+        // The image is the frame's size and its middle pixel is the tile colour.
+        let b64 = out.svg.split("id=\"basemap-f1\"").nth(1).unwrap().split("base64,").nth(1).unwrap().split('"').next().unwrap();
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD.decode(b64).unwrap();
+        let mut dec = png::Decoder::new(std::io::Cursor::new(&bytes)).read_info().unwrap();
+        let mut buf = vec![0u8; dec.output_buffer_size().unwrap()];
+        let info = dec.next_frame(&mut buf).unwrap();
+        assert_eq!((info.width, info.height), (1181, 945));
+        let mid = ((info.height / 2 * info.width + info.width / 2) * 4) as usize;
+        assert_eq!(&buf[mid..mid + 4], &[20, 200, 40, 255]);
+        // Sources cite it, and the project's source log records it once however often we render.
+        let text = texts(&out.svg).join(" ");
+        assert!(text.contains("USGS Topo base map"), "{text}");
+        e.render_layout_svg_with(&req, &fake_basemap, &|| Ok(())).unwrap();
+        let log = e.sources().unwrap();
+        let entry = log.iter().find(|s| s.citation.key == "usgs-basemap-topo").expect("basemap recorded in the source log");
+        assert_eq!(entry.uses.len(), 1);
+        // A service that is down is a warning, not a failed export.
+        let down = e.render_layout_svg_with(&req, &|_| anyhow::bail!("offline"), &|| Ok(())).unwrap();
+        assert!(down.warnings.iter().any(|w| w.contains("could not be drawn") && w.contains("offline")), "{:?}", down.warnings);
+        assert!(down.basemaps.is_empty() && !down.svg.contains("<image"));
+    }
+
+    /// The real National Map service. `cargo test -p engine --test layout p18_network -- --ignored`
+    #[test]
+    #[ignore]
+    fn p18_network_usgs_topo_in_utm() {
+        let e = Engine::new().unwrap();
+        let req = frame_req("EPSG:26915", CENTER, 100_000.0, 100.0, 80.0, json!({ "basemap": "usgsTopo" }));
+        let out = e.render_layout_svg(&req, &|| Ok(())).unwrap();
+        assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+        assert!(out.svg.contains("id=\"basemap-f1\""));
+        assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF-"));
+    }
+}

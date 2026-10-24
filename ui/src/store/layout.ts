@@ -4,7 +4,7 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
-import { nextId, type Layout, type LayoutElement, type MapFrame, type Page, type TextElement } from "../layout/types";
+import { nextId, type Layout, type LayoutElement, type MapFrame, type Page, type SurroundElement, type TextElement } from "../layout/types";
 import { useApp } from "./store";
 
 interface LayoutState {
@@ -236,6 +236,9 @@ export const newLayoutId = () => `L${Date.now().toString(36)}${counter++}`;
 // ---- element factories used by the ribbon
 
 /** A map frame in the open layout; refuses unless the map has a coordinate system. */
+/** Room under a new frame for its Sources line, mm. */
+const SOURCES_H = 9.5;
+
 export function addMapFrame(): string | null {
   const s = useLayouts.getState();
   const crs = useApp.getState().mapCrs;
@@ -253,7 +256,7 @@ export function addMapFrame(): string | null {
     x: m,
     y: Math.min(top, p.height / 4),
     w: p.width - 2 * m,
-    h: p.height - Math.min(top, p.height / 4) - m,
+    h: p.height - Math.min(top, p.height / 4) - m - SOURCES_H,
     rotation: 0,
     locked: false,
     visible: true,
@@ -267,7 +270,36 @@ export function addMapFrame(): string | null {
     border: { width: 0.35, color: "#000000" },
   };
   s.addElement(frame);
+  // L6: a new frame comes with its Sources line under it.
+  addSurround("sources", frame.id);
+  s.select([frame.id]);
   return frame.id;
+}
+
+/** Defaults from docs/LAYOUTS_PLAN.md L2, placed inside the frame's corners (legend top right, arrow top left, scale bar bottom left); Sources goes under it. */
+export function addSurround(kind: SurroundElement["kind"], frameId: string): string | null {
+  const s = useLayouts.getState();
+  const f = s.doc?.elements.find((e) => e.id === frameId && e.kind === "map_frame");
+  if (!s.doc || !f) return null;
+  const base = { id: nextId(s.doc, { legend: "lg", scale_bar: "sb", north_arrow: "na", sources: "src" }[kind]), rotation: 0, locked: false, visible: true, frame: frameId };
+  const inset = 3;
+  let el: SurroundElement;
+  switch (kind) {
+    case "legend":
+      el = { ...base, kind, x: f.x + f.w - 46 - inset, y: f.y + inset, w: 46, h: 80, title: "Legend", columns: 1 };
+      break;
+    case "scale_bar":
+      el = { ...base, kind, x: f.x + inset, y: f.y + f.h - 10 - inset, w: 46, h: 10, units: "km", segments: 4 };
+      break;
+    case "north_arrow":
+      el = { ...base, kind, x: f.x + inset, y: f.y + inset, w: 12, h: 18, style: "simple" };
+      break;
+    case "sources":
+      el = { ...base, kind, x: f.x, y: f.y + f.h + 1.5, w: f.w, h: 8, size: 6 };
+      break;
+  }
+  s.addElement(el);
+  return el.id;
 }
 
 export function addText(text = "{layout_name}"): string | null {

@@ -67,7 +67,7 @@ const TABS: Record<string, Group[]> = {
   ],
   Layout: [
     { label: "Page", items: [{ custom: <PageMenu /> }] },
-    { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }] },
+    { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
     { label: "Export", items: [{ cmd: "layoutPdf" }, { cmd: "layoutPng" }, { cmd: "layoutSvg" }] },
   ],

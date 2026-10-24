@@ -104,6 +104,49 @@ pub struct FrameLayer {
     pub visible: bool,
 }
 
+/// Graticule (degrees) or projected grid (CRS units) of a map frame.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct GridSpec {
+    /// "auto" or the spacing: degrees for a graticule, CRS units for a grid.
+    #[serde(default = "auto")]
+    pub interval: GridInterval,
+    /// Edge labels.
+    #[serde(default = "yes")]
+    pub labels: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum GridInterval {
+    Auto(String),
+    Every(f64),
+}
+
+fn auto() -> GridInterval {
+    GridInterval::Auto("auto".into())
+}
+
+impl GridSpec {
+    /// Parse the `graticule` / `grid` value of a frame (`what` names it in errors).
+    pub fn parse(v: &serde_json::Value, what: &str) -> Result<GridSpec> {
+        let g: GridSpec = serde_json::from_value(v.clone()).map_err(|e| anyhow!("Invalid {what}: {e}"))?;
+        match &g.interval {
+            GridInterval::Auto(s) if s == "auto" => {}
+            GridInterval::Every(v) if v.is_finite() && *v > 0.0 => {}
+            _ => bail!("Invalid {what}: the interval must be \"auto\" or a positive number"),
+        }
+        Ok(g)
+    }
+
+    /// The fixed spacing, or None for "auto".
+    pub fn step(&self) -> Option<f64> {
+        match self.interval {
+            GridInterval::Every(v) => Some(v),
+            GridInterval::Auto(_) => None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Border {
     pub width: f64,
@@ -126,13 +169,13 @@ pub enum Element {
         scale: f64,
         #[serde(default = "map_layers")]
         layers: FrameLayers,
-        /// C2.4: "none" | "usgsTopo" | "usgsImagery" | "usgsRelief".
+        /// "none" | "usgsTopo" | "usgsImagery" | "usgsRelief" (OSM is refused: print).
         #[serde(default = "none")]
         basemap: String,
-        /// C2.4.
+        /// Lines of latitude and longitude ([`GridSpec`]).
         #[serde(default)]
         graticule: Option<serde_json::Value>,
-        /// C2.4.
+        /// Projected grid in frame-CRS units ([`GridSpec`]).
         #[serde(default)]
         grid: Option<serde_json::Value>,
         #[serde(default)]
@@ -240,7 +283,14 @@ impl Layout {
             if ![a.x, a.y, a.w, a.h, a.rotation].iter().all(|v| v.is_finite()) || a.w <= 0.0 || a.h <= 0.0 {
                 bail!("Element '{}' needs a finite position and a positive size", a.id);
             }
-            if let Element::MapFrame { scale, center, layers, .. } = e {
+            if let Element::MapFrame { scale, center, layers, basemap, graticule, grid, .. } = e {
+                super::basemap::check(basemap)?;
+                if let Some(g) = graticule {
+                    GridSpec::parse(g, "graticule")?;
+                }
+                if let Some(g) = grid {
+                    GridSpec::parse(g, "grid")?;
+                }
                 if !(scale.is_finite() && *scale > 0.0) {
                     bail!("Map frame '{}' needs a positive scale", a.id);
                 }
@@ -343,4 +393,8 @@ pub struct RenderRequest {
     /// Text token `{date}`; supplied by the caller so renders stay reproducible.
     #[serde(default)]
     pub date: String,
+    /// Resolution of raster layers and base maps drawn into frames, dpi
+    /// (default 300, clamped to 72–300: PDF images are capped at 300 dpi).
+    #[serde(default)]
+    pub raster_dpi: Option<f64>,
 }

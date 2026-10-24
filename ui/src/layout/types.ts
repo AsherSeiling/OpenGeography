@@ -30,6 +30,12 @@ export interface Border {
 
 export type FrameLayers = "map" | { id: string; visible: boolean }[];
 
+/** Graticule (interval in degrees) or projected grid (interval in CRS units). */
+export interface GridSpec {
+  interval: "auto" | number;
+  labels: boolean;
+}
+
 export interface MapFrame extends Placement {
   kind: "map_frame";
   /** Explicit frame CRS; "" = not set (the engine refuses to render it). */
@@ -39,9 +45,10 @@ export interface MapFrame extends Placement {
   /** Nominal scale denominator. */
   scale: number;
   layers: FrameLayers;
+  /** OpenStreetMap is not offered: its tile policy forbids bulk downloads (the engine refuses it). */
   basemap: "none" | "usgsTopo" | "usgsImagery" | "usgsRelief";
-  graticule: unknown | null;
-  grid: unknown | null;
+  graticule: GridSpec | null;
+  grid: GridSpec | null;
   border: Border | null;
 }
 
@@ -54,14 +61,42 @@ export interface TextElement extends Placement {
   color: string;
 }
 
-/** Legend, scale bar, north arrow and sources arrive in C2.3; kept so saved layouts round-trip. */
-export interface SurroundElement extends Placement {
-  kind: "legend" | "scale_bar" | "north_arrow" | "sources";
+export interface LegendElement extends Placement {
+  kind: "legend";
   frame: string;
-  [extra: string]: unknown;
+  title: string;
+  columns: number;
 }
 
+export interface ScaleBarElement extends Placement {
+  kind: "scale_bar";
+  frame: string;
+  units: "km" | "mi" | "m" | "ft";
+  segments: number;
+}
+
+export interface NorthArrowElement extends Placement {
+  kind: "north_arrow";
+  frame: string;
+  style: "simple" | "compass";
+}
+
+export interface SourcesElement extends Placement {
+  kind: "sources";
+  frame: string;
+  /** Text size in points. */
+  size: number;
+}
+
+export type SurroundElement = LegendElement | ScaleBarElement | NorthArrowElement | SourcesElement;
+
 export type LayoutElement = MapFrame | TextElement | SurroundElement;
+
+/** Value rounded for display (stored values stay as they are). */
+export function rounded(v: number, decimals: number): number {
+  const k = 10 ** decimals;
+  return Math.round(v * k) / k;
+}
 
 export interface Layout {
   id: string;

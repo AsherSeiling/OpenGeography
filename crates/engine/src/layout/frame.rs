@@ -3,7 +3,8 @@
 //! paths in page millimetres.
 
 use super::geo::{self, Body, FrameCrs};
-use super::model::{FrameLayers, LayerStyle, Placement, RenderRequest, StyleKind};
+use super::grid;
+use super::model::{FrameLayers, GridSpec, LayerStyle, Placement, RenderRequest, StyleKind};
 use super::svg::{self, cmd, esc, mm, opacity};
 use crate::db::{ident, lit};
 use crate::layers::LayerInfo;
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 /// UI styles are in CSS pixels (96 per inch); the page is in millimetres.
-const PX_MM: f64 = 25.4 / 96.0;
+pub(super) const PX_MM: f64 = 25.4 / 96.0;
 /// Features are cut at the frame plus this much paper, so strokes reach the edge.
 const CLIP_MARGIN_MM: f64 = 2.0;
 /// Print generalization tolerance on the page (L3).
@@ -26,6 +27,12 @@ pub struct FrameInput<'a> {
     pub scale: f64,
     pub layers: &'a FrameLayers,
     pub border: Option<&'a super::model::Border>,
+    pub graticule: Option<&'a GridSpec>,
+    pub grid: Option<&'a GridSpec>,
+    /// "none" or a printable basemap id (see `basemap::IDS`).
+    pub basemap: &'a str,
+    /// Opens a basemap's tile service (the network in the app; a fixture in tests).
+    pub open_basemap: &'a dyn Fn(&str) -> Result<gdal::Dataset>,
 }
 
 pub struct FrameOutput {
@@ -35,6 +42,8 @@ pub struct FrameOutput {
     pub drawn: Vec<String>,
     pub extent: [f64; 4],
     pub factors: geo::Factors,
+    /// The basemap that was drawn, if any.
+    pub basemap: Option<String>,
 }
 
 /// Layer ids a frame draws, top first, with their visibility applied.
@@ -168,7 +177,7 @@ fn class_count(style: &LayerStyle) -> usize {
     }
 }
 
-fn class_color(style: &LayerStyle, i: usize) -> String {
+pub(super) fn class_color(style: &LayerStyle, i: usize) -> String {
     let c = match style.kind {
         StyleKind::Single => None,
         StyleKind::Categorized => style.classes.as_ref().and_then(|c| c.get(i)).map(|c| c.color.as_str()),
@@ -301,6 +310,26 @@ fn densified(e: [f64; 4]) -> Vec<(f64, f64)> {
     v
 }
 
+/// Pixel size of an image covering the frame at `dpi`.
+fn image_px(at: &Placement, dpi: f64) -> (u32, u32) {
+    let px = |mm: f64| (mm / 25.4 * dpi).round().max(1.0) as u32;
+    (px(at.w), px(at.h))
+}
+
+/// A PNG as an SVG `<image>` over the whole frame.
+fn image_tag(at: &Placement, png: &[u8], opacity_v: f64) -> String {
+    use base64::Engine as _;
+    format!(
+        "<image x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" preserveAspectRatio=\"none\" opacity=\"{}\" href=\"data:image/png;base64,{}\"/>",
+        mm(at.x),
+        mm(at.y),
+        mm(at.w),
+        mm(at.h),
+        opacity(opacity_v),
+        base64::engine::general_purpose::STANDARD.encode(png)
+    )
+}
+
 pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, check: &dyn Fn() -> Result<()>) -> Result<FrameOutput> {
     let at = f.at;
     if f.crs.trim().is_empty() {
@@ -332,6 +361,19 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
 
     let mut body_svg = String::new();
     let mut drawn = Vec::new();
+    let dpi = req.raster_dpi.unwrap_or(300.0).clamp(72.0, 300.0);
+    let mut basemap = None;
+    if f.basemap != "none" {
+        check()?;
+        let (w_px, h_px) = image_px(at, dpi);
+        match (f.open_basemap)(f.basemap).and_then(|ds| super::basemap::render(&ds, f.crs, extent, w_px, h_px)) {
+            Ok(png) => {
+                let _ = write!(body_svg, "<g id=\"basemap-{}\">{}</g>", esc(&at.id), image_tag(at, &png, 1.0));
+                basemap = Some(f.basemap.to_string());
+            }
+            Err(e) => warnings.push(format!("Frame '{}': the {} basemap could not be drawn ({e}); check the network connection", at.id, f.basemap)),
+        }
+    }
     let ids = frame_layer_ids(f.layers, req);
     for id in ids.iter().rev() {
         check()?;
@@ -339,8 +381,16 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
             warnings.push(format!("Layer {id} not found; skipped"));
             continue;
         };
-        if info.is_raster() {
-            warnings.push(format!("Layer {} skipped: raster layers are drawn in a later release", info.name));
+        if let Some(r) = &info.raster {
+            if info.crs.is_none() {
+                warnings.push(format!("Layer {} skipped: no coordinate system", info.name));
+                continue;
+            }
+            let (w_px, h_px) = image_px(at, dpi);
+            let png = crate::raster::render_extent(r, f.crs, extent, w_px, h_px).map_err(|e| anyhow!("Layer {} could not be drawn: {e}", info.name))?;
+            let op = req.styles.get(id).map_or(1.0, |s| s.opacity);
+            let _ = write!(body_svg, "<g id=\"layer-{}\">{}</g>", esc(id), image_tag(at, &png, op));
+            drawn.push(id.clone());
             continue;
         }
         if !info.has_geometry() {
@@ -357,6 +407,23 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         drawn.push(id.clone());
     }
 
+    let mut labels = String::new();
+    let to_page = |x: f64, y: f64| m.xy(x, y);
+    if let Some(spec) = f.grid {
+        let g = grid::grid(&crs, at, extent, spec, f.graticule.is_some(), &to_page, &mut warnings);
+        if !g.lines.is_empty() {
+            let _ = write!(body_svg, "<g id=\"grid-{}\" fill=\"none\" stroke=\"#26567a\" stroke-width=\"0.15\">{}</g>", esc(&at.id), g.lines);
+        }
+        labels.push_str(&g.labels);
+    }
+    if let Some(spec) = f.graticule {
+        let g = grid::graticule(body, &crs, at, extent, spec, &to_page, &mut warnings);
+        if !g.lines.is_empty() {
+            let _ = write!(body_svg, "<g id=\"graticule-{}\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.15\" stroke-dasharray=\"1.2 0.8\">{}</g>", esc(&at.id), g.lines);
+        }
+        labels.push_str(&g.labels);
+    }
+
     let id = esc(&at.id);
     let (cx, cy) = (at.x + at.w / 2.0, at.y + at.h / 2.0);
     let rot = if at.rotation != 0.0 { format!(" transform=\"rotate({} {} {})\"", mm(at.rotation), mm(cx), mm(cy)) } else { String::new() };
@@ -369,6 +436,7 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         mm(at.w),
         mm(at.h)
     );
+    out.push_str(&labels);
     if let Some(b) = f.border {
         let _ = write!(
             out,
@@ -382,5 +450,5 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         );
     }
     out.push_str("</g>");
-    Ok(FrameOutput { svg: out, warnings, drawn, extent, factors })
+    Ok(FrameOutput { svg: out, warnings, drawn, extent, factors, basemap })
 }

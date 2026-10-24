@@ -1113,6 +1113,7 @@ dependencies = [
  "sha2",
  "svg2pdf",
  "tempfile",
+ "ttf-parser",
  "ureq 2.12.1",
 ]
 

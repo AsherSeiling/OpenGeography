@@ -84,7 +84,7 @@ P2 node-tree correctness — done: cancellation, one-step type-checked inserts, 
 P3 processing correctness — parameter validation; missing vector tools (union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay).
 P4 raster foundation — calculator, alignment, NoData, resample, mosaic.
 P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; docs/PUBLIC_DATA_CATALOG.md), Census join, NAIP, NASA.
-P6 layouts (designed: `docs/LAYOUTS_PLAN.md`, build C2.1–C3.2), then the Topo Map Builder.
+P6 layouts (designed: `docs/LAYOUTS_PLAN.md`; C2.1–C2.4 ✅ — page, frames, legend, scale bar, north arrow, sources, graticule/grid, rasters, USGS basemaps; C3.1–C3.2 templates and map series ⬜), then the Topo Map Builder.
 P7 Python tool SDK + headless CLI.
 P8 advanced analysis (hydrology, interpolation, statistics, remote sensing).
 P9 planetary GIS (Moon, Mars first): body-aware CRS/geodesics, USGS data importers, crater tools, ISIS/ASP bridges — plan in `docs/PLANETARY_PLAN.md` (not started).
