@@ -9,7 +9,7 @@ use serde::Serialize;
 
 pub const WGS84: &str = "EPSG:4326";
 pub const WEB_MERCATOR: &str = "EPSG:3857";
-const MERC_R: f64 = 6378137.0;
+pub const MERC_R: f64 = 6378137.0;
 pub const MERC_MAX_LAT: f64 = 85.051129;
 
 /// Definitions for catalog CRSs that the built-in PROJ database doesn't know

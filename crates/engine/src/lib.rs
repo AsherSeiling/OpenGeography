@@ -5,6 +5,7 @@ pub mod attrs;
 pub mod catalog;
 pub mod crs;
 pub mod db;
+pub mod display;
 pub mod graph;
 pub mod history;
 pub mod layers;
@@ -62,6 +63,7 @@ pub struct Engine {
     tools: Vec<Box<dyn Tool>>,
     graph_cache: Mutex<Cache>,
     diffs: Mutex<HashMap<String, history::DiffMeta>>,
+    display: display::Registry,
 }
 
 const PROJECT_DB: &str = "project.duckdb";
@@ -79,6 +81,7 @@ impl Engine {
             tools: nodes::registry(),
             graph_cache: Mutex::new(Cache::default()),
             diffs: Mutex::new(HashMap::new()),
+            display: display::Registry::default(),
         };
         e.init_schema()?;
         Ok(e)
@@ -93,6 +96,8 @@ impl Engine {
              CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);",
         )?;
         sources::init(&conn)?;
+        display::init(&conn)?;
+        self.display.clear();
         // Comparison tables are temporary: never kept from an earlier session.
         history::drop_all_diffs(&conn);
         self.diffs.lock().clear();
@@ -118,6 +123,7 @@ impl Engine {
             layers.insert(info.id.clone(), info);
         }
         self.next_id.store(max_id + 1, Ordering::SeqCst);
+        display::sweep(&conn, &layers.iter().map(|(k, v)| (k.clone(), v.version)).collect());
         let mut stmt = conn.prepare("SELECT node, layer FROM __model_layers")?;
         let nl: Vec<(String, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
         *self.node_layers.lock() = nl.into_iter().collect();
@@ -154,6 +160,8 @@ impl Engine {
             duckdb::params![info.id, serde_json::to_string(&stored)?],
         )?;
         self.layers.write().insert(info.id.clone(), info.clone());
+        // New data: display tables built from an older version are stale.
+        self.invalidate_display(conn, &info.id, Some(info.version));
         Ok(())
     }
 
@@ -261,6 +269,7 @@ impl Engine {
         conn.execute("DELETE FROM __model_layers WHERE layer = ?", [id])?;
         self.layers.write().remove(id);
         self.node_layers.lock().retain(|_, l| l != id);
+        self.invalidate_display(&conn, id, None);
         Ok(())
     }
 
@@ -649,6 +658,35 @@ impl Engine {
             Arc::new(tiles::build_tile(&conn, &info, z, x, y, fields)?)
         };
         self.tile_cache.lock().put(key, t.clone());
+        Ok(t)
+    }
+
+    /// A tile on the grid of the map CRS `key` (from `crs_display_info`).
+    /// `3857` is the Web Mercator tile above; any other key reads the layer's
+    /// display table and fails while that is still being built.
+    pub fn tile_in_crs(&self, id: &str, key: &str, z: u32, x: u32, y: u32, fields: &[String]) -> Result<Arc<Vec<u8>>> {
+        if key == display::MERCATOR_KEY {
+            return self.tile(id, z, x, y, fields);
+        }
+        let info = self.layer(id)?;
+        if info.is_raster() {
+            return Err(anyhow!("Rasters aren't drawn in this coordinate system yet"));
+        }
+        let (_, di) = self.display_key(key)?;
+        let cache_key: TileKey = (id.to_string(), info.version, z, x, y, format!("{key}|{}", fields.join(",")));
+        if let Some(t) = self.tile_cache.lock().get(&cache_key) {
+            return Ok(t.clone());
+        }
+        if !info.has_geometry() || info.crs.is_none() {
+            return Ok(Arc::new(Vec::new()));
+        }
+        let t = self.with_conn(|conn| {
+            let entry = display::lookup(conn, id, key, info.version)?
+                .ok_or_else(|| anyhow!("'{}' hasn't been projected for display in this coordinate system yet", info.name))?;
+            tiles::build_tile_display(conn, &info, &entry, &di.grid, z, x, y, fields)
+        })?;
+        let t = Arc::new(t);
+        self.tile_cache.lock().put(cache_key, t.clone());
         Ok(t)
     }
 

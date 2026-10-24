@@ -329,21 +329,29 @@ fn build_overviews(conn: &Connection, table: &str, has_crs: bool) -> Result<Vec<
     if !has_crs || n < OVERVIEW_MIN_FEATURES {
         return Ok(vec![]);
     }
+    build_overview_tables(conn, table, "__g", &crs::pixel_size)
+}
+
+/// The overview pyramid of `table` over its geometry column `geom`, with
+/// `px_of(z)` the size of a pixel (CRS units) at zoom `z`. Shared by layer
+/// tables (`__g`, Web Mercator) and display tables (`__d`, any CRS grid).
+pub fn build_overview_tables(conn: &Connection, table: &str, geom: &str, px_of: &dyn Fn(u32) -> f64) -> Result<Vec<u32>> {
     let mut src = table.to_string();
     let mut built = Vec::new();
     for z in OVERVIEW_LEVELS {
-        let px = crs::pixel_size(z);
+        let px = px_of(z);
         let ov = overview_table(table, z);
         conn.execute_batch(&format!(
             "CREATE TABLE {o} AS
-             SELECT * REPLACE (CASE WHEN __sz > {big} THEN ST_Simplify(__g, {tol}) ELSE __g END AS __g)
+             SELECT * REPLACE (CASE WHEN __sz > {big} THEN ST_Simplify({g}, {tol}) ELSE {g} END AS {g})
                FROM {s} WHERE __sz >= {px}
              UNION ALL
              SELECT * FROM {s} WHERE __sz < {px}
                QUALIFY row_number() OVER (PARTITION BY floor(__x0 / {cell}), floor(__y0 / {cell}) ORDER BY __fid) = 1;
-             CREATE INDEX {idx} ON {o} USING RTREE (__g);",
+             CREATE INDEX {idx} ON {o} USING RTREE ({g});",
             o = ident(&ov),
             s = ident(&src),
+            g = geom,
             big = px * 4.0,
             tol = px / 2.0,
             cell = px * 2.0,
