@@ -4,7 +4,8 @@
 //!   cargo run -p devserver            # then: npm run dev, open http://localhost:1420
 //!
 //! POST /invoke/<command> with a JSON body of the command's arguments.
-//! GET  /tiles/<layer>/<z>/<x>/<y>.pbf?fields=a,b
+//! GET  /tiles/<layer>/<z>/<x>/<y>.pbf?fields=a,b          (Web Mercator)
+//! GET  /tiles/<layer>/<crsKey>/<z>/<x>/<y>.pbf?fields=a,b (a map CRS's grid)
 
 use anyhow::{anyhow, Result};
 use engine::graph::Graph;
@@ -70,13 +71,17 @@ fn main() -> Result<()> {
 fn tile(engine: &Engine, rest: &str) -> Result<Vec<u8>> {
     let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
     let p: Vec<&str> = path.split('/').collect();
-    let [layer, z, x, y] = p.as_slice() else { return Err(anyhow!("bad tile path")) };
+    let (layer, key, z, x, y) = match p.as_slice() {
+        [layer, z, x, y] => (layer, engine::display::MERCATOR_KEY, z, x, y),
+        [layer, key, z, x, y] => (layer, *key, z, x, y),
+        _ => return Err(anyhow!("bad tile path")),
+    };
     let fields: Vec<String> = query
         .split('&')
         .find_map(|kv| kv.strip_prefix("fields="))
         .map(|v| v.replace("%2C", ",").split(',').filter(|s| !s.is_empty()).map(String::from).collect())
         .unwrap_or_default();
-    Ok(engine.tile(layer, z.parse()?, x.parse()?, y.trim_end_matches(".pbf").trim_end_matches(".png").parse()?, &fields)?.as_ref().clone())
+    Ok(engine.tile_in_crs(layer, key, z.parse()?, x.parse()?, y.trim_end_matches(".pbf").trim_end_matches(".png").parse()?, &fields)?.as_ref().clone())
 }
 
 fn s(a: &Value, k: &str) -> Result<String> {
@@ -90,7 +95,7 @@ fn de<T: serde::de::DeserializeOwned>(a: &Value, k: &str) -> Result<T> {
 }
 
 /// Mirrors src-tauri/src/commands.rs.
-fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
+fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
     Ok(match cmd {
         "import_files" => {
             let paths: Vec<PathBuf> = de(a, "paths")?;
@@ -205,6 +210,9 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
         "suggest_crs" => json!(e.suggest_crs(&s(a, "id")?)?),
         "validate_crs" => json!(e.validate_crs(&s(a, "crs")?)?),
         "transform_point" => json!(e.transform_point(f(a, "x")?, f(a, "y")?, &s(a, "from")?, &s(a, "to")?)?),
+        "crs_display_info" => json!(e.crs_display_info(&s(a, "crs")?, de(a, "fallbackExtent").ok())?),
+        "build_display" => json!(e.build_display(&s(a, "layer")?, &s(a, "crs")?)?),
+        "display_status" => json!(e.display_status(&s(a, "layer")?, &s(a, "crs")?)?),
         "get_rows" => json!(e.rows(&s(a, "id")?, &de::<RowsQuery>(a, "query")?)?),
         "select_where" => json!(e.select_where(&s(a, "id")?, &s(a, "filter")?)?),
         "identify" | "select_box" => {

@@ -2,6 +2,7 @@
 //! on DuckDB. Errors are returned to the UI as plain strings.
 
 use engine::crs::Suggestion;
+use engine::display::{DisplayInfo, DisplayStatus};
 use engine::graph::{Graph, NodeResult};
 use engine::layers::LayerInfo;
 use engine::table::{RowsPage, RowsQuery};
@@ -99,6 +100,27 @@ pub async fn validate_crs(engine: Eng<'_>, crs: String) -> Res<()> {
 #[tauri::command]
 pub async fn transform_point(engine: Eng<'_>, x: f64, y: f64, from: String, to: String) -> Res<(f64, f64)> {
     blocking(&engine, move |e| e.transform_point(x, y, &from, &to)).await
+}
+
+/// Grid, proj4 string and key for drawing the map in `crs`.
+#[tauri::command]
+pub async fn crs_display_info(engine: Eng<'_>, crs: String, fallback_extent: Option<[f64; 4]>) -> Res<DisplayInfo> {
+    blocking(&engine, move |e| e.crs_display_info(&crs, fallback_extent)).await
+}
+
+/// Start projecting a layer for display in `crs` in the background.
+#[tauri::command]
+pub async fn build_display(engine: Eng<'_>, layer: String, crs: String) -> Res<DisplayStatus> {
+    let e = engine.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || e.build_display(&layer, &crs))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn display_status(engine: Eng<'_>, layer: String, crs: String) -> Res<DisplayStatus> {
+    blocking(&engine, move |e| e.display_status(&layer, &crs)).await
 }
 
 #[tauri::command]

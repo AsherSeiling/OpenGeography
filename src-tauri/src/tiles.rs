@@ -1,5 +1,6 @@
 //! `gis://` custom protocol: serves vector tiles to MapLibre.
-//! URL shape: gis://localhost/tiles/{layer}/{z}/{x}/{y}.pbf?fields=a,b&v=3
+//! URL shapes: gis://localhost/tiles/{layer}/{z}/{x}/{y}.pbf?fields=a,b&v=3 (Web Mercator)
+//! and gis://localhost/tiles/{layer}/{crsKey}/{z}/{x}/{y}.pbf (a map CRS's grid; key `3857` = the first).
 
 use engine::Engine;
 use percent_encoding::percent_decode_str;
@@ -24,8 +25,10 @@ pub fn handle(engine: &Engine, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
 fn tile(engine: &Engine, req: &Request<Vec<u8>>) -> anyhow::Result<Vec<u8>> {
     let uri = req.uri();
     let parts: Vec<&str> = uri.path().trim_matches('/').split('/').collect();
-    let ["tiles", layer, z, x, y] = parts.as_slice() else {
-        anyhow::bail!("bad tile path {}", uri.path());
+    let (layer, key, z, x, y) = match parts.as_slice() {
+        ["tiles", layer, z, x, y] => (layer, engine::display::MERCATOR_KEY, z, x, y),
+        ["tiles", layer, key, z, x, y] => (layer, *key, z, x, y),
+        _ => anyhow::bail!("bad tile path {}", uri.path()),
     };
     let y = y.trim_end_matches(".pbf").trim_end_matches(".png");
     let mut fields = Vec::new();
@@ -39,6 +42,6 @@ fn tile(engine: &Engine, req: &Request<Vec<u8>>) -> anyhow::Result<Vec<u8>> {
                 .collect();
         }
     }
-    let t = engine.tile(layer, z.parse()?, x.parse()?, y.parse()?, &fields)?;
+    let t = engine.tile_in_crs(layer, key, z.parse()?, x.parse()?, y.parse()?, &fields)?;
     Ok(t.as_ref().clone())
 }

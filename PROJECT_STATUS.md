@@ -3,12 +3,13 @@
 _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Session prompts: `docs/prompts/`._
 
 ## Exact next action
+- **Orchestrator (Opus):** review and merge branch `claude/m1-crs-tiles-080e54` (M1, engine half of the projected map view; risky hunks: `display.rs` DuckDB build transaction + `__disp_index`, grid/area-of-use maths). Next Sonnet task: **M2** (brief in `docs/prompts/next-session.md`).
 - **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** review and merge branch `claude/c2-3-4-layout-elements-0bebf9` (C2.3 + C2.4, two commits; geodesy hunks: `layout/surround.rs` scale bar and north arrow, `layout/grid.rs` graticule, `raster.rs::ground_pixel_m`), then rebuild the Mac app and run `--self-test` (P19). Next Sonnet task: **M1** of the projected map view (brief in `docs/prompts/next-session.md`), then M2–M4.
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
 
 ## State
 - `main` is pushed to https://github.com/AsherSeiling/OpenGeography (public). Never commit `.claude/` (local launch config and worktrees).
-- Phases A (except A3 and the tag) and B are done. Phase C: C1 designed, C2.1 and C2.2 merged, C2.3 + C2.4 (surround elements, graticule/grid, rasters, USGS basemaps) done on their branch awaiting review.
+- Phases A (except A3 and the tag) and B are done. Phase C: M1 (CRS grids, display tables, tiles in any CRS) done on its branch awaiting review; C1 designed, C2.1 and C2.2 merged, C2.3 + C2.4 (surround elements, graticule/grid, rasters, USGS basemaps) done on their branch awaiting review.
 - CI is green on macOS, Linux and Windows through Phase B (`docs/CI_LOG.md`). CI logs need a GitHub login: read failures from the run annotations (`scripts/ci-run.sh` publishes key lines).
 - The packaged Mac app and DMG are copied into the project folder (`GIS Studio.app`, `GIS-Studio-<version>-macos-arm64.dmg`) and rebuilt once per phase.
 

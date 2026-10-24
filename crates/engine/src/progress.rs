@@ -100,6 +100,10 @@ impl Task {
         self
     }
 
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
     /// Err(CANCELLED) once the user has asked to cancel.
     pub fn check(&self) -> anyhow::Result<()> {
         check_id(self.id)

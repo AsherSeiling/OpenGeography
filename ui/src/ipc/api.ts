@@ -119,6 +119,38 @@ export interface Field {
   type: string;
 }
 
+/** Tile grid of a map CRS (engine `crs_display_info`). Resolutions are CRS units per pixel for z = 0..22. */
+export interface CrsGrid {
+  extent: [number, number, number, number];
+  origin: [number, number];
+  resolutions: number[];
+  tileSize: number;
+}
+
+export interface CrsDisplayInfo {
+  /** "3857" for Web Mercator, else a 12-hex-digit key of the CRS. */
+  crsKey: string;
+  proj4: string;
+  geographic: boolean;
+  /** Metres per CRS unit (per degree at the equator when geographic). */
+  unitM: number;
+  grid: CrsGrid;
+  /** [west, south, east, north] degrees. */
+  areaOfUse: [number, number, number, number];
+  /** False when PROJ has no area of use and the grid came from the fallback extent. */
+  areaOfUseKnown: boolean;
+}
+
+export interface DisplayStatus {
+  /** Tiles in this CRS can be served now. */
+  ready: boolean;
+  building: boolean;
+  /** Features wholly outside the CRS's area of use that aren't drawn. */
+  dropped: number;
+  /** Why the last build failed. */
+  error: string | null;
+}
+
 export interface LayerInfo {
   id: string;
   name: string;
@@ -304,6 +336,12 @@ export const api = {
   validateCrs: (crs: string) => invoke<void>("validate_crs", { crs }),
   transformPoint: (x: number, y: number, from: string, to: string) =>
     invoke<[number, number]>("transform_point", { x, y, from, to }),
+  /** Grid, proj4 string and key for drawing the map in `crs`. `fallbackExtent` ([w, s, e, n] degrees) is used only when the CRS has no area of use. */
+  crsDisplayInfo: (crs: string, fallbackExtent?: [number, number, number, number]) =>
+    invoke<CrsDisplayInfo>("crs_display_info", { crs, fallbackExtent: fallbackExtent ?? null }),
+  /** Start projecting a layer for display in `crs` (background task); poll `displayStatus`. */
+  buildDisplay: (layer: string, crs: string) => invoke<DisplayStatus>("build_display", { layer, crs }),
+  displayStatus: (layer: string, crs: string) => invoke<DisplayStatus>("display_status", { layer, crs }),
   getRows: (id: string, query: RowsQuery) => invoke<RowsPage>("get_rows", { id, query }),
   selectWhere: (id: string, filter: string) => invoke<number[]>("select_where", { id, filter }),
   identify: (ids: string[], lon: number, lat: number, zoom: number) =>
@@ -352,10 +390,12 @@ export const api = {
 // Custom protocol base: Windows WebView2 maps custom schemes to http://<scheme>.localhost.
 const TILE_BASE = !IN_TAURI ? DEV_SERVER : navigator.userAgent.includes("Windows") ? "http://gis.localhost" : "gis://localhost";
 
-export function tileUrl(layer: LayerInfo, fields: string[]): string {
+/** Tile URL template. `crsKey` (from `crsDisplayInfo`) selects a map CRS's grid; without it, or with "3857", tiles are Web Mercator. */
+export function tileUrl(layer: LayerInfo, fields: string[], crsKey?: string): string {
   const f = fields.length ? `&fields=${encodeURIComponent(fields.join(","))}` : "";
   const ext = layer.geomType === "Raster" ? "png" : "pbf";
-  return `${TILE_BASE}/tiles/${layer.id}/{z}/{x}/{y}.${ext}?v=${layer.version}${f}`;
+  const key = crsKey && crsKey !== "3857" ? `${crsKey}/` : "";
+  return `${TILE_BASE}/tiles/${layer.id}/${key}{z}/{x}/{y}.${ext}?v=${layer.version}${f}`;
 }
 
 export function errorText(e: unknown): string {
