@@ -82,12 +82,12 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 
 | Task | Effort | Model | Notes |
 |---|---|---|---|
-| B1. Attribute history between nodes ("git for tables"): design | 1 | Opus | Writes `ATTRIBUTE_HISTORY_PLAN.md`. Covers snapshot storage (persisting `__node_<hash>` tables beyond the session), diff format, size limits, and the table pane picker. |
+| B1. Attribute history between nodes ("git for tables"): design | 1 | Opus | ✅ Done 2026-10-23. Writes `ATTRIBUTE_HISTORY_PLAN.md`. Covers snapshot storage (persisting `__node_<hash>` tables beyond the session), diff format, size limits, and the table pane picker. |
 | B2. Attribute history: build | 2–3 | Sonnet | ✅ Done 2026-10-23 (B2.1 persisted cache, B2.2 diff + node-rows commands, B2.3 table pane UI). Engine snapshots + diff, table pane picker, tests. |
 | B3. Missing vector tools: union, difference, symmetrical difference, singlepart→multipart, concave hull, Delaunay | 2 | Sonnet | **Union, Symmetrical Difference, Collect done 2026-10-23** (difference = Erase); concave hull and Delaunay done too — B3 complete. One file per tool in `nodes/`; cite the QGIS algorithm ids without copying their code. |
 | B4. Parameter validation and UI graph tests (splice, undo, tree switching) | 1–2 | Sonnet | **Done 2026-10-23** (engine `validate_params` + layer-tree switching tests; splice/undo tests already existed). Roadmap P2/P3 leftovers. |
 
-**Exit:** roadmap P2 and P3 all ✅.
+**Exit:** roadmap P2 and P3 all ✅. **✅ Phase B complete 2026-10-23:** CI green on all three platforms ([40031502418](https://github.com/AsherSeiling/OpenGeography/actions/runs/40031502418)), packaged Mac app `--self-test` passes. The v0.2 tag is the user's call.
 **Total:** 6–8 sessions.
 
 ### Phase C — Map production (priority 2)

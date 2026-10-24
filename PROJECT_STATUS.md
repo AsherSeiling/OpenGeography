@@ -48,4 +48,5 @@ Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet 
 3. Census data join (user enters the API key; OS keychain).
 
 ## Exact next action
+Phase B is complete: CI green on all three platforms (run 40031502418), packaged Mac app `--self-test` passes. You decide on the `v0.2` tag (MASTER_PLAN §4); it comes after `v0.1.0`.
 Build **C2.1** (layout renderer core; prompt 1 in `docs/NEXT_SESSION_PROMPT.md`; it adds bundled crates and fonts, so it ends with an OPUS NEEDED licence review). Meanwhile A3: you check the Windows and Linux installers on real machines, then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`).
