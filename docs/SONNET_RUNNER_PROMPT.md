@@ -45,6 +45,8 @@ Also stop and ask the user (not Opus) for: A3 (needs real Windows/Linux machines
 - Update PROJECT_STATUS.md (state, next tasks, exact next action) and the task's status marks in docs/ROADMAP.md. Mark a platform verified only if it actually ran.
 - If the next task is Sonnet-only, say so and suggest starting it in a fresh session with this same prompt. If it hits the Opus gate, print the OPUS NEEDED block for it now so I can open Opus straight away.
 - Final message: what was done, test/CI results (honest, with failures), and the next action. Keep it under 15 lines.
+- When an Opus orchestrator started you, end with this review block so it can review without reading the whole diff:
+  `Branch:` name + commit hashes · `Tests:` exact counts per suite, failures included · `Risky hunks:` file:line ranges touching geodesy/CRS, DuckDB transactions/result writes, persistence/schema, licensing, shared async state (or "none") · `New deps:` crate + licence (or "none") · `Decisions the plan didn't settle:` (or "none").
 
 ## Efficiency rules
 - Don't summarize the docs back to me. Don't re-plan decided things. Don't explore beyond the task's files.
