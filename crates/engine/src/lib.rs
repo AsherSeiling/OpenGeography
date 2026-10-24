@@ -1143,7 +1143,17 @@ fn atomically<T>(conn: &Connection, f: impl FnOnce() -> Result<T>) -> Result<T> 
             Ok(v)
         }
         Err(e) => {
-            let _ = conn.execute_batch("ROLLBACK");
+            // Cancel keeps interrupting until the run returns, so the ROLLBACK
+            // itself can be interrupted. Retry, or the pooled connection goes
+            // back with an aborted transaction open and the next run's first
+            // statement fails ("Current transaction is aborted").
+            for _ in 0..50 {
+                match conn.execute_batch("ROLLBACK") {
+                    Ok(()) => break,
+                    Err(r) if r.to_string().contains("no transaction") => break,
+                    Err(_) => std::thread::sleep(std::time::Duration::from_millis(20)),
+                }
+            }
             Err(e)
         }
     }
