@@ -1,8 +1,11 @@
 // Office / ArcGIS Pro style ribbon: tabs → labeled groups → large and small
 // buttons. Contextual tabs appear when a layer is selected.
 import { Combobox, Menu, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Option, Tooltip } from "@fluentui/react-components";
-import { ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
-import { useMemo, useState, type ReactNode } from "react";
+import { DocumentPdfRegular, DocumentRegular, ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { newLayout } from "../layout/actions";
+import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/types";
+import { useLayouts } from "../store/layout";
 import { useRun } from "../store/model";
 import { useNav } from "../nav/navStore";
 import { useApp } from "../store/store";
@@ -28,7 +31,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Coordinate System", items: [{ cmd: "mapCrs" }] },
   ],
   Insert: [
-    { label: "Layouts", items: [{ cmd: "newLayout" }] },
+    { label: "Layouts", items: [{ custom: <NewLayoutGallery /> }] },
     { label: "Maps", items: [{ cmd: "topoMap" }] },
   ],
   Analysis: [
@@ -62,6 +65,12 @@ const TABS: Record<string, Group[]> = {
     { label: "Performance", items: [{ cmd: "fps" }, { cmd: "benchmark" }] },
     { label: "Appearance", items: [{ cmd: "theme" }] },
   ],
+  Layout: [
+    { label: "Page", items: [{ custom: <PageMenu /> }] },
+    { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }] },
+    { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
+    { label: "Export", items: [{ cmd: "layoutPdf" }, { cmd: "layoutPng" }, { cmd: "layoutSvg" }] },
+  ],
   "Feature Layer": [
     { label: "Layer", items: [{ cmd: "layerProps" }, { cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
     { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
@@ -81,7 +90,14 @@ export function Ribbon() {
   useNav((s) => s.measureMode);
   const active = useApp((s) => (s.activeLayer ? s.layers[s.activeLayer] : null));
   const contextual = active && active.geomType !== "Table";
-  const current = tab === "Feature Layer" && !contextual ? "Map" : tab;
+  const layoutId = useLayouts((s) => s.id);
+  useLayouts((s) => s.doc);
+  useLayouts((s) => s.selected);
+  // Opening a layout tab brings its contextual ribbon tab forward, as in ArcGIS Pro.
+  useEffect(() => {
+    if (layoutId) setTab("Layout");
+  }, [layoutId]);
+  const current = (tab === "Feature Layer" && !contextual) || (tab === "Layout" && !layoutId) ? "Map" : tab;
 
   return (
     <div className="ribbon">
@@ -105,6 +121,14 @@ export function Ribbon() {
             {t}
           </button>
         ))}
+        {layoutId && (
+          <div className="rtab-context">
+            <span className="rtab-context-label">Layout</span>
+            <button className={`rtab ctx ${current === "Layout" ? "on" : ""}`} onClick={() => setTab("Layout")}>
+              Layout
+            </button>
+          </div>
+        )}
         {contextual && (
           <div className="rtab-context">
             <span className="rtab-context-label">Layer</span>
@@ -170,6 +194,99 @@ export function RButton({ cmd, size }: { cmd: Command; size: Size }) {
     </Tooltip>
   ) : (
     btn
+  );
+}
+
+/** Insert → Layouts: pick a page size and orientation for a new layout. */
+function NewLayoutGallery() {
+  return (
+    <Menu>
+      <MenuTrigger>
+        <button className="rbtn large" title="Create a print layout">
+          <span className="rbtn-icon"><DocumentPdfRegular /></span>
+          <span className="rbtn-label">New Layout ▾</span>
+        </button>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          {Object.keys(PAGE_SIZES).flatMap((size) =>
+            (["landscape", "portrait"] as Orientation[]).map((o) => (
+              <MenuItem key={`${size}${o}`} icon={<DocumentRegular />} onClick={() => newLayout(size, o)}>
+                {size} {o}
+              </MenuItem>
+            )),
+          )}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Layout → Page: size and orientation of the open layout's page. */
+function PageMenu() {
+  const page = useLayouts((s) => s.doc?.page);
+  const cur = page ? describePage(page) : null;
+  const set = (size: string, o: Orientation) => useLayouts.getState().setPage({ ...pageFor(size, o, page?.margin), background: page?.background ?? "#ffffff" });
+  return (
+    <div className="rcol">
+      <Menu>
+        <MenuTrigger>
+          <button className="rbtn small" disabled={!page}>
+            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-label">Size: {cur?.size ?? "Custom"} ▾</span>
+          </button>
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            {Object.keys(PAGE_SIZES).map((s) => (
+              <MenuItem key={s} onClick={() => set(s, cur?.orientation ?? "landscape")}>{s}</MenuItem>
+            ))}
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+      <Menu>
+        <MenuTrigger>
+          <button className="rbtn small" disabled={!page}>
+            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-label">Orientation: {cur?.orientation ?? (page && page.width > page.height ? "landscape" : "portrait")} ▾</span>
+          </button>
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            {(["landscape", "portrait"] as Orientation[]).map((o) => (
+              <MenuItem key={o} onClick={() => set(cur?.size ?? "Letter", o)}>{o}</MenuItem>
+            ))}
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+    </div>
+  );
+}
+
+/** Layout → Map Frame: the scale of the selected (or first) frame, "1 : [24,000]". */
+function ScaleBox() {
+  const frame = useLayouts((s) => {
+    const fs = s.doc?.elements.filter((e) => e.kind === "map_frame") ?? [];
+    return (fs.find((f) => s.selected.includes(f.id)) ?? fs[0]) as { id: string; scale: number } | undefined;
+  });
+  const [text, setText] = useState("");
+  useEffect(() => setText(frame ? String(Math.round(frame.scale)) : ""), [frame?.id, frame?.scale]);
+  return (
+    <div className="rcol scale-box">
+      <label className="muted">Scale 1 :</label>
+      <input
+        className="scale-input"
+        disabled={!frame}
+        value={text}
+        inputMode="numeric"
+        onChange={(e) => {
+          setText(e.target.value);
+          const v = Number(e.target.value.replace(/[,\s]/g, ""));
+          if (frame && Number.isFinite(v) && v >= 1) useLayouts.getState().update(frame.id, { scale: v }, "scale");
+        }}
+        aria-label="Map frame scale denominator"
+      />
+    </div>
   );
 }
 

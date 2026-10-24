@@ -89,7 +89,8 @@ impl Engine {
         let conn = pool.get()?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS __layers (id VARCHAR PRIMARY KEY, info JSON);
-             CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);",
+             CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);
+             CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);",
         )?;
         sources::init(&conn)?;
         // Comparison tables are temporary: never kept from an earlier session.

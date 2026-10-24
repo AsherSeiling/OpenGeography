@@ -277,3 +277,64 @@ fn no_ellipsoid_literals_outside_geo_rs() {
         }
     }
 }
+
+// ---------------------------------------------------------------- C2.2
+
+#[test]
+fn layouts_are_stored_in_the_project_and_survive_reopening() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut layout = request(&ids, categorized()).layout;
+    e.save_layout(&layout).unwrap();
+    layout.name = "Renamed".into();
+    e.save_layout(&layout).unwrap(); // same id: replaced
+    assert_eq!(e.list_layouts().unwrap().len(), 1);
+    let proj = dir.path().join("p.gproj");
+    e.save_project(&proj, "{}").unwrap();
+    let e2 = Engine::new().unwrap();
+    e2.open_project(&proj).unwrap();
+    let back = e2.list_layouts().unwrap();
+    assert_eq!(back, vec![layout.clone()]);
+    e2.delete_layout("L1").unwrap();
+    assert!(e2.list_layouts().unwrap().is_empty());
+}
+
+#[test]
+fn save_layout_validates() {
+    let e = Engine::new().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let (_, ids) = fixture(dir.path());
+    let mut layout = request(&ids, categorized()).layout;
+    layout.version = 99;
+    assert!(e.save_layout(&layout).is_err());
+    assert!(e.list_layouts().unwrap().is_empty());
+}
+
+#[test]
+fn export_writes_svg_pdf_png_atomically_and_preview_is_base64_png() {
+    use engine::layout::ExportFormat;
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let req = request(&ids, categorized());
+    let out = dir.path().join("out");
+    for (fmt, name, magic) in [(ExportFormat::Svg, "m.svg", &b"<svg"[..]), (ExportFormat::Pdf, "m.pdf", &b"%PDF-"[..]), (ExportFormat::Png, "m.png", &b"\x89PNG"[..])] {
+        let warnings = e.export_layout(&req, fmt, 72.0, &out.join(name)).unwrap();
+        assert_eq!(warnings, vec!["Layer nocrs skipped: no coordinate system".to_string()]);
+        assert!(std::fs::read(out.join(name)).unwrap().starts_with(magic), "{name}");
+    }
+    let leftovers: Vec<_> = std::fs::read_dir(&out).unwrap().map(|f| f.unwrap().file_name().to_string_lossy().into_owned()).filter(|n| n.ends_with(".part")).collect();
+    assert!(leftovers.is_empty(), "no temp files left: {leftovers:?}");
+    let p = e.render_layout_preview(&req, 96.0).unwrap();
+    use base64::Engine as _;
+    assert!(base64::engine::general_purpose::STANDARD.decode(&p.png).unwrap().starts_with(b"\x89PNG"));
+    assert_eq!(p.warnings.len(), 1);
+}
+
+#[test]
+fn cancelled_render_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let req = request(&ids, categorized());
+    let err = e.render_layout_svg(&req, &|| anyhow::bail!(engine::progress::CANCELLED)).unwrap_err();
+    assert!(engine::progress::is_cancelled(&err));
+}

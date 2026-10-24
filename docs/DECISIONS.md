@@ -52,6 +52,12 @@ Newest first. One entry per decision that isn't obvious from the code; details l
   - Never `brew upgrade gdal duckdb`.
   - The spatial extension ships gzip-compressed.
 
+## Layouts
+- **2026-10-23 Layout preview transport (C2.2):** the engine returns the preview PNG base64-encoded inside the command's JSON (`render_layout_preview` → `{ png, pngBytes, warnings }`) instead of a `gis://` URL. Measured through the dev server (debug build): Letter landscape, 60 polygons, 96 dpi: 61 KB PNG, 33 ms round trip. A URL would need the layout and styles in a query string or a server-side cache keyed by hash, for no visible gain at this size. Revisit if a page with rasters (C2.4) makes previews more than ~1 MB. Adds `base64` as a direct engine dependency (already in the tree; MIT OR Apache-2.0).
+- **2026-10-23 Layout undo (C2.2):** `store/layout.ts` keeps the open layout in `doc` (zundo, like `model.ts`) and stashes each layout's past/future when another tab becomes active, so history is per layout. A drag or arrow nudge is one step (`beginStep`); typing in one field is one step (`burst`).
+- **2026-10-23 Layout persistence (C2.2):** layouts save to `__layouts` through `save_layout` 500 ms after an edit and before every project save; they ride along in `project.duckdb`. Tabs return with the dock layout (`layout:<id>` panels, `layoutId` param). Layers in a frame follow the map's order/visibility; a node-tree result replaces its layer (same id swap as on screen).
+- **2026-10-23 Export (C2.2):** `export_layout` is a cancellable `progress::Task` ("Exporting layout — name"); Cancel is polled between layers and before encoding; the file is written as `name.ext.part` and renamed. It returns the render warnings. PNG is 300 dpi for now; the browser build asks for the path with a prompt.
+
 ## UI
 - **2026-10-23 Node editor:**
   - Blender keys work only over the editor (`nodes/keymap.ts`, rebindable).

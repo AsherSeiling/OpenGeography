@@ -254,6 +254,14 @@ fn invoke(e: &Engine, cmd: &str, a: &Value) -> Result<Value> {
             let ui = e.open_project(&PathBuf::from(s(a, "dir")?))?;
             json!({ "uiState": ui, "layers": e.list_layers() })
         }
+        "list_layouts" => json!(e.list_layouts()?),
+        "save_layout" => {
+            e.save_layout(&de(a, "layout")?)?;
+            json!(null)
+        }
+        "delete_layout" => json!(e.delete_layout(&s(a, "id")?)?),
+        "render_layout_preview" => json!(e.render_layout_preview(&de(a, "req")?, f(a, "dpi")?)?),
+        "export_layout" => json!(e.export_layout(&de(a, "req")?, engine::layout::ExportFormat::parse(&s(a, "format")?)?, f(a, "dpi")?, &PathBuf::from(s(a, "path")?))?),
         "new_project" => json!(e.new_project()?),
         other => return Err(anyhow!("unknown command {other}")),
     })
