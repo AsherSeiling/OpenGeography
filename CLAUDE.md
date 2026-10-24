@@ -2,7 +2,7 @@
 
 Free, open-source, node-based desktop GIS for geoscientists and government staff.
 Priorities: easy data manipulation → easy map production → fast, correct geoprocessing.
-Start each session with `PROJECT_STATUS.md` (state + exact next action). Order of work: `docs/MASTER_PLAN.md` (links every other plan). Feature inventory: `docs/ROADMAP.md`.
+Start each session with `PROJECT_STATUS.md` (state + exact next action). Order of work: `docs/MASTER_PLAN.md` (links every other plan). Feature inventory: `docs/ROADMAP.md`. Why things are as they are: `docs/DECISIONS.md` (read only for the area you touch). Session prompts: `docs/prompts/`.
 
 ## Architecture (one line each)
 - `src-tauri/` Tauri 2 shell: IPC commands (`commands.rs`), `gis://` tile protocol, `--self-test`.
@@ -16,7 +16,8 @@ export PATH=/opt/homebrew/opt/rustup/bin:/opt/homebrew/bin:$PATH   # cargo is no
 cargo test -p engine                     # engine (add -- --ignored <name> for network tests)
 npx vitest run && npx tsc -p tsconfig.json
 cargo build --release -p devserver && ./target/release/devserver   # + `npx vite` → http://localhost:1420 (window.__gis dev hooks)
-scripts/package-macos.sh                 # macOS app + DMG; then run the app with --self-test
+scripts/package-macos.sh                 # macOS app + DMG; then run the app with --self-test and copy both into the project folder
+npm run build && mkdir -p src-tauri/resources   # once in a fresh git worktree, before building gis-studio
 python3 scripts/third_party_notices.py   # after dependency changes
 ```
 

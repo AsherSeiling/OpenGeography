@@ -25,7 +25,7 @@ When the gate triggers, do NOT start coding. Reply with exactly:
   OPUS NEEDED: <task id + name>
   Why: <one line>
   Paste this into an Opus session:
-  <a self-contained prompt: goal, files to read, the decision(s) to make, options you already see, the output expected (e.g. "write docs/LAYOUTS_PLAN.md with decisions + acceptance criteria"), and "then write docs/NEXT_SESSION_PROMPT.md for the Sonnet build">
+  <a self-contained prompt: goal, files to read, the decision(s) to make, options you already see, the output expected (e.g. "write docs/LAYOUTS_PLAN.md with decisions + acceptance criteria"), and "then write docs/prompts/next-session.md for the Sonnet build">
 Then also list the next Sonnet-only task that is safe to do meanwhile (per MASTER_PLAN §5 parallel-safe pairs), and ask whether to do it now.
 
 Also stop and ask the user (not Opus) for: A3 (needs real Windows/Linux machines), A5 (needs Apple Developer ID), anything needing a secret or account.
@@ -42,7 +42,7 @@ Also stop and ask the user (not Opus) for: A3 (needs real Windows/Linux machines
    Log each CI round in docs/CI_LOG.md (run id, failure, fix).
 
 ## 4. Close the session
-- Update PROJECT_STATUS.md (state, next tasks, exact next action) and the task's status marks in docs/ROADMAP.md. Mark a platform verified only if it actually ran.
+- Update PROJECT_STATUS.md (keep it short: state, next tasks, exact next action; no decision essays), add one entry per non-obvious decision to docs/DECISIONS.md, and update the task's status marks in docs/ROADMAP.md. Mark a platform verified only if it actually ran.
 - If the next task is Sonnet-only, say so and suggest starting it in a fresh session with this same prompt. If it hits the Opus gate, print the OPUS NEEDED block for it now so I can open Opus straight away.
 - Final message: what was done, test/CI results (honest, with failures), and the next action. Keep it under 15 lines.
 - When an Opus orchestrator started you, end with this review block so it can review without reading the whole diff:

@@ -1,54 +1,34 @@
 # Project status
 
-_Updated 2026-10-23. Read this first; the order of work is `docs/MASTER_PLAN.md`, the feature inventory `docs/ROADMAP.md`._
+_Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Session prompts: `docs/prompts/`._
+
+## Exact next action
+- **Orchestrator (Opus, `docs/prompts/orchestrator.md`):**
+  1. Confirm the P3 golden SVG hash of C2.1 passed on Linux and Windows CI.
+  2. Then delegate **C2.2** (layout view UI + commands; brief in `docs/prompts/next-session.md`).
+- **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
 
 ## State
-- Branch `main`, pushed to https://github.com/AsherSeiling/OpenGeography (public). Untracked: `.claude/` (local launch config — don't commit).
-- macOS arm64 built and tested locally. CI is green on macOS, Linux and Windows (build, tests, installers, clean self-test) — see `docs/CI_LOG.md`.
-- CI logs need a GitHub login; without one, read failures from the run's annotations (`scripts/ci-run.sh` publishes key output lines) and job summaries.
+- `main` is pushed to https://github.com/AsherSeiling/OpenGeography (public). Never commit `.claude/` (local launch config and worktrees).
+- Phases A (except A3 and the tag) and B are done. Phase C: C1 designed, C2.1 merged.
+- CI is green on macOS, Linux and Windows through Phase B (`docs/CI_LOG.md`). CI logs need a GitHub login: read failures from the run annotations (`scripts/ci-run.sh` publishes key lines).
+- The packaged Mac app and DMG are copied into the project folder (`GIS Studio.app`, `GIS-Studio-<version>-macos-arm64.dmg`) and rebuilt once per phase.
 
 ## Build and test status (macOS arm64, 2026-10-23)
 | Check | Result |
 |---|---|
 | `npx tsc` | pass |
-| `npx vitest run` | 68/68 pass (incl. LayerStyle drift fixture) |
-| `cargo test -p engine` | 35 + 9 (history) + 8 (layout) integration + 14 unit pass (4 network tests, H14 and P6 ignored) |
+| `npx vitest run` | 68/68 |
+| `cargo test -p engine` | 14 unit + 35 + 9 (history) + 8 (layout) integration; 4 network tests, H14 and P6 ignored |
 | `cargo build -p gis-studio` | pass, 0 warnings |
-| Packaged app `--self-test` (clean env) | pass (rebuilt 2026-10-23 after B2.3, closes Phase B; 187 libs, DMG 96 MB; first `package-macos.sh` attempt failed once in dylibbundler on libabsl_time, retry passed) |
-| Browser check (devserver + vite) | model Cancel from toolbar stops a 3M-feature run in ~0.1 s |
+| Packaged app `--self-test` (clean env) | pass |
 
-## Completed milestones
-Office-style UI, map, layers, table, CRS · per-layer node trees · spreadsheet editing · definition queries · rasters + 3DEP · 53 native tools · self-contained macOS installer · geodesic measuring + resection/intersection · National Map downloads · progress bars + cancel for downloads · sources & citations · third-party notices.
-
-## Known issues / technical debt
-1. Cancel lands between DuckDB work units (~100k rows/thread). GDAL translate/warp/contours/polygonize/rasterize stop mid-step; gdaldem (hillshade/slope/aspect/ruggedness) ignores GDAL's progress callback, so those finish first.
-2. Fixed 2026-10-23: Linux AppImage clash (conda GDAL vs. system libs) — private libs with unique `gs_` sonames (`5fd5c23`, run 40014559269); Linux builds with conda-forge GDAL 3.12 and passes the strict license gate. Local Homebrew macOS builds still warn; CI release builds on all platforms are GPL-free.
-3. Fixed 2026-10-23: deleted-layer references are flagged; parameter typing is one undo step; bundled GDAL/PROJ data always wins; rasters are copied into the project (portable); tool output fields come from the engine registry (`Tool::output_fields`, with a drift test).
-
-## Recent decisions
-- 2026-10-23 **C2.1 Opus licence review: passed.** All 55 crates added by `svg2pdf` 0.13, `resvg` 0.45 and `geographiclib-rs` 0.2.7 are permissive (MIT, Apache, BSD, ISC, Zlib or Unicode; no GPL, LGPL or MPL). The Noto Sans fonts are OFL-1.1, with `OFL.txt` bundled and listed in THIRD_PARTY_NOTICES, and are compiled in (no system fonts). No WGS 84 literals outside `layout/geo.rs`. P4 is checked against PROJ `proj_factors`. To watch: the P3 golden SHA must also match on Linux and Windows, where conda's PROJ is used; SVG numbers are rounded to 0.001 mm.
-- 2026-10-23 **Layout renderer core (C2.1, done on branch `claude/c2-1-layout-renderer-09f9d7`, awaiting Opus licence/geodesy review before merge)**: `crates/engine/src/layout/` — `model.rs` (L2 serde model, validation, `LayerStyle` mirror), `geo.rs` (`Body`, `FrameCrs`, point scale factor k, meridian convergence, frame extent, scale variation), `frame.rs` (per layer: DuckDB transform → clip → `ST_SimplifyPreserveTopology` 0.1 mm → WKB → styled SVG paths in page mm), `svg.rs` (fixed-precision number formatting), `export.rs` (SVG → PDF via svg2pdf, → PNG via resvg; bundled Noto Sans only), `mod.rs` (`render_svg`, `Engine::render_layout_svg`, text tokens). Elements other than map frame and text, basemaps, graticule/grid are reported as warnings (C2.3/C2.4). No UI, no Tauri commands. P1–P6 pass (P3 golden SHA-256 is local only until CI has run it on Linux/Windows; P6: 100k polygons → 150 dpi PNG in 0.87 s release, SVG build 0.37 s). **Decisions**: k and convergence are computed on the frame CRS's *own* geographic CS (`OSRCloneGeogCS`), not WGS 84 — a NAD83→WGS 84 datum step perturbed k by 2.5e-6 and broke the 1e-6 match with PROJ; the Body supplies only the ellipsoid. For non-conformal CRSs k is the grid-east scale (the scale bar's direction; verified against PROJ's derivatives on Albers). Style opacity uses `fill-opacity`/`stroke-opacity`, not group opacity (keeps PDF free of transparency groups); UI px → mm at 96 dpi; graduated classes follow MapLibre `step` (value ≥ break → next class). The proj_factors reference in tests links `libproj` directly (`#[link(name = "proj")]`, test code only). New crates: svg2pdf 0.13, resvg 0.45 (pinned to match svg2pdf's usvg), geographiclib-rs 0.2 — all MIT/Apache/BSD/Zlib; Noto Sans (OFL-1.1) in `crates/engine/assets/fonts/`.
-- 2026-10-23 **Table pane UI (B2.3, done; Phase B exit reached: roadmap P2/P3 ✅, v0.2 tag is the user's call, MASTER_PLAN §4)**: `ui/src/panes/table/` (`history.ts` pure helpers + `useTableTarget` store, `useNodeTable.ts` node/diff lifecycle, `NodePicker.tsx`, `DiffBar.tsx`); `AttributeTable.tsx` has node mode (read-only; edit/selection buttons disabled with tooltips) and diff mode (D8 styling, chips filter the grid). Node card right-click menu: View table / Compare with input (`nodes/NodeMenu.tsx`). `lastOutput` per node is saved in project.json; `pruneNodeCache(live, pinned)` runs on save and after a layer (tree) is removed. The diff is dropped on close/node switch/compare change; a diff or snapshot lost to reopen/Save As re-runs once, then shows a prompt or "Run to this node" (never a blank grid). Undoing a tree edit can drop `lastOutput` from the restored node (it then shows "not run" until the next run, an instant cache hit). Also fixed B2.2: Layer Input view pages use `row_number()` positions. Checked in the browser (H19): `docs/screenshots/h19-attribute-history.jpg`. Mac app rebuild skipped (orchestrator).
-- 2026-10-23 **Diff + node rows (B2.2, done)**: `history.rs` + Engine `node_table_info`, `node_rows`, `node_diff`, `node_diff_rows`, `drop_node_diff` (Tauri, devserver, `api.ts`; plus `prune_node_cache`, `set_node_cache_budget`). Diffs are `__diff_<a>_<b>_<key>` tables, never indexed, swept on open/new project (a first Save As reopens the DB, so an open diff must be re-run after it). Layer Input views page in insertion order (unsorted) or by `row_number()` (sorted); `fids` of node rows are row positions. **H14: 1M rows × 20 fields + point geometry key diff = 0.44 s (release, M-series).**
-- 2026-10-23 **Persisted node cache (B2.1, done)**: `__node_<hash>` tables are indexed in `__node_cache` (written in the same transaction as the CREATE). On open: other `engine_version` (`CARGO_PKG_VERSION+CACHE_FORMAT`, bump `graph::CACHE_FORMAT` when a tool's SQL changes meaning), missing/broken (deleted layer) and orphan tables are dropped. Save As keeps snapshots (DuckDB copies the Layer Input views too). `Engine::prune_node_cache(live, pinned)` drops non-live then applies the budget (default 2 GB, `set_node_cache_budget`; views count 0 bytes; budget 0 = prune on save only). Raster entries stay session-only. No UI/commands yet (B2.2).
-- 2026-10-23 **Layouts design (C1)**: the engine renders each page to SVG, then PDF (svg2pdf) and PNG (resvg). MapLibre can't draw a true CRS. Bundled fonts only, for identical output on every OS. Frames take an explicit CRS. Scale bar and north arrow are geodesic at the frame centre, through a `Body` (Earth only until F1). Layouts are stored in `__layouts`. See `docs/LAYOUTS_PLAN.md`.
-- 2026-10-23 **Attribute history design (B1)**: snapshots are the existing `__node_<hash>` cache tables, persisted with an index (`__node_cache`), an engine-version check, and a 2 GB LRU budget pruned to the UI's live outputs. The diff is tool-agnostic: user key → auto-detected unique key → content-hash multiset diff (added/removed only). Geometry is not compared across CRSs. See `docs/ATTRIBUTE_HISTORY_PLAN.md`.
-- 2026-10-23 **Setting validation**: before a tool runs, `nodes::validate_params` rejects non-numeric Number settings and Enum values outside the options (readable error on the node). Empty = unset.
-- 2026-10-23 **Overlay tools**: Union, Symmetrical Difference (`union.rs` holds the shared `minus_sql`/`overlay_ctes`) and Singlepart To Multipart (`collect`). Concave hull is a shape in Minimum Bounding Geometry (`ST_ConcaveHull`); Delaunay (`delaunay.rs`) triangulates through GDAL/GEOS and inlines the result as hex WKB (cap 200k features). B3 complete.
-- 2026-10-23 **Select By Location on the map** (Map → Selection): intersects / within distance (geodesic) / within / contains / touches / crosses, optionally only the comparison layer's selected features, invert, and new / add / remove / subset selection methods. Engine `select_by_location` shares `nodes::select_by_location::location_test` with the model node.
-- 2026-10-23 **Model-run cancellation** (done): Cancel on the Model toolbar and status bar. A watcher thread calls DuckDB `interrupt()` repeatedly until the run returns (DuckDB clears the flag at each query start, so a single interrupt can miss); the executor checks before each step and marks remaining steps `cancelled`. Result writes (`set_result`, `upsert_layer`) run in one transaction, so a cancelled/failed write keeps the previous result (a test proves the layer corrupts without it). Run tasks are labelled "Running model — <layer>".
-
-- 2026-10-23 **Node editor**: Blender keys only over the editor (`nodes/keymap.ts`, rebindable in the Shortcuts dialog, saved in browser storage); one-step, type-checked inserts; changed/stale markers; mute = bypass in `graphPayload`.
-- 2026-10-23 **Provenance**: Output/Add to Map record the sources of every upstream Layer input (same transaction as the result).
-- 2026-10-23 **Geodesic speed**: aeqd centers snap to 0.25° (~30× faster; < 0.1 m error on 50 km buffers in tests).
-- 2026-10-23 **GDAL pinned to 3.12** on every platform (conda-forge `libgdal-core=3.12` in CI; Homebrew 3.12.3 locally — don't `brew upgrade gdal duckdb`): gdal crate 0.19 doesn't support GDAL 3.13. DuckDB pinned to 1.5.6. The spatial extension ships gzip-compressed (Linux packagers corrupted it).
-- 2026-10-23 **Catalog pane** (file manager) with a "This project" view; TIGER downloads by year; bibliography auto-export (APA/MLA/Chicago, BibTeX, RIS).
+## Known issues
+1. Cancel lands between DuckDB work units (~100k rows/thread). GDAL translate/warp/contours/polygonize/rasterize stop mid-step; gdaldem (hillshade/slope/aspect/ruggedness) ignores GDAL's progress callback and finishes first.
+2. Undoing a node-tree edit can drop a node's `lastOutput`. The table pane then shows "not run" until the next run, which is a cache hit.
+3. `scripts/package-macos.sh` failed once in dylibbundler (libabsl_time); a retry passed.
 
 ## Next tasks (in order)
-1. Layouts (C2–C3): `docs/LAYOUTS_PLAN.md`. C2.1 (engine renderer) done; next C2.2 (commands, `__layouts`, Layout view UI), then C2.3, C2.4, C3.1–C3.2. Prompt for C2.2 in `docs/NEXT_SESSION_PROMPT.md`.
-2. Public data toolkit: generic ArcGIS REST catalog first (docs/PUBLIC_DATA_CATALOG.md).
+1. Layouts: C2.2 → C2.3 → C2.4 → C3.1–C3.2 (`docs/LAYOUTS_PLAN.md`).
+2. Public data toolkit: generic ArcGIS REST catalog first (`docs/PUBLIC_DATA_CATALOG.md`).
 3. Census data join (user enters the API key; OS keychain).
-
-## Exact next action
-Phase B is complete: CI green on all three platforms (run 40031502418), packaged Mac app `--self-test` passes. You decide on the `v0.2` tag (MASTER_PLAN §4); it comes after `v0.1.0`.
-C2.1 (layout renderer core) is merged after Opus review (all new crates permissive, Noto Sans OFL, geodesy checked against PROJ). Confirm the P3 golden SVG hash on Linux and Windows CI, then build **C2.2** (prompt 1 in `docs/NEXT_SESSION_PROMPT.md`). Meanwhile A3: you check the Windows and Linux installers on real machines, then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`).

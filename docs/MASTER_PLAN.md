@@ -22,8 +22,10 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 | [`docs/ATTRIBUTE_HISTORY_PLAN.md`](ATTRIBUTE_HISTORY_PLAN.md) | B1 design: snapshot persistence, diff rules, table pane UX, sessions B2.1–B2.3 | Phase B |
 | [`docs/LAYOUTS_PLAN.md`](LAYOUTS_PLAN.md) | C1 design: engine SVG→PDF/PNG renderer, document model, print scale/CRS rules, sessions C2.1–C3.2 | Phase C |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
-| [`docs/NEXT_SESSION_PROMPT.md`](NEXT_SESSION_PROMPT.md) | Ready-to-paste prompt for the current Sonnet task | Opening a new Sonnet session |
-| [`docs/SONNET_RUNNER_PROMPT.md`](SONNET_RUNNER_PROMPT.md) | Reusable Sonnet prompt that picks the next task from this plan and flags Opus tasks | Any Sonnet session without a task-specific prompt |
+| [`docs/DECISIONS.md`](DECISIONS.md) | Decision log: why things are the way they are, newest first | When a task touches that area |
+| [`docs/prompts/orchestrator.md`](prompts/orchestrator.md) | Opus orchestrator: delegates to Sonnet sessions, reviews in tiers, merges | Running several tasks from one Opus session |
+| [`docs/prompts/sonnet-runner.md`](prompts/sonnet-runner.md) | Reusable Sonnet prompt: picks the next task, flags Opus tasks, ends with a review block | Any Sonnet session |
+| [`docs/prompts/next-session.md`](prompts/next-session.md) | Ready-to-paste brief for the current Sonnet task | Starting the next Sonnet task |
 
 **Plans still to be written.** Each is the output of an Opus design session, made before its phase starts:
 - `docs/TOPO_MAP_PLAN.md` — phase C2.
@@ -37,13 +39,13 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 - **Opus vs. Sonnet.**
   - **Opus:** design sessions (a plan file with decisions and acceptance criteria), hard debugging, and reviewing risky diffs (geodesy, transactions, licensing).
   - **Sonnet:** implementation from a written plan.
-  - Every Sonnet task starts from a pasteable prompt like `docs/NEXT_SESSION_PROMPT.md`.
+  - Every Sonnet task starts from a brief in `docs/prompts/next-session.md`. One Opus orchestrator session can run the whole loop (`docs/prompts/orchestrator.md`).
 - **Parallel sessions** only when they touch different files. Two sessions writing to `lib.rs`, `commands.rs` or `store.ts` at the same time will collide.
 - **A push cancels the previous CI run** (concurrency setting). While another session is waiting on CI, commit locally and let that session push.
 - **"Done" means** all of the following:
   - tests pass;
   - CI is green on all three platforms;
-  - the Mac app is rebuilt and copied into the project folder;
+  - the Mac app is rebuilt and copied into the project folder (once per phase, not per task);
   - the feature is checked in the browser (devserver + vite);
   - it cites its data sources;
   - it has a progress bar and Cancel where the work is long.

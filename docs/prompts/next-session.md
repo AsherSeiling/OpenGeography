@@ -1,6 +1,6 @@
 # Prompts for the next Sonnet sessions
 
-Open a new Claude Code session in this folder, pick **Sonnet**, and paste one block. Run them **one at a time**. The general-purpose prompt is `docs/SONNET_RUNNER_PROMPT.md`.
+Open a new Claude Code session in this folder, pick **Sonnet**, and paste one block. Run them **one at a time**. The general-purpose prompt is `docs/prompts/sonnet-runner.md`.
 
 > Status 2026-10-23: Phase A is down to A3 (your hands-on installer check) and tagging v0.1.0, neither of which conflicts with these. B2 (attribute history) and B3/B4 are done, C2.1 (layout renderer core) is done, so C2.2 is the next Sonnet task.
 
@@ -25,5 +25,5 @@ Acceptance: P7–P10 in the plan. Browser check (devserver + vite, http://localh
 
 Rules: explicit CRS (a frame takes the map CRS; if none, refuse with "Set a coordinate system for the map frame"); never guess; long work through progress::Task with Cancel; Fluent UI v9 + the existing ribbon/dockview style; no secrets; keep layout files separate from other tasks' files (this task adds Tauri commands, so it is never parallel with another command-adding task).
 
-Test narrow, then cargo test -p engine, npx vitest run && npx tsc -p tsconfig.json, cargo build -p gis-studio -p devserver (needs `npm run build` and `mkdir -p src-tauri/resources` in a fresh worktree). Commit. Update PROJECT_STATUS.md and write the C2.3 prompt into docs/NEXT_SESSION_PROMPT.md the same way.
+Test narrow, then cargo test -p engine, npx vitest run && npx tsc -p tsconfig.json, cargo build -p gis-studio -p devserver (needs `npm run build` and `mkdir -p src-tauri/resources` in a fresh worktree). Commit. Update PROJECT_STATUS.md and write the C2.3 prompt into docs/prompts/next-session.md the same way.
 ```
