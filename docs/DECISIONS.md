@@ -9,6 +9,7 @@ Newest first. One entry per decision that isn't obvious from the code; details l
 - **Layout polish before templates (C3.0):** rulers, an Arrange group (bring forward/back, align), a "1:N" label option on the scale bar, a dpi box in Export, plus the basemap cache. Templates (C3.1) need the label and arrange to look right.
 - **Bugs:** `docs/BUGS.md` is the bug list. Each merge batch triages it. Fixes go to one Sonnet bug-fix session; Opus reviews any that touch risky areas (geodesy/CRS, transactions, licensing).
 - **Errors:** UI code reports failures through the error store (`ui/src/errors/`), never only to the console or status bar. Each pane has its own error boundary. Engine errors return readable messages.
+- **Slow cancel (B-T4):** split long single-call geometry work into batches the interrupt watcher can stop between. Geodesic Buffer runs in chunks of about 50k features. Dissolve does a partitioned union (a coarse grid of spatial tiles, then a final union of the per-tile results). Target: Cancel stops within 2 s on the B-T4 fixtures. Results must equal today's output (tests compare them).
 - **Tests:** every new feature adds its rows to `docs/TEST_PLAN.md` (auto or manual) in the same branch.
 - **Releases (recommendation; pushing tags stays the user's):** tag `v0.1.0` once A3 passes. Skip a separate v0.2 for Phase B, since B finished before v0.1 was tagged. Tag `v0.2.0` at the end of Phase C (B + C), then v0.3 after D1–D3 + E, then v0.4 after F.
 

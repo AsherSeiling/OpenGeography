@@ -107,13 +107,13 @@ The biggest missing piece: the app currently can't make a printable map.
 | C2. Layouts: page, map frame in the true CRS, legend, scale bar, north arrow, text, sources, graticule/grid, rasters, basemaps; PNG + PDF + SVG export | 4–6 | Sonnet | ✅ 2026-10-23 (C2.1–C2.4). CI green on all three platforms. |
 | C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre), M3 (exact tools in any CRS; merged 2026-10-25). ⬜ M4: rasters in any CRS + P17 GDAL thread-safety stress test. |
 | Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. ✅ Merged 2026-10-25. |
-| Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests; bugs to `docs/BUGS.md`. In progress. |
+| Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests (engine 95 → 176, vitest 86 → 310); 8 bugs to `docs/BUGS.md`. ✅ Merged 2026-10-25. |
 | B5. Keep `lastOutput` outside undo history | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
 | C3.0 Layout polish | 1 | Sonnet | Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
-**Order now:** merge the batch (Q1 → M3 → Q2), then the bug-fix session (with B5), then M4, then C3.0 → C3.1 → C3.2. C4 waits for E1.
+**Order now:** batch merged 2026-10-25 (Q1, M3, Q2). Next the bug-fix session (B-T1, B-T2, B-T4–B-T8, B5), then M4, then C3.0 → C3.1 → C3.2. C4 waits for E1.
 **Exit:** a user can produce a print-scale PDF map with legend and grid; Topo Map Builder makes a USGS-style quad.
 **Total:** 10–14 sessions.
 
