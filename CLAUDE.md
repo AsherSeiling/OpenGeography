@@ -28,6 +28,7 @@ python3 scripts/third_party_notices.py   # after dependency changes
 - Cross-platform is a requirement: no hard-coded paths or OS checks outside `resources.rs`/`raster.rs::store_dir`; mark a platform verified only after it actually ran.
 - Standalone: never require QGIS; reimplement QGIS algorithms and cite their ids — never copy GPL code. Project license MIT OR Apache-2.0.
 - Long work reports through `progress::Task` (progress bar) and should be cancellable.
+- Errors reach the user through the error pop-up (`ui/src/errors/`, once merged) and each pane's error boundary; validate inputs instead of throwing; engine errors are readable sentences. New features add their cases to `docs/TEST_PLAN.md`; bugs go to `docs/BUGS.md`.
 - Every import records a citation in `sources.rs`; derived layers keep their inputs' sources.
 - Secrets (Census API key, Earthdata token) are entered by the user and stored in the OS keychain — never in code, logs or projects.
 

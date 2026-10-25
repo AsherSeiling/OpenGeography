@@ -5,7 +5,7 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 ## Exact next action
 - **Orchestrator (Opus):** review and merge branch `claude/m2-openlayers-view-cc786c` (M2, OpenLayers replaces MapLibre; licences listed in the runner's review block, coordinate handling in `map/mapController.ts`, `map/readout.ts`, `panes/MapView.tsx`, `display.rs::basemap_offset`). Next Sonnet task: **M3** (brief in `docs/prompts/next-session.md`).
 - **Orchestrator (Opus, `docs/prompts/orchestrator.md`):** review and merge branch `claude/c2-3-4-layout-elements-0bebf9` (C2.3 + C2.4, two commits; geodesy hunks: `layout/surround.rs` scale bar and north arrow, `layout/grid.rs` graticule, `raster.rs::ground_pixel_m`), then rebuild the Mac app and run `--self-test` (P19). Next Sonnet task: **M1** of the projected map view (brief in `docs/prompts/next-session.md`), then M2–M4.
-- **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`), then decide on `v0.2` (Phase B is done).
+- **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`). Next tag: `v0.2.0` at the end of Phase C (decided 2026-10-25, `docs/DECISIONS.md`).
 
 ## State
 - `main` is pushed to https://github.com/AsherSeiling/OpenGeography (public). Never commit `.claude/` (local launch config and worktrees).

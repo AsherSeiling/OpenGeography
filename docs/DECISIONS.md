@@ -2,6 +2,16 @@
 
 Newest first. One entry per decision that isn't obvious from the code; details live in the linked plan files. Read this only when a task touches the area. `PROJECT_STATUS.md` keeps the current state and the next action.
 
+## Plan decisions (Opus, 2026-10-25)
+- **GDAL thread safety before M4:** M4 serves raster tiles from many threads, and the one macOS CI SIGSEGV happened in raster layout tests run in parallel (conda GDAL). Rule: no GDAL `Dataset` or `CoordTransform` crosses threads; each render opens its own handle. Concurrent warps are capped at `available_parallelism`. M4's acceptance adds P17: 64 threads × `render_extent` on the same raster, 20 repeats, on all three CI platforms. If it crashes, warps go behind one process-wide mutex (slower, safe) and the cause is chased separately.
+- **Basemap tiles for layout previews:** cache them on disk with GDAL's WMS `<Cache>` element, in the app cache dir from `resources.rs`. That's allowed by USGS (no bulk prefetch, only tiles a preview needs); OSM stays display-only. It fixes the 4–5 s re-fetch on every edit. Part of C3.0.
+- **Undo dropping `lastOutput`:** keep each node's last output outside the undo history: a `lastOutputs` map beside the node trees, saved in project.json, not part of zundo state. A small fix (B5).
+- **Layout polish before templates (C3.0):** rulers, an Arrange group (bring forward/back, align), a "1:N" label option on the scale bar, a dpi box in Export, plus the basemap cache. Templates (C3.1) need the label and arrange to look right.
+- **Bugs:** `docs/BUGS.md` is the bug list. Each merge batch triages it. Fixes go to one Sonnet bug-fix session; Opus reviews any that touch risky areas (geodesy/CRS, transactions, licensing).
+- **Errors:** UI code reports failures through the error store (`ui/src/errors/`), never only to the console or status bar. Each pane has its own error boundary. Engine errors return readable messages.
+- **Tests:** every new feature adds its rows to `docs/TEST_PLAN.md` (auto or manual) in the same branch.
+- **Releases (recommendation; pushing tags stays the user's):** tag `v0.1.0` once A3 passes. Skip a separate v0.2 for Phase B, since B finished before v0.1 was tagged. Tag `v0.2.0` at the end of Phase C (B + C), then v0.3 after D1–D3 + E, then v0.4 after F.
+
 ## Map view — `docs/MAP_PROJECTION_PLAN.md`
 - **2026-10-23 Projected map view (design):** OpenLayers (BSD-2) replaces MapLibre for every CRS. The existing style JSON is reused through `ol-mapbox-style`. Web Mercator tiles stay byte-identical. Other CRSs use an engine tile grid from the CRS's area of use, and lazily built `__disp_<layer>_<crsKey>` tables projected from the source geometry, so the poles work. Features outside the area of use are reported, not drawn. proj4 in the UI maps only pixels to the map CRS; every shown or stored number goes through the engine. Planetary D2 (Mercator plus a pole spike) is superseded; there's no 3D globe.
 

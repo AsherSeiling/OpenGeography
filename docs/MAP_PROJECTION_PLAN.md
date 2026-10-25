@@ -105,6 +105,7 @@ Tiles in a non-Mercator grid need geometry in that CRS. Transforming `__g` for e
   - P14. A 3DEP hillshade lines up with a vector layer in UTM 15N within 1 pixel at z14.
   - P15. EPSG:3031 shows a raster across the pole.
   - P16. Pan and zoom on 3M points in UTM 15N stay interactive (no frame over 200 ms in a performance trace).
+  - P17. Thread safety (DECISIONS, 2026-10-25): 64 threads × `render_extent` on one raster, 20 repeats, no crash on all three CI platforms. No GDAL handle crosses threads; concurrent warps capped at `available_parallelism`. If it fails: one process-wide warp mutex.
 
 **Order:** M1 → M2 → M3 → M4, one at a time:
 - M1 adds Tauri commands, so it never runs in parallel with another command-adding task.

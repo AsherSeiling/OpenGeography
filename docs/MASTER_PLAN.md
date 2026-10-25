@@ -1,6 +1,6 @@
 # GIS Studio — master plan
 
-_Written 2026-10-23. This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
+_Written 2026-10-23, updated 2026-10-25 (Opus plan decisions in `docs/DECISIONS.md`). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
 
 **Product priorities** (the user's ranking, which drives the order below):
 1. Easy data manipulation.
@@ -49,7 +49,11 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
   - the Mac app is rebuilt and copied into the project folder (once per phase, not per task);
   - the feature is checked in the browser (devserver + vite);
   - it cites its data sources;
-  - it has a progress bar and Cancel where the work is long.
+  - it has a progress bar and Cancel where the work is long;
+  - its failures reach the user through the error pop-up (`ui/src/errors/`), never only the console or status bar;
+  - its test cases are in `docs/TEST_PLAN.md` (automated where possible, exact manual steps otherwise).
+- **Bugs** live in `docs/BUGS.md`. Each merge batch triages them; one Sonnet bug-fix session fixes the batch, and Opus reviews fixes in risky areas.
+- **Status for the user:** the orchestrator updates the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj) at every change; `PROJECT_STATUS.md` stays the sessions' file.
 
 ---
 
@@ -57,7 +61,7 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
 
-### Phase A — Stabilize and first release ⟵ *now*
+### Phase A — Stabilize and first release (waiting on A3, yours)
 
 **Goal:** a downloadable, permissively licensed v0.1 for all three platforms.
 
@@ -69,7 +73,7 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 | A4. GitHub Release v0.1.0: tag, installers attached, release notes, licence notices | 0.5 | Sonnet | Workflow done 2026-10-23 (`release` job in `build.yml`, runs on `v*` tags, publishes a pre-release). **Tag not pushed yet** — wait for A3. |
 | A5. (Optional) macOS notarization and Intel build | 1 | Sonnet | Needs your Apple Developer ID ($99/yr). Intel build needs a `macos-13` runner. |
 
-**Linux fallback (decided 2026-10-23).** Keep Linux supported; defer only the GPL-free AppImage.
+**Linux fallback (decided 2026-10-23; not needed — A1 fixed the AppImage, and Linux passes the strict licence gate).** Kept for reference.
 1. Revert the Linux CI job to Ubuntu's GDAL (green as of `a4d6b8f`). Keep the Linux license gate warn-only.
 2. Label the Linux AppImage "preview, not license-clean" in the README and release notes. macOS and Windows stay GPL-free.
 3. Prefer shipping Linux as a `.deb` that depends on the system's GDAL instead of bundling it, so no GPL libraries are redistributed.
@@ -93,18 +97,23 @@ _Written 2026-10-23. This file sets the **order** of work. What each feature is 
 **Exit:** roadmap P2 and P3 all ✅. **✅ Phase B complete 2026-10-23:** CI green on all three platforms ([40031502418](https://github.com/AsherSeiling/OpenGeography/actions/runs/40031502418)), packaged Mac app `--self-test` passes. The v0.2 tag is the user's call.
 **Total:** 6–8 sessions.
 
-### Phase C — Map production (priority 2)
+### Phase C — Map production (priority 2) ⟵ *now*
 
 The biggest missing piece: the app currently can't make a printable map.
 
 | Task | Effort | Model | Notes |
 |---|---|---|---|
-| C1. Layouts design | 1 | Opus | Writes `LAYOUTS_PLAN.md`. Must take a **`body`** parameter from day one so planetary maps (F4) are styling, not a rewrite. Decide the rendering path (MapLibre canvas vs. engine-rendered) for vector PDF. |
-| C2. Layouts M2: page, map frame in the true CRS, legend, scale bar, north arrow, title, text, graticule; PNG + PDF export | 4–6 | Sonnet | Office-style Layout ribbon tab. |
-| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed 2026-10-23, Sonnet builds | `docs/MAP_PROJECTION_PLAN.md`. OpenLayers replaces MapLibre. Runs after C2.4 (M4 needs `render_extent`) and before C3. |
-| C3. Layout templates and map series | 1–2 | Sonnet | |
-| C4. Topo Map Builder (M4): design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
+| C1. Layouts design | 1 | Opus | ✅ 2026-10-23 → `LAYOUTS_PLAN.md`. Engine renders SVG → PDF/PNG; `body` parameter from day one. |
+| C2. Layouts: page, map frame in the true CRS, legend, scale bar, north arrow, text, sources, graticule/grid, rasters, basemaps; PNG + PDF + SVG export | 4–6 | Sonnet | ✅ 2026-10-23 (C2.1–C2.4). CI green on all three platforms. |
+| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre). M3 (exact tools in any CRS) done on its branch, in review. ⬜ M4: rasters in any CRS + P17 GDAL thread-safety stress test. |
+| Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. Done on its branch, passed review. |
+| Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests; bugs to `docs/BUGS.md`. In progress. |
+| B5. Keep `lastOutput` outside undo history | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
+| C3.0 Layout polish | 1 | Sonnet | Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
+| C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |
+| C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
+**Order now:** merge the batch (Q1 → M3 → Q2), then the bug-fix session (with B5), then M4, then C3.0 → C3.1 → C3.2. C4 waits for E1.
 **Exit:** a user can produce a print-scale PDF map with legend and grid; Topo Map Builder makes a USGS-style quad.
 **Total:** 10–14 sessions.
 
@@ -172,16 +181,16 @@ Details, sources and decisions D1–D5 are in [`PLANETARY_PLAN.md`](PLANETARY_PL
 ## 4. Recommended sequence
 
 ```
-A  Stabilize + v0.1      ███                      (now)
-B  Data manipulation        ████
-C  Layouts (C1–C3)              ██████
-D  Public data (D1–D3)              █████            ← D3 can run beside C (different files)
-E  Raster foundation                     ███
-C4 Topo Map Builder                         ███
-F  Planetary (F0–F4)                        ███████  ← F0/F1 can start after E; F5 after C2
-D  Public data (D4–D6)                             ███
-G  Python SDK                                         ███
-H  Advanced analysis                                     ██████
+A  Stabilize + v0.1      ███▒                     (code done; A3 + tag are yours)
+B  Data manipulation        ████                  ✅
+C  Map production (C1–C3, C5)   ███████▒▒          ← now: M3 review, then M4, C3.0–C3.2
+D  Public data (D1–D3)                 █████       ← D3 can run beside C3 (different files)
+E  Raster foundation                        ███
+C4 Topo Map Builder                            ███
+F  Planetary (F0–F4)                           ███████  ← F0/F1 after E; polar maps use the C5 view
+D  Public data (D4–D6)                                ███
+G  Python SDK                                            ███
+H  Advanced analysis                                        ██████
 ```
 
 **Why this order:**
@@ -192,11 +201,11 @@ H  Advanced analysis                                     ██████
 - **Planetary after the shared pieces:** this avoids building those connectors twice.
 - **G and H last:** they widen the tool but are not core to the top two priorities.
 
-**Releases:** tag a release at the end of each phase:
-- v0.2 after B
-- v0.3 after C1–C3
-- v0.4 after D1–D3 + E
-- v0.5 after F
+**Releases** (decided 2026-10-25; the user pushes every tag):
+- v0.1.0 once A3 passes.
+- v0.2.0 at the end of Phase C (B + C together; no separate tag for B, which finished before v0.1).
+- v0.3.0 after D1–D3 + E.
+- v0.4.0 after F.
 - …
 
 **Total effort:** about 56–77 focused sessions. At 5 sessions a week that's roughly 3–4 months, more if usage limits cap sessions per day.
@@ -213,6 +222,8 @@ These can run in two sessions at once:
 | C2 layouts UI ∥ D3 STAC connector | New layout files vs. a new engine module + dialog |
 | E1 raster tools ∥ D4 GeoParquet | Separate `nodes/` files vs. an importer |
 | F3 crater tools ∥ D6 JSON APIs | Separate modules |
+| C3.0/C3.x layouts ∥ D3 STAC connector | Layout files vs. a new engine module + dialog (only one of them may add Tauri commands at a time) |
+| Feature work ∥ test-only session | The test session adds new test files only and reports bugs instead of fixing them |
 
 **Never parallel:** two tasks that both add Tauri commands, because both edit `commands.rs`, `main.rs`, the devserver and `api.ts`. Sequence them or merge carefully.
 
@@ -224,7 +235,8 @@ These can run in two sessions at once:
 |---|---|---|
 | Linux AppImage library clash takes many rounds | Delays v0.1 | Linux fallback in phase A (Ubuntu GDAL, `.deb` first, AppImage labelled preview); GPL-free AppImage/Flatpak before 1.0. |
 | gdal crate stays on GDAL ≤ 3.12 | Stuck on an older GDAL | Watch gdal-rs releases; the pin is fine for at least a year. |
-| MapLibre can't show the poles | Lunar south pole maps | Polar layouts/exports (PLANETARY_PLAN D2). |
-| Vector PDF export in layouts | Layout scope grows | Decide the rendering path in C1; PNG/raster PDF first if needed. |
+| ~~MapLibre can't show the poles~~ | Resolved 2026-10-23 | The C5 map view draws any CRS, including polar stereographic. |
+| GDAL crashes when used from many threads (one macOS CI SIGSEGV) | Raster tiles in M4 could crash the app | P17 stress test before M4 merges; fallback: one process-wide warp mutex. |
+| ~~Vector PDF export in layouts~~ | Resolved in C1/C2 | The engine renders vector SVG → PDF. |
 | Usage limits | Fewer sessions per week | Opus only for design and review; Sonnet for code; keep sessions short and the status file current. |
 | Remote services change or retire (HIFLD, EJScreen already gone) | Broken importers | Network tests per endpoint; clear "service unavailable" messages; the catalog is data, so fixes are edits, not code. |
