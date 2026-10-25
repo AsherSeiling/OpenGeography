@@ -4,7 +4,7 @@
   test_plan_ignored.py list              → name, binary, category, reason (TSV)
   test_plan_ignored.py run <out.md> [--no-network] [--no-perf]
 
-Each test runs on its own (`cargo test --test <bin> -- --ignored --exact <name>`), so a
+Each test runs on its own (`cargo test --test <bin> -- --ignored <name>`, matched with or without a module path), so a
 test that crashes its process (e.g. a SIGSEGV bug) can't hide the others. Categories come
 from the ignore reason: "BUG: …" (expected to fail until fixed), "network: …", "perf…",
 anything else is "other". Exit code 1 if a non-bug test fails or a bug test passes
@@ -47,12 +47,12 @@ def ignored():
 
 
 def run_one(name, binary, release):
-    cmd = ["cargo", "test", "-p", "engine"] + (["--release"] if release else []) + ["--test", binary, "--", "--ignored", "--exact", name]
+    cmd = ["cargo", "test", "-p", "engine"] + (["--release"] if release else []) + ["--test", binary, "--", "--ignored", name]
     t0 = time.time()
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
     secs = time.time() - t0
     text = p.stdout + p.stderr
-    if re.search(rf"test {re.escape(name)} \.\.\. ok", text):
+    if re.search(rf"test (\S+::)?{re.escape(name)} \.\.\. ok", text):
         return "pass", secs, ""
     crash = re.search(r"signal: \d+.*|SIGSEGV|SIGABRT", text)
     panic = re.search(r"panicked at .*?\n(.*)", text)
