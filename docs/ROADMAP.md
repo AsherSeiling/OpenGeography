@@ -11,6 +11,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 |---|---|---|
 | Import shp/gpkg/geojson/kml/csv/parquet; rasters (GeoTIFF etc.) | ✅ | engine tests |
 | CRS: explicit, 7,195-entry picker, all State Plane, Define Projection | ✅ | catalog test is network/ignored |
+| Map view draws in the map's CRS (OpenLayers; engine tiles per CRS grid; true 1:N scale; basemap datum-offset notice) | 🟡 | M1 + M2 done 2026-10-23 (`docs/MAP_PROJECTION_PLAN.md`); M3 exact identify/select/measure/draw in any CRS in progress; M4 rasters in any CRS ⬜ (rasters draw in Web Mercator only until then) |
 | Attribute table: spreadsheet editing, add/rename/delete field, calculate field/geometry | ✅ | |
 | Definition queries (GUI + Python→SQL), selection, export selection | ✅ | |
 | Projects (.gproj = project.json + project.duckdb) | 🟡 | rasters live in an app-wide store outside the project (not portable); local file sources are absolute paths |

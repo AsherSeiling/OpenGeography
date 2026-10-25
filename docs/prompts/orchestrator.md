@@ -34,4 +34,4 @@ Read CLAUDE.md, PROJECT_STATUS.md ("Exact next action", "Next tasks") and docs/M
 Short: what was delegated, accepted, merged; test/CI results (honest, with failures); sessions still running; what the user must do.
 
 ## Start
-State on 2026-10-23: Phase B done (B2.1–B2.3 merged, CI green). C2.1 (layout renderer core) is merged at `15ec163`; confirm its P3 golden SVG hash passed on Linux and Windows CI (if not, send the fix to the C2.1 session). Next: C2.2 (adds Tauri commands; reuse the C2.1 session if its context is small), then C2.3–C2.4 per `docs/LAYOUTS_PLAN.md`. The user still owns A3 and the `v0.1.0` tag.
+State on 2026-10-25: Phases A (except A3 + tag) and B done. Phase C: C2.1–C2.4 merged (layouts print a full map); projected map view M1 + M2 merged (OpenLayers, map draws in the map's CRS; CI green at `5a5ca8f`). In flight: M3 (exact map tools in any CRS), the error-dialog/crash-fix branch, and the test-coverage branch (`docs/TEST_PLAN.md`, bugs in `docs/BUGS.md`). Merge order: errors → M3 → tests; then M4 (rasters in any CRS), then C3.1–C3.2. The user still owns A3 and the `v0.1.0` tag.
