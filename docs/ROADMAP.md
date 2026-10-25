@@ -2,7 +2,7 @@
 
 The single authoritative roadmap: feature inventory, platform matrix and priorities.
 Status marks: ✅ implemented + tested · 🟡 implemented, thin tests · 🟠 partial · ⛔ broken/blocked · ⬜ planned.
-Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
+Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases per feature: `docs/TEST_PLAN.md` (2026-10-25); open bugs found by tests: `docs/BUGS.md`.
 
 ## 1. Feature inventory
 
@@ -14,7 +14,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Map view draws in the map's CRS (OpenLayers; engine tiles per CRS grid; true 1:N scale; basemap datum-offset notice) | 🟠 | M1 + M2 done 2026-10-23 (`docs/MAP_PROJECTION_PLAN.md`); M3 exact identify/select/measure/draw in any CRS in progress; M4 rasters in any CRS ⬜ (rasters draw in Web Mercator only until then) |
 | Attribute table: spreadsheet editing, add/rename/delete field, calculate field/geometry | ✅ | |
 | Definition queries (GUI + Python→SQL), selection, export selection | ✅ | |
-| Projects (.gproj = project.json + project.duckdb) | 🟡 | rasters live in an app-wide store outside the project (not portable); local file sources are absolute paths |
+| Projects (.gproj = project.json + project.duckdb) | 🟡 | full save/open round trip tested (`tests/project.rs`); rasters live in an app-wide store outside the project (not portable); local file sources are absolute paths |
 | TIGER / National Map vector / 3DEP downloads | ✅ | TIGER by year (2010–current, sorted); network tests ignored by default |
 | File manager (Catalog pane: browse folders/GIS files, drag to map or model, folder connections) | ✅ | GIS-aware listing (shapefile sidecars hidden, .gdb/.gproj as items), GDAL details, drag to map/Contents/node editor |
 | Public data toolkit (Living Atlas–style) | ⬜ | plan and dataset list in `docs/PUBLIC_DATA_CATALOG.md` |
@@ -40,7 +40,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Cancel a model run | ✅ | DuckDB interrupt + step checks; atomic result writes; slow for per-feature geodesic tools; GDAL raster steps finish first |
 | Copy/paste, duplicate, mute, collapse, make links | ✅ | auto-layout ⬜ |
 | Attribute history between nodes ("git for tables") | ✅ | B2.1 (persisted node cache), B2.2 (engine diff + node-rows commands, `history.rs`) and B2.3 (table pane UI: node picker, diff bar, node-card menu) done 2026-10-23. Designed 2026-10-23 in `docs/ATTRIBUTE_HISTORY_PLAN.md` (build B2.1–B2.3). Requested 2026-10-23: keep each node's output table as a versioned snapshot (what changed vs. the previous node: rows added/removed, fields added/changed); the Attribute Table shows the Output by default with a picker to view any earlier node's table and its diff. Builds on the node cache tables (`__node_<hash>`), which currently live only for a session. |
-| Model tests (graph semantics, persistence) | 🟠 | engine tests cover tools; no tests for UI graph ops (splice, undo, tree switching) |
+| Model tests (graph semantics, persistence) | 🟡 | engine tests cover every tool (`tests/tools.rs`, `tests/rasters.rs`); UI graph ops covered by `nodeEditor.test.ts` and `modelStore.test.ts`; no component-level tests of the canvas (manual M-14 in the test plan) |
 
 ### Processing tools (97 spec ids across `nodes/`, 48 tools)
 | Group | Status |
@@ -49,7 +49,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64).
 | Vector already present: merge, repair, explode (multipart→singlepart), simplify, bounding geometry (hull/envelope), feature to point, select by location | ✅ |
 | Union, symmetrical difference, singlepart→multipart (Collect) | ✅ |
 | Concave hull (Minimum Bounding Geometry), Delaunay triangulation | ✅ |
-| Raster: contours, hillshade, slope, aspect, ruggedness, clip, warp, polygonize, sample, zonal stats | 🟡 |
+| Raster: contours, hillshade, slope, aspect, ruggedness, clip, warp, polygonize, sample, zonal stats | 🟡 (tested on analytic grids in `tests/rasters.rs`; open bugs B-T5 Warp crash on invalid CRS, B-T7 Warp of a CRS-less raster, B-T6 — see `docs/BUGS.md`) |
 | Raster missing: calculator, reclassify, resample/align, mosaic, rasterize, NoData tools, band select | ⬜ |
 | Hydrology, interpolation, spatial statistics, remote sensing | ⬜ |
 | Measure, MGRS, resection/intersection | ✅ |
