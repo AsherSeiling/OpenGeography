@@ -19,6 +19,7 @@ import { api, errorText, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, registerCrs, scaleOf, tileGridFor } from "../map/crs";
+import { serialQueue } from "../map/serialQueue";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
@@ -418,10 +419,12 @@ const IDENTIFY_TOLERANCE_PX = 4;
       if (i instanceof DoubleClickZoom) i.setActive(tool !== "measure");
       if (i instanceof DragPan) i.setActive(tool !== "selectBox");
     });
+    // Vertices go through the engine; apply them (and the double-click's "finish") in click order.
+    const queue = serialQueue();
     const onDbl = (e: { preventDefault(): void }) => {
       if (tool !== "measure") return;
       e.preventDefault();
-      useNav.getState().set({ done: true });
+      queue.then(() => useNav.getState().set({ done: true }));
     };
     map.on("dblclick", onDbl);
     let lastClick: { pixel: number[]; t: number } | null = null;
@@ -441,7 +444,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
         if (lastClick && Math.hypot(lastClick.pixel[0] - e.pixel[0], lastClick.pixel[1] - e.pixel[1]) < 4 && performance.now() - lastClick.t < 500) return;
         lastClick = { pixel: e.pixel, t: performance.now() };
         if (nav.done) return;
-        nav.addPoint(await toLonLat(e.coordinate));
+        queue.add(toLonLat(e.coordinate), (p) => useNav.getState().addPoint(p));
         return;
       }
       if (tool === "pan" || tool === "selectBox") return;

@@ -33,6 +33,6 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 4. Intermittent: the layout test binary crashed once with SIGSEGV on macOS CI (run 40055424934, conda-forge GDAL). It crashed after the C2.4 raster/basemap tests passed, while the other layout tests ran in parallel. The same code then passed on all three platforms (run 40056362301), and 15 local runs (Homebrew GDAL) passed. No GDAL or PROJ object is shared between threads in the layout code. Suspect: conda GDAL/PROJ under parallel tests. If it recurs, rerun on macOS CI with `RUST_BACKTRACE=1 cargo test -p engine --release --test layout -- --test-threads=1` to name the test. Ship nothing that renders rasters from several threads until it's understood.
 
 ## Next tasks (in order)
-1. Projected map view M4 (`docs/MAP_PROJECTION_PLAN.md`; M1–M3 done, M3 browser screenshots (UTM 15N / Web Mercator) still to do: the map draws in the map's CRS, rasters still in Web Mercator only) → layouts C3.1–C3.2.
+1. Projected map view M4 (`docs/MAP_PROJECTION_PLAN.md`; M1–M3 done, M3 browser checks done: the map draws in the map's CRS, rasters still in Web Mercator only) → layouts C3.1–C3.2.
 2. Public data toolkit: generic ArcGIS REST catalog first (`docs/PUBLIC_DATA_CATALOG.md`).
 3. Census data join (user enters the API key; OS keychain).
