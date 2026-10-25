@@ -266,6 +266,12 @@ pub fn need_crs(rel: &Rel) -> Result<&str> {
     rel.crs.as_deref().ok_or_else(|| anyhow!("Input has no coordinate system. Use Define Projection on the source layer first."))
 }
 
+/// A raster's CRS; tools that reproject or compare it with vector data refuse a
+/// raster without one instead of guessing.
+pub fn need_raster_crs(rel: &Rel) -> Result<&str> {
+    rel.crs.as_deref().ok_or_else(|| anyhow!("The raster has no coordinate system. Use Define Projection on the source layer first."))
+}
+
 /// Column list for joining `b` onto `a`, renaming collisions to `name_1`.
 pub fn join_columns(a_cols: &[String], b_cols: &[String], b_alias: &str) -> String {
     let taken: Vec<String> = a_cols.iter().map(|c| c.to_lowercase()).collect();

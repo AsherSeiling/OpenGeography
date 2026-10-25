@@ -95,6 +95,9 @@ pub fn translate(src: &Dataset, dest: &Path, args: &[String]) -> Result<()> {
     let d = cstr(dest.to_str().ok_or_else(|| anyhow!("bad path"))?)?;
     unsafe {
         let opts = gdal_sys::GDALTranslateOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        if opts.is_null() {
+            return Err(last_error("Raster copy options"));
+        }
         gdal_sys::GDALTranslateOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut usage = 0;
         let out = gdal_sys::GDALTranslate(d.as_ptr(), src.c_dataset(), opts, &mut usage);
@@ -114,6 +117,9 @@ pub fn warp(src: &Dataset, dest: &str, args: &[String]) -> Result<Dataset> {
     let d = cstr(dest)?;
     unsafe {
         let opts = gdal_sys::GDALWarpAppOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        if opts.is_null() {
+            return Err(last_error("Raster warp options"));
+        }
         gdal_sys::GDALWarpAppOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut srcs = [src.c_dataset()];
         let mut usage = 0;
@@ -136,6 +142,9 @@ pub fn dem(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()
     let m = cstr(mode)?;
     unsafe {
         let opts = gdal_sys::GDALDEMProcessingOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        if opts.is_null() {
+            return Err(last_error(&format!("gdaldem {mode} options")));
+        }
         gdal_sys::GDALDEMProcessingOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut usage = 0;
         let out = gdal_sys::GDALDEMProcessing(d.as_ptr(), src.c_dataset(), m.as_ptr(), null(), opts, &mut usage);
@@ -575,6 +584,9 @@ pub fn zonal(src_path: &Path, zones_gpkg: &Path) -> Result<std::collections::Has
     let list = argv(&args)?;
     let zr = unsafe {
         let opts = gdal_sys::GDALRasterizeOptionsNew(list.as_ptr() as *mut *mut _, null_mut());
+        if opts.is_null() {
+            return Err(last_error("Rasterizing zones options"));
+        }
         gdal_sys::GDALRasterizeOptionsSetProgress(opts, Some(gdal_progress), crate::progress::cancel_arg());
         let mut usage = 0;
         let out = gdal_sys::GDALRasterize(cstr("")?.as_ptr(), null_mut(), zones_ds.c_dataset(), opts, &mut usage);

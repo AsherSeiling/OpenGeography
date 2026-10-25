@@ -62,7 +62,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 2.3 | UTM zone at limits | lon ±180, 0, −0.0001; equator; southern; NAD83 vs WGS 84 | zone 1/60/31/30; north at lat 0; `327xx` south | auto: crsEdge.test.ts; unit: crs::utm_zones |
 | 2.4 | Layer without a CRS is never measured, drawn or reprojected | shapefile without .prj | area/length error mentions "coordinate system"; tiles empty; copy stays undefined | auto: crs_edge::layer_with_no_crs_refuses_measurement_and_projection_instead_of_guessing |
 | 2.5 | Tools refuse a CRS-less layer | Buffer, Project, Near, Spatial Join | Error, message contains "coordinate system" | auto: tools::layer_without_crs_is_refused_not_guessed |
-| 2.6 | Raster tools refuse a CRS-less raster | Warp | Error | auto (ignored, BUG B-T7): rasters::warping_a_raster_of_unknown_crs_is_refused_not_guessed |
+| 2.6 | Raster tools refuse a CRS-less raster | Warp | Error | auto (B-T7 fixed; Clip/Sample/Zonal too: rasters::raster_tools_that_compare_with_vectors_refuse_a_raster_of_unknown_crs): rasters::warping_a_raster_of_unknown_crs_is_refused_not_guessed |
 | 2.7 | Define Projection | valid / empty / `EPSG:0` / `EPSG:99999999` / text / `+proj=bogus` | valid sets CRS and clears the warning; invalid → Err and the layer stays undefined | auto: crs_edge::define_projection_rejects_bad_definitions |
 | 2.8 | Suggestions by coordinate range | degrees / UTM-like / State-Plane-like / tiny | WGS84…, `UTM`, `STATEPLANE`, none | auto: crs_edge::suggestions_follow_the_coordinate_ranges; unit: crs |
 | 2.9 | Geographic vs projected agree | same 1 km² square in EPSG:4326 and UTM 14N | areas within 0.2 %; planar buffers within 1 % | auto: crs_edge::geographic_and_projected_copies_of_a_shape_measure_the_same |
@@ -229,7 +229,7 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | Terrain Ruggedness (`ruggedness`) | flat TRI = 0; plane TPI = 0 | same |
 | Clip Raster by Extent (`clip_raster`) | 300 m box → ≈ 10×10 px, origin within a pixel, 30 m pixels | auto: rasters::clip_and_warp_keep_the_grid_honest |
 | Warp (`warp`) | → EPSG:4326: degrees pixel size, centre value kept | same |
-| Warp error paths | invalid CRS; raster without CRS | auto (ignored, BUG B-T5 crash, B-T7): rasters::warp_to_an_invalid_crs_is_an_error_not_a_crash, warping_a_raster_of_unknown_crs_is_refused_not_guessed |
+| Warp error paths | invalid CRS; raster without CRS | auto (B-T5, B-T7 fixed): rasters::warp_to_an_invalid_crs_is_an_error_not_a_crash, warping_a_raster_of_unknown_crs_is_refused_not_guessed, raster_helpers_report_bad_gdal_options_instead_of_crashing, raster_tools_that_compare_with_vectors_refuse_a_raster_of_unknown_crs |
 | Polygonize (`polygonize`) | two classes + NoData hole → 2 polygons | auto: rasters::polygonize_sampling_and_zonal_statistics_handle_nodata |
 | Sample Raster (`sample_raster`) | class values; NoData and outside → NULL; no row dropped | same |
 | Zonal Statistics (`zonal_statistics`) | mean ignores NoData (391 px); all-NoData zone → NULL/NaN | same |
