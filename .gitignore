@@ -10,3 +10,4 @@ src-tauri/gen/
 *.tsbuildinfo
 src-tauri/resources/
 *.dmg
+test-results/

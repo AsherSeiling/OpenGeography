@@ -8,7 +8,17 @@ One row per case for every feature in `docs/ROADMAP.md`. Last updated 2026-10-25
 - `manual M-n` — needs a person; steps are in §14.
 - `gap` — nothing covers it yet.
 
-**Run everything:** `cargo test -p engine` · `npx vitest run && npx tsc -p tsconfig.json`. Network: add `-- --ignored` to the file you want. Fixtures are built inline (DuckDB's GDAL writer, `ST_MakeEnvelope`, tiny GeoTIFFs written with the `gdal` crate); nothing is read from outside the temp folder.
+**Run everything** (one command; the output is one summary in `test-results/<time>/summary.md`):
+
+| Sequence | Command | When | Time (M-series Mac) |
+|---|---|---|---|
+| 1. Static + UI + engine (what CI runs) | `scripts/run-test-plan.sh --quick` | every change | ~6 min cold, ~1 min warm |
+| 2. + every ignored engine test, one by one (bug, network, perf) | `scripts/run-test-plan.sh` (`--no-network` offline) | before a merge batch | +10–15 min (perf runs in release) |
+| 3. + browser end-to-end (manual cases a script can do) | `scripts/run-test-plan.sh --e2e` | before a release | +5 min |
+| 4. + packaged app and `--self-test` | add `--package` | once per phase | +6 min |
+| 5. Manual cases that need a person | the checklist at the end of the summary | before a release tag | — |
+
+A bug test that starts passing means the bug is fixed: unignore it and update `docs/BUGS.md`. One test at a time: `cargo test -p engine --test <file> -- --ignored --exact <name>`.
 
 **Standard checks for a tool** (§7 applies them to each): output field names, a known value, the CRS of the result equals the first input's CRS, an input without a CRS is refused with a readable message (not guessed), bad settings give an error message without internal table names, and a layer in another CRS is reprojected and flagged (`reprojected`).
 
