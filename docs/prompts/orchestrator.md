@@ -25,6 +25,8 @@ Read CLAUDE.md, PROJECT_STATUS.md ("Exact next action", "Next tasks") and docs/M
 7. **Docs:** the Sonnet session updates PROJECT_STATUS.md (short: state + next action), docs/DECISIONS.md (one entry per non-obvious decision), ROADMAP marks and the next brief block. You only fix merge conflicts and the MASTER_PLAN row at the end of a task group.
 8. **Mac app:** rebuild (`scripts/package-macos.sh` + `--self-test`, in the background) once per phase or when the user asks — not per task. If dylibbundler fails once, retry once before investigating.
 
+9. **Status doc:** after every change (session started or finished, review, merge, push, CI result, Mac app build, new bug), update the user's Claude Doc "GIS Studio — Project Status" (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj): the affected sections plus a new top row in its Change log.
+
 ## Stop and report to the user when
 - Only user tasks remain, or a phase ends (propose the release tag from MASTER_PLAN §4).
 - Two review rounds on the same task fail, or CI fails twice for the same reason.
