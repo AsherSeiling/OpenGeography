@@ -116,7 +116,9 @@ impl Task {
 
     /// Restrict later updates to the `i`-th of `n` equal parts.
     pub fn part(&mut self, i: usize, n: usize) {
-        let n = n.max(1) as f64;
+        let n = n.max(1);
+        let i = i.min(n - 1);
+        let n = n as f64;
         self.lo = i as f64 / n;
         self.hi = (i as f64 + 1.0) / n;
         self.set(0.0, None::<&str>);

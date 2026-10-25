@@ -49,7 +49,6 @@ fn fractions_clamp_never_go_backwards_and_split_into_parts() {
 }
 
 #[test]
-#[ignore = "BUG: Task::part(i, n) with i >= n reports a fraction above 1 (docs/BUGS.md B-T8)"]
 fn a_part_index_past_the_end_still_reports_at_most_100_percent() {
     let label = "ps-part-overflow";
     let mut t = Task::start(label);
