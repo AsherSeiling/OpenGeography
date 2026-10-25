@@ -602,6 +602,10 @@ impl Engine {
     }
 
     pub fn rename_layer(&self, id: &str, name: &str) -> Result<LayerInfo> {
+        let name = name.trim();
+        if name.is_empty() {
+            anyhow::bail!("A layer needs a name; the old name was kept");
+        }
         let mut info = self.layer(id)?;
         info.name = name.to_string();
         self.with_conn(|c| {
