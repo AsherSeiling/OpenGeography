@@ -1,8 +1,9 @@
 // Layout actions shared by the ribbon, Contents and the layout view.
 import { save } from "@tauri-apps/plugin-dialog";
 import { useDialog } from "../actions";
+import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI } from "../ipc/api";
-import { getCenterLonLat, getGroundPerPixel, getMap } from "../map/mapController";
+import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { addMapFrame, addSurround, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
@@ -91,6 +92,13 @@ export function targetFrame(): MapFrame | null {
   return all.find((f) => s.selected.includes(f.id)) ?? all[0] ?? null;
 }
 
+/** The frame with this id in the open layout (none if no layout is open or it was deleted), else the target frame. */
+function frameById(id?: string): MapFrame | null {
+  const doc = useLayouts.getState().doc;
+  if (!id) return targetFrame();
+  return doc ? (frames(doc).find((f) => f.id === id) ?? null) : null;
+}
+
 const SURROUND_NAMES = { legend: "legend", scale_bar: "scale bar", north_arrow: "north arrow", sources: "sources line" } as const;
 
 /** Insert a legend, scale bar, north arrow or sources line for the selected (else first) map frame. */
@@ -107,18 +115,20 @@ export function insertMapFrame() {
 
 /** Centre the frame on the map view and pick the smallest standard scale that shows what the map shows. */
 export async function setFrameFromMapView(frameId?: string) {
-  const frame = frameId ? frames(useLayouts.getState().doc!).find((f) => f.id === frameId) : targetFrame();
+  const frame = frameById(frameId);
   const map = getMap();
   if (!frame || !map) return status("Insert a map frame first (Layout tab → Map Frame).");
   if (!frame.crs) return status("Set a coordinate system for the map frame.");
-  const c = getCenterLonLat();
+  const c = getCenterInMapCrs();
   const mpp = getGroundPerPixel();
   const size = map.getSize();
   if (!c || !mpp || !size) return status("The map view isn't ready yet.");
   try {
-    const center = await api.transformPoint(c[0], c[1], "EPSG:4326", frame.crs);
-    const w = (size[0] * mpp) / (frame.w / 1000);
-    const h = (size[1] * mpp) / (frame.h / 1000);
+    // The view centre is already in the map CRS; only a frame in another CRS needs the engine.
+    const center = c.crs === frame.crs ? c.center : await api.transformPoint(c.center[0], c.center[1], c.crs, frame.crs);
+    const w = (size[0] * mpp) / (Math.max(frame.w, 1) / 1000);
+    const h = (size[1] * mpp) / (Math.max(frame.h, 1) / 1000);
+    if (!center.every(Number.isFinite)) return status("That map position can't be shown in the frame's coordinate system. Choose a different one.");
     useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)) });
   } catch (e) {
     status(`Could not place the frame: ${errorText(e)}`);
@@ -126,7 +136,7 @@ export async function setFrameFromMapView(frameId?: string) {
 }
 
 export function pickFrameCrs(frameId?: string) {
-  const frame = frameId ? frames(useLayouts.getState().doc!).find((f) => f.id === frameId) : targetFrame();
+  const frame = frameById(frameId);
   if (!frame) return status("Insert a map frame first (Layout tab → Map Frame).");
   useDialog.getState().show({
     kind: "crs",
@@ -151,12 +161,21 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = 300) {
   const doc = useLayouts.getState().doc;
   if (!doc) return;
   const name = `${doc.name}.${format}`;
+  if (!frames(doc).length) {
+    status("This layout has no map frame yet. Insert one (Layout tab → Map Frame) before exporting.");
+    return;
+  }
   let path: string | null;
-  if (IN_TAURI) {
-    path = await save({ title: `Export ${doc.name} as ${FORMATS[format]}`, defaultPath: name, filters: [{ name: FORMATS[format], extensions: [format] }] });
-  } else {
-    // Browser build (dev server): no native dialog; the engine writes where the dev server runs.
-    path = window.prompt(`Export ${FORMATS[format]} to this path (on the machine running the dev server)`, `/tmp/${name}`);
+  try {
+    if (IN_TAURI) {
+      path = await save({ title: `Export ${doc.name} as ${FORMATS[format]}`, defaultPath: name, filters: [{ name: FORMATS[format], extensions: [format] }] });
+    } else {
+      // Browser build (dev server): no native dialog; the engine writes where the dev server runs.
+      path = window.prompt(`Export ${FORMATS[format]} to this path (on the machine running the dev server)`, `/tmp/${name}`);
+    }
+  } catch (e) {
+    reportError(e, "action:Export layout", { title: "Export could not start" });
+    return;
   }
   if (!path) return;
   await flushLayoutSaves();
@@ -166,5 +185,6 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = 300) {
     status(`Exported ${path}${warnings.length ? ` · ${warnings.length} warning${warnings.length > 1 ? "s" : ""}: ${warnings[0]}` : ""}`);
   } catch (e) {
     status(isCancelled(e) ? "Export cancelled" : `Export failed: ${errorText(e)}`);
+    if (!isCancelled(e)) reportError(e, "action:Export layout", { title: `Export of ${name} failed`, context: "exporting a layout" });
   }
 }

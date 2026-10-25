@@ -103,7 +103,7 @@ fn definition_queries_reject_bad_input_and_apply_everywhere() {
     assert_eq!(l.query_count, Some(2));
     assert_eq!(f.e.select_where(&f.polys, "pop >= 0").unwrap(), [1, 2]);
     assert_eq!(f.e.unique_values(&f.polys, "pop", 10).unwrap().len(), 2);
-    assert_eq!(f.e.select_box(&f.polys, [-98.0, 35.0, -97.0, 36.0]).unwrap(), [1, 2]);
+    assert_eq!(f.e.select_rect(&f.polys, [-98.0, 35.0, -97.0, 36.0], "EPSG:4326").unwrap(), [1, 2]);
     // A query that matches nothing is allowed.
     assert_eq!(f.e.set_definition_query(&f.polys, Some("pop < 0")).unwrap().query_count, Some(0));
     assert_eq!(page(&f.e, &f.polys, RowsQuery { limit: 5, ..Default::default() }).total, 0);
@@ -207,7 +207,7 @@ fn deleting_rows_is_exact_and_idempotent() {
     let (l, n) = f.e.delete_rows(&f.polys, &[1, 1, 2]).unwrap();
     assert_eq!((n, l.feature_count), (2, 1));
     assert_eq!(f.e.delete_rows(&f.polys, &[1, 2]).unwrap().1, 0, "already gone");
-    assert_eq!(f.e.select_box(&f.polys, [-98.0, 35.0, -97.0, 36.0]).unwrap(), [3]);
+    assert_eq!(f.e.select_rect(&f.polys, [-98.0, 35.0, -97.0, 36.0], "EPSG:4326").unwrap(), [3]);
     // Delete everything: an empty layer is still a layer.
     let (l, _) = f.e.delete_rows(&f.polys, &[3]).unwrap();
     assert_eq!(l.feature_count, 0);
@@ -255,20 +255,20 @@ fn layer_removal() {
 fn identify_hits_the_nearest_feature_within_a_few_pixels() {
     let f = fx();
     // The point at (-97.505, 35.195): a click exactly on it, and one a whole degree away.
-    assert_eq!(f.e.identify(&f.pts, -97.505, 35.195, 14.0).unwrap(), [1]);
-    assert!(f.e.identify(&f.pts, -96.0, 34.0, 14.0).unwrap().is_empty());
+    assert_eq!(f.e.identify(&f.pts, -97.505, 35.195, "EPSG:4326", 0.0004).unwrap(), [1]);
+    assert!(f.e.identify(&f.pts, -96.0, 34.0, "EPSG:4326", 0.0004).unwrap().is_empty());
     // Inside a polygon counts as a hit; just outside at high zoom does not.
-    assert_eq!(f.e.identify(&f.polys, -97.505, 35.195, 14.0).unwrap(), [1]);
-    assert!(f.e.identify(&f.polys, -97.505, 35.1, 18.0).unwrap().is_empty());
+    assert_eq!(f.e.identify(&f.polys, -97.505, 35.195, "EPSG:4326", 0.0004).unwrap(), [1]);
+    assert!(f.e.identify(&f.polys, -97.505, 35.1, "EPSG:4326", 0.00002).unwrap().is_empty());
     // Tolerance grows as you zoom out: a near miss at z4 hits, at z18 it does not.
-    assert!(f.e.identify(&f.pts, -97.5, 35.195, 18.0).unwrap().is_empty());
-    assert!(!f.e.identify(&f.pts, -97.5, 35.195, 8.0).unwrap().is_empty());
+    assert!(f.e.identify(&f.pts, -97.5, 35.195, "EPSG:4326", 0.00002).unwrap().is_empty());
+    assert!(!f.e.identify(&f.pts, -97.5, 35.195, "EPSG:4326", 0.03).unwrap().is_empty());
     // Overlapping features: nearest first, ties by newest id.
-    let both = f.e.identify(&f.polys, -97.5, 35.195, 14.0).unwrap();
+    let both = f.e.identify(&f.polys, -97.5, 35.195, "EPSG:4326", 0.0004).unwrap();
     assert!(both.contains(&1) && both.contains(&2), "{both:?}");
     // Out-of-range clicks don't error.
     for (lon, lat) in [(200.0, 95.0), (-181.0, -91.0), (0.0, 90.0), (f64::NAN, 0.0)] {
-        let _ = f.e.identify(&f.pts, lon, lat, 10.0);
+        let _ = f.e.identify(&f.pts, lon, lat, "EPSG:4326", 0.001);
     }
 }
 
@@ -279,8 +279,8 @@ fn identify_and_selection_ignore_layers_without_a_crs_or_geometry() {
     let csv = dir.path().join("t.csv");
     std::fs::write(&csv, "a,b\n1,2\n").unwrap();
     let t = e.import(&csv).unwrap().remove(0);
-    assert!(e.identify(&t.id, 0.0, 0.0, 10.0).unwrap().is_empty());
-    assert!(e.select_box(&t.id, [-180.0, -90.0, 180.0, 90.0]).unwrap().is_empty());
+    assert!(e.identify(&t.id, 0.0, 0.0, "EPSG:4326", 0.001).unwrap().is_empty());
+    assert!(e.select_rect(&t.id, [-180.0, -90.0, 180.0, 90.0], "EPSG:4326").unwrap().is_empty());
     assert!(e.extent(&t.id, None).unwrap().is_none());
     let m = e.measure_feature(&t.id, 1).unwrap();
     assert!(m.area.is_none() && m.length.is_none() && m.centroid.is_none());
@@ -289,20 +289,19 @@ fn identify_and_selection_ignore_layers_without_a_crs_or_geometry() {
 #[test]
 fn box_select_covers_touching_and_whole_world_and_degenerate_boxes() {
     let f = fx();
-    assert_eq!(f.e.select_box(&f.pts, [-97.51, 35.19, -97.49, 35.20]).unwrap(), [1, 2]);
-    assert_eq!(f.e.select_box(&f.pts, [-180.0, -85.0, 180.0, 85.0]).unwrap(), [1, 2, 3]);
-    assert!(f.e.select_box(&f.pts, [10.0, 10.0, 11.0, 11.0]).unwrap().is_empty());
+    assert_eq!(f.e.select_rect(&f.pts, [-97.51, 35.19, -97.49, 35.20], "EPSG:4326").unwrap(), [1, 2]);
+    assert_eq!(f.e.select_rect(&f.pts, [-180.0, -85.0, 180.0, 85.0], "EPSG:4326").unwrap(), [1, 2, 3]);
+    assert!(f.e.select_rect(&f.pts, [10.0, 10.0, 11.0, 11.0], "EPSG:4326").unwrap().is_empty());
     // A box that only touches a polygon's edge still intersects it.
-    assert!(f.e.select_box(&f.polys, [-97.49, 35.19, -97.40, 35.20]).unwrap().contains(&2));
+    assert!(f.e.select_rect(&f.polys, [-97.49, 35.19, -97.40, 35.20], "EPSG:4326").unwrap().contains(&2));
     // Selecting lines.
-    assert_eq!(f.e.select_box(&f.line, [-97.45, 35.19, -97.44, 35.21]).unwrap(), [1]);
+    assert_eq!(f.e.select_rect(&f.line, [-97.45, 35.19, -97.44, 35.21], "EPSG:4326").unwrap(), [1]);
 }
 
 #[test]
-#[ignore = "BUG: a zero-size selection box matches nothing, even on a point (docs/BUGS.md B-T3)"]
 fn zero_size_box_selects_the_point_under_it() {
     let f = fx();
-    assert_eq!(f.e.select_box(&f.pts, [-97.505, 35.195, -97.505, 35.195]).unwrap(), [1]);
+    assert_eq!(f.e.select_rect(&f.pts, [-97.505, 35.195, -97.505, 35.195], "EPSG:4326").unwrap(), [1]);
 }
 
 #[test]

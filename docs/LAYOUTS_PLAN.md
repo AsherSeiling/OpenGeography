@@ -91,7 +91,7 @@ All geodesic maths uses `geographiclib-rs` (MIT) `Geodesic::new(a, f)` from the 
 - **Contextual ribbon tab "Layout"** (shown only while a layout tab is active, like ArcGIS Pro's contextual tabs):
   - *Page*: size, orientation, margins;
   - *Insert*: Map Frame, Text, Legend, Scale Bar, North Arrow, Sources (Graticule/Grid in C2.4);
-  - *Map Frame*: "Set from Map View" (current MapLibre centre and zoom → centre in frame CRS + a scale rounded to a standard series value), a scale box `1:[24,000]`, CRS picker;
+  - *Map Frame*: "Set from Map View" (the map view's centre and ground scale — exact since the map view draws in the map's CRS, `docs/MAP_PROJECTION_PLAN.md` — → centre in frame CRS + a scale rounded to a standard series value), a scale box `1:[24,000]`, CRS picker;
   - *Arrange*: bring forward/back, align, lock;
   - *Export*: PDF, PNG, SVG.
 - **Contents pane:** a "Layouts" section listing the project's layouts (rename, duplicate, delete), and the selected layout's elements in z-order.

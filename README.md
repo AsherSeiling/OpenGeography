@@ -98,7 +98,7 @@ project stays MIT/Apache-licensed.
 | `crates/engine/src/nodes/` | One file per geoprocessing tool. Add a tool = add a file + one registry line |
 | `src-tauri` | Desktop shell: IPC commands and the `gis://` tile protocol |
 | `crates/devserver` | Same engine over HTTP, for browser-based development |
-| `ui/src` | React UI: ribbon, dockable panes, map (MapLibre), Model (React Flow) |
+| `ui/src` | React UI: ribbon, dockable panes, map (OpenLayers), Model (React Flow) |
 | `scripts/build-crs-list.sh` | Regenerates the EPSG/ESRI catalog from PROJ's `proj.db` |
 
 ## Design notes
@@ -138,7 +138,7 @@ the app).
 
 | Software | Used for | License |
 |---|---|---|
-| [MapLibre GL JS](https://maplibre.org) | The map | BSD-3-Clause |
+| [OpenLayers](https://openlayers.org) | The map | BSD-2-Clause |
 | [React](https://react.dev) | UI framework | MIT |
 | [Fluent UI React](https://github.com/microsoft/fluentui) + [Fluent icons](https://github.com/microsoft/fluentui-system-icons) | Office-style controls and icons | MIT |
 | [React Flow (@xyflow/react)](https://reactflow.dev) | The Model (node editor) | MIT |

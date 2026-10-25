@@ -44,7 +44,7 @@ fn main() {
             commands::get_rows,
             commands::select_where,
             commands::identify,
-            commands::select_box,
+            commands::select_rect,
             commands::get_feature,
             commands::layer_extent,
             commands::unique_values,

@@ -15,7 +15,7 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 | B-T1 | Medium | Export can overwrite the layer's own source file | `formats::exporting_never_overwrites_the_layers_own_source_file` |
 | B-T4 | Medium | Cancel takes ~12 s to stop a geodesic Buffer (1.5 M points) or a Dissolve (200 k polygons) | `cancel::cancel_geodesic_buffer`, `cancel::cancel_dissolve` |
 | B-T2 | Low | A layer can be renamed to a blank name | `tables::renaming_a_layer_to_blank_is_refused` |
-| B-T3 | Low | Rectangle select with a zero-size box selects nothing, even the point under it | `tables::zero_size_box_selects_the_point_under_it` |
+| B-T3 | Low | **Fixed by M3** (`select_rect`): rectangle select with a zero-size box selects the point under it | `tables::zero_size_box_selects_the_point_under_it` (no longer ignored) |
 | B-T6 | Low | Identify on a projected raster errors instead of returning "no value" for a point outside the CRS's domain | `rasters::identify_far_from_a_projected_raster_is_just_empty` |
 | B-T8 | Low (latent) | `Task::part(i, n)` with `i >= n` reports a progress fraction above 100 % | `progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent` |
 
@@ -48,7 +48,7 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 - **Expected:** refused, or the old name kept. **Actual:** the layer name is stored blank (an invisible row in Contents and in citations).
 - **Suspect:** `crates/engine/src/lib.rs::rename_layer` does no validation.
 
-### B-T3 — Zero-size selection box (Low)
+### B-T3 — Zero-size selection box (Low) — FIXED by M3, test enabled
 - **Reproduce:** `Engine::select_box(point_layer, [x, y, x, y])` where (x, y) is a point's location; test `--test tables -- --ignored zero_size_box`.
 - **Expected:** the point is selected (a click with the rectangle tool is a zero-size box). **Actual:** empty selection.
 - **Suspect:** `crates/engine/src/table.rs::select_box` builds `ST_MakeEnvelope(x0, y0, x0, y0)`, a degenerate polygon that `ST_Intersects` does not match. Pad the box by a tiny tolerance or use a point/line when width or height is 0. (The UI may never send such a box; confirm in `MapView.tsx` after M3.)
@@ -68,3 +68,20 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 - `tiger_import` and `tnm_import` check dataset ids one at a time: with `["tracts", "bogus"]` the first dataset is downloaded and added before the second id is rejected. The UI never sends an unknown id. Covered (id first) by `downloads::a_refused_download_adds_no_layers_citations_or_lingering_tasks`.
 - `pyToSql` does not check that an expression is complete or that field names exist; the engine's SQL parser reports those errors. Covered by `queryEdge.test.ts`.
 - The layout test binary has crashed once with SIGSEGV on macOS CI (`PROJECT_STATUS.md` known issue 4). While writing the raster tests the same signal was reproduced locally, but it was B-T5, not that race.
+
+## For M3 (files owned by the map session)
+
+Nothing found. While cycling the map CRS (EPSG:3857 → 32615 → 5070 → 4326 → 3395 → ortho/laea custom → 3031/3413 → invalid ids set straight into the store, with layers loaded and a layout tab open), `MapView.tsx` never threw: invalid ids show the status message "The map can't be drawn in …" and keep the last good CRS. Checked at commit time of this branch; re-run after M3 lands (`window.__gis.useApp.getState().setMapCrs({id, name})` in the browser build).
+
+## Fixed on `claude/errors-crash-fixes-0cffd7`
+
+| Crash | Cause | Fix |
+|---|---|---|
+| Layout tab → "Maximum update depth exceeded" after opening a project with 2+ layouts | `LayoutView` selected `s.id === layoutId ? s.selected : []`; a new `[]` per call makes zustand loop forever for every layout tab that isn't the open one | `selectionOf()` returns a shared empty array |
+| Frame CRS / "Set from Map View" with no layout open threw `Cannot read … of null` | `useLayouts.getState().doc!` | `frameById()` returns null; the user gets a message |
+| Scale 0/NaN, w/h ≤ 0, NaN centre written into a layout | store `update` took any patch | `cleanPatch()` drops invalid values; `setPage` refuses 0/NaN pages |
+| Older or damaged layout (no `page`, no `center`, null elements) | editor read fields directly | `normalizeLayout()` on load; `FrameFields` tolerates a missing centre |
+| Page size 0 → fit zoom `Infinity` | `fitZoom` unguarded | non-finite → default zoom |
+| Invalid map CRS accepted silently | `pickMapCrs` set it without checking | `setMapCrsChecked()` validates with the engine first |
+| Damaged saved camera / dock layout aborted project open | uncaught in `restoreState` | wrapped; status message |
+| Export with no map frame | engine error only in the status bar | explained up front |

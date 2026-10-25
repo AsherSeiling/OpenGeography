@@ -17,6 +17,8 @@ import { defaultLayout, setDock, type PaneId } from "./panes/panes";
 import { CatalogPane } from "./panes/CatalogPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
 import { SourcesPane } from "./panes/SourcesPane";
+import { ErrorDialog } from "./errors/ErrorDialog";
+import { PaneBoundary } from "./errors/PaneBoundary";
 import { LayoutView } from "./layout/LayoutView";
 import { useLayouts } from "./store/layout";
 import { ToolsPane } from "./panes/ToolsPane";
@@ -41,16 +43,22 @@ const officeLight: Theme = {
 };
 const officeDark: Theme = { ...webDarkTheme, fontFamilyBase: officeLight.fontFamilyBase, borderRadiusMedium: "2px", borderRadiusSmall: "2px" };
 
+const guard = (pane: string, title: string, el: React.ReactNode) => (
+  <PaneBoundary pane={pane} title={title}>
+    {el}
+  </PaneBoundary>
+);
+
 const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPanelProps>> = {
-  layout: (p) => <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />,
-  contents: () => <ContentsPane />,
-  catalog: () => <CatalogPane />,
-  map: () => <MapView />,
-  table: () => <AttributeTable />,
-  model: () => <ModelPane />,
-  properties: () => <PropertiesPane />,
-  tools: () => <ToolsPane />,
-  sources: () => <SourcesPane />,
+  layout: (p) => guard(`layout:${(p.params as { layoutId: string }).layoutId}`, "Layout", <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />),
+  contents: () => guard("contents", "Contents", <ContentsPane />),
+  catalog: () => guard("catalog", "Catalog", <CatalogPane />),
+  map: () => guard("map", "Map", <MapView />),
+  table: () => guard("table", "Attribute Table", <AttributeTable />),
+  model: () => guard("model", "Model", <ModelPane />),
+  properties: () => guard("properties", "Properties", <PropertiesPane />),
+  tools: () => guard("tools", "Geoprocessing", <ToolsPane />),
+  sources: () => guard("sources", "Sources", <SourcesPane />),
 };
 
 export function App() {
@@ -136,6 +144,7 @@ export function App() {
         <StatusBar />
         <LayerPropertiesWindow />
         <Dialogs />
+        <ErrorDialog />
       </div>
     </FluentProvider>
   );

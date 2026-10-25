@@ -33,9 +33,14 @@ export function resized(box: { x: number; y: number; w: number; h: number }, han
 
 const LABEL: Record<string, string> = { map_frame: "Map frame", text: "Text", legend: "Legend", scale_bar: "Scale bar", north_arrow: "North arrow", sources: "Sources" };
 
+const NONE: string[] = [];
+
+/** Selection of a layout tab; a stable empty array for tabs that aren't the open layout (a fresh [] per call made React loop forever). */
+export const selectionOf = (layoutId: string) => (s: { id: string | null; selected: string[] }) => (s.id === layoutId ? s.selected : NONE);
+
 export function LayoutView({ layoutId }: { layoutId: string }) {
   const layout = useLayouts((s) => (s.id === layoutId ? s.doc : (s.docs[layoutId] ?? null)));
-  const selected = useLayouts((s) => (s.id === layoutId ? s.selected : []));
+  const selected = useLayouts(selectionOf(layoutId));
   if (!layout) return <div className="empty-hint pad">This layout no longer exists.</div>;
   return <Canvas layout={layout} selected={selected} />;
 }
@@ -58,7 +63,8 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const fitZoom = Math.max(0.2, Math.min((box.w - 48) / page.width, (box.h - 48) / page.height));
+  const fitRaw = Math.min((box.w - 48) / page.width, (box.h - 48) / page.height);
+  const fitZoom = Number.isFinite(fitRaw) ? Math.max(0.2, fitRaw) : 2;
   const z = fit ? fitZoom : zoom;
   const zoomTo = (v: number) => {
     setFit(false);

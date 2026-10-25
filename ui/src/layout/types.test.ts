@@ -41,9 +41,7 @@ describe("scales", () => {
   it("beyond the table rounds to whole millions; nonsense input doesn't throw", () => {
     expect(roundScaleUp(250_000_000)).toBe(250_000_000);
     expect(roundScaleUp(120_000_001)).toBe(121_000_000);
-    expect(() => roundScaleUp(NaN)).not.toThrow();
-    expect(roundScaleUp(-5)).toBe(500);
-    expect(roundScaleUp(Infinity)).toBe(Infinity);
+    for (const bad of [NaN, -5, 0, Infinity]) expect(roundScaleUp(bad), String(bad)).toBe(1_000_000); // invalid input falls back to a sane scale
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carryResolution, geographicK, groundForLegacyZoom, groundPerPixel, legacyZoom, PX_PER_M, resolutionForScale, scaleOf } from "./crs";
+import { carryResolution, geographicK, groundPerPixel, PX_PER_M, resolutionForScale, scaleOf } from "./crs";
 
 describe("scale maths at the limits", () => {
   it("scaleOf and resolutionForScale are inverses for metre, foot and degree CRS units", () => {
@@ -39,14 +39,5 @@ describe("scale maths at the limits", () => {
     expect(geographicK(60)).toBeCloseTo(2, 9);
     expect(Number.isFinite(geographicK(90))).toBe(true);
     expect(geographicK(-45)).toBeCloseTo(geographicK(45), 12);
-  });
-
-  it("legacy zoom round-trips across latitudes", () => {
-    for (const lat of [0, 35, -60, 80]) for (const z of [0, 5.5, 12, 20]) expect(legacyZoom(groundForLegacyZoom(z, lat), lat)).toBeCloseTo(z, 9);
-  });
-
-  it("legacy zoom at the poles is finite on the way in, infinite on a zero resolution", () => {
-    expect(Number.isFinite(legacyZoom(10, 90))).toBe(true);
-    expect(legacyZoom(0, 35)).toBe(Infinity);
   });
 });

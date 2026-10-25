@@ -105,6 +105,8 @@ Tiles in a non-Mercator grid need geometry in that CRS. Transforming `__g` for e
   - P14. A 3DEP hillshade lines up with a vector layer in UTM 15N within 1 pixel at z14.
   - P15. EPSG:3031 shows a raster across the pole.
   - P16. Pan and zoom on 3M points in UTM 15N stay interactive (no frame over 200 ms in a performance trace).
+  - P18. Pole-safe tools (Opus review of M3, 2026-10-25): when the map CRS isn't Web Mercator, `identify` and `select_rect` query the layer's display table (`__disp_*`, already in the map CRS), not a region projected into Web Mercator. Identify and box select at the South Pole in EPSG:3031 return the right features.
+  - P17. Thread safety (DECISIONS, 2026-10-25): 64 threads × `render_extent` on one raster, 20 repeats, no crash on all three CI platforms. No GDAL handle crosses threads; concurrent warps capped at `available_parallelism`. If it fails: one process-wide warp mutex.
 
 **Order:** M1 → M2 → M3 → M4, one at a time:
 - M1 adds Tauri commands, so it never runs in parallel with another command-adding task.

@@ -160,6 +160,7 @@ export const STANDARD_SCALES = [500, 1000, 1200, 2000, 2400, 2500, 4800, 5000, 6
 
 /** The smallest standard scale at or above `scale` (so the frame covers what the map showed). */
 export function roundScaleUp(scale: number): number {
+  if (!Number.isFinite(scale) || scale <= 0) return 1_000_000;
   return STANDARD_SCALES.find((s) => s >= scale * 0.999) ?? Math.ceil(scale / 1e6) * 1e6;
 }
 
@@ -171,4 +172,52 @@ export function nextId(l: Layout, prefix: string): string {
   let n = 1;
   while (l.elements.some((e) => e.id === `${prefix}${n}`)) n++;
   return `${prefix}${n}`;
+}
+
+const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+
+/** Smallest size an element may have, mm. */
+export const MIN_SIZE_MM = 1;
+
+/**
+ * Drop edits that would break the document: non-finite numbers, sizes below
+ * 1 mm, scales ≤ 0, sizes/columns/segments ≤ 0, a centre that isn't two finite
+ * numbers. Valid parts of the patch are kept.
+ */
+export function cleanPatch(patch: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (typeof v === "number") {
+      if (!Number.isFinite(v)) continue;
+      if ((k === "w" || k === "h") && v < MIN_SIZE_MM) continue;
+      if ((k === "scale" || k === "size" || k === "columns" || k === "segments") && v <= 0) continue;
+    }
+    if (k === "center" && !(Array.isArray(v) && v.length === 2 && v.every((c) => typeof c === "number" && Number.isFinite(c)))) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/** Fill what an older or damaged layout lacks so the editor never reads undefined. */
+export function normalizeLayout(raw: Layout): Layout {
+  const def = pageFor("Letter", "landscape");
+  const page = (raw.page ?? {}) as Partial<Page>;
+  const w = num(page.width, def.width);
+  const h = num(page.height, def.height);
+  const elements = (Array.isArray(raw.elements) ? raw.elements : [])
+    .filter((e) => e && typeof e === "object" && typeof e.id === "string")
+    .map((e) => {
+      const base = { ...e, x: num(e.x, 0), y: num(e.y, 0), w: Math.max(MIN_SIZE_MM, num(e.w, 10)), h: Math.max(MIN_SIZE_MM, num(e.h, 10)), rotation: num(e.rotation, 0), locked: !!e.locked, visible: e.visible !== false };
+      if (base.kind === "map_frame") {
+        const c = (base as MapFrame).center;
+        return { ...base, crs: base.crs ?? "", center: Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(v)) ? c : [0, 0], scale: num(base.scale, 1_000_000) > 0 ? num(base.scale, 1_000_000) : 1_000_000 } as MapFrame;
+      }
+      return base as LayoutElement;
+    });
+  return {
+    ...raw,
+    name: typeof raw.name === "string" && raw.name ? raw.name : raw.id,
+    page: { ...def, ...page, width: w > 0 ? w : def.width, height: h > 0 ? h : def.height, margin: Math.max(0, num(page.margin, def.margin)) },
+    elements,
+  };
 }

@@ -64,7 +64,7 @@ Also stop and ask the user (not Opus) for: A3 (needs real Windows/Linux machines
 | C1 Layouts | `docs/LAYOUTS_PLAN.md` (body param, vector-PDF path) | C2, C3, F5 |
 | C4 Topo Map Builder | `docs/TOPO_MAP_PLAN.md` | C4 build |
 | D1 ArcGIS REST catalog | One review of the catalog JSON format | D1 entries |
-| F0 Planetary | Design + MapLibre pole spike | F1–F5 |
+| F0 Planetary | Design + polar-CRS spike (OpenLayers view) | F1–F5 |
 | F3 Crater statistics | Method review (model ages, morphometry) | F3 build |
 | G Python SDK | `docs/PYTHON_SDK_PLAN.md` | G build |
 | H each area | Design per area | H builds |

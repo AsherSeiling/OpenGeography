@@ -4,7 +4,8 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
-import { nextId, type Layout, type LayoutElement, type MapFrame, type Page, type SurroundElement, type TextElement } from "../layout/types";
+import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type SurroundElement, type TextElement } from "../layout/types";
+import { reportError } from "../errors/store";
 import { useApp } from "./store";
 
 interface LayoutState {
@@ -59,6 +60,7 @@ async function saveNow(id: string) {
     await api.saveLayout(l);
   } catch (e) {
     useApp.getState().setStatus(`Layout '${l.name}' could not be saved: ${errorText(e)}`);
+    reportError(e, `layout-save:${id}`, { title: `Layout '${l.name}' could not be saved`, context: "saving a layout" });
   }
 }
 
@@ -83,7 +85,7 @@ export const useLayouts = create<LayoutState>()(
       loadAll: (layouts) => {
         for (const k of Object.keys(histories)) delete histories[k];
         for (const k of Object.keys(timers)) clearTimeout(timers[k]), delete timers[k];
-        set({ docs: Object.fromEntries(layouts.map((l) => [l.id, l])), id: null, doc: null, selected: [] });
+        set({ docs: Object.fromEntries(layouts.map(normalizeLayout).map((l) => [l.id, l])), id: null, doc: null, selected: [] });
         useLayouts.temporal.getState().clear();
       },
       open: (id) => {
@@ -141,13 +143,17 @@ export const useLayouts = create<LayoutState>()(
         return copy;
       },
       select: (selected) => set({ selected }),
-      setPage: (page) => edit((d) => ({ ...d, page })),
+      setPage: (page) => {
+        if (Number.isFinite(page.width) && Number.isFinite(page.height) && page.width > 0 && page.height > 0) edit((d) => ({ ...d, page }));
+      },
       addElement: (e) => {
         flushBurst();
         edit((d) => ({ ...d, elements: [...d.elements, e] }));
         set({ selected: [e.id] });
       },
       update: (elementId, patch, burst) => {
+        patch = cleanPatch(patch);
+        if (!Object.keys(patch).length) return;
         if (burst) groupBurst(`${elementId}:${burst}`);
         else flushBurst();
         edit((d) => ({ ...d, elements: d.elements.map((e) => (e.id === elementId ? ({ ...e, ...patch } as LayoutElement) : e)) }));
