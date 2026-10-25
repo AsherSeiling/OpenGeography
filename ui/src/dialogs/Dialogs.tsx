@@ -22,6 +22,7 @@ import { WaitBar } from "../progress/progress";
 import { Globe20Regular, Location20Regular, Star20Filled } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, selectByLocation, useDialog } from "../actions";
+import { reportError } from "../errors/store";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
 import { STATES } from "./TigerDialog";
 import { api, errorText } from "../ipc/api";
@@ -84,6 +85,16 @@ function mapCenter(): [number, number] | null {
 
 // ---------- CRS picker ----------
 
+/** The map centre, or null when the map isn't ready or its centre isn't a valid lon/lat. */
+function safeCenter(): [number, number] | null {
+  try {
+    const c = mapCenter();
+    return c && Number.isFinite(c[0]) && Number.isFinite(c[1]) ? c : null;
+  } catch {
+    return null;
+  }
+}
+
 export function CrsPicker({ value, onChange }: { value: string | null; onChange: (id: string, name: string) => void }) {
   const [list, setList] = useState<CrsEntry[]>([]);
   const [query, setQuery] = useState("");
@@ -93,9 +104,9 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
   const [custom, setCustom] = useState("");
   const [customErr, setCustomErr] = useState<string | null>(null);
   useEffect(() => {
-    loadCatalog().then(setList);
+    loadCatalog().then(setList).catch((e) => reportError(e, "dialog:crs", { title: "The coordinate system list could not be loaded" }));
   }, []);
-  const center = mapCenter();
+  const center = safeCenter();
   const results = useMemo(
     () =>
       spState

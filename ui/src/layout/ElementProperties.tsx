@@ -72,8 +72,8 @@ function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
       </Field>
       <Num label="Scale 1 :" value={el.scale} min={1} step={1000} onChange={(scale) => set({ scale }, "scale")} />
       <div className="props-grid">
-        <Num label="Centre X" value={el.center[0]} decimals={2} onChange={(v) => set({ center: [v, el.center[1]] }, "cx")} />
-        <Num label="Centre Y" value={el.center[1]} decimals={2} onChange={(v) => set({ center: [el.center[0], v] }, "cy")} />
+        <Num label="Centre X" value={el.center?.[0] ?? 0} decimals={2} onChange={(v) => set({ center: [v, el.center?.[1] ?? 0] }, "cx")} />
+        <Num label="Centre Y" value={el.center?.[1] ?? 0} decimals={2} onChange={(v) => set({ center: [el.center?.[0] ?? 0, v] }, "cy")} />
       </div>
       <Button size="small" onClick={() => void setFrameFromMapView(el.id)}>Set from Map View</Button>
       <Field label="Basemap" size="small">

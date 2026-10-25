@@ -4,6 +4,7 @@ import { useBibPrefs } from "./sources/prefs";
 import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
+import { reportError } from "./errors/store";
 import { api, errorText, type LayerInfo } from "./ipc/api";
 import { getViewBounds, restoreCamera, snapshotCamera, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
@@ -50,6 +51,7 @@ async function busy<T>(label: string, f: () => Promise<T>): Promise<T | undefine
     return r;
   } catch (e) {
     status(`${label} failed: ${errorText(e)}`);
+    reportError(e, `action:${label}`, { title: `${label} failed`, context: label });
     return undefined;
   }
 }
@@ -132,16 +134,25 @@ export async function defineProjection(layer: string, crs: string, name: string)
   zoomToExtent(info.extent);
 }
 
+/** Set the map CRS only if the engine can use it; an invalid one leaves the current CRS in place. */
+export async function setMapCrsChecked(id: string, name: string) {
+  try {
+    await api.validateCrs(id);
+  } catch (e) {
+    status(`Coordinate system ${id} can't be used: ${errorText(e)}. The map keeps ${useApp.getState().mapCrs?.name ?? "its current setting"}.`);
+    return;
+  }
+  useApp.getState().setMapCrs({ id, name });
+  status(`Map coordinate system: ${name}. The map, coordinates, measurements and layouts use it.`);
+}
+
 export function pickMapCrs() {
   const cur = useApp.getState().mapCrs;
   useDialog.getState().show({
     kind: "crs",
     title: "Map Coordinate System",
     initial: cur?.id,
-    onPick: (id, name) => {
-      useApp.getState().setMapCrs({ id, name });
-      status(`Map coordinate system: ${name}. The map, coordinates, measurements and layouts use it.`);
-    },
+    onPick: (id, name) => void setMapCrsChecked(id, name),
   });
 }
 
@@ -441,8 +452,17 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
   });
   useModel.getState().load(ui.trees ?? {}, order[0] ?? null);
   useRun.getState().set({ results: {} });
-  if (ui.camera) restoreCamera(ui.camera);
-  if (ui.dock) dockRestorer?.(ui.dock);
+  // A damaged camera or dock layout must not stop the project from opening.
+  try {
+    if (ui.camera) restoreCamera(ui.camera);
+  } catch (e) {
+    status(`The saved map view could not be restored (${errorText(e)}); showing the default view.`);
+  }
+  try {
+    if (ui.dock) dockRestorer?.(ui.dock);
+  } catch (e) {
+    status(`The saved window layout could not be restored (${errorText(e)}).`);
+  }
 }
 
 /** Read the project's layouts from the engine; their tabs come back with the dock layout. */
@@ -450,7 +470,8 @@ async function loadLayouts() {
   try {
     useLayouts.getState().loadAll(await api.listLayouts());
   } catch (e) {
-    status(`Layouts could not be read: ${errorText(e)}`);
+    useLayouts.getState().loadAll([]);
+    reportError(e, "action:Opening project", { title: "This project's layouts could not be read", context: "reading layouts" });
   }
 }
 
