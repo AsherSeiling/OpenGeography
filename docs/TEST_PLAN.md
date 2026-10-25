@@ -111,7 +111,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 4.6 | Zero-size box | click-sized box on a point | selects the point | auto: tables::zero_size_box_selects_the_point_under_it (B-T3 fixed by M3) |
 | 4.7 | Select by location (map command and tool) | points vs polygons; distance; invert; selected-only "by" | exact fids; both definition queries apply | auto: engine::select_by_location_on_the_map; tools::select_by_location_tool_known_result |
 | 4.8 | Identify | click on a point, near miss at high/low zoom, inside a polygon, overlap, out-of-range lon/lat, table layer | nearest first; tolerance grows with zoom; no panic | auto: tables::identify_hits_the_nearest_feature_within_a_few_pixels, identify_and_selection_ignore_layers_without_a_crs_or_geometry |
-| 4.9 | Identify on a raster | pixel / NoData / outside | value / none / none | auto: rasters::raster_layers_report_stats_and_draw_tiles; far away: (ignored, BUG B-T6) rasters::identify_far_from_a_projected_raster_is_just_empty |
+| 4.9 | Identify on a raster | pixel / NoData / outside | value / none / none | auto: rasters::raster_layers_report_stats_and_draw_tiles; far away: (B-T6 fixed) rasters::identify_far_from_a_projected_raster_is_just_empty |
 | 4.10 | Feature attributes popup values, NULLs | fid 1 | strings, `None` for NULL | auto: tables::cell_edits_convert_types_and_explain_failures |
 | 4.11 | Geodesic measure of one feature | polygon 0.01°², line 0.1°, point | area ±1 %, perimeter, length, centroid; right fields only | auto: tables::measure_feature_is_geodesic_and_type_aware; engine::geodesic_buffer_near_and_measure |
 | 4.12 | Extent / zoom to selection | all, one, empty, missing fid | bounds; empty → none | auto: tables::extents_for_selections |
@@ -140,7 +140,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 5.11 | Calculate Geometry units | area in sqft/sqm/acres, length m | acres = m² / 4046.8564 | auto: tools::calculate_field_and_geometry_known_values; engine::spreadsheet_style_attribute_editing |
 | 5.12 | Delete rows | none, missing ids, duplicates, all rows | exact counts; idempotent; empty layer OK | auto: tables::deleting_rows_is_exact_and_idempotent |
 | 5.13 | Node-tree results and unknown layers are read-only / error | edit a result layer | error "node-tree result…" | auto: tables::node_results_and_unknown_layers_cannot_be_edited |
-| 5.14 | Rename / remove layer | blank name; remove drops tables and uses | name kept; layer gone | auto: tables::layer_removal; (ignored, BUG B-T2) tables::renaming_a_layer_to_blank_is_refused |
+| 5.14 | Rename / remove layer | blank name; remove drops tables and uses | name kept; layer gone | auto: tables::layer_removal; (B-T2 fixed) tables::renaming_a_layer_to_blank_is_refused |
 | 5.15 | Unique values, quantile breaks | NULLs, limit 0/1, text field, classes 0/1/3 | counts add up; empty for 0/1; median 2.5 | auto: tables::unique_values_and_breaks_edge_cases |
 | 5.16 | Copy layer / layer from selection | fids subset | row count; inherits sources | auto: engine::data_sources_are_logged_with_citations; progress_sources::derived_layers_cite_every_input_once |
 | 5.17 | Spreadsheet UI: edit a cell with Enter/Tab/Esc, sort by header, resize columns, paste a column, filter box | see M-11 | values saved; Esc cancels | manual M-11 |
@@ -333,7 +333,7 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 13.2 | Fractions clamp, never go back, NaN ignored, split into parts | auto: progress_sources::fractions_clamp_never_go_backwards_and_split_into_parts |
 | 13.3 | Cancel flag: seen by that task only, "Cancelling…", stale handles are fine, context-wrapped error still recognised | auto: progress_sources::cancel_is_seen_only_by_cancellable_work_that_checks_and_only_for_that_task |
 | 13.4 | Nested run flags restored | auto: progress_sources::raster_steps_stop_when_the_run_flag_is_set |
-| 13.5 | Part index past the end | auto (ignored, BUG B-T8): progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent |
+| 13.5 | Part index past the end | auto (B-T8 fixed): progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent |
 | 13.6 | Model run cancelled mid-query (planar Buffer, 3 M points), result write all-or-nothing, engine reusable | auto: engine::model_run_can_be_cancelled_mid_query |
 | 13.7 | GDAL raster steps stop on Cancel and clean up | auto: engine::cancelling_stops_gdal_raster_steps_and_cleans_up |
 | 13.8 | Cancel for Near, Voronoi, Spatial Join (< 3 s) | auto (ignored, perf): cancel::cancel_near, cancel_voronoi, cancel_spatial_join |

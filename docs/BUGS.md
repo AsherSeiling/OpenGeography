@@ -14,10 +14,10 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 | B-T7 | High | Warp of a raster with no CRS "succeeds" and labels the untouched grid with the target CRS | `rasters::warping_a_raster_of_unknown_crs_is_refused_not_guessed` |
 | B-T1 | Medium | Export can overwrite the layer's own source file | `formats::exporting_never_overwrites_the_layers_own_source_file` |
 | B-T4 | Medium | Cancel takes ~12 s to stop a geodesic Buffer (1.5 M points) or a Dissolve (200 k polygons) | `cancel::cancel_geodesic_buffer`, `cancel::cancel_dissolve` |
-| B-T2 | Low | A layer can be renamed to a blank name | `tables::renaming_a_layer_to_blank_is_refused` |
+| B-T2 | Low | **Fixed** —  A layer can be renamed to a blank name | `tables::renaming_a_layer_to_blank_is_refused` |
 | B-T3 | Low | **Fixed by M3** (`select_rect`): rectangle select with a zero-size box selects the point under it | `tables::zero_size_box_selects_the_point_under_it` (no longer ignored) |
-| B-T6 | Low | Identify on a projected raster errors instead of returning "no value" for a point outside the CRS's domain | `rasters::identify_far_from_a_projected_raster_is_just_empty` |
-| B-T8 | Low (latent) | `Task::part(i, n)` with `i >= n` reports a progress fraction above 100 % | `progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent` |
+| B-T6 | Low | **Fixed** —  Identify on a projected raster errors instead of returning "no value" for a point outside the CRS's domain | `rasters::identify_far_from_a_projected_raster_is_just_empty` |
+| B-T8 | Low (latent) | **Fixed** —  `Task::part(i, n)` with `i >= n` reports a progress fraction above 100 % | `progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent` |
 
 ### B-T5 — Warp to an invalid CRS crashes the app (High)
 - **Reproduce:** add any raster layer; in its node tree add *Warp (Reproject Raster)*, set *Target coordinate system* to `EPSG:99999999` (or any text PROJ cannot read, or empty) and run. Test: `cargo test -p engine --test rasters -- --ignored warp_to_an_invalid_crs`.
@@ -43,7 +43,7 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 - **Actual:** the step stops 11.8–12.5 s after Cancel; the progress bar shows "Cancelling…" meanwhile.
 - **Suspect:** DuckDB interrupts only between work units; per-feature geodesic projection (`nodes/buffer.rs`) and the single `ST_Union_Agg` of Dissolve (`nodes/dissolve.rs`) are long uninterruptible calls. Same cause as `PROJECT_STATUS.md` known issue 1; the numbers are new. Chunk the work or run it on a separate connection that can be dropped.
 
-### B-T2 — Blank layer name (Low)
+### B-T2 — Blank layer name (Low) — FIXED
 - **Reproduce:** `Engine::rename_layer(id, "   ")`; test `--test tables -- --ignored renaming_a_layer_to_blank`. In the app: rename a layer in Contents to spaces.
 - **Expected:** refused, or the old name kept. **Actual:** the layer name is stored blank (an invisible row in Contents and in citations).
 - **Suspect:** `crates/engine/src/lib.rs::rename_layer` does no validation.
@@ -53,12 +53,12 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 - **Expected:** the point is selected (a click with the rectangle tool is a zero-size box). **Actual:** empty selection.
 - **Suspect:** `crates/engine/src/table.rs::select_box` builds `ST_MakeEnvelope(x0, y0, x0, y0)`, a degenerate polygon that `ST_Intersects` does not match. Pad the box by a tiny tolerance or use a point/line when width or height is 0. (The UI may never send such a box; confirm in `MapView.tsx` after M3.)
 
-### B-T6 — Raster identify far from the raster errors (Low)
+### B-T6 — Raster identify far from the raster errors (Low) — FIXED
 - **Reproduce:** import a UTM 14N GeoTIFF; `Engine::raster_value(id, 0.0, 0.0)`; test `--test rasters -- --ignored identify_far`. In the app: Identify with the pointer on a point far from the raster's UTM zone.
 - **Expected:** `Ok(None)`. **Actual:** `Err("Invalid coordinate range while transforming points … Point outside of projection domain")` (and GDAL prints `ERROR 1`).
 - **Suspect:** `crates/engine/src/raster.rs::sample`: treat a PROJ domain error as "no value".
 
-### B-T8 — Progress above 100 % (Low, latent)
+### B-T8 — Progress above 100 % (Low, latent) — FIXED
 - **Reproduce:** `Task::start("x").part(3, 0); set(1.0)` (or `part(i, n)` with `i >= n`); test `--test progress_sources -- --ignored a_part_index_past_the_end`.
 - **Expected:** fraction ≤ 1. **Actual:** 4.0. No caller does this today; `part` should clamp `i` to `n - 1`.
 - **Suspect:** `crates/engine/src/progress.rs::Task::part`.
