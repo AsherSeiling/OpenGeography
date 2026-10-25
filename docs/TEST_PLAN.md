@@ -48,7 +48,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 1.18 | Export a table without geometry; unwritable folder | CSV table | file written; missing folder → Error with message | auto: formats::exporting_a_table_without_geometry_works_and_missing_folders_are_reported |
 | 1.19 | Reserved `fid` column on export | layer with `fid` | written as `fid_src`, no failure | auto: engine::export_handles_gdal_reserved_id_columns_and_keeps_crs |
 | 1.20 | Export only selected features | fids list on Layer Input | only those rows | auto: engine::definition_query_and_selected_only_export |
-| 1.21 | Export never overwrites the layer's own source | export to the imported path | refused | auto (ignored, BUG B-T1): formats::exporting_never_overwrites_the_layers_own_source_file |
+| 1.21 | Export never overwrites the layer's own source | export to the imported path | refused | auto (B-T1 fixed): formats::exporting_never_overwrites_the_layers_own_source_file |
 | 1.22 | Add Data dialog: pick several files at once, a file with spaces/accents in the path, cancel the dialog | see M-1 | layers appear in the chosen order; cancel changes nothing | manual M-1 |
 | 1.23 | Export Features dialog: format list, overwrite prompt, selected-only box | see M-2 | file opens in QGIS/ArcGIS with the same CRS | manual M-2 |
 | 1.24 | Drag a file from Finder/Explorer onto the app | see M-3 | adds as layer(s) | manual M-3 |

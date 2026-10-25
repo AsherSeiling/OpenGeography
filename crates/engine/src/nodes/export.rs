@@ -29,6 +29,7 @@ impl Tool for Export {
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let path = p.req_str("path", "Output file")?;
+        refuse_source_file(ctx, &path)?;
         if let Some(src) = &i.raster {
             let ds = gdal::Dataset::open(src)?;
             crate::raster::translate(&ds, std::path::Path::new(&path), &["-of", "GTiff", "-co", "COMPRESS=DEFLATE", "-co", "TILED=YES"].map(String::from))?;
@@ -75,4 +76,33 @@ impl Tool for Export {
         ctx.conn.execute_batch(&sql)?;
         Ok(Output::Done(format!("Wrote {path}")))
     }
+}
+
+/// Canonical form of a path that may not exist yet: the parent is resolved, the file name kept.
+fn canonical(p: &std::path::Path) -> std::path::PathBuf {
+    if let Ok(c) = p.canonicalize() {
+        return c;
+    }
+    let parent = match p.parent() {
+        Some(d) if !d.as_os_str().is_empty() => d.canonicalize().ok(),
+        _ => std::path::Path::new(".").canonicalize().ok(),
+    };
+    match (parent, p.file_name()) {
+        (Some(d), Some(f)) => d.join(f),
+        _ => p.to_path_buf(),
+    }
+}
+
+/// Never overwrite source data: refuse an output path that is any layer's source file.
+fn refuse_source_file(ctx: &Ctx, path: &str) -> Result<()> {
+    let target = canonical(std::path::Path::new(path));
+    for l in ctx.layers.values() {
+        let sources = l.source.iter().cloned().chain(l.raster.iter().map(|r| r.path.clone()));
+        for s in sources {
+            if canonical(std::path::Path::new(&s)) == target {
+                bail!("{path} is the source file of the layer '{}'. Export to a different file so the original data is not overwritten.", l.name);
+            }
+        }
+    }
+    Ok(())
 }

@@ -12,7 +12,7 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 |---|---|---|---|
 | B-T5 | High | **Fixed** —  Warp to an invalid CRS crashes the whole process (SIGSEGV) | `rasters::warp_to_an_invalid_crs_is_an_error_not_a_crash` |
 | B-T7 | High | **Fixed** —  Warp of a raster with no CRS "succeeds" and labels the untouched grid with the target CRS | `rasters::warping_a_raster_of_unknown_crs_is_refused_not_guessed` |
-| B-T1 | Medium | Export can overwrite the layer's own source file | `formats::exporting_never_overwrites_the_layers_own_source_file` |
+| B-T1 | Medium | **Fixed** —  Export can overwrite the layer's own source file | `formats::exporting_never_overwrites_the_layers_own_source_file` |
 | B-T4 | Medium | Cancel takes ~12 s to stop a geodesic Buffer (1.5 M points) or a Dissolve (200 k polygons) | `cancel::cancel_geodesic_buffer`, `cancel::cancel_dissolve` |
 | B-T2 | Low | **Fixed** —  A layer can be renamed to a blank name | `tables::renaming_a_layer_to_blank_is_refused` |
 | B-T3 | Low | **Fixed by M3** (`select_rect`): rectangle select with a zero-size box selects the point under it | `tables::zero_size_box_selects_the_point_under_it` (no longer ignored) |
@@ -33,7 +33,8 @@ Fix: `need_raster_crs` (nodes/mod.rs) in Warp, Clip Raster by Extent, Sample Ras
 - **Actual:** the step succeeds; the output keeps the original grid (x = 600000 …, pixel 30) but is labelled `EPSG:4326`, i.e. metres reinterpreted as degrees, with no warning. Breaks the "explicit CRS, never guess" rule.
 - **Suspect:** `crates/engine/src/nodes/qgis_raster.rs::Warp::build` has no `need_crs` check (the vector tools use `need_crs`). Clip, Contours, Polygonize etc. should be checked for the same gap.
 
-### B-T1 — Export onto the source file overwrites it (Medium)
+### B-T1 — Export onto the source file overwrites it (Medium) — FIXED
+Fix: `nodes/export.rs::refuse_source_file` compares the canonicalized output path with every layer's `source` and raster path.
 - **Reproduce:** import `a.gpkg` (2 features), set a definition query `id = 1`, add an Export node writing GPKG to the same `a.gpkg`, run. Test: `--test formats -- --ignored exporting_never_overwrites`.
 - **Expected:** refuse ("this is the layer's source file") or at least ask; `CLAUDE.md` says never overwrite source data.
 - **Actual:** the file is silently replaced by the exported (filtered) content; the original 2 features are gone.
