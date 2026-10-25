@@ -3,7 +3,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI } from "../ipc/api";
-import { getCenterLonLat, getGroundPerPixel, getMap } from "../map/mapController";
+import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { addMapFrame, addSurround, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
@@ -119,12 +119,13 @@ export async function setFrameFromMapView(frameId?: string) {
   const map = getMap();
   if (!frame || !map) return status("Insert a map frame first (Layout tab → Map Frame).");
   if (!frame.crs) return status("Set a coordinate system for the map frame.");
-  const c = getCenterLonLat();
+  const c = getCenterInMapCrs();
   const mpp = getGroundPerPixel();
   const size = map.getSize();
   if (!c || !mpp || !size) return status("The map view isn't ready yet.");
   try {
-    const center = await api.transformPoint(c[0], c[1], "EPSG:4326", frame.crs);
+    // The view centre is already in the map CRS; only a frame in another CRS needs the engine.
+    const center = c.crs === frame.crs ? c.center : await api.transformPoint(c.center[0], c.center[1], c.crs, frame.crs);
     const w = (size[0] * mpp) / (Math.max(frame.w, 1) / 1000);
     const h = (size[1] * mpp) / (Math.max(frame.h, 1) / 1000);
     if (!center.every(Number.isFinite)) return status("That map position can't be shown in the frame's coordinate system. Choose a different one.");

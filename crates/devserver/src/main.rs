@@ -216,14 +216,14 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "display_status" => json!(e.display_status(&s(a, "layer")?, &s(a, "crs")?)?),
         "get_rows" => json!(e.rows(&s(a, "id")?, &de::<RowsQuery>(a, "query")?)?),
         "select_where" => json!(e.select_where(&s(a, "id")?, &s(a, "filter")?)?),
-        "identify" | "select_box" => {
+        "identify" | "select_rect" => {
             let ids: Vec<String> = de(a, "ids")?;
             let mut out = Vec::new();
             for id in ids {
                 let fids = if cmd == "identify" {
-                    e.identify(&id, f(a, "lon")?, f(a, "lat")?, f(a, "zoom")?)?
+                    e.identify(&id, f(a, "x")?, f(a, "y")?, &s(a, "crs")?, f(a, "tolerance")?)?
                 } else {
-                    e.select_box(&id, de(a, "bbox")?)?
+                    e.select_rect(&id, de(a, "bbox")?, &s(a, "crs")?)?
                 };
                 if !fids.is_empty() {
                     out.push(json!({ "layer": id, "fids": fids }));

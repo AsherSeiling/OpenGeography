@@ -62,13 +62,3 @@ export function carryResolution(resOld: number, unitOld: number, kOld: number, u
 export function geographicK(latDeg: number): number {
   return 1 / Math.max(1e-6, Math.cos((latDeg * Math.PI) / 180));
 }
-
-/** The old MapLibre-style zoom (512 px tiles) the engine's identify tolerance still expects (ported in M3). */
-export function legacyZoom(groundPerPx: number, latDeg: number): number {
-  return Math.log2((40075016.686 * Math.max(1e-6, Math.cos((latDeg * Math.PI) / 180))) / (512 * groundPerPx));
-}
-
-/** Inverse of `legacyZoom`: ground metres per pixel. */
-export function groundForLegacyZoom(zoom: number, latDeg: number): number {
-  return (40075016.686 * Math.cos((latDeg * Math.PI) / 180)) / (512 * 2 ** zoom);
-}

@@ -6,7 +6,7 @@ import View from "ol/View";
 import type { Projection } from "ol/proj";
 import { api, type CrsDisplayInfo, type Extent } from "../ipc/api";
 import { useApp } from "../store/store";
-import { geographicK, groundForLegacyZoom, groundPerPixel, legacyZoom, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
+import { geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
 
 export interface ActiveCrs {
   id: string;
@@ -54,6 +54,11 @@ export async function scaleFactorAt(crs: ActiveCrs, x: number, y: number): Promi
 // ---------- engine-derived view cache (lon/lat) ----------
 
 export interface ViewCache {
+  /** The CRS the map-CRS fields below are in. */
+  crsId: string;
+  /** View centre in the map CRS (what the user sees; no detour through lon/lat). */
+  centerMap: [number, number];
+  /** View centre as engine lon/lat. */
   center: [number, number];
   /** [west, south, east, north] degrees spanned by the visible map (edges sampled through the engine). */
   bounds: Extent;
@@ -70,6 +75,10 @@ export function getCenterLonLat(): [number, number] | null {
 }
 export function getViewBounds(): Extent | null {
   return cache?.bounds ?? null;
+}
+/** The view centre in the map CRS together with that CRS's id (null until the view is ready). */
+export function getCenterInMapCrs(): { crs: string; center: [number, number] } | null {
+  return cache ? { crs: cache.crsId, center: cache.centerMap } : null;
 }
 /** Ground metres a screen pixel spans at the view centre. */
 export function getGroundPerPixel(): number | null {
@@ -98,6 +107,8 @@ export async function refreshViewCache(): Promise<ViewCache | null> {
     const lons = out.slice(1).map((p) => p[0]);
     const lats = out.slice(1).map((p) => p[1]);
     cache = {
+      crsId: crs.id,
+      centerMap: [c[0], c[1]],
       center: out[0],
       bounds: [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)],
       groundPerPx: groundPerPixel(res, crs.info.unitM, k),
@@ -148,13 +159,22 @@ export async function setScale(scale: number) {
 }
 
 export interface Camera {
+  /** Centre as lon/lat (CRS-independent, so a project reopens at the same place in any map CRS). */
   center: [number, number];
-  zoom: number;
+  /** `1:N` ground scale at the centre (96 dpi). Projects saved before M3 have `zoom` instead. */
+  scale?: number;
+  /** Pre-M3 projects: a 512 px Web-Mercator-style zoom level. Read only. */
+  zoom?: number;
 }
 
-/** A saved-project camera: centre lon/lat and a Web-Mercator-style zoom for the ground scale. */
+/** A saved-project camera: centre lon/lat and the `1:N` scale at the centre. */
 export function snapshotCamera(): Camera | null {
-  return cache ? { center: cache.center, zoom: legacyZoom(cache.groundPerPx, cache.center[1]) } : null;
+  return cache ? { center: cache.center, scale: cache.groundPerPx * PX_PER_M } : null;
+}
+
+/** Ground metres per pixel of a pre-M3 saved zoom (MapLibre 512 px tiles); only for opening old projects. */
+function groundForSavedZoom(zoom: number, latDeg: number): number {
+  return (40075016.686 * Math.cos((latDeg * Math.PI) / 180)) / (512 * 2 ** zoom);
 }
 
 export function restoreCamera(cam: Camera) {
@@ -164,10 +184,11 @@ export function restoreCamera(cam: Camera) {
       try {
         const [x, y] = await api.transformPoint(cam.center[0], cam.center[1], "EPSG:4326", crs.id);
         const k = await scaleFactorAt(crs, x, y);
-        const gpp = groundForLegacyZoom(cam.zoom, cam.center[1]);
+        const scale = cam.scale ?? (cam.zoom !== undefined ? groundForSavedZoom(cam.zoom, cam.center[1]) * PX_PER_M : undefined);
+        if (!scale || !Number.isFinite(scale)) return;
         const view = map?.getView();
         view?.setCenter([x, y]);
-        view?.setResolution(resolutionForScale(gpp * PX_PER_M, crs.info.unitM, k));
+        view?.setResolution(resolutionForScale(scale, crs.info.unitM, k));
         void refreshViewCache();
       } catch {
         /* keep the current view */

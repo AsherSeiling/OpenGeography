@@ -105,8 +105,8 @@ The biggest missing piece: the app currently can't make a printable map.
 |---|---|---|---|
 | C1. Layouts design | 1 | Opus | ✅ 2026-10-23 → `LAYOUTS_PLAN.md`. Engine renders SVG → PDF/PNG; `body` parameter from day one. |
 | C2. Layouts: page, map frame in the true CRS, legend, scale bar, north arrow, text, sources, graticule/grid, rasters, basemaps; PNG + PDF + SVG export | 4–6 | Sonnet | ✅ 2026-10-23 (C2.1–C2.4). CI green on all three platforms. |
-| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre). M3 (exact tools in any CRS) done on its branch, in review. ⬜ M4: rasters in any CRS + P17 GDAL thread-safety stress test. |
-| Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. Done on its branch, passed review. |
+| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre), M3 (exact tools in any CRS; merged 2026-10-25). ⬜ M4: rasters in any CRS + P17 GDAL thread-safety stress test. |
+| Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. ✅ Merged 2026-10-25. |
 | Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests; bugs to `docs/BUGS.md`. In progress. |
 | B5. Keep `lastOutput` outside undo history | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
 | C3.0 Layout polish | 1 | Sonnet | Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
