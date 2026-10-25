@@ -25,6 +25,7 @@ _Updated 2026-10-25. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 | `cargo test -p engine` | 176 pass, 23 ignored (network, perf, and the open bugs in `docs/BUGS.md`) |
 | `cargo build -p gis-studio` | pass, 0 warnings |
 | Packaged app `--self-test` (clean env) | pass |
+| Browser e2e (`scripts/e2e.sh`, headless Chromium) | 18 pass, 2 `fixme` (bugs E2E-1, E2E-2), ~1.5 min; automates 9 manual cases fully and 7 in part (`docs/TEST_PLAN.md` §14) |
 
 ## Known gaps (layouts) — C3.0 fixes these
 - **Layout view:** no rulers, no Arrange group, no "1:N" scale-bar label.
@@ -33,6 +34,7 @@ _Updated 2026-10-25. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 - **Later (C4):** feature labels and GeoPDF.
 
 ## Known issues
+- **e2e suite:** `e2e/*.spec.ts` (Playwright, devDependency). `scripts/run-test-plan.sh --e2e` runs it; run it alone with `scripts/e2e.sh <out-dir>`. Needs Google Chrome, `/Applications/Chromium.app`, `E2E_BROWSER_PATH`, or `npx playwright install chromium`. The devserver address and vite port come from `GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER` (defaults unchanged).
 - **Open bugs:** see `docs/BUGS.md`. Each has an ignored test. The two High ones are B-T5 (raster warp to an invalid CRS crashes) and B-T7 (warping a raster with no CRS invents one).
 - **Cancel granularity:** cancel lands between DuckDB work units (~100k rows/thread). gdaldem steps ignore GDAL's progress callback.
 - **Undo:** undoing a node-tree edit can drop a node's `lastOutput`. B5 fixes it.

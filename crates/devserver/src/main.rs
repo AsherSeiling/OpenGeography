@@ -16,12 +16,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tiny_http::{Header, Method, Response, Server};
 
-const ADDR: &str = "127.0.0.1:7878";
+const DEFAULT_ADDR: &str = "127.0.0.1:7878";
 
 fn main() -> Result<()> {
+    // GIS_DEVSERVER_ADDR lets scripts/e2e.sh pick a free port.
+    let addr = std::env::var("GIS_DEVSERVER_ADDR").unwrap_or_else(|_| DEFAULT_ADDR.to_string());
     let engine = Arc::new(Engine::new()?);
-    let server = Arc::new(Server::http(ADDR).map_err(|e| anyhow!("{e}"))?);
-    println!("GIS Studio dev server on http://{ADDR}");
+    let server = Arc::new(Server::http(addr.as_str()).map_err(|e| anyhow!("{e}"))?);
+    println!("GIS Studio dev server on http://{addr}");
     let workers: Vec<_> = (0..8)
         .map(|_| {
             let (server, engine) = (server.clone(), engine.clone());

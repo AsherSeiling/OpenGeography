@@ -85,3 +85,14 @@ Nothing found. While cycling the map CRS (EPSG:3857 → 32615 → 5070 → 4326 
 | Invalid map CRS accepted silently | `pickMapCrs` set it without checking | `setMapCrsChecked()` validates with the engine first |
 | Damaged saved camera / dock layout aborted project open | uncaught in `restoreState` | wrapped; status message |
 | Export with no map frame | engine error only in the status bar | explained up front |
+
+## Found by e2e
+
+Found 2026-10-25 while automating `docs/TEST_PLAN.md` §14 (`e2e/*.spec.ts`). Each has a `test.fixme("… BUG …")` in the spec; remove the `fixme` when fixed.
+
+| ID | Sev. | Summary | Test |
+|---|---|---|---|
+| E2E-1 | Low | Applying a definition query logs React's "two children with the same key" error: `MapNotices` uses the notice text (`Projecting <layer name>…`) as the key, and two projections of one layer (before and after the query) are listed at once. Can duplicate or drop a notice line | `table.spec.ts` "M-12 BUG E2E-1" (the real M-12 test filters this one message) |
+| E2E-2 | Low | Adding a path that does not exist reports "Could not read /path: Query returned no rows" instead of saying the file is missing | `misc.spec.ts` "M-1 BUG E2E-2" |
+
+Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e test allows 30 s.

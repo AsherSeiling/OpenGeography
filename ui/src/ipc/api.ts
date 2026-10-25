@@ -5,7 +5,7 @@ import type { Layout, LayoutPreview, RenderRequest } from "../layout/types";
 
 /** True inside the desktop app; false when the UI runs in a browser against `cargo run -p devserver`. */
 export const IN_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-const DEV_SERVER = "http://127.0.0.1:7878";
+const DEV_SERVER: string = import.meta.env.VITE_GIS_DEVSERVER ?? "http://127.0.0.1:7878";
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (IN_TAURI) return tauriInvoke<T>(cmd, args);
