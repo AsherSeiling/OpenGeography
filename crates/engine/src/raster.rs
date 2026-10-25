@@ -364,7 +364,10 @@ pub fn sample(info: &RasterInfo, lon: f64, lat: f64) -> Result<Option<f64>> {
     dst.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
     let tr = gdal::spatial_ref::CoordTransform::new(&src, &dst)?;
     let (mut xs, mut ys) = ([lon], [lat]);
-    tr.transform_coords(&mut xs, &mut ys, &mut [])?;
+    // A point outside the raster CRS's domain of validity has no value there.
+    if tr.transform_coords(&mut xs, &mut ys, &mut []).is_err() || !xs[0].is_finite() || !ys[0].is_finite() {
+        return Ok(None);
+    }
     let gt = ds.geo_transform()?;
     let col = ((xs[0] - gt[0]) / gt[1]).floor();
     let row = ((ys[0] - gt[3]) / gt[5]).floor();

@@ -260,7 +260,6 @@ fn a_vector_layer_in_a_raster_port_fails_with_a_reason() {
 }
 
 #[test]
-#[ignore = "BUG: raster_value errors instead of returning None for a point outside the raster's projection domain (docs/BUGS.md B-T6)"]
 fn identify_far_from_a_projected_raster_is_just_empty() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
