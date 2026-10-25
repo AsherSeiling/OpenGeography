@@ -484,7 +484,7 @@ fn definition_query_and_selected_only_export() {
     assert!(n > 0 && n < 1000);
     // Table, selection, tools and copies all see only matching features.
     assert_eq!(e.rows(&l.id, &RowsQuery { limit: 10, ..Default::default() }).unwrap().total, n);
-    assert_eq!(e.select_box(&l.id, [-99.0, 34.0, -96.0, 37.0]).unwrap().len() as i64, n);
+    assert_eq!(e.select_rect(&l.id, [-99.0, 34.0, -96.0, 37.0], "EPSG:4326").unwrap().len() as i64, n);
     assert!(e.select_where(&l.id, "class >= 3").unwrap().is_empty());
     let g = graph(json!({
         "nodes": [{"id": "in", "tool": "input_layer", "params": {"layer": l.id}}],
@@ -1354,4 +1354,42 @@ fn h6_failed_step_leaves_no_table_and_no_index_row() {
     assert_eq!(count_rows(&e, "SELECT count(*) FROM __node_cache"), before + 1);
     let tables = count_rows(&e, "SELECT count(*) FROM information_schema.tables WHERE table_name LIKE '\\_\\_node\\_%' ESCAPE '\\' AND table_name <> '__node_cache'");
     assert_eq!(tables, before + 1, "no table without an index row");
+}
+
+/// M3: identify and rectangle select take map-CRS geometry; a UTM box follows its curved lon/lat edges.
+#[test]
+fn map_crs_queries_are_exact_in_utm() {
+    const UTM: &str = "EPSG:26915";
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 3000, [-96.0, 34.0, -93.0, 36.0]).unwrap();
+    let pts: Vec<(i64, f64, f64)> = e
+        .with_conn_for_tests(|c| {
+            let mut st = c.prepare(&format!("SELECT __fid, ST_X(geom), ST_Y(geom) FROM {}", engine::db::ident(&l.table)))?;
+            let v = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+            Ok(v)
+        })
+        .unwrap();
+    let in_utm: Vec<(i64, f64, f64)> =
+        pts.iter().map(|(f, x, y)| { let (ux, uy) = e.transform_point(*x, *y, "EPSG:4326", UTM).unwrap(); (*f, ux, uy) }).collect();
+
+    // A 150 km × 100 km box in UTM metres around a known point: its edges are curves in lon/lat.
+    let (cx, cy) = e.transform_point(-94.5, 35.0, "EPSG:4326", UTM).unwrap();
+    let bbox = [cx - 75_000.0, cy - 50_000.0, cx + 75_000.0, cy + 50_000.0];
+    let mut want: Vec<i64> = in_utm.iter().filter(|(_, x, y)| *x >= bbox[0] && *x <= bbox[2] && *y >= bbox[1] && *y <= bbox[3]).map(|p| p.0).collect();
+    want.sort();
+    let got = e.select_rect(&l.id, bbox, UTM).unwrap();
+    assert!(want.len() > 100 && want.len() < 3000, "{}", want.len());
+    assert_eq!(got, want);
+    // The old lon/lat envelope of the same corners would over-select; the exact box doesn't.
+    // Corners may be given in any order.
+    assert_eq!(e.select_rect(&l.id, [bbox[2], bbox[3], bbox[0], bbox[1]], UTM).unwrap(), want);
+
+    // Identify: tolerance is in map metres, nearest first.
+    let (fid, px, py) = in_utm[0];
+    let hit = e.identify(&l.id, px + 3.0, py - 4.0, UTM, 10.0).unwrap();
+    assert_eq!(hit.first(), Some(&fid));
+    let near = |tol: f64| e.identify(&l.id, px + 500.0, py, UTM, tol).unwrap();
+    assert!(!near(1.0).contains(&fid));
+    assert!(near(600.0).contains(&fid));
+    assert!(e.identify(&l.id, px, py, UTM, 0.0).is_err());
 }

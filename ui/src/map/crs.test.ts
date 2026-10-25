@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carryResolution, groundForLegacyZoom, legacyZoom, resolutionForScale, scaleOf } from "./crs";
+import { carryResolution, resolutionForScale, scaleOf } from "./crs";
 
 describe("scale ↔ resolution", () => {
   it("round-trips", () => {
@@ -18,9 +18,5 @@ describe("scale ↔ resolution", () => {
   it("US survey feet CRS: unit conversion is part of the scale", () => {
     const ft = 1200 / 3937;
     expect(scaleOf(10, ft, 1)).toBeCloseTo(scaleOf(10 * ft, 1, 1), 9);
-  });
-
-  it("legacy zoom round-trips", () => {
-    expect(groundForLegacyZoom(legacyZoom(37.5, 40), 40)).toBeCloseTo(37.5, 9);
   });
 });

@@ -145,11 +145,11 @@ pub struct LayerHits {
 }
 
 #[tauri::command]
-pub async fn identify(engine: Eng<'_>, ids: Vec<String>, lon: f64, lat: f64, zoom: f64) -> Res<Vec<LayerHits>> {
+pub async fn identify(engine: Eng<'_>, ids: Vec<String>, x: f64, y: f64, crs: String, tolerance: f64) -> Res<Vec<LayerHits>> {
     blocking(&engine, move |e| {
         let mut out = Vec::new();
         for id in ids {
-            let fids = e.identify(&id, lon, lat, zoom)?;
+            let fids = e.identify(&id, x, y, &crs, tolerance)?;
             if !fids.is_empty() {
                 out.push(LayerHits { layer: id, fids });
             }
@@ -160,10 +160,10 @@ pub async fn identify(engine: Eng<'_>, ids: Vec<String>, lon: f64, lat: f64, zoo
 }
 
 #[tauri::command]
-pub async fn select_box(engine: Eng<'_>, ids: Vec<String>, bbox: [f64; 4]) -> Res<Vec<LayerHits>> {
+pub async fn select_rect(engine: Eng<'_>, ids: Vec<String>, bbox: [f64; 4], crs: String) -> Res<Vec<LayerHits>> {
     blocking(&engine, move |e| {
         ids.into_iter()
-            .map(|id| Ok(LayerHits { fids: e.select_box(&id, bbox)?, layer: id }))
+            .map(|id| Ok(LayerHits { fids: e.select_rect(&id, bbox, &crs)?, layer: id }))
             .collect()
     })
     .await

@@ -790,14 +790,16 @@ impl Engine {
         })
     }
 
-    pub fn identify(&self, id: &str, lon: f64, lat: f64, zoom: f64) -> Result<Vec<i64>> {
+    /// Features within `tolerance` of (x, y); position and tolerance are in `crs` (the map CRS) units.
+    pub fn identify(&self, id: &str, x: f64, y: f64, crs: &str, tolerance: f64) -> Result<Vec<i64>> {
         let info = self.layer(id)?;
-        self.with_conn(|c| table::identify(c, &info, lon, lat, zoom))
+        self.with_conn(|c| table::identify(c, &info, x, y, crs, tolerance))
     }
 
-    pub fn select_box(&self, id: &str, bbox: [f64; 4]) -> Result<Vec<i64>> {
+    /// Features intersecting a box `[xmin, ymin, xmax, ymax]` given in `crs` (the map CRS).
+    pub fn select_rect(&self, id: &str, bbox: [f64; 4], crs: &str) -> Result<Vec<i64>> {
         let info = self.layer(id)?;
-        self.with_conn(|c| table::select_box(c, &info, bbox))
+        self.with_conn(|c| table::select_rect(c, &info, bbox, crs))
     }
 
     pub fn feature(&self, id: &str, fid: i64) -> Result<Vec<(String, Option<String>)>> {

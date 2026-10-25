@@ -1,6 +1,5 @@
 //! Attribute table paging, identify and selection queries.
 
-use crate::crs::{lonlat_to_merc, pixel_size};
 use crate::db::ident;
 use crate::layers::LayerInfo;
 use anyhow::{bail, Result};
@@ -85,40 +84,92 @@ pub fn select_where(conn: &Connection, info: &LayerInfo, filter: &str) -> Result
     Ok(ids)
 }
 
-/// Features near a clicked point, nearest first. Tolerance is a few pixels at
-/// the current zoom.
-pub fn identify(conn: &Connection, info: &LayerInfo, lon: f64, lat: f64, zoom: f64) -> Result<Vec<i64>> {
+/// SQL expression for a map-CRS ring carried into the layers' stored CRS (Web Mercator):
+/// the ring is densified in the map CRS first so curved edges stay exact after the transform.
+fn region_sql(ring: &[(f64, f64)], crs: &str) -> String {
+    let pts: Vec<String> = ring.iter().map(|(x, y)| format!("{x:.9} {y:.9}")).collect();
+    format!(
+        "ST_Transform(ST_GeomFromText('POLYGON(({}))'), {}, 'EPSG:3857', true)",
+        pts.join(", "),
+        crate::db::lit(&crate::crs::resolve(crs))
+    )
+}
+
+/// Points per box edge when a map-CRS rectangle is carried into the layers' CRS.
+const EDGE_STEPS: usize = 64;
+
+/// A closed, counter-clockwise ring around a map-CRS box, `EDGE_STEPS` points per edge.
+fn box_ring(b: [f64; 4]) -> Vec<(f64, f64)> {
+    let [x0, y0, x1, y1] = b;
+    let corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)];
+    let mut ring = Vec::with_capacity(4 * EDGE_STEPS + 1);
+    for i in 0..4 {
+        let (ax, ay) = corners[i];
+        let (bx, by) = corners[(i + 1) % 4];
+        for s in 0..EDGE_STEPS {
+            let t = s as f64 / EDGE_STEPS as f64;
+            ring.push((ax + (bx - ax) * t, ay + (by - ay) * t));
+        }
+    }
+    ring.push(ring[0]);
+    ring
+}
+
+/// A closed 48-gon of `radius` map-CRS units around (x, y).
+fn disc_ring(x: f64, y: f64, radius: f64) -> Vec<(f64, f64)> {
+    let mut ring: Vec<(f64, f64)> = (0..48)
+        .map(|i| {
+            let a = std::f64::consts::TAU * i as f64 / 48.0;
+            (x + radius * a.cos(), y + radius * a.sin())
+        })
+        .collect();
+    ring.push(ring[0]);
+    ring
+}
+
+/// Features within `tolerance` (map-CRS units) of a clicked map-CRS point, nearest first. The disc
+/// is built in the map CRS and carried into the layer's CRS, so the tolerance is right at any scale
+/// and projection. Distances for the ordering are measured in the layer's stored (Web Mercator) CRS.
+pub fn identify(conn: &Connection, info: &LayerInfo, x: f64, y: f64, crs: &str, tolerance: f64) -> Result<Vec<i64>> {
     if !info.has_geometry() || info.crs.is_none() {
         return Ok(vec![]);
     }
-    let (x, y) = lonlat_to_merc(lon, lat);
-    let tol = pixel_size(0) / 2f64.powf(zoom) * 4.0;
+    if !(x.is_finite() && y.is_finite() && tolerance.is_finite() && tolerance > 0.0) {
+        bail!("Identify needs a finite position and a positive tolerance.");
+    }
+    let region = region_sql(&disc_ring(x, y, tolerance), crs);
+    let click = format!("ST_Transform(ST_Point({x}, {y}), {}, 'EPSG:3857', true)", crate::db::lit(&crate::crs::resolve(crs)));
     let sql = format!(
-        "SELECT __fid FROM {t}
-         WHERE ST_Intersects(__g, ST_MakeEnvelope({x0}, {y0}, {x1}, {y1}))
-           AND ST_DWithin(__g, ST_Point({x}, {y}), {tol}){d}
-         ORDER BY ST_Distance(__g, ST_Point({x}, {y})), __fid DESC LIMIT 25",
+        "WITH q AS (SELECT {region} AS r, {click} AS p)
+         SELECT __fid FROM {t}, q
+         WHERE ST_Intersects(__g, q.r){d}
+         ORDER BY ST_Distance(__g, q.p), __fid DESC LIMIT 25",
         t = ident(&info.table),
         d = info.def_and(),
-        x0 = x - tol, y0 = y - tol, x1 = x + tol, y1 = y + tol
     );
     let mut stmt = conn.prepare(&sql)?;
     let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }
 
-/// Features intersecting a lon/lat box (rectangle select).
-pub fn select_box(conn: &Connection, info: &LayerInfo, bbox: [f64; 4]) -> Result<Vec<i64>> {
+/// Features intersecting a map-CRS box `[xmin, ymin, xmax, ymax]` (rectangle select). The box is
+/// densified in the map CRS before it is carried into the layer's CRS, so in a projected map the
+/// curved edges are followed rather than approximated by a lon/lat envelope.
+pub fn select_rect(conn: &Connection, info: &LayerInfo, bbox: [f64; 4], crs: &str) -> Result<Vec<i64>> {
     if !info.has_geometry() || info.crs.is_none() {
         return Ok(vec![]);
     }
-    let (x0, y0) = lonlat_to_merc(bbox[0], bbox[1]);
-    let (x1, y1) = lonlat_to_merc(bbox[2], bbox[3]);
-    let mut stmt = conn.prepare(&format!(
-        "SELECT __fid FROM {} WHERE ST_Intersects(__g, ST_MakeEnvelope({x0}, {y0}, {x1}, {y1})){} ORDER BY __fid",
-        ident(&info.table),
-        info.def_and()
-    ))?;
+    if !bbox.iter().all(|v| v.is_finite()) {
+        bail!("The selection box has to be finite.");
+    }
+    let b = [bbox[0].min(bbox[2]), bbox[1].min(bbox[3]), bbox[0].max(bbox[2]), bbox[1].max(bbox[3])];
+    let region = region_sql(&box_ring(b), crs);
+    let sql = format!(
+        "WITH q AS (SELECT {region} AS r) SELECT __fid FROM {t}, q WHERE ST_Intersects(__g, q.r){d} ORDER BY __fid",
+        t = ident(&info.table),
+        d = info.def_and(),
+    );
+    let mut stmt = conn.prepare(&sql)?;
     let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
 }

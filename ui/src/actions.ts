@@ -5,7 +5,7 @@ import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { api, errorText, type LayerInfo } from "./ipc/api";
-import { getViewBounds, restoreCamera, snapshotCamera, zoomToExtent } from "./map/mapController";
+import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
@@ -330,7 +330,7 @@ interface UiStateV1 {
   styles: Record<string, LayerStyle>;
   mapCrs: { id: string; name: string } | null;
   basemap: string;
-  camera: { center: [number, number]; zoom: number } | null;
+  camera: Camera | null;
   /** Node tree per layer id. */
   trees: Record<string, Tree>;
   dock: unknown;

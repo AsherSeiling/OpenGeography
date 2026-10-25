@@ -18,7 +18,7 @@ import { create } from "zustand";
 import { api, errorText, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
-import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, groundPerPixel, legacyZoom, registerCrs, scaleOf, tileGridFor } from "../map/crs";
+import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, registerCrs, scaleOf, tileGridFor } from "../map/crs";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
@@ -402,10 +402,13 @@ export function MapView() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /** A map-CRS position as engine lon/lat (every number we store or show goes through here). */
+  /** Identify click tolerance, in screen pixels (times the view resolution gives map-CRS units). */
+const IDENTIFY_TOLERANCE_PX = 4;
+
+/** A map-CRS position as engine lon/lat (every number we store or show goes through here). */
   const toLonLat = (c: Coordinate): Promise<[number, number]> => api.transformPoint(c[0], c[1], getActiveCrs()!.id, "EPSG:4326");
 
-  // ---------- tools: identify / select / measure (being ported to the map CRS in M3) ----------
+  // ---------- tools: identify / select / measure ----------
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !active) return;
@@ -444,11 +447,10 @@ export function MapView() {
       if (tool === "pan" || tool === "selectBox") return;
       const ids = drawableLayerIds();
       try {
-        const [lon, lat] = await toLonLat(e.coordinate);
         const crs = getActiveCrs()!;
         const res = map.getView().getResolution()!;
-        const k = await scaleFactorAt(crs, e.coordinate[0], e.coordinate[1]);
-        const hits = await api.identify(ids, lon, lat, legacyZoom(groundPerPixel(res, crs.info.unitM, k), lat));
+        // The click and the 4 px tolerance are in map-CRS units; the engine carries the disc into each layer's CRS.
+        const hits = await api.identify(ids, e.coordinate[0], e.coordinate[1], crs.id, IDENTIFY_TOLERANCE_PX * res);
         if (tool === "select") {
           const mode = orig.shiftKey ? "add" : orig.ctrlKey || orig.metaKey ? "toggle" : "new";
           if (mode === "new") s.clearSelection();
@@ -459,6 +461,7 @@ export function MapView() {
           if (!top) {
             // No features here: report raster values under the click instead.
             const rasters = s.order.filter((id) => s.visible[id]).map((id) => displayInfo(s, id)).filter((l) => l?.geomType === "Raster");
+            const [lon, lat] = rasters.length ? await toLonLat(e.coordinate) : [0, 0];
             for (const r of rasters) {
               const v = await api.rasterValue(r!.id, lon, lat);
               if (v !== null) {
@@ -511,12 +514,11 @@ export function MapView() {
       const y1 = ev.clientY - r.top;
       const s = useApp.getState();
       try {
-        // The box's four corners through the engine; their lon/lat envelope is the query.
-        const corners = await Promise.all([[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map((p) => toLonLat(map.getCoordinateFromPixel(p))));
-        const lons = corners.map((c) => c[0]);
-        const lats = corners.map((c) => c[1]);
-        const bbox: [number, number, number, number] = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
-        const hits = await api.selectBox(drawableLayerIds(), bbox);
+        // The dragged box in map-CRS coordinates; the engine densifies it and follows its curved edges in each layer's CRS.
+        const a = map.getCoordinateFromPixel([x0, y0]);
+        const b = map.getCoordinateFromPixel([x1, y1]);
+        const bbox: [number, number, number, number] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+        const hits = await api.selectRect(drawableLayerIds(), bbox, getActiveCrs()!.id);
         const mode = ev.shiftKey ? "add" : "new";
         if (mode === "new") s.clearSelection();
         let n = 0;

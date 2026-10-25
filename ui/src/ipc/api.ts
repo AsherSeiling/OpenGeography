@@ -348,9 +348,11 @@ export const api = {
   displayStatus: (layer: string, crs: string) => invoke<DisplayStatus>("display_status", { layer, crs }),
   getRows: (id: string, query: RowsQuery) => invoke<RowsPage>("get_rows", { id, query }),
   selectWhere: (id: string, filter: string) => invoke<number[]>("select_where", { id, filter }),
-  identify: (ids: string[], lon: number, lat: number, zoom: number) =>
-    invoke<LayerHits[]>("identify", { ids, lon, lat, zoom }),
-  selectBox: (ids: string[], bbox: Extent) => invoke<LayerHits[]>("select_box", { ids, bbox }),
+  /** Features within `tolerance` of (x, y); both are in `crs` (the map CRS) units, nearest first. */
+  identify: (ids: string[], x: number, y: number, crs: string, tolerance: number) =>
+    invoke<LayerHits[]>("identify", { ids, x, y, crs, tolerance }),
+  /** Features touching a map-CRS box [xmin, ymin, xmax, ymax]; the engine follows the box's curved edges in other CRSs. */
+  selectRect: (ids: string[], bbox: Extent, crs: string) => invoke<LayerHits[]>("select_rect", { ids, bbox, crs }),
   getFeature: (id: string, fid: number) => invoke<[string, string | null][]>("get_feature", { id, fid }),
   layerExtent: (id: string, fids?: number[] | null) => invoke<Extent | null>("layer_extent", { id, fids: fids ?? null }),
   uniqueValues: (id: string, field: string, limit = 100) =>

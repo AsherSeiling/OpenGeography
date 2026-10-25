@@ -99,7 +99,7 @@ The biggest missing piece: the app currently can't make a printable map.
 
 | Task | Effort | Model | Notes |
 |---|---|---|---|
-| C1. Layouts design | 1 | Opus | Writes `LAYOUTS_PLAN.md`. Must take a **`body`** parameter from day one so planetary maps (F4) are styling, not a rewrite. Decide the rendering path (MapLibre canvas vs. engine-rendered) for vector PDF. |
+| C1. Layouts design | 1 | Opus | Writes `LAYOUTS_PLAN.md`. Must take a **`body`** parameter from day one so planetary maps (F4) are styling, not a rewrite. Decide the rendering path (screen map canvas vs. engine-rendered; decided: engine-rendered) for vector PDF. |
 | C2. Layouts M2: page, map frame in the true CRS, legend, scale bar, north arrow, title, text, graticule; PNG + PDF export | 4–6 | Sonnet | Office-style Layout ribbon tab. |
 | C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed 2026-10-23, Sonnet builds | `docs/MAP_PROJECTION_PLAN.md`. OpenLayers replaces MapLibre. Runs after C2.4 (M4 needs `render_extent`) and before C3. |
 | C3. Layout templates and map series | 1–2 | Sonnet | |
@@ -224,7 +224,7 @@ These can run in two sessions at once:
 |---|---|---|
 | Linux AppImage library clash takes many rounds | Delays v0.1 | Linux fallback in phase A (Ubuntu GDAL, `.deb` first, AppImage labelled preview); GPL-free AppImage/Flatpak before 1.0. |
 | gdal crate stays on GDAL ≤ 3.12 | Stuck on an older GDAL | Watch gdal-rs releases; the pin is fine for at least a year. |
-| MapLibre can't show the poles | Lunar south pole maps | Polar layouts/exports (PLANETARY_PLAN D2). |
+| The screen map can't show the poles as a globe | Lunar south pole maps | Polar CRSs in the OpenLayers view (M-D1) and engine-rendered polar layouts. |
 | Vector PDF export in layouts | Layout scope grows | Decide the rendering path in C1; PNG/raster PDF first if needed. |
 | Usage limits | Fewer sessions per week | Opus only for design and review; Sonnet for code; keep sessions short and the status file current. |
 | Remote services change or retire (HIFLD, EJScreen already gone) | Broken importers | Network tests per endpoint; clear "service unavailable" messages; the catalog is data, so fixes are edits, not code. |
