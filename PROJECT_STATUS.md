@@ -36,3 +36,7 @@ _Updated 2026-10-23. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 1. Projected map view M3–M4 (`docs/MAP_PROJECTION_PLAN.md`; M1–M2 done: the map draws in the map's CRS, rasters still in Web Mercator only) → layouts C3.1–C3.2.
 2. Public data toolkit: generic ArcGIS REST catalog first (`docs/PUBLIC_DATA_CATALOG.md`).
 3. Census data join (user enters the API key; OS keychain).
+
+
+## Errors & crash fixes (branch claude/errors-crash-fixes-0cffd7)
+User-facing error dialog + per-pane boundaries (`ui/src/errors/`); layout/CRS crash fixes listed in `docs/BUGS.md`. Not pushed; merge after M3.
