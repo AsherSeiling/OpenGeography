@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   worker: { format: "es" },
-  server: { port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**", "**/target/**"] } },
+  server: { port: Number(process.env.GIS_VITE_PORT ?? 1420), strictPort: true, watch: { ignored: ["**/src-tauri/**", "**/target/**"] } },
   build: { outDir: "../dist", emptyOutDir: true, target: "es2022", chunkSizeWarningLimit: 4000 },
   test: { root: ".", include: ["ui/src/**/*.test.ts"] },
 });
