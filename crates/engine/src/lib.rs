@@ -194,6 +194,9 @@ impl Engine {
 
     /// Import, reporting each layer of the file as a part of `task`.
     fn import_with(&self, path: &Path, task: &mut Task) -> Result<Vec<LayerInfo>> {
+        if !path.exists() {
+            anyhow::bail!("File not found: {}", path.display());
+        }
         if raster::is_raster_path(path) {
             task.detail("Copying raster and building overviews…");
             return Ok(vec![self.import_raster(path, None)?]);

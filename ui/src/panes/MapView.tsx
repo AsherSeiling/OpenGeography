@@ -567,16 +567,16 @@ function MapNotices() {
   const crsKey = useMapView((s) => s.crsKey);
   // Keys end in the CRS key they were made for ("rasters" has none and is always current).
   const here = (k: string) => !k.includes("|") || k.endsWith(`|${crsKey}`);
-  const lines: { text: string; kind: "busy" | "warn" }[] = [
-    ...Object.entries(projecting).filter(([k]) => here(k)).map(([, n]) => ({ text: `Projecting ${n}…`, kind: "busy" as const })),
-    ...Object.entries(notices).filter(([k]) => here(k)).map(([, text]) => ({ text, kind: "warn" as const })),
+  const lines: { id: string; text: string; kind: "busy" | "warn" }[] = [
+    ...Object.entries(projecting).filter(([k]) => here(k)).map(([k, n]) => ({ id: `projecting:${k}`, text: `Projecting ${n}…`, kind: "busy" as const })),
+    ...Object.entries(notices).filter(([k]) => here(k)).map(([k, text]) => ({ id: `notice:${k}`, text, kind: "warn" as const })),
   ];
-  if (offset !== null && basemap !== "none") lines.push({ text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
+  if (offset !== null && basemap !== "none") lines.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
   if (!lines.length) return null;
   return (
     <div className="map-notices">
       {lines.map((l) => (
-        <div key={l.text} className={`map-notice ${l.kind}`}>{l.text}</div>
+        <div key={l.id} className={`map-notice ${l.kind}`}>{l.text}</div>
       ))}
     </div>
   );

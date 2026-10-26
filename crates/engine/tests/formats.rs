@@ -150,7 +150,8 @@ fn geoparquet_round_trip_keeps_geometry_and_crs() {
 fn bad_files_are_reported_not_crashed_on() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
-    assert!(e.import(&dir.path().join("missing.shp")).is_err());
+    let missing = e.import(&dir.path().join("missing.shp")).unwrap_err().to_string();
+    assert!(missing.contains("File not found") && missing.contains("missing.shp"), "{missing}");
     for (name, body) in [("empty.geojson", ""), ("junk.geojson", "not json at all"), ("junk.shp", "garbage"), ("junk.gpkg", "garbage"), ("truncated.geojson", r#"{"type":"FeatureCollection","features":[{"type""#)] {
         let p = dir.path().join(name);
         std::fs::write(&p, body).unwrap();
