@@ -417,7 +417,8 @@ export async function exportBibliography(folder: string): Promise<number> {
 }
 
 export async function openProject(path?: string) {
-  const picked = path ?? (await open({ title: "Open Project", directory: true }));
+  // Only a real path counts: a click event passed in by mistake must not reach the engine.
+  const picked = typeof path === "string" && path ? path : await open({ title: "Open Project", directory: true });
   if (!picked || Array.isArray(picked)) return;
   const res = await busy("Opening project", () => api.openProject(picked));
   if (!res) return;

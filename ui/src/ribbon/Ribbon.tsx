@@ -109,7 +109,7 @@ export function Ribbon() {
           <MenuPopover>
             <MenuList>
               {["new", "open", "save", "saveAs", "sources"].map((id) => (
-                <MenuItem key={id} icon={commands[id].icon} secondaryContent={commands[id].keys} onClick={commands[id].run}>
+                <MenuItem key={id} icon={commands[id].icon} secondaryContent={commands[id].keys} onClick={() => commands[id].run()}>
                   {commands[id].label}
                 </MenuItem>
               ))}
@@ -182,7 +182,7 @@ export function RButton({ cmd, size }: { cmd: Command; size: Size }) {
   const disabled = cmd.enabled ? !cmd.enabled() : false;
   const checked = cmd.checked?.() ?? false;
   const btn = (
-    <button className={`rbtn ${size} ${checked ? "checked" : ""}`} disabled={disabled} onClick={cmd.run} aria-pressed={cmd.checked ? checked : undefined}>
+    <button className={`rbtn ${size} ${checked ? "checked" : ""}`} disabled={disabled} onClick={() => cmd.run()} aria-pressed={cmd.checked ? checked : undefined}>
       <span className="rbtn-icon">{cmd.icon}</span>
       <span className="rbtn-label">{cmd.label}</span>
     </button>
