@@ -228,7 +228,6 @@ fn node_results_and_unknown_layers_cannot_be_edited() {
 }
 
 #[test]
-#[ignore = "BUG: rename_layer accepts a blank name (docs/BUGS.md B-T2)"]
 fn renaming_a_layer_to_blank_is_refused() {
     let f = fx();
     let renamed = f.e.rename_layer(&f.polys, "   ");

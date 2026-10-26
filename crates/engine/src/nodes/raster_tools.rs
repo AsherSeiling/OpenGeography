@@ -141,6 +141,7 @@ impl Tool for ClipRaster {
     fn build(&self, ctx: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
         let (r, e) = (&inputs["in"], &inputs["extent"]);
         let crs = need_crs(e)?;
+        need_raster_crs(r)?;
         let (w, s, ea, n): (f64, f64, f64, f64) = ctx.conn.query_row(
             &format!(
                 "SELECT min(ST_XMin(g)), min(ST_YMin(g)), max(ST_XMax(g)), max(ST_YMax(g)) FROM (SELECT ST_Transform(geom, {}, 'EPSG:4326', true) AS g FROM {})",

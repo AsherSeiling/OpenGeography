@@ -1,7 +1,7 @@
 import type { Edge } from "@xyflow/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LayerInfo, ToolSpec } from "../ipc/api";
-import { accepts, bypassMuted, connectProblem, defaultTree, graphPayload, kindAfter, nodeSignature, outputFields, outputKind, sourceLayerFor, specs, useModel, useRun, type ModelNode } from "./model";
+import { accepts, bypassMuted, connectProblem, defaultTree, flushParamEdit, graphPayload, kindAfter, nodeSignature, outputFields, outputKind, sourceLayerFor, specs, useModel, useRun, type ModelNode } from "./model";
 import { useApp } from "./store";
 
 type Fields = ToolSpec["fields"];
@@ -128,11 +128,37 @@ describe("editing the graph", () => {
     const m = useModel.getState();
     m.setLastOutputs({});
     m.setLastOutputs({ "in-L1": "__node_abc" });
-    expect(useModel.getState().nodes.find((n) => n.id === "in-L1")?.data.lastOutput).toBe("__node_abc");
+    expect(useModel.getState().lastOutputs).toEqual({ L1: { "in-L1": "__node_abc" } });
     expect(useModel.temporal.getState().pastStates).toHaveLength(0);
     expect(useApp.getState().dirty).toBe(false);
     m.setLastOutputs({ nobody: "__node_x" }); // unknown node ids are ignored
     expect(useModel.getState().nodes).toHaveLength(2);
+    expect(useModel.getState().lastOutputs.L1).toEqual({ "in-L1": "__node_abc" });
+  });
+
+  it("B5: undo and redo keep each node's last output", () => {
+    const m = useModel.getState();
+    const id = m.addNode("buffer", { x: 100, y: 0 });
+    useModel.temporal.getState().clear();
+    m.setParam(id, "distance", 5);
+    flushParamEdit();
+    useModel.getState().setLastOutputs({ [id]: "__node_b1" });
+    useModel.temporal.getState().undo(); // back to before the edit
+    expect(useModel.getState().lastOutputs.L1[id]).toBe("__node_b1");
+    useModel.temporal.getState().redo();
+    expect(useModel.getState().lastOutputs.L1[id]).toBe("__node_b1");
+    useModel.getState().removeNodes([id]);
+    expect(useModel.getState().lastOutputs.L1?.[id]).toBeUndefined();
+  });
+
+  it("B5: load() moves a lastOutput found in an older project's node data into the map", () => {
+    const old = defaultTree("L1");
+    old.nodes[0].data = { ...old.nodes[0].data, lastOutput: "__node_old" } as ModelNode["data"];
+    useModel.getState().load({ L1: old }, "L1");
+    expect(useModel.getState().lastOutputs).toEqual({ L1: { "in-L1": "__node_old" } });
+    expect(useModel.getState().nodes[0].data).not.toHaveProperty("lastOutput");
+    useModel.getState().load({ L1: old }, "L1", { L1: { "in-L1": "__node_new" } }); // the map wins
+    expect(useModel.getState().lastOutputs.L1["in-L1"]).toBe("__node_new");
   });
 });
 

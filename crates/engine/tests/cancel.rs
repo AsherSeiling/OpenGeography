@@ -15,9 +15,13 @@ fn run_and_cancel(label: &str, e: &Arc<Engine>, g: &Graph, step: &str, owner: &s
 }
 
 fn run_and_cancel_within(label: &str, e: &Arc<Engine>, g: &Graph, step: &str, owner: &str, limit: Duration) {
+    run_and_cancel_at(Duration::from_millis(300), label, e, g, step, owner, limit)
+}
+
+fn run_and_cancel_at(delay: Duration, label: &str, e: &Arc<Engine>, g: &Graph, step: &str, owner: &str, limit: Duration) {
     let label = label.to_string();
     let canceller = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(300));
+        std::thread::sleep(delay);
         let t = engine::progress::snapshot().into_iter().find(|t| t.label == label).unwrap_or_else(|| panic!("task '{label}' is not running (the job finished before Cancel?)"));
         assert!(t.cancellable);
         engine::progress::cancel(t.id);
@@ -26,6 +30,7 @@ fn run_and_cancel_within(label: &str, e: &Arc<Engine>, g: &Graph, step: &str, ow
     let res = e.run_graph(g, None, &mut |_| {}).unwrap();
     let stopped = Instant::now();
     let pressed = canceller.join().unwrap();
+    eprintln!("CANCEL stopped {:?} after Cancel", stopped.duration_since(pressed));
     assert!(stopped.duration_since(pressed) < limit, "stopped {:?} after Cancel", stopped.duration_since(pressed));
     let st = |id: &str| res.iter().find(|r| r.id == id).unwrap().status.clone();
     assert_eq!(st(step), Status::Cancelled, "{res:?}");
@@ -51,12 +56,12 @@ fn tree(owner: &str, tool: &str, params: Value, second: Option<&str>) -> Graph {
 }
 
 #[test]
-#[ignore = "BUG: Cancel takes ~12 s to stop a geodesic Buffer of 1.5 M points (docs/BUGS.md B-T4; PROJECT_STATUS known issue 1)"]
+#[ignore = "perf: ~10 s"]
 fn cancel_geodesic_buffer() {
     let e = Arc::new(Engine::new().unwrap());
     let pts = e.generate_test_layer("points", 1_500_001, [-100.0, 30.0, -94.0, 36.0]).unwrap();
     let g = tree(&pts.id, "buffer", json!({"distance": 500, "units": "m", "method": "geodesic"}), None);
-    run_and_cancel("Running model — Test points (1500001)", &e, &g, "t", &pts.id);
+    run_and_cancel_within("Running model — Test points (1500001)", &e, &g, "t", &pts.id, Duration::from_secs(2));
 }
 
 #[test]
@@ -78,11 +83,24 @@ fn cancel_voronoi() {
 }
 
 #[test]
-#[ignore = "BUG: Cancel takes ~12 s to stop Dissolve on 200 k polygons: one uninterruptible aggregate call (docs/BUGS.md B-T4)"]
+#[ignore = "perf: ~10 s"]
 fn cancel_dissolve() {
     let e = Arc::new(Engine::new().unwrap());
     let polys = e.generate_test_layer("polygons", 200_004, [-100.0, 30.0, -94.0, 36.0]).unwrap();
-    run_and_cancel("Running model — Test polygons (200004)", &e, &tree(&polys.id, "dissolve", json!({}), None), "t", &polys.id);
+    run_and_cancel_within("Running model — Test polygons (200004)", &e, &tree(&polys.id, "dissolve", json!({}), None), "t", &polys.id, Duration::from_secs(2));
+}
+
+#[test]
+#[ignore = "perf: ~15 s"]
+fn cancel_dissolve_during_the_tile_unions() {
+    // 300 ms lands in the first statements; these land in the partial unions and the pairwise merges.
+    for secs in [3, 5, 7] {
+        let e = Arc::new(Engine::new().unwrap());
+        // 200 005, not 200 004: tests run in parallel and the task label carries the layer name.
+        let polys = e.generate_test_layer("polygons", 200_005, [-100.0, 30.0, -94.0, 36.0]).unwrap();
+        let g = tree(&polys.id, "dissolve", json!({}), None);
+        run_and_cancel_at(Duration::from_secs(secs), "Running model — Test polygons (200005)", &e, &g, "t", &polys.id, Duration::from_secs(2));
+    }
 }
 
 #[test]

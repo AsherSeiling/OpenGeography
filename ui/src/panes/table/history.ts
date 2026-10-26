@@ -22,9 +22,9 @@ export interface PickerEntry {
 }
 
 /** The snapshot table of a node: this session's result, else the one saved in the project. */
-export function nodeTable(node: ModelNode | undefined, result: NodeResult | undefined): string | null {
+export function nodeTable(saved: string | undefined, result: NodeResult | undefined): string | null {
   const live = result?.status === "done" || result?.status === "cached" ? result.output : null;
-  return live ?? (typeof node?.data.lastOutput === "string" ? node.data.lastOutput : null);
+  return live ?? saved ?? null;
 }
 
 /** Node ids in topological order (sources first); ties keep the tree's own order. */
@@ -49,16 +49,16 @@ export function topoOrder(nodes: ModelNode[], edges: Edge[]): string[] {
 
 /**
  * The nodes of a tree a table can be shown for, in topological order.
- * `changed` = ids edited since they last ran (their table is out of date).
+ * `changed` = ids edited since they last ran (their table is out of date); `saved` = the project's lastOutputs for this tree.
  */
-export function pickerEntries(tree: Tree, results: Record<string, NodeResult>, specs: SpecMap, changed: ReadonlySet<string> = new Set()): PickerEntry[] {
+export function pickerEntries(tree: Tree, results: Record<string, NodeResult>, specs: SpecMap, changed: ReadonlySet<string> = new Set(), saved: Record<string, string> = {}): PickerEntry[] {
   const byId = new Map(tree.nodes.map((n) => [n.id, n]));
   return topoOrder(tree.nodes, tree.edges).flatMap((id) => {
     const node = byId.get(id)!;
     const spec = specs[node.data.tool];
     if (!spec) return [];
     const r = results[id];
-    const table = nodeTable(node, r);
+    const table = nodeTable(saved[id], r);
     const label = node.data.fixed && node.data.tool === "input_layer" ? "Layer Input" : node.data.fixed ? "Output" : spec.name;
     let state: PickerState = !table ? "norun" : changed.has(id) ? "outofdate" : "ready";
     let reason: string | undefined;
@@ -88,21 +88,20 @@ export function defaultCompareInput(tree: Tree, nodeId: string, specs: SpecMap):
 }
 
 /** Every snapshot table the project's trees still point at. */
-export function liveTables(trees: Record<string, Tree>): string[] {
+export function liveTables(lastOutputs: Record<string, Record<string, string>>): string[] {
   const out = new Set<string>();
-  for (const t of Object.values(trees))
-    for (const n of t.nodes) if (typeof n.data.lastOutput === "string" && n.data.lastOutput) out.add(n.data.lastOutput);
+  for (const t of Object.values(lastOutputs)) for (const table of Object.values(t)) if (table) out.add(table);
   return [...out];
 }
 
 /** Tell the engine which snapshots are still referenced (on save and after a tree is deleted). */
 export async function pruneNodeCache(
-  trees: Record<string, Tree>,
+  lastOutputs: Record<string, Record<string, string>>,
   pinned: string | null,
   api: { pruneNodeCache: (live: string[], pinned?: string | null) => Promise<number> },
 ): Promise<number> {
   try {
-    return await api.pruneNodeCache(liveTables(trees), pinned);
+    return await api.pruneNodeCache(liveTables(lastOutputs), pinned);
   } catch {
     return 0; // housekeeping only; never block a save
   }

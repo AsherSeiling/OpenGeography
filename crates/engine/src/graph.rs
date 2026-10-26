@@ -406,13 +406,25 @@ pub fn run(
         let res: Result<NodeResult> = (|| {
             let mut r = NodeResult::new(&id, Status::Done);
             match built? {
-                Output::Select { sql, crs, view } => {
+                built @ (Output::Select { .. } | Output::Script { .. }) => {
                     let table = format!("__node_{hash}");
-                    let kind = if view { "VIEW" } else { "TABLE" };
+                    let (statements, crs, view) = match built {
+                        Output::Select { sql, crs, view } => {
+                            let kind = if view { "VIEW" } else { "TABLE" };
+                            (vec![format!("CREATE OR REPLACE {kind} {} AS {sql}", ident(&table))], crs, view)
+                        }
+                        Output::Script { statements, crs } => (statements.iter().map(|s| s.replace("{out}", &table)).collect(), crs, false),
+                        _ => unreachable!(),
+                    };
                     // The table and its index row commit together, so a
                     // cancelled step leaves neither.
                     let (has_geom, rows, bytes) = crate::atomically(conn, || {
-                        conn.execute_batch(&format!("CREATE OR REPLACE {kind} {} AS {sql}", ident(&table)))?;
+                        for (n, stmt) in statements.iter().enumerate() {
+                            if n > 0 && cancelled() {
+                                bail!("Cancelled");
+                            }
+                            conn.execute_batch(stmt)?;
+                        }
                         let has_geom = has_geom_column(conn, &table)?;
                         let rows = count(conn, &table)?;
                         let bytes = estimate_bytes(conn, &table, rows, view);

@@ -61,9 +61,11 @@ impl Tool for Warp {
                 Param::new("resampling", "Resampling", ParamKind::Enum).default("bilinear").options(&[("near", "Nearest (categories)"), ("bilinear", "Bilinear"), ("cubic", "Cubic"), ("average", "Average")]),
             ] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
+        need_raster_crs(i)?;
         let target = crs::resolve(&p.req_str("crs", "Target coordinate system")?);
+        crs::validate(&c.conn, &target)?;
         let out = raster::reproject(Path::new(need_raster(i)?), &target, &p.str("resampling").unwrap_or_else(|| "bilinear".into()))?;
         Ok(Output::Raster { path: out.display().to_string(), crs: Some(target) })
     }
@@ -104,6 +106,7 @@ impl Tool for SampleRaster {
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (pts, r) = (&inputs["in"], &inputs["raster"]);
         let crs = crs::resolve(need_crs(pts)?);
+        need_raster_crs(r)?;
         let rpath = need_raster(r)?;
         let rwkt = raster::wkt_of(Path::new(rpath))?;
         let field = p.str("field").unwrap_or_else(|| "VALUE".into());
@@ -155,6 +158,7 @@ impl Tool for ZonalStatistics {
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (zones, r) = (&inputs["in"], &inputs["raster"]);
         let crs = crs::resolve(need_crs(zones)?);
+        need_raster_crs(r)?;
         let rpath = need_raster(r)?;
         let rwkt = raster::wkt_of(Path::new(rpath))?;
         let pre = p.str("prefix").unwrap_or_else(|| "Z_".into());

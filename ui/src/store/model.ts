@@ -14,8 +14,6 @@ export interface ModelNodeData extends Record<string, unknown> {
   muted?: boolean;
   /** Settings hidden (Blender "hide"). */
   collapsed?: boolean;
-  /** Snapshot table (`__node_…`) of this node's last successful run; saved in the project so history survives reopening. */
-  lastOutput?: string;
 }
 
 export type ModelNode = Node<ModelNodeData>;
@@ -30,6 +28,11 @@ interface ModelState {
   layer: string | null;
   /** Saved trees of the other layers (the open one lives in nodes/edges). */
   trees: Record<string, Tree>;
+  /**
+   * Snapshot table (`__node_…`) of each node's last successful run, per layer then node id; saved in the
+   * project so history survives reopening. Kept outside the nodes so undo and redo never touch it (B5).
+   */
+  lastOutputs: Record<string, Record<string, string>>;
   nodes: ModelNode[];
   edges: Edge[];
   openTree: (layer: string | null) => void;
@@ -41,7 +44,7 @@ interface ModelState {
   /** Record each node's snapshot table after a run (not an undo step, not a project edit). */
   setLastOutputs: (outputs: Record<string, string>) => void;
   removeNodes: (ids: string[]) => void;
-  load: (trees: Record<string, Tree>, layer: string | null) => void;
+  load: (trees: Record<string, Tree>, layer: string | null, lastOutputs?: Record<string, Record<string, string>>) => void;
   allTrees: () => Record<string, Tree>;
 }
 
@@ -71,6 +74,7 @@ export const useModel = create<ModelState>()(
     (set, get) => ({
       layer: null,
       trees: {},
+      lastOutputs: {},
       nodes: [],
       edges: [],
       openTree: (layer) => {
@@ -115,21 +119,38 @@ export const useModel = create<ModelState>()(
         useApp.getState().set({ dirty: true });
       },
       setLastOutputs: (outputs) => {
-        if (!Object.keys(outputs).length) return;
-        useModel.temporal.getState().pause();
-        const tag = (n: ModelNode) => (outputs[n.id] && n.data.lastOutput !== outputs[n.id] ? { ...n, data: { ...n.data, lastOutput: outputs[n.id] } } : n);
-        set({ nodes: get().nodes.map(tag) });
-        useModel.temporal.getState().resume();
+        const s = get();
+        if (!s.layer) return;
+        const known = new Set(s.nodes.map((n) => n.id));
+        const fresh = Object.fromEntries(Object.entries(outputs).filter(([id]) => known.has(id)));
+        if (!Object.keys(fresh).length) return;
+        set({ lastOutputs: { ...s.lastOutputs, [s.layer]: { ...s.lastOutputs[s.layer], ...fresh } } });
       },
       removeNodes: (all) => {
         const ids = all.filter((id) => !get().nodes.find((n) => n.id === id)?.data.fixed);
+        const layer = get().layer;
+        const saved = layer ? get().lastOutputs[layer] : undefined;
         set({
+          ...(layer && saved ? { lastOutputs: { ...get().lastOutputs, [layer]: Object.fromEntries(Object.entries(saved).filter(([id]) => !ids.includes(id))) } } : {}),
           nodes: get().nodes.filter((n) => !ids.includes(n.id)),
           edges: get().edges.filter((e) => !ids.includes(e.source) && !ids.includes(e.target)),
         });
       },
-      load: (trees, layer) => {
-        set({ trees, layer: null, nodes: [], edges: [] });
+      load: (trees, layer, lastOutputs = {}) => {
+        // Projects saved before B5 kept each snapshot in its node's data: move them into the map.
+        const saved: Record<string, Record<string, string>> = { ...lastOutputs };
+        const moved: Record<string, Tree> = {};
+        for (const [owner, t] of Object.entries(trees)) {
+          moved[owner] = {
+            ...t,
+            nodes: t.nodes.map((n) => {
+              const { lastOutput, ...data } = n.data as ModelNodeData & { lastOutput?: unknown };
+              if (typeof lastOutput === "string" && lastOutput && !saved[owner]?.[n.id]) saved[owner] = { ...saved[owner], [n.id]: lastOutput };
+              return "lastOutput" in n.data ? { ...n, data } : n;
+            }),
+          };
+        }
+        set({ trees: moved, lastOutputs: saved, layer: null, nodes: [], edges: [] });
         get().openTree(layer);
       },
     }),

@@ -48,7 +48,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 1.18 | Export a table without geometry; unwritable folder | CSV table | file written; missing folder → Error with message | auto: formats::exporting_a_table_without_geometry_works_and_missing_folders_are_reported |
 | 1.19 | Reserved `fid` column on export | layer with `fid` | written as `fid_src`, no failure | auto: engine::export_handles_gdal_reserved_id_columns_and_keeps_crs |
 | 1.20 | Export only selected features | fids list on Layer Input | only those rows | auto: engine::definition_query_and_selected_only_export |
-| 1.21 | Export never overwrites the layer's own source | export to the imported path | refused | auto (ignored, BUG B-T1): formats::exporting_never_overwrites_the_layers_own_source_file |
+| 1.21 | Export never overwrites the layer's own source | export to the imported path | refused | auto (B-T1 fixed): formats::exporting_never_overwrites_the_layers_own_source_file |
 | 1.22 | Add Data dialog: pick several files at once, a file with spaces/accents in the path, cancel the dialog | see M-1 | layers appear in the chosen order; cancel changes nothing | manual M-1 |
 | 1.23 | Export Features dialog: format list, overwrite prompt, selected-only box | see M-2 | file opens in QGIS/ArcGIS with the same CRS | manual M-2 |
 | 1.24 | Drag a file from Finder/Explorer onto the app | see M-3 | adds as layer(s) | manual M-3 |
@@ -62,7 +62,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 2.3 | UTM zone at limits | lon ±180, 0, −0.0001; equator; southern; NAD83 vs WGS 84 | zone 1/60/31/30; north at lat 0; `327xx` south | auto: crsEdge.test.ts; unit: crs::utm_zones |
 | 2.4 | Layer without a CRS is never measured, drawn or reprojected | shapefile without .prj | area/length error mentions "coordinate system"; tiles empty; copy stays undefined | auto: crs_edge::layer_with_no_crs_refuses_measurement_and_projection_instead_of_guessing |
 | 2.5 | Tools refuse a CRS-less layer | Buffer, Project, Near, Spatial Join | Error, message contains "coordinate system" | auto: tools::layer_without_crs_is_refused_not_guessed |
-| 2.6 | Raster tools refuse a CRS-less raster | Warp | Error | auto (ignored, BUG B-T7): rasters::warping_a_raster_of_unknown_crs_is_refused_not_guessed |
+| 2.6 | Raster tools refuse a CRS-less raster | Warp | Error | auto (B-T7 fixed; Clip/Sample/Zonal too: rasters::raster_tools_that_compare_with_vectors_refuse_a_raster_of_unknown_crs): rasters::warping_a_raster_of_unknown_crs_is_refused_not_guessed |
 | 2.7 | Define Projection | valid / empty / `EPSG:0` / `EPSG:99999999` / text / `+proj=bogus` | valid sets CRS and clears the warning; invalid → Err and the layer stays undefined | auto: crs_edge::define_projection_rejects_bad_definitions |
 | 2.8 | Suggestions by coordinate range | degrees / UTM-like / State-Plane-like / tiny | WGS84…, `UTM`, `STATEPLANE`, none | auto: crs_edge::suggestions_follow_the_coordinate_ranges; unit: crs |
 | 2.9 | Geographic vs projected agree | same 1 km² square in EPSG:4326 and UTM 14N | areas within 0.2 %; planar buffers within 1 % | auto: crs_edge::geographic_and_projected_copies_of_a_shape_measure_the_same |
@@ -111,7 +111,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 4.6 | Zero-size box | click-sized box on a point | selects the point | auto: tables::zero_size_box_selects_the_point_under_it (B-T3 fixed by M3) |
 | 4.7 | Select by location (map command and tool) | points vs polygons; distance; invert; selected-only "by" | exact fids; both definition queries apply | auto: engine::select_by_location_on_the_map; tools::select_by_location_tool_known_result |
 | 4.8 | Identify | click on a point, near miss at high/low zoom, inside a polygon, overlap, out-of-range lon/lat, table layer | nearest first; tolerance grows with zoom; no panic | auto: tables::identify_hits_the_nearest_feature_within_a_few_pixels, identify_and_selection_ignore_layers_without_a_crs_or_geometry |
-| 4.9 | Identify on a raster | pixel / NoData / outside | value / none / none | auto: rasters::raster_layers_report_stats_and_draw_tiles; far away: (ignored, BUG B-T6) rasters::identify_far_from_a_projected_raster_is_just_empty |
+| 4.9 | Identify on a raster | pixel / NoData / outside | value / none / none | auto: rasters::raster_layers_report_stats_and_draw_tiles; far away: (B-T6 fixed) rasters::identify_far_from_a_projected_raster_is_just_empty |
 | 4.10 | Feature attributes popup values, NULLs | fid 1 | strings, `None` for NULL | auto: tables::cell_edits_convert_types_and_explain_failures |
 | 4.11 | Geodesic measure of one feature | polygon 0.01°², line 0.1°, point | area ±1 %, perimeter, length, centroid; right fields only | auto: tables::measure_feature_is_geodesic_and_type_aware; engine::geodesic_buffer_near_and_measure |
 | 4.12 | Extent / zoom to selection | all, one, empty, missing fid | bounds; empty → none | auto: tables::extents_for_selections |
@@ -140,7 +140,7 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 5.11 | Calculate Geometry units | area in sqft/sqm/acres, length m | acres = m² / 4046.8564 | auto: tools::calculate_field_and_geometry_known_values; engine::spreadsheet_style_attribute_editing |
 | 5.12 | Delete rows | none, missing ids, duplicates, all rows | exact counts; idempotent; empty layer OK | auto: tables::deleting_rows_is_exact_and_idempotent |
 | 5.13 | Node-tree results and unknown layers are read-only / error | edit a result layer | error "node-tree result…" | auto: tables::node_results_and_unknown_layers_cannot_be_edited |
-| 5.14 | Rename / remove layer | blank name; remove drops tables and uses | name kept; layer gone | auto: tables::layer_removal; (ignored, BUG B-T2) tables::renaming_a_layer_to_blank_is_refused |
+| 5.14 | Rename / remove layer | blank name; remove drops tables and uses | name kept; layer gone | auto: tables::layer_removal; (B-T2 fixed) tables::renaming_a_layer_to_blank_is_refused |
 | 5.15 | Unique values, quantile breaks | NULLs, limit 0/1, text field, classes 0/1/3 | counts add up; empty for 0/1; median 2.5 | auto: tables::unique_values_and_breaks_edge_cases |
 | 5.16 | Copy layer / layer from selection | fids subset | row count; inherits sources | auto: engine::data_sources_are_logged_with_citations; progress_sources::derived_layers_cite_every_input_once |
 | 5.17 | Spreadsheet UI: edit a cell with Enter/Tab/Esc, sort by header, resize columns, paste a column, filter box | see M-11 | values saved; Esc cancels | manual M-11 |
@@ -229,7 +229,7 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | Terrain Ruggedness (`ruggedness`) | flat TRI = 0; plane TPI = 0 | same |
 | Clip Raster by Extent (`clip_raster`) | 300 m box → ≈ 10×10 px, origin within a pixel, 30 m pixels | auto: rasters::clip_and_warp_keep_the_grid_honest |
 | Warp (`warp`) | → EPSG:4326: degrees pixel size, centre value kept | same |
-| Warp error paths | invalid CRS; raster without CRS | auto (ignored, BUG B-T5 crash, B-T7): rasters::warp_to_an_invalid_crs_is_an_error_not_a_crash, warping_a_raster_of_unknown_crs_is_refused_not_guessed |
+| Warp error paths | invalid CRS; raster without CRS | auto (B-T5, B-T7 fixed): rasters::warp_to_an_invalid_crs_is_an_error_not_a_crash, warping_a_raster_of_unknown_crs_is_refused_not_guessed, raster_helpers_report_bad_gdal_options_instead_of_crashing, raster_tools_that_compare_with_vectors_refuse_a_raster_of_unknown_crs |
 | Polygonize (`polygonize`) | two classes + NoData hole → 2 polygons | auto: rasters::polygonize_sampling_and_zonal_statistics_handle_nodata |
 | Sample Raster (`sample_raster`) | class values; NoData and outside → NULL; no row dropped | same |
 | Zonal Statistics (`zonal_statistics`) | mean ignores NoData (391 px); all-NoData zone → NULL/NaN | same |
@@ -253,7 +253,7 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 8.10 | 1 M-row key diff speed | auto (ignored, perf): history::h14_million_row_key_diff_performance |
 | 8.11 | UI helpers: picker order and badges, default compare input, prune payload, diff totals, recoverable errors | auto: history.test.ts |
 | 8.12 | Table pane: node picker, diff bar chips (added / removed / changed), node-card menu, "Output" default | manual M-18 |
-| 8.13 | Undoing a node edit can drop `lastOutput` (known issue 2) | gap — documented in PROJECT_STATUS |
+| 8.13 | Undoing a node edit keeps `lastOutput` (B5: `lastOutputs` map outside undo history; old projects migrate on load) | edit, run, undo, redo | node still has its table | auto: modelStore.test.ts > "B5: undo and redo keep…", "B5: load() moves…" |
 
 ## 9. Layouts
 
@@ -333,11 +333,11 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 13.2 | Fractions clamp, never go back, NaN ignored, split into parts | auto: progress_sources::fractions_clamp_never_go_backwards_and_split_into_parts |
 | 13.3 | Cancel flag: seen by that task only, "Cancelling…", stale handles are fine, context-wrapped error still recognised | auto: progress_sources::cancel_is_seen_only_by_cancellable_work_that_checks_and_only_for_that_task |
 | 13.4 | Nested run flags restored | auto: progress_sources::raster_steps_stop_when_the_run_flag_is_set |
-| 13.5 | Part index past the end | auto (ignored, BUG B-T8): progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent |
+| 13.5 | Part index past the end | auto (B-T8 fixed): progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent |
 | 13.6 | Model run cancelled mid-query (planar Buffer, 3 M points), result write all-or-nothing, engine reusable | auto: engine::model_run_can_be_cancelled_mid_query |
 | 13.7 | GDAL raster steps stop on Cancel and clean up | auto: engine::cancelling_stops_gdal_raster_steps_and_cleans_up |
 | 13.8 | Cancel for Near, Voronoi, Spatial Join (< 3 s) | auto (ignored, perf): cancel::cancel_near, cancel_voronoi, cancel_spatial_join |
-| 13.9 | Cancel for geodesic Buffer and Dissolve (~12 s) | auto (ignored, BUG B-T4): cancel::cancel_geodesic_buffer, cancel_dissolve |
+| 13.9 | Cancel for geodesic Buffer and Dissolve (~12 s) | auto (B-T4 fixed, ignored for time): cancel::cancel_geodesic_buffer, cancel_dissolve, cancel_dissolve_during_the_tile_unions (each stops within 2 s); results equal the single query: batching::dissolve_in_tiles_equals_one_union, big_geodesic_buffer_equals_one_query, dissolved_geodesic_buffer_in_tiles_equals_one_query |
 | 13.10 | Import in progress leaves a consistent engine | auto (ignored, perf): cancel::cancel_an_import_and_a_tile_build_leave_nothing_behind |
 | 13.11 | Layout render and history diff cancel | auto: layout::cancelled_render_writes_nothing; history::h15_… |
 | 13.12 | Display build cancelled by an edit | auto: display::p5_an_edit_cancels_a_running_build |

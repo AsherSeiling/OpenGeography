@@ -1,3 +1,4 @@
+use super::batching::{self, BIG_BUFFER};
 use super::OutFields;
 use super::*;
 use crate::crs::utm_epsg;
@@ -52,7 +53,37 @@ impl Tool for Buffer {
             let a = aeqd_for("geom", &crs);
             format!("ST_Transform(ST_Buffer(ST_Transform(geom, {c}, {a}, true), {d}, 32), {a}, {c}, true)")
         };
-        let sql = if p.bool("dissolve") {
+        // Big layers: see nodes/batching.rs (B-T4). Geodesic features are
+        // processed in order of their projection centre; Dissolve unions tile by tile.
+        let geodesic = p.str("method").as_deref() != Some("planar");
+        let dissolve = p.bool("dissolve");
+        let rows = batching::row_count(ctx.conn, &i.table)?;
+        if rows > BIG_BUFFER && (geodesic || dissolve) {
+            let src = "\"{out}_src\"";
+            let mut statements = Vec::new();
+            let from = if geodesic {
+                let a = aeqd_for("geom", &crs);
+                statements.push(format!("CREATE OR REPLACE TABLE {src} AS SELECT row_number() OVER () AS __orig, * FROM {} ORDER BY {a}", ident(&i.table)));
+                src.to_string()
+            } else {
+                ident(&i.table)
+            };
+            if dissolve {
+                let tiles = batching::tiles(ctx.conn, &i.table, rows)?;
+                statements.push(format!("CREATE OR REPLACE TABLE \"{{out}}_t\" AS SELECT {} AS __tx, {} AS __ty, {buffered} AS geom FROM {from}", tiles.x, tiles.y));
+                statements.extend(batching::union_tiles(&tiles, None, false));
+            } else {
+                // Buffer in the sorted order, then restore the layer's own row order.
+                statements.push(format!("CREATE OR REPLACE TABLE \"{{out}}_b\" AS SELECT * REPLACE ({buffered} AS geom) FROM {from}"));
+                statements.push("CREATE OR REPLACE TABLE \"{out}\" AS SELECT * EXCLUDE (__orig) FROM \"{out}_b\" ORDER BY __orig".into());
+                statements.push("DROP TABLE \"{out}_b\"".into());
+            }
+            if geodesic {
+                statements.push(format!("DROP TABLE {src}"));
+            }
+            return Ok(Output::Script { statements, crs: Some(crs) });
+        }
+        let sql = if dissolve {
             format!("SELECT ST_Union_Agg({buffered}) AS geom FROM {}", ident(&i.table))
         } else {
             format!("SELECT * REPLACE ({buffered} AS geom) FROM {}", ident(&i.table))

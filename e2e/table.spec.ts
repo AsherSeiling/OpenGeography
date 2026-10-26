@@ -79,7 +79,6 @@ test("M-11 attribute table: edit, cancel, Tab, sort, filter, fields and errors",
 });
 
 test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear", async ({ app, errors }) => {
-  errors.known.push(/Encountered two children with the same key/); // BUG E2E-1 (docs/BUGS.md): MapNotices uses the notice text as its key
   const info = await addKnownPoints(app);
   await ribbon(app, "Data", /^Definition Query$/);
   const qe = app.locator(".qe");
@@ -118,7 +117,7 @@ test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear"
   await expect(app.locator(".grid-row")).toHaveCount(4);
 });
 
-test.fixme("M-12 BUG E2E-1: applying a definition query logs no React duplicate-key warning", async ({ app }) => {
+test("M-12 (E2E-1 fixed): applying a definition query logs no React duplicate-key warning", async ({ app }) => {
   const info = await addKnownPoints(app);
   await gis(app, (g, id) => g.actions.setDefinitionQuery(id, "pop > 20"), info.id);
   await app.waitForTimeout(1500);

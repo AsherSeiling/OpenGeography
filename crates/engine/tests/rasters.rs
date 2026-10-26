@@ -161,7 +161,6 @@ fn clip_and_warp_keep_the_grid_honest() {
 }
 
 #[test]
-#[ignore = "BUG: Warp to an invalid CRS crashes the process with SIGSEGV (docs/BUGS.md B-T5)"]
 fn warp_to_an_invalid_crs_is_an_error_not_a_crash() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
@@ -171,6 +170,19 @@ fn warp_to_an_invalid_crs_is_an_error_not_a_crash() {
     for bad in ["EPSG:99999999", "nonsense", ""] {
         assert_eq!(run(&e, "warp", json!({"crs": bad, "resampling": "near"}), &[&id]).status, Status::Error, "{bad:?}");
     }
+}
+
+#[test]
+fn raster_helpers_report_bad_gdal_options_instead_of_crashing() {
+    // GDAL's *OptionsNew returns NULL for a bad option; the helpers must not use it.
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("ramp.tif");
+    dem(&p, 10, None, Some(32614), |_, c| c as f32);
+    let ds = gdal::Dataset::open(&p).unwrap();
+    let bad = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert!(engine::raster::warp(&ds, "", &bad(&["-of", "MEM", "-t_srs", "EPSG:99999999"])).is_err());
+    assert!(engine::raster::translate(&ds, &dir.path().join("t.tif"), &bad(&["-of", "GTiff", "-projwin_srs", "EPSG:99999999", "-projwin", "0", "1", "1", "0", "-notanoption"])).is_err());
+    assert!(engine::raster::dem(&ds, &dir.path().join("d.tif"), "slope", &bad(&["-notanoption"])).is_err());
 }
 
 #[test]
@@ -237,7 +249,6 @@ fn polygonize_sampling_and_zonal_statistics_handle_nodata() {
 }
 
 #[test]
-#[ignore = "BUG: Warp on a raster with no CRS succeeds and labels the untouched grid as the target CRS (docs/BUGS.md B-T7)"]
 fn warping_a_raster_of_unknown_crs_is_refused_not_guessed() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
@@ -251,6 +262,26 @@ fn warping_a_raster_of_unknown_crs_is_refused_not_guessed() {
 }
 
 #[test]
+fn raster_tools_that_compare_with_vectors_refuse_a_raster_of_unknown_crs() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let p = dir.path().join("nocrs.tif");
+    dem(&p, 10, None, None, |_, c| c as f32);
+    let r = import(&e, &p);
+    let pts = e.generate_test_layer("points", 5, [-98.0, 35.0, -97.0, 36.0]).unwrap().id;
+    let polys = e.generate_test_layer("polygons", 3, [-98.0, 35.0, -97.0, 36.0]).unwrap().id;
+    for (tool, params, inputs) in [
+        ("clip_raster", json!({}), vec![&r, &pts]),
+        ("sample_raster", json!({"field": "V"}), vec![&pts, &r]),
+        ("zonal_statistics", json!({"prefix": "Z_"}), vec![&polys, &r]),
+    ] {
+        let res = run(&e, tool, params, &inputs.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        assert_eq!(res.status, Status::Error, "{tool}");
+        assert!(res.error.is_some_and(|m| m.contains("coordinate system")), "{tool}");
+    }
+}
+
+#[test]
 fn a_vector_layer_in_a_raster_port_fails_with_a_reason() {
     let e = Engine::new().unwrap();
     let v = e.generate_test_layer("points", 5, [-98.0, 35.0, -97.0, 36.0]).unwrap();
@@ -260,7 +291,6 @@ fn a_vector_layer_in_a_raster_port_fails_with_a_reason() {
 }
 
 #[test]
-#[ignore = "BUG: raster_value errors instead of returning None for a point outside the raster's projection domain (docs/BUGS.md B-T6)"]
 fn identify_far_from_a_projected_raster_is_just_empty() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();

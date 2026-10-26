@@ -194,6 +194,9 @@ impl Engine {
 
     /// Import, reporting each layer of the file as a part of `task`.
     fn import_with(&self, path: &Path, task: &mut Task) -> Result<Vec<LayerInfo>> {
+        if !path.exists() {
+            anyhow::bail!("File not found: {}", path.display());
+        }
         if raster::is_raster_path(path) {
             task.detail("Copying raster and building overviews…");
             return Ok(vec![self.import_raster(path, None)?]);
@@ -602,6 +605,10 @@ impl Engine {
     }
 
     pub fn rename_layer(&self, id: &str, name: &str) -> Result<LayerInfo> {
+        let name = name.trim();
+        if name.is_empty() {
+            anyhow::bail!("A layer needs a name; the old name was kept");
+        }
         let mut info = self.layer(id)?;
         info.name = name.to_string();
         self.with_conn(|c| {

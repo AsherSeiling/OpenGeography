@@ -150,7 +150,8 @@ fn geoparquet_round_trip_keeps_geometry_and_crs() {
 fn bad_files_are_reported_not_crashed_on() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
-    assert!(e.import(&dir.path().join("missing.shp")).is_err());
+    let missing = e.import(&dir.path().join("missing.shp")).unwrap_err().to_string();
+    assert!(missing.contains("File not found") && missing.contains("missing.shp"), "{missing}");
     for (name, body) in [("empty.geojson", ""), ("junk.geojson", "not json at all"), ("junk.shp", "garbage"), ("junk.gpkg", "garbage"), ("truncated.geojson", r#"{"type":"FeatureCollection","features":[{"type""#)] {
         let p = dir.path().join(name);
         std::fs::write(&p, body).unwrap();
@@ -247,7 +248,6 @@ fn exporting_a_table_without_geometry_works_and_missing_folders_are_reported() {
 }
 
 #[test]
-#[ignore = "BUG: Export silently overwrites the layer's own source file (docs/BUGS.md B-T1)"]
 fn exporting_never_overwrites_the_layers_own_source_file() {
     // CLAUDE.md: "never overwrite source data". Exporting a layer onto the file it was imported from must not damage that file.
     let dir = tempfile::tempdir().unwrap();
@@ -259,10 +259,10 @@ fn exporting_never_overwrites_the_layers_own_source_file() {
     e.set_definition_query(&l.id, Some("id = 1")).unwrap();
     let r = export(&e, &l.id, &p, "GPKG");
     let after = std::fs::read(&p).unwrap();
-    let still_two = Engine::new().unwrap().import(&p).map(|mut v| v.remove(0).feature_count).ok();
-    assert!(
-        r.status == Status::Error || (after == before) || still_two == Some(2),
-        "export onto the source file silently replaced it (status {:?}, features now {still_two:?})",
-        r.status
-    );
+    assert_eq!(r.status, Status::Error, "export onto the source file must be refused");
+    assert!(r.error.is_some_and(|m| m.contains("source file")));
+    assert_eq!(after, before, "the source file is untouched");
+    // A relative spelling of the same path is refused too.
+    let alt = dir.path().join(".").join("src.gpkg");
+    assert_eq!(export(&e, &l.id, &alt, "GPKG").status, Status::Error);
 }

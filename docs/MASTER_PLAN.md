@@ -108,7 +108,7 @@ The biggest missing piece: the app currently can't make a printable map.
 | C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre), M3 (exact tools in any CRS; merged 2026-10-25). ⬜ M4: rasters in any CRS + P17 GDAL thread-safety stress test. |
 | Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. ✅ Merged 2026-10-25. |
 | Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests (engine 95 → 176, vitest 86 → 310); 8 bugs to `docs/BUGS.md`. ✅ Merged 2026-10-25. |
-| B5. Keep `lastOutput` outside undo history | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
+| B5. Keep `lastOutput` outside undo history (done on the bug-fix branch) | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
 | C3.0 Layout polish | 1 | Sonnet | Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
