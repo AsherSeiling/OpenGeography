@@ -13,6 +13,24 @@ Newest first. One entry per decision that isn't obvious from the code; details l
 - **Slow cancel, as built (B-T4):** the plan's 50 k-feature chunks were tried and dropped: each statement pays about 1.5 s of PROJ setup, so 30 chunks took 126 s against 27 s for one query. The real cause was PROJ setup contention (see `nodes/batching.rs`), fixed by sorting the layer by projection centre before buffering. Output rows keep the layer's order. Dissolve uses tiles plus pairwise unions as planned (a flat final `ST_Union_Agg` still blocked Cancel for ~5 s).
 - **Feature labels moved forward (L1, L2):** the user needs labels now, so they come before C3.0 instead of with C4. Each layer has one label definition in `LayerStyle.label`, shared by the map view and layouts. OpenLayers draws map labels and hides overlaps (declutter). Polygon labels come from engine anchor points (`ST_PointOnSurface`), so a polygon split across tiles is labelled once. Layouts use greedy page-space collision and report skipped labels. L3 (user request) adds editing inside the layout: per-layout style overrides, and per-label move, rotate, text, hide and reset, stored in the layout document by `__fid`. Edited labels are pinned and placed first. Details: `LAYOUTS_PLAN.md` L1–L3.
 - **M4 on hold** at the user's request (2026-10-25).
+- **B6 Split by attribute (user request, 2026-10-25):**
+  - **Where:** layer context menu and Data tab → "Split by Attribute…". The engine command `split_by_attribute(layer, field, target)` also goes in the devserver and `api.ts`.
+  - **Targets:** `layers` (one new project layer per value) or `files` (a folder, format GeoPackage or shapefile, one file per value).
+  - **Groups:** one per distinct value, NULL as "(no value)". Names are the value made safe for filenames, with a `_2` suffix on clashes.
+  - **Limits and safety:**
+    - A confirm step above 200 outputs, and a hard cap of 1,000.
+    - Never writes onto any layer's source file (same check as Export).
+    - `progress::Task` per output, with Cancel between outputs.
+    - Each output keeps the input's CRS and its sources (citations).
+    - Reports the counts per output and any rows skipped.
+  - **Credit:** cite QGIS `native:splitvectorlayer`.
+  - **Tests:** engine tests (groups, NULL, name clashes, cap, CRS and sources kept, cancel) plus e2e.
+- **B7 Category precedence (user request, 2026-10-25):**
+  - **UI:** categorized styles keep their classes in an ordered list. The symbology pane gets drag handles and "Reverse".
+  - **Draw order:** a class higher in the list draws on top. On the map, through `zIndex` per class in the OpenLayers style function. In layouts, the frame renderer sorts features by class order before drawing.
+  - **Legend:** follows the same order.
+  - **Saving:** the order is saved in `LayerStyle`. Old projects keep their current (value) order.
+  - **Tests:** vitest (ordering and zIndex mapping) and a layout golden test where two overlapping polygons swap with the order.
 - **Tests:** every new feature adds its rows to `docs/TEST_PLAN.md` (auto or manual) in the same branch.
 - **Releases (recommendation; pushing tags stays the user's):** tag `v0.1.0` once A3 passes. Skip a separate v0.2 for Phase B, since B finished before v0.1 was tagged. Tag `v0.2.0` at the end of Phase C (B + C), then v0.3 after D1–D3 + E, then v0.4 after F.
 
