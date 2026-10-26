@@ -190,6 +190,25 @@ The layout renderer draws the same `LayerStyle.label` for each frame layer in pa
   - L2-P3: the skipped-label count is reported.
   - L2-P4: PDF text is selectable (real text, not paths).
 
+### L3 — Adjusting labels in the layout (user request, 2026-10-25)
+Labels on a page can be changed without touching the map's label settings.
+- **Per frame and layer** (the frame's Properties → Labels): override on/off, field, size, colour and halo for this layout only. Unset values fall back to `LayerStyle.label`.
+- **Per label:** in the Layout view, click a label to select it.
+  - **Edits:** drag to move it, use a rotation handle, and in Properties edit its text, size, hide it, or "Reset to automatic".
+  - **Collision priority:** edited labels are pinned. They're placed first and the automatic labels avoid them.
+  - **Undo:** works like other layout edits (zundo).
+- **Storage:** in the layout document, per map frame:
+  `label_overrides: { "<layer id>": { style?: {…partial label style}, features: { "<__fid>": { dx_mm?, dy_mm?, rotation?, text?, size_pt?, hidden? } } } }`.
+  Keyed by the feature's stable `__fid`. When a feature no longer exists (data edited or re-imported), its override is dropped and counted in the warnings.
+- **Engine:** `render_layout_svg` also returns the placed labels, `[{ frame, layer, fid, box_mm, rotation, pinned }]`. The Layout view draws transparent hit boxes over the preview for selecting and dragging, and only re-renders on drop.
+- **Acceptance:**
+  - L3-P1: a moved label stays at its new page position across preview, PDF export, and save/reopen.
+  - L3-P2: a hidden label isn't drawn, and the automatic label for it doesn't come back.
+  - L3-P3: pinned labels are never dropped by collision; automatic labels avoid them.
+  - L3-P4: a per-layout style override changes only that layout, not the map.
+  - L3-P5: an override for a deleted feature is dropped and reported.
+  - L3-P6: undo and redo of a move.
+
 ### C3.1 — Templates
 Bundled templates in `resources/layout_templates/*.json` (6 page sizes × 2 orientations, with frame, title, legend, scale bar, north arrow, sources), "Save as Template" to the app data dir (path via `resources.rs`, no hard-coded paths), and a New Layout gallery that shows both.
 - P20. Every bundled template validates and renders (test loops over the folder).

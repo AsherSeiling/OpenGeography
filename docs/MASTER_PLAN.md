@@ -111,11 +111,12 @@ The biggest missing piece: the app currently can't make a printable map.
 | B5. Keep `lastOutput` outside undo history (done on the bug-fix branch) | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
 | L1. Feature labels on the map | 1 | Sonnet | `LAYOUTS_PLAN.md` L1: field, size, colour, halo, scale range; OpenLayers declutter; polygon labels from engine anchor points. User request 2026-10-25. |
 | L2. Labels in print layouts | 1 | Sonnet | `LAYOUTS_PLAN.md` L2: same settings, greedy collision on the page, skipped labels reported. After L1. |
+| L3. Adjust labels in the layout | 1–2 | Sonnet | `LAYOUTS_PLAN.md` L3: per-layout label style overrides; per-label move, rotate, edit text, hide, reset; pinned labels placed first. User request 2026-10-25. After L2. |
 | C3.0 Layout polish | 1 | Sonnet | Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
-**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Next: L1 → L2 (labels, user request), then C3.0 → C3.1 → C3.2. M4 is on hold at the user's request. C4 waits for E1.
+**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Next: L1 → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then C3.0 → C3.1 → C3.2. M4 is on hold at the user's request. C4 waits for E1.
 **Exit:** a user can produce a print-scale PDF map with legend and grid; Topo Map Builder makes a USGS-style quad.
 **Total:** 10–14 sessions.
 
