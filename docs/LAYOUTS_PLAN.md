@@ -165,6 +165,31 @@ Acceptance:
 - P18. A USGS Topo basemap renders in a UTM frame and its citation appears in Sources.
 - P19. Then rebuild the Mac app and run `--self-test`.
 
+### L1 — Feature labels on the map (decided 2026-10-25, user request)
+One label definition per layer, in `LayerStyle.label` (saved in project.json), used by the map view and by layouts:
+`{ enabled, field, size_pt (default 9), color (#222), halo: { color #fff, width_px 1.5 }, min_scale?, max_scale?, placement: "auto" }`.
+- **Map view (OpenLayers):** text style with `declutter: true` (overlapping labels hide).
+  - Points: offset right of the symbol.
+  - Lines: `placement: "line"` along the geometry.
+  - Polygons: an engine-served anchor point per feature (`ST_PointOnSurface` of the full geometry, from the display table in any CRS) as a separate label tile layer, so a polygon split across tiles is labelled once.
+  - The label field is added to the tile's attributes only when labels are on.
+- **UI:** a Labels section in the layer's Properties (Fluent v9, same style as symbology): on/off, field picker, size, colour, halo, scale range.
+- **Acceptance:**
+  - L1-P1: points, lines and polygons show their field values, with no duplicate polygon labels across tile edges.
+  - L1-P2: labels hide outside the scale range.
+  - L1-P3: settings survive save and reopen.
+  - L1-P4: works in UTM and Web Mercator (e2e).
+
+### L2 — Labels in print layouts
+The layout renderer draws the same `LayerStyle.label` for each frame layer in page mm, with bundled Noto Sans and a halo as a stroked text underlay.
+- **Placement:** point anchors as on the map; line labels at the midpoint of the longest part, rotated to the line, never upside down; polygons at `ST_PointOnSurface`, clipped to the frame.
+- **Collisions:** greedy, in draw order (top layer first), on text bounding boxes from the font metrics `surround.rs` already uses. A label that doesn't fit is skipped and counted in the frame's warnings ("12 labels of Counties didn't fit").
+- **Acceptance:**
+  - L2-P1: a golden SVG hash on all three CI platforms.
+  - L2-P2: no two drawn label boxes overlap.
+  - L2-P3: the skipped-label count is reported.
+  - L2-P4: PDF text is selectable (real text, not paths).
+
 ### C3.1 — Templates
 Bundled templates in `resources/layout_templates/*.json` (6 page sizes × 2 orientations, with frame, title, legend, scale bar, north arrow, sources), "Save as Template" to the app data dir (path via `resources.rs`, no hard-coded paths), and a New Layout gallery that shows both.
 - P20. Every bundled template validates and renders (test loops over the folder).
@@ -178,7 +203,7 @@ Bundled templates in `resources/layout_templates/*.json` (6 page sizes × 2 orie
 
 **Later, not in C2/C3:**
 - GeoPDF georeferencing (OGC best-practice Measure dictionary: Avenza/field use). It's a small addition to `export.rs`; schedule it with C4.
-- Feature labels (no labelling engine exists yet; needs collision handling). Plan it with C4, which needs contour and place labels.
+- ~~Feature labels~~: moved forward as L1/L2 above (2026-10-25). C4 adds contour labels on top of them.
 - Grid-north/magnetic declination diagram (C4).
 
 **Order and parallel safety:**

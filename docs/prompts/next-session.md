@@ -6,22 +6,21 @@ Open a new Claude Code session in this folder, pick **Sonnet**, and paste one bl
 
 ---
 
-## 1. Bug-fix session (from `docs/BUGS.md`, plus B5)
+## 1. L1 — Feature labels on the map (user request)
 
-Follow docs/prompts/sonnet-runner.md. Fix these bugs. Each has an ignored test in `docs/BUGS.md`: unignore it and make it pass, and add a test where none exists.
-- **B-T5 (High):** `raster.rs::warp` / `translate` / `dem` call GDAL option setters on a NULL options pointer. Check every `*AppOptionsNew` result. A bad CRS is a readable error, never a crash.
-- **B-T7 (High):** Warp (and any raster tool that reprojects: check Clip, Contours, Polygonize) refuses a raster with no CRS, the same way the vector tools do (`need_crs`).
-- **B-T1:** Export refuses a path equal to any layer's source file (canonicalized), with a message.
-- **B-T2:** rename refuses a blank name and keeps the old one.
-- **B-T4:** cancel within 2 s for geodesic Buffer and Dissolve, per `docs/DECISIONS.md` ("Slow cancel"): batches the interrupt can stop between. Results must equal today's output.
-- **B-T6:** raster identify outside the CRS's domain returns "no value".
-- **B-T8:** `Task::part` clamps to 100 %.
-- **B5:** keep each node's `lastOutput` outside undo history (a `lastOutputs` map beside the trees, saved in project.json). Old projects still load.
-
-Risky (Opus review): the raster CRS checks (B-T5, B-T7) and the Buffer/Dissolve batching (B-T4: results must not change). Mark each bug fixed in `docs/BUGS.md` and add `docs/TEST_PLAN.md` rows. Commit on your branch, no push.
+Follow docs/prompts/sonnet-runner.md. The spec is docs/LAYOUTS_PLAN.md §4 "L1".
+- **Read:** `ui/src/store/store.ts` (LayerStyle, defaultStyle), `ui/src/map/style.ts` and `olStyle.ts`, `ui/src/panes/MapView.tsx` (layers), the layer Properties pane (symbology section), `crates/engine/src/tiles.rs` and `display.rs` (tile attributes, display tables), the `gis://` route and the devserver route.
+- **Build:**
+  - `LayerStyle.label`, with old projects defaulting to off.
+  - The Labels section in Properties.
+  - OpenLayers text styles with declutter.
+  - A polygon label-anchor tile route (`ST_PointOnSurface`, in any CRS via the display table), added to the devserver and `api.ts`.
+  - The label field included in tiles only when labels are on.
+- **Acceptance:** L1-P1 to L1-P4. Add vitest for the style mapping, an engine test for the anchor tiles, and an e2e case. Add `docs/TEST_PLAN.md` rows.
+- **Finish:** commit on your branch, no push, no Mac rebuild. In a fresh worktree run `npm ci && npm run build && scripts/stage-resources.sh` first. End with the runner's review block, plus one screenshot of labels in UTM.
 
 ---
 
-## 2. M4 — rasters in any CRS, performance, polar check (after brief 1)
+## 2. M4 — rasters in any CRS, performance, polar check (ON HOLD at the user's request, 2026-10-25)
 
 Brief: `docs/MAP_PROJECTION_PLAN.md` §3 M4 (P14–P16). M3 is done (identify and rectangle select take `crs` and map-CRS units;, browser-checked in UTM 15N and Web Mercator). Needs C2.4's `render_extent`. To be written in full by the orchestrator.
