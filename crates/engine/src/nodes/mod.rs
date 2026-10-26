@@ -7,6 +7,7 @@
 
 mod add_to_map;
 mod attribute_join;
+mod batching;
 mod buffer;
 mod calculate_field;
 mod calculate_geometry;
@@ -168,6 +169,12 @@ pub struct Rel {
 pub enum Output {
     /// A SELECT the executor materializes. `view` = cheap pass-through.
     Select { sql: String, crs: Option<String>, view: bool },
+    /// Several statements that together create the table `{out}` (write
+    /// it quoted, `"{out}"`; it is replaced by the bare name). Used for work too big for one
+    /// query: the executor checks for Cancel between statements, and every
+    /// statement runs in one transaction, so a cancelled step leaves nothing.
+    /// Scratch tables should be named `{out}_something` and dropped at the end.
+    Script { statements: Vec<String>, crs: Option<String> },
     /// Create/replace a map layer.
     Layer { name: String, sql: String, crs: Option<String> },
     /// The result of a layer's own node tree, drawn in place of that layer.

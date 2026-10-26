@@ -337,7 +337,7 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 13.6 | Model run cancelled mid-query (planar Buffer, 3 M points), result write all-or-nothing, engine reusable | auto: engine::model_run_can_be_cancelled_mid_query |
 | 13.7 | GDAL raster steps stop on Cancel and clean up | auto: engine::cancelling_stops_gdal_raster_steps_and_cleans_up |
 | 13.8 | Cancel for Near, Voronoi, Spatial Join (< 3 s) | auto (ignored, perf): cancel::cancel_near, cancel_voronoi, cancel_spatial_join |
-| 13.9 | Cancel for geodesic Buffer and Dissolve (~12 s) | auto (ignored, BUG B-T4): cancel::cancel_geodesic_buffer, cancel_dissolve |
+| 13.9 | Cancel for geodesic Buffer and Dissolve (~12 s) | auto (B-T4 fixed, ignored for time): cancel::cancel_geodesic_buffer, cancel_dissolve, cancel_dissolve_during_the_tile_unions (each stops within 2 s); results equal the single query: batching::dissolve_in_tiles_equals_one_union, big_geodesic_buffer_equals_one_query, dissolved_geodesic_buffer_in_tiles_equals_one_query |
 | 13.10 | Import in progress leaves a consistent engine | auto (ignored, perf): cancel::cancel_an_import_and_a_tile_build_leave_nothing_behind |
 | 13.11 | Layout render and history diff cancel | auto: layout::cancelled_render_writes_nothing; history::h15_… |
 | 13.12 | Display build cancelled by an edit | auto: display::p5_an_edit_cancels_a_running_build |
