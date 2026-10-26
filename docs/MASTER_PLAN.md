@@ -1,6 +1,6 @@
 # GIS Studio — master plan
 
-_Written 2026-10-23, updated 2026-10-25 (Opus plan decisions in `docs/DECISIONS.md`). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
+_Written 2026-10-23, updated 2026-10-25 (Opus plan decisions in `docs/DECISIONS.md`; user requests: labels L1–L3, B6, B7; M4 on hold). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
 
 **Product priorities** (the user's ranking, which drives the order below):
 1. Easy data manipulation.
@@ -105,10 +105,10 @@ The biggest missing piece: the app currently can't make a printable map.
 |---|---|---|---|
 | C1. Layouts design | 1 | Opus | ✅ 2026-10-23 → `LAYOUTS_PLAN.md`. Engine renders SVG → PDF/PNG; `body` parameter from day one. |
 | C2. Layouts: page, map frame in the true CRS, legend, scale bar, north arrow, text, sources, graticule/grid, rasters, basemaps; PNG + PDF + SVG export | 4–6 | Sonnet | ✅ 2026-10-23 (C2.1–C2.4). CI green on all three platforms. |
-| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre), M3 (exact tools in any CRS; merged 2026-10-25). ⬜ M4: rasters in any CRS + P17 GDAL thread-safety stress test. |
+| C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre), M3 (exact tools in any CRS; merged 2026-10-25). ⏸ M4 (rasters in any CRS, P17 GDAL thread-safety gate, P18 pole-safe tools) on hold at the user's request. |
 | Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. ✅ Merged 2026-10-25. |
 | Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests (engine 95 → 176, vitest 86 → 310); 8 bugs to `docs/BUGS.md`. ✅ Merged 2026-10-25. |
-| B5. Keep `lastOutput` outside undo history (done on the bug-fix branch) | 0.5 | Sonnet | Small fix (DECISIONS 2026-10-25); can join the bug-fix session. |
+| B5. Keep `lastOutput` outside undo history | 0.5 | Sonnet | ✅ Merged 2026-10-25 with the bug-fix batch (B-T1–B-T8, E2E-1/2, U-1–U-4 also fixed). |
 | B6. Split by attribute (export by category) | 1 | Sonnet | User request 2026-10-25; spec in `docs/DECISIONS.md`. One layer or one file per unique value of a field (QGIS `native:splitvectorlayer`, reimplemented). After L3. |
 | B7. Category precedence in unique-value symbology | 0.5–1 | Sonnet | User request 2026-10-25; spec in `docs/DECISIONS.md`. Drag-to-reorder categories; the order sets draw order on the map and in layouts, and the legend order. Can run beside B6 (different files). |
 | L1. Feature labels on the map | 1 | Sonnet | `LAYOUTS_PLAN.md` L1: field, size, colour, halo, scale range; OpenLayers declutter; polygon labels from engine anchor points. User request 2026-10-25. |
@@ -186,16 +186,16 @@ Details, sources and decisions D1–D5 are in [`PLANETARY_PLAN.md`](PLANETARY_PL
 ## 4. Recommended sequence
 
 ```
-A  Stabilize + v0.1      ███▒                     (code done; A3 + tag are yours)
-B  Data manipulation        ████                  ✅
-C  Map production (C1–C3, C5)   ███████▒▒          ← now: M3 review, then M4, C3.0–C3.2
-D  Public data (D1–D3)                 █████       ← D3 can run beside C3 (different files)
-E  Raster foundation                        ███
-C4 Topo Map Builder                            ███
-F  Planetary (F0–F4)                           ███████  ← F0/F1 after E; polar maps use the C5 view
-D  Public data (D4–D6)                                ███
-G  Python SDK                                            ███
-H  Advanced analysis                                        ██████
+A  Stabilize + v0.1      ███▒                      (code done; A3 + tag are yours)
+B  Data manipulation        ████                   ✅  (+ B6 split by attribute, B7 category order: user requests)
+C  Map production              ███████▒▒▒          ← now: L1–L3 labels → B6 ∥ B7 → C3.0 → C3.1–C3.2; M4 on hold
+D  Public data (D1–D3)                  █████       ← D3 can run beside C3 (different files)
+E  Raster foundation                         ███
+C4 Topo Map Builder                             ███  (contour labels build on L1–L3)
+F  Planetary (F0–F4)                            ███████  ← F0/F1 after E; polar maps use the C5 view
+D  Public data (D4–D6)                                 ███
+G  Python SDK                                             ███
+H  Advanced analysis                                         ██████
 ```
 
 **Why this order:**
