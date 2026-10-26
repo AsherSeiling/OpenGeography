@@ -253,7 +253,7 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 8.10 | 1 M-row key diff speed | auto (ignored, perf): history::h14_million_row_key_diff_performance |
 | 8.11 | UI helpers: picker order and badges, default compare input, prune payload, diff totals, recoverable errors | auto: history.test.ts |
 | 8.12 | Table pane: node picker, diff bar chips (added / removed / changed), node-card menu, "Output" default | manual M-18 |
-| 8.13 | Undoing a node edit can drop `lastOutput` (known issue 2) | gap — documented in PROJECT_STATUS |
+| 8.13 | Undoing a node edit keeps `lastOutput` (B5: `lastOutputs` map outside undo history; old projects migrate on load) | edit, run, undo, redo | node still has its table | auto: modelStore.test.ts > "B5: undo and redo keep…", "B5: load() moves…" |
 
 ## 9. Layouts
 

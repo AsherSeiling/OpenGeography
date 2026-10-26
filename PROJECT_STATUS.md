@@ -37,7 +37,6 @@ _Updated 2026-10-25. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 - **e2e suite:** `e2e/*.spec.ts` (Playwright, devDependency). `scripts/run-test-plan.sh --e2e` runs it; run it alone with `scripts/e2e.sh <out-dir>`. Needs Google Chrome, `/Applications/Chromium.app`, `E2E_BROWSER_PATH`, or `npx playwright install chromium`. The devserver address and vite port come from `GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER` (defaults unchanged).
 - **Open bugs:** see `docs/BUGS.md`. Each has an ignored test. The two High ones are B-T5 (raster warp to an invalid CRS crashes) and B-T7 (warping a raster with no CRS invents one).
 - **Cancel granularity:** cancel lands between DuckDB work units (~100k rows/thread). gdaldem steps ignore GDAL's progress callback.
-- **Undo:** undoing a node-tree edit can drop a node's `lastOutput`. B5 fixes it.
 - **macOS CI crash:** one intermittent SIGSEGV in layout tests (run 40055424934, conda GDAL, parallel tests). It hasn't happened again. M4's P17 stress test is the gate.
 
 ## Next tasks (in order)

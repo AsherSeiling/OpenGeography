@@ -117,7 +117,8 @@ export async function removeLayer(id: string) {
   const m = useModel.getState();
   if (m.layer === id) m.openTree(null);
   const { [id]: _gone, ...trees } = useModel.getState().trees;
-  useModel.setState({ trees });
+  const { [id]: _goneOutputs, ...lastOutputs } = useModel.getState().lastOutputs;
+  useModel.setState({ trees, lastOutputs });
   void pruneSnapshots();
   const using = Object.entries(m.allTrees()).filter(([owner, t]) => owner !== id && t.nodes.some((n) => n.data.tool === "input_layer" && n.data.params.layer === id));
   const names = using.map(([owner]) => useApp.getState().layers[owner]?.name ?? owner);
@@ -344,6 +345,8 @@ interface UiStateV1 {
   camera: Camera | null;
   /** Node tree per layer id. */
   trees: Record<string, Tree>;
+  /** Last run's snapshot table per layer then node (B5). Absent in older projects, which kept it in each node's data. */
+  lastOutputs?: Record<string, Record<string, string>>;
   dock: unknown;
 }
 
@@ -366,6 +369,7 @@ function uiState(): UiStateV1 {
     basemap: s.basemap,
     camera: snapshotCamera(),
     trees: m.allTrees(),
+    lastOutputs: m.lastOutputs,
     dock: dockSerializer?.() ?? null,
   };
 }
@@ -374,8 +378,7 @@ function uiState(): UiStateV1 {
 export async function pruneSnapshots() {
   const t = useTableTarget.getState().target;
   const m = useModel.getState();
-  const node = t && (t.tree === m.layer ? m.nodes : m.trees[t.tree]?.nodes)?.find((n) => n.id === t.nodeId);
-  await pruneNodeCache(m.allTrees(), typeof node?.data.lastOutput === "string" ? node.data.lastOutput : null, api);
+  await pruneNodeCache(m.lastOutputs, t ? (m.lastOutputs[t.tree]?.[t.nodeId] ?? null) : null, api);
 }
 
 export async function saveProject(saveAs = false) {
@@ -450,7 +453,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
     projectDir: dir,
     dirty: false,
   });
-  useModel.getState().load(ui.trees ?? {}, order[0] ?? null);
+  useModel.getState().load(ui.trees ?? {}, order[0] ?? null, ui.lastOutputs ?? {});
   useRun.getState().set({ results: {} });
   // A damaged camera or dock layout must not stop the project from opening.
   try {

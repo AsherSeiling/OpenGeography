@@ -17,7 +17,7 @@ const res = (id: string, output: string | null, status: NodeResult["status"] = "
 
 // Nodes deliberately listed out of order.
 const tree: Tree = {
-  nodes: [node("out", "layer_output", { fixed: true }), node("f", "filter"), node("b", "buffer", { lastOutput: "__node_saved_b" }), node("in", "input_layer", { fixed: true })],
+  nodes: [node("out", "layer_output", { fixed: true }), node("f", "filter"), node("b", "buffer"), node("in", "input_layer", { fixed: true })],
   edges: [edge("in", "b"), edge("b", "f"), edge("f", "out")],
 };
 
@@ -28,7 +28,7 @@ describe("pickerEntries (H16)", () => {
   });
 
   it("badges follow node state; saved lastOutput counts as stored", () => {
-    const e = Object.fromEntries(pickerEntries(tree, { in: res("in", "__node_in"), f: res("f", "__node_f") }, SPECS, new Set(["f"])).map((x) => [x.id, x]));
+    const e = Object.fromEntries(pickerEntries(tree, { in: res("in", "__node_in"), f: res("f", "__node_f") }, SPECS, new Set(["f"]), { b: "__node_saved_b" }).map((x) => [x.id, x]));
     expect(e.in.state).toBe("ready");
     expect(e.b.state).toBe("ready"); // from lastOutput, no live result
     expect(e.b.table).toBe("__node_saved_b");
@@ -43,7 +43,7 @@ describe("pickerEntries (H16)", () => {
     expect(e.find((x) => x.id === "a")).toMatchObject({ disabled: true, table: null });
     expect(e.find((x) => x.id === "h")?.disabled).toBe(true);
     expect(e.find((x) => x.id === "x")).toMatchObject({ disabled: false, state: "norun", table: null });
-    expect(nodeTable(t.nodes[2], res("x", "__node_x", "cached"))).toBe("__node_x");
+    expect(nodeTable(undefined, res("x", "__node_x", "cached"))).toBe("__node_x");
   });
 });
 
@@ -61,10 +61,7 @@ describe("defaultCompareInput (H17)", () => {
 
 describe("pruneNodeCache (H18)", () => {
   it("sends every tree's lastOutput and the pinned table", async () => {
-    const trees: Record<string, Tree> = {
-      L1: tree,
-      L2: { nodes: [node("z", "filter", { lastOutput: "__node_z" }), node("y", "filter", { lastOutput: "__node_saved_b" })], edges: [] },
-    };
+    const trees = { L1: { b: "__node_saved_b" }, L2: { z: "__node_z", y: "__node_saved_b" } };
     expect(liveTables(trees).sort()).toEqual(["__node_saved_b", "__node_z"]);
     const api = { pruneNodeCache: vi.fn().mockResolvedValue(2) };
     expect(await pruneNodeCache(trees, "__node_z", api)).toBe(2);

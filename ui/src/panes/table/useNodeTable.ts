@@ -49,6 +49,7 @@ export function useNodeTable(owner: string | undefined): NodeTable {
   const nodes = useModel((s) => s.nodes);
   const edges = useModel((s) => s.edges);
   const trees = useModel((s) => s.trees);
+  const savedOutputs = useModel((s) => (owner ? s.lastOutputs[owner] : undefined));
   const results = useRun((s) => s.results);
   const specs = useRun((s) => s.specs);
   const tree = useMemo<Tree | undefined>(() => (!owner ? undefined : owner === openLayer ? { nodes, edges } : trees[owner]), [owner, openLayer, nodes, edges, trees]);
@@ -70,10 +71,10 @@ export function useNodeTable(owner: string | undefined): NodeTable {
     }
     return ids;
   }, [target?.tree, openLayer, nodes, edges, layers, ranSig]);
-  const entries = useMemo(() => (tree ? pickerEntries(tree, results, specs, changed) : []), [tree, results, specs, changed]);
-  const table = node ? nodeTable(node, results[node.id]) : null;
+  const entries = useMemo(() => (tree ? pickerEntries(tree, results, specs, changed, savedOutputs) : []), [tree, results, specs, changed, savedOutputs]);
+  const table = node ? nodeTable(savedOutputs?.[node.id], results[node.id]) : null;
   const compareNode = tree?.nodes.find((n) => n.id === target?.compareId);
-  const compareTable = compareNode ? nodeTable(compareNode, results[compareNode.id]) : null;
+  const compareTable = compareNode ? nodeTable(savedOutputs?.[compareNode.id], results[compareNode.id]) : null;
   const labelOf = (id: string | null | undefined) => entries.find((e) => e.id === id)?.label ?? id ?? "";
 
   const [info, setInfo] = useState<NodeTableInfo | null>(null);
