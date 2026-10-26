@@ -106,3 +106,5 @@ Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e te
 | ID | Sev. | Summary | Fix |
 |---|---|---|---|
 | U-1 | Medium | The layout editor didn't show the map's basemap: a new map frame always started with `basemap: "none"`, and "Set from Map View" didn't copy it | Fixed 2026-10-25: new frames and "Set from Map View" take the map view's basemap (`printBasemap`; OpenStreetMap prints as none, with a message, because its tile policy forbids it). Test: `layout.test.ts` "map frame basemap follows the map view". |
+| U-2 | Medium | Importing TIGER tracts sometimes failed with "TIGERweb returned something that isn't JSON" | Fixed 2026-10-25. A tract page was one 16–22 MB response (13–17 s), and a cut-off response or a busy-server HTML page failed to parse, with no detail. Now each request retries up to 3 times, a page that keeps failing halves (1000 → 500 → 250 features), and the error names what came back (a web page and its title, a response that ended early, or a snippet). Test: `tiger::tests::bad_responses_are_described_not_just_not_json`; live tests `tiger_sample_data_downloads` and `tiger_year_list_and_availability` pass. |
+

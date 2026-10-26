@@ -4,7 +4,7 @@
 //! Layers are looked up by name, not number, because TIGERweb renumbers
 //! layers between vintages.
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use parking_lot::Mutex;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -13,7 +13,12 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 const BASE: &str = "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb";
-const PAGE: usize = 2000;
+/// Features per page. Tract and block pages are large (~15–20 MB at 2000), and
+/// TIGERweb sometimes cuts a big response short or answers with an HTML error
+/// page, so pages start smaller and halve again on failure.
+const PAGE: usize = 1000;
+const MIN_PAGE: usize = 250;
+const ATTEMPTS: u32 = 3;
 const MAX_FEATURES: usize = 250_000;
 
 #[derive(Serialize, Clone, Copy, Debug)]
@@ -129,17 +134,56 @@ pub fn availability(vintage: &str) -> Result<Vec<(String, bool)>> {
 }
 
 fn get_json(url: &str) -> Result<Value> {
+    let mut last = None;
+    for attempt in 0..ATTEMPTS {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_secs(2 * attempt as u64));
+        }
+        match get_json_once(url) {
+            Ok(v) => return Ok(v),
+            Err(e) => last = Some(e),
+        }
+    }
+    Err(last.unwrap_or_else(|| anyhow!("TIGERweb request failed")))
+}
+
+fn get_json_once(url: &str) -> Result<Value> {
     let resp = ureq::get(url)
         .set("User-Agent", "GIS-Studio (open-source GIS)")
         .timeout(std::time::Duration::from_secs(120))
         .call()
         .map_err(|e| anyhow!("Could not reach the Census TIGERweb service: {e}"))?;
-    // Stream-parse: pages of blocks or roads can exceed ureq's 10 MB string limit.
-    let v: Value = serde_json::from_reader(std::io::BufReader::new(resp.into_reader())).context("TIGERweb returned something that isn't JSON")?;
+    let status = resp.status();
+    let content_type = resp.content_type().to_string();
+    // Read the whole body (pages can exceed ureq's 10 MB string limit) so a bad
+    // response can be described instead of only failing to parse.
+    let mut body = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(resp.into_reader(), 512 * 1024 * 1024), &mut body)
+        .map_err(|e| anyhow!("The TIGERweb download was cut off ({e}). The service may be busy; try again."))?;
+    let v = parse_body(&body, status, &content_type)?;
     if let Some(err) = v.get("error") {
         bail!("TIGERweb error: {}", err.get("message").and_then(|m| m.as_str()).unwrap_or("unknown"));
     }
     Ok(v)
+}
+
+/// Parse a TIGERweb response, or say in plain words what came back instead.
+fn parse_body(body: &[u8], status: u16, content_type: &str) -> Result<Value> {
+    match serde_json::from_slice::<Value>(body) {
+        Ok(v) => Ok(v),
+        Err(e) => {
+            let text = String::from_utf8_lossy(&body[..body.len().min(400)]);
+            let snippet: String = text.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(160).collect();
+            if text.trim_start().starts_with('<') {
+                let title = text.split("<title>").nth(1).and_then(|t| t.split("</title>").next()).map(|t| format!(" (\"{}\")", t.trim())).unwrap_or_default();
+                bail!("TIGERweb sent a web page instead of data{title}, HTTP {status}. The Census service is probably busy or down; try again in a few minutes.");
+            }
+            if e.is_eof() {
+                bail!("The TIGERweb response ended early ({} bytes, HTTP {status}). The connection or the service dropped; try again, or choose a county for a smaller download.", body.len());
+            }
+            bail!("TIGERweb returned something that isn't JSON (HTTP {status}, {content_type}): {snippet}")
+        }
+    }
 }
 
 pub(crate) fn enc(s: &str) -> String {
@@ -283,11 +327,21 @@ pub fn fetch(id: &str, vintage: &str, state: &str, county: Option<&str>, cache_d
         ("f", "geojson".into()),
     ]);
     let mut features: Vec<Value> = Vec::new();
+    let mut page_size = PAGE;
     loop {
         let mut params = filter.clone();
         params.push(("resultOffset", features.len().to_string()));
-        params.push(("resultRecordCount", PAGE.to_string()));
-        let page = get_json(&query_url(&svc, layer, &params))?;
+        params.push(("resultRecordCount", page_size.to_string()));
+        let page = match get_json(&query_url(&svc, layer, &params)) {
+            Ok(p) => p,
+            // A big page that keeps failing: ask for smaller ones from here on.
+            Err(_) if page_size > MIN_PAGE => {
+                page_size /= 2;
+                report(if total > 0 { features.len() as f64 / total as f64 } else { 0.0 }, &format!("{}: the service is slow, retrying with smaller pages…", d.label))?;
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
         let got = page["features"].as_array().cloned().unwrap_or_default();
         let n = got.len();
         features.extend(got);
@@ -296,7 +350,7 @@ pub fn fetch(id: &str, vintage: &str, state: &str, county: Option<&str>, cache_d
         }
         let more = page["exceededTransferLimit"].as_bool().unwrap_or(false)
             || page["properties"]["exceededTransferLimit"].as_bool().unwrap_or(false);
-        if n == 0 || (!more && n < PAGE) {
+        if n == 0 || (!more && n < page_size) {
             break;
         }
         if features.len() >= MAX_FEATURES {
@@ -311,4 +365,20 @@ pub fn fetch(id: &str, vintage: &str, state: &str, county: Option<&str>, cache_d
     std::fs::write(&tmp, serde_json::to_vec(&fc)?)?;
     std::fs::rename(&tmp, &path)?;
     Ok(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_body;
+
+    #[test]
+    fn bad_responses_are_described_not_just_not_json() {
+        assert!(parse_body(br#"{"type":"FeatureCollection","features":[]}"#, 200, "application/geo+json").is_ok());
+        let html = parse_body(b"<html><head><title>503 Service Unavailable</title></head></html>", 200, "text/html").unwrap_err().to_string();
+        assert!(html.contains("web page instead of data") && html.contains("503 Service Unavailable"), "{html}");
+        let cut = parse_body(br#"{"type":"FeatureCollection","features":[{"type":"Feat"#, 200, "application/geo+json").unwrap_err().to_string();
+        assert!(cut.contains("ended early"), "{cut}");
+        let other = parse_body(b"Service temporarily overloaded", 200, "text/plain").unwrap_err().to_string();
+        assert!(other.contains("isn't JSON") && other.contains("overloaded"), "{other}");
+    }
 }
