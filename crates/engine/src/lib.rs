@@ -446,7 +446,14 @@ impl Engine {
             };
             for mut info in self.import_with(&path, &mut Task::start(format!("Adding {}", d.label)))? {
                 if let Some(w) = &clip_wkt {
-                    info = self.clip_layer_to(&info, w)?;
+                    info = match self.clip_layer_to(&info, w) {
+                        Ok(i) => i,
+                        Err(e) => {
+                            let _ = self.remove_layer(&info.id);
+                            out.failed.push(format!("{}: {e:#}", d.label));
+                            continue;
+                        }
+                    };
                     if info.feature_count == 0 {
                         self.remove_layer(&info.id)?;
                         out.empty.push(d.label.into());
@@ -494,19 +501,27 @@ impl Engine {
     }
 
     /// Clip a lon/lat layer to a lon/lat WKT shape in place, keeping each
-    /// feature's dimension (lines stay lines).
+    /// feature's dimension (lines stay lines). Downloaded data can hold invalid
+    /// polygons (self-intersections), which make GEOS throw a TopologyException
+    /// in the intersection, so invalid features are repaired first
+    /// (`ST_MakeValid`, same dimension kept) and the clip shape is made valid
+    /// too. One transaction: a failure leaves the layer as downloaded.
     fn clip_layer_to(&self, info: &LayerInfo, wkt: &str) -> Result<LayerInfo> {
         let mut info = info.clone();
         self.with_conn(|c| {
             let t = ident(&info.table);
-            let g = format!("ST_GeomFromText({})", lit(wkt));
-            c.execute_batch(&format!(
-                "DELETE FROM {t} WHERE geom IS NULL OR NOT ST_Intersects(geom, {g});
-                 UPDATE {t} SET geom = ST_CollectionExtract(ST_Intersection(geom, {g}), ST_Dimension(geom) + 1) WHERE NOT ST_Within(geom, {g});
-                 DELETE FROM {t} WHERE ST_IsEmpty(geom);"
-            ))?;
-            layers::refresh_display(c, &mut info)?;
-            self.save_meta(c, &info)
+            let g = format!("ST_MakeValid(ST_GeomFromText({}))", lit(wkt));
+            atomically(c, || {
+                c.execute_batch(&format!(
+                    "UPDATE {t} SET geom = ST_CollectionExtract(ST_MakeValid(geom), ST_Dimension(geom) + 1) WHERE geom IS NOT NULL AND NOT ST_IsValid(geom);
+                     DELETE FROM {t} WHERE geom IS NULL OR ST_IsEmpty(geom) OR NOT ST_Intersects(geom, {g});
+                     UPDATE {t} SET geom = ST_CollectionExtract(ST_Intersection(geom, {g}), ST_Dimension(geom) + 1) WHERE NOT ST_Within(geom, {g});
+                     DELETE FROM {t} WHERE ST_IsEmpty(geom);"
+                ))
+                .map_err(|e| anyhow!("couldn't clip the features to the area ({e}). Untick \"Clip features to the area\" to keep whole features"))?;
+                layers::refresh_display(c, &mut info)?;
+                self.save_meta(c, &info)
+            })
         })?;
         Ok(info)
     }
@@ -1214,3 +1229,33 @@ fn atomically<T>(conn: &Connection, f: impl FnOnce() -> Result<T>) -> Result<T> 
     }
 }
 pub use duckdb;
+
+#[cfg(test)]
+mod clip_tests {
+    use super::Engine;
+
+    /// The National Map can send invalid polygons (self-intersections); clipping
+    /// them used to abort the import with a GEOS TopologyException.
+    #[test]
+    fn clipping_repairs_invalid_polygons_instead_of_failing() {
+        let e = Engine::new().unwrap();
+        // A bowtie (self-intersecting) polygon and a valid one, both crossing the clip box.
+        let bowtie = "POLYGON((-119.3 37.9, -119.0 38.2, -119.0 37.9, -119.3 38.2, -119.3 37.9))".to_string();
+        let square = "POLYGON((-119.25 37.95, -119.05 37.95, -119.05 38.15, -119.25 38.15, -119.25 37.95))".to_string();
+        let layer = e.create_features("lands", &[(bowtie, Default::default()), (square, Default::default())]).unwrap();
+        let clip = "POLYGON((-119.2 38.0, -119.1 38.0, -119.1 38.1, -119.2 38.1, -119.2 38.0))";
+        let out = e.clip_layer_to(&layer, clip).expect("clipping an invalid polygon must not fail");
+        assert_eq!(out.feature_count, 2, "both features are kept, clipped");
+        let (valid, polys): (bool, i64) = e
+            .with_conn(|c| {
+                Ok(c.query_row(
+                    &format!("SELECT bool_and(ST_IsValid(geom)), count(*) FILTER (WHERE ST_Dimension(geom) = 2) FROM {}", super::db::ident(&out.table)),
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )?)
+            })
+            .unwrap();
+        assert!(valid, "results are valid geometry");
+        assert_eq!(polys, 2, "polygons stay polygons");
+    }
+}
