@@ -2,6 +2,8 @@
 
 One row per case for every feature in `docs/ROADMAP.md`. Last updated 2026-10-25 (macOS arm64).
 
+**Full plan:** the edge-case, failure-path and error-reporting plan for every feature is in [`docs/TEST_PLAN_FULL.md`](TEST_PLAN_FULL.md) (cases in `docs/test-plan/`); it references the IDs below.
+
 **Coverage column**
 - `auto: <file>::<test>` — an automated test covers it. Rust files are `crates/engine/tests/<file>.rs` (`unit:` = a `#[cfg(test)]` module in `crates/engine/src/`). TypeScript files are `ui/src/**/<file>.test.ts` with the `describe` name after `>`.
 - `auto (ignored): …` — automated, but not run by default (`network` = needs internet, `perf` = slow, `BUG` = fails today, see `docs/BUGS.md`). Run them with `cargo test -p engine --test <file> -- --ignored <name>`.
