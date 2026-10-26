@@ -6,7 +6,7 @@ import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
 import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type SurroundElement, type TextElement } from "../layout/types";
 import { reportError } from "../errors/store";
-import { useApp } from "./store";
+import { useApp, type Basemap } from "./store";
 
 interface LayoutState {
   /** Every layout of the project except the open one's latest edits (those are in `doc`). */
@@ -245,6 +245,11 @@ export const newLayoutId = () => `L${Date.now().toString(36)}${counter++}`;
 /** Room under a new frame for its Sources line, mm. */
 const SOURCES_H = 9.5;
 
+/** The map view's basemap as a print basemap. OpenStreetMap can't be printed (its tile policy forbids bulk downloads), so it maps to none. */
+export function printBasemap(b: Basemap): MapFrame["basemap"] {
+  return b === "usgsTopo" || b === "usgsImagery" || b === "usgsRelief" ? b : "none";
+}
+
 export function addMapFrame(): string | null {
   const s = useLayouts.getState();
   const crs = useApp.getState().mapCrs;
@@ -270,7 +275,7 @@ export function addMapFrame(): string | null {
     center: [0, 0],
     scale: 1_000_000,
     layers: "map",
-    basemap: "none",
+    basemap: printBasemap(useApp.getState().basemap),
     graticule: null,
     grid: null,
     border: { width: 0.35, color: "#000000" },

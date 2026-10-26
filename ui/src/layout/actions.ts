@@ -6,7 +6,7 @@ import { api, errorText, IN_TAURI } from "../ipc/api";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
-import { addMapFrame, addSurround, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
+import { addMapFrame, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
 import { frames, newLayoutDoc, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 
@@ -129,7 +129,9 @@ export async function setFrameFromMapView(frameId?: string) {
     const w = (size[0] * mpp) / (Math.max(frame.w, 1) / 1000);
     const h = (size[1] * mpp) / (Math.max(frame.h, 1) / 1000);
     if (!center.every(Number.isFinite)) return status("That map position can't be shown in the frame's coordinate system. Choose a different one.");
-    useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)) });
+    const mapBasemap = useApp.getState().basemap;
+    useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)), basemap: printBasemap(mapBasemap) });
+    if (mapBasemap === "osm") status("OpenStreetMap can't be used in print layouts (its tile policy forbids bulk downloads), so the frame has no basemap. Choose a USGS basemap.");
   } catch (e) {
     status(`Could not place the frame: ${errorText(e)}`);
   }

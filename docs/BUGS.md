@@ -100,3 +100,9 @@ Found 2026-10-25 while automating `docs/TEST_PLAN.md` §14 (`e2e/*.spec.ts`). Ea
 | E2E-2 | Low | **Fixed** —  Adding a path that does not exist reports "Could not read /path: Query returned no rows" instead of saying the file is missing | `misc.spec.ts` "M-1 BUG E2E-2" |
 
 Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e test allows 30 s.
+
+## Reported by the user
+
+| ID | Sev. | Summary | Fix |
+|---|---|---|---|
+| U-1 | Medium | The layout editor didn't show the map's basemap: a new map frame always started with `basemap: "none"`, and "Set from Map View" didn't copy it | Fixed 2026-10-25: new frames and "Set from Map View" take the map view's basemap (`printBasemap`; OpenStreetMap prints as none, with a message, because its tile policy forbids it). Test: `layout.test.ts` "map frame basemap follows the map view". |

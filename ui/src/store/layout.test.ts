@@ -151,3 +151,15 @@ describe("helpers", () => {
     expect(roundScaleUp(1_100_000)).toBe(2_000_000);
   });
 });
+
+describe("map frame basemap follows the map view", () => {
+  it("maps the view's basemap to a print basemap (OSM and none print without one)", async () => {
+    const { printBasemap } = await import("./layout");
+    expect(printBasemap("usgsTopo")).toBe("usgsTopo");
+    expect(printBasemap("usgsImagery")).toBe("usgsImagery");
+    expect(printBasemap("usgsRelief")).toBe("usgsRelief");
+    expect(printBasemap("osm")).toBe("none");
+    expect(printBasemap("none")).toBe("none");
+  });
+});
+
