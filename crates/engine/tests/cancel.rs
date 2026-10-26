@@ -96,9 +96,10 @@ fn cancel_dissolve_during_the_tile_unions() {
     // 300 ms lands in the first statements; these land in the partial unions and the pairwise merges.
     for secs in [3, 5, 7] {
         let e = Arc::new(Engine::new().unwrap());
-        let polys = e.generate_test_layer("polygons", 200_004, [-100.0, 30.0, -94.0, 36.0]).unwrap();
+        // 200 005, not 200 004: tests run in parallel and the task label carries the layer name.
+        let polys = e.generate_test_layer("polygons", 200_005, [-100.0, 30.0, -94.0, 36.0]).unwrap();
         let g = tree(&polys.id, "dissolve", json!({}), None);
-        run_and_cancel_at(Duration::from_secs(secs), "Running model — Test polygons (200004)", &e, &g, "t", &polys.id, Duration::from_secs(2));
+        run_and_cancel_at(Duration::from_secs(secs), "Running model — Test polygons (200005)", &e, &g, "t", &polys.id, Duration::from_secs(2));
     }
 }
 

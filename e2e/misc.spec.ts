@@ -93,6 +93,7 @@ test("M-25 progress UI: a running task shows a bar and Cancel in the status bar;
 
 test("M-1 (E2E-2 fixed): adding a missing file says the file is missing, not 'Query returned no rows'", async ({ app, errors }) => {
   errors.expected = true;
+  errors.known.push(/Adding 1 file\(s\) failed/); // reported to the console on purpose
   await gis(app, (g) => g.actions.addData(["/no/such/folder/missing.shp"]));
   await expect(app.locator(".statusbar")).not.toContainText(/Query returned no rows/);
   await expect(app.locator(".statusbar")).toContainText(/not found|does not exist|no such file/i);
