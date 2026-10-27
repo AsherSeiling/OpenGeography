@@ -1,6 +1,6 @@
 # Coordinate systems (CRS) hardening — plan
 
-_Written 2026-10-27 (draft by Sonnet from reading the code and docs; **Opus review of §3 and §4 before R1 starts**). User request: a robust plan so coordinate systems work, with full test cases written down, run right after the current phase (Phase C) in `docs/MASTER_PLAN.md` as **Phase R**. The test cases are in `docs/TEST_PLAN.md` §2A (IDs `R-A1`…`R-L4`); this file owns the design, the audit and the sessions._
+_Written 2026-10-27 (draft by Sonnet from reading the code and docs; **Opus review of §3 and §4 before R1 starts**). User request: a robust plan so coordinate systems work, with full test cases written down, run right after the current phase (Phase C) in `docs/MASTER_PLAN.md` as **Phase R**. The 100 test cases are in `docs/TEST_PLAN.md` §2A (IDs `R-A1`…`R-L4`); this file owns the design, the audit and the sessions._
 
 **Why now.** Every other priority rests on CRS being right: measurements, buffers, joins, map drawing, layouts, downloads and (later) planetary bodies. CRS bugs are silent: a wrong number looks like a right one. Today CRS handling is spread over ~49 `ST_Transform` call sites, string comparisons and a few helpers (`crs.rs`, `nodes/mod.rs::geom_in`, `display.rs`, `raster.rs`, `layout/geo.rs`). 18 CRS cases are covered (`TEST_PLAN.md` §2), mostly one CRS pair per case. Nothing yet proves the whole app is consistent across many CRSs.
 
@@ -18,7 +18,7 @@ _Written 2026-10-27 (draft by Sonnet from reading the code and docs; **Opus revi
 | I8 | **Results keep a stated CRS** (first input's, unless the tool says otherwise) and say when they reprojected. | R-F5, R-F10 |
 | I9 | **Anything that can't be projected is counted and reported**, not dropped quietly (poles, antimeridian, outside a projection's domain). | R-F11, R-J |
 | I10 | **Save, export and reopen preserve the CRS**, including on another OS. | R-E, R-K |
-| I11 | **The screen, the engine and the print agree**: map readout, scale, layout scale bar and graticule match the engine's numbers. | R-H, R-I |
+| I11 | **The screen, the engine and the print agree**: map readout, scale, layout scale bar and graticule and the distortion display (Tissot circles, k, convergence) match the engine's numbers. | R-H, R-I |
 | I12 | **A new tool can't skip CRS testing.** A guard test fails when a registered tool is missing from the CRS matrix. | R-F1 |
 
 ## 2. Audit — where CRS touches the code, and suspected gaps
@@ -123,10 +123,10 @@ One session = one bounded task (rules in `MASTER_PLAN.md` §2). Order is fixed; 
 | R3 | **Transform quality.** Operation + accuracy record (RD-3); ballpark warning; `--self-test` asserts the datum grids; GeoJSON export policy (RD-7); Z/M policy (RD-8). Cases R-D4–D8, R-E3, R-J5, R-K2. | 1–2 | Sonnet, Opus reviews | R-D all pass; a PROJ_DATA without grids is caught, not silent |
 | R4 | **Tool matrix.** `tests/crs_matrix.rs` runs every vector tool over the zoo (R-F), with the guard (R-F1), unit rule (RD-9) and out-of-domain rule (RD-6). Fix what it finds in the tools. | 1.5–2 | Sonnet | R-F all pass or are ignored with a `C-n` bug; guard passes |
 | R5 | **Rasters and pole-safe queries.** R-G, R-E7–E8, R-J9, P18 (identify/select at the poles via `__disp_*`), `crs_of` improvements, the gdaldem scale fix. Engine side of M4's alignment check (R-G7). | 1–2 | Sonnet, Opus reviews P18 | R-G pass; South Pole identify correct |
-| R6 | **UI and layouts.** CRS picker upgrades (custom entry with validation and preview of name, units, datum, area of use), CRS shown on layers and in the status bar, area-of-use chip, layout CRS statement; R-H, R-I, R-E6, e2e additions. | 1–1.5 | Sonnet | R-H/R-I pass in vitest/e2e/engine; manual M-27–M-29 written |
+| R6 | **UI and layouts.** CRS picker upgrades (custom entry with validation and preview of name, units, datum, area of use), CRS shown on layers and in the status bar, area-of-use chip, **distortion display** (optional Tissot indicatrix layer from the engine's `factors`, plus scale factor k and convergence in the status bar; user request 2026-10-27), layout CRS statement; R-H, R-I, R-E6, e2e additions. | 1.5–2 | Sonnet | R-H/R-I pass in vitest/e2e/engine; manual M-27–M-29 written |
 | R7 | **Cross-platform and stress.** CI runs the reference suite on all three platforms and prints PROJ/GDAL versions; thread stress (shares M4 P17); performance baselines; manual run on Windows and Linux; mark the CRS rows in `ROADMAP.md`. | 1 (+ yours for the manual run) | Sonnet + you | R-K pass on macOS, Windows, Linux; M-30 done |
 
-**Total:** 7–10 sessions. **Not parallel with each other** (R2–R5 all touch `crs.rs` and `nodes/mod.rs`). R1 may run beside a feature session (new test files only). R6 conflicts with any map-UI task.
+**Total:** 7–10 sessions (R6 grew by about half a session for the distortion display). **Not parallel with each other** (R2–R5 all touch `crs.rs` and `nodes/mod.rs`). R1 may run beside a feature session (new test files only). R6 conflicts with any map-UI task.
 
 **Exit criteria (Phase R done):**
 1. All TEST_PLAN §2A cases are `auto` (or `manual` with steps), with no `gap`; any case that exposed a bug is fixed or listed in `BUGS.md` with a decision.

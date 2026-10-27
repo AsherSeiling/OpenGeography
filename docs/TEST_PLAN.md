@@ -194,6 +194,8 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 | R-H8 | Create features | click in CRS A, store in a layer in CRS B | ≤ 1 mm (extends P11) | planned R6 |
 | R-H9 | CRS picker and custom entry | search by code, name, "UTM 15N", State Plane by state, by location; paste an EPSG code, WKT, PROJ string; invalid text | the picked CRS shows name, units, datum, area of use before Apply; invalid text is rejected with the engine's message; recents kept | planned R6: crs.test.ts, e2e |
 | R-H10 | Layer source panel | layer in 26915 on a 3857 map | shows name, code, unit, datum, and "drawn in map CRS (reprojected)" | planned R6 |
+| R-H11 | Tissot indicatrix layer (Map tab, optional) | circles on a 15° lon/lat grid in UTM 15N, Albers 5070, Web Mercator, 3031 | each ellipse's axes equal PROJ `proj_factors` (h, k, convergence) within 0.1 %; in 5070 every circle has area ratio 1.0 ± 0.001; in 3031 circles at 71°S have scale 1.0; in 3857 the scale grows as 1/cos φ; circles that can't be projected are skipped and counted | planned R6: engine test + e2e |
+| R-H12 | Distortion readout in the status bar | pointer over 10 positions per CRS | shows scale factor k and convergence equal to the engine's `factors` (same numbers as the layout scale bar); throttled like the coordinate readout (≤ 110 calls per 5 s sweep) | planned R6: readout.test.ts |
 
 ### I. Layouts
 
@@ -552,7 +554,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 |---|---|---|
 | Import / export | 21 / 3 / 0 | `formats.rs` (11) |
 | CRS | 17 / 1 / 0 | `crs_edge.rs` (7), `crsEdge.test.ts`, `scaleEdge.test.ts` |
-| CRS hardening (§2A, Phase R) | 0 / 0 / 0; 98 planned in R1–R7 (A 9, B 9, C 7, D 8, E 8, F 12, G 10, H 10, I 6, J 9, K 6 = 94, plus 4 manual) | planned: `crs_reference.rs`, `crs_matrix.rs`, `crsZoo.test.ts`, `e2e/crs.spec.ts` |
+| CRS hardening (§2A, Phase R) | 0 / 0 / 0; 100 planned in R1–R7 (A 9, B 9, C 7, D 8, E 8, F 12, G 10, H 12, I 6, J 9, K 6 = 96, plus 4 manual) | planned: `crs_reference.rs`, `crs_matrix.rs`, `crsZoo.test.ts`, `e2e/crs.spec.ts` |
 | Map view | 15 / 5 / 0 | `styleEdge.test.ts`, `scaleEdge.test.ts` |
 | Selection / identify / measure | 17 / 1 / 0 | `tables.rs` (selection part), `geodesyEdge.test.ts`, `navStore.test.ts`, `appStore.test.ts` |
 | Table / editing | 19 / 3 / 0 | `tables.rs` (17), `queryEdge.test.ts` |

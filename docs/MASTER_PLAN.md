@@ -22,7 +22,7 @@ _Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, a
 | [`docs/ATTRIBUTE_HISTORY_PLAN.md`](ATTRIBUTE_HISTORY_PLAN.md) | B1 design: snapshot persistence, diff rules, table pane UX, sessions B2.1–B2.3 | Phase B |
 | [`docs/LAYOUTS_PLAN.md`](LAYOUTS_PLAN.md) | C1 design: engine SVG→PDF/PNG renderer, document model, print scale/CRS rules, sessions C2.1–C3.2 | Phase C |
 | [`docs/MAP_PROJECTION_PLAN.md`](MAP_PROJECTION_PLAN.md) | Map view draws in the map's CRS: OpenLayers replaces MapLibre, engine tiles per CRS grid, sessions M1–M4 | Phase C (C5) |
-| [`docs/CRS_PLAN.md`](CRS_PLAN.md) | Phase R: CRS invariants, audit of suspected gaps, decisions RD-1–RD-9, the test CRS "zoo", sessions R1–R7. Its 98 test cases are in `TEST_PLAN.md` §2A | Phase R |
+| [`docs/CRS_PLAN.md`](CRS_PLAN.md) | Phase R: CRS invariants, audit of suspected gaps, decisions RD-1–RD-9, the test CRS "zoo", sessions R1–R7. Its 100 test cases are in `TEST_PLAN.md` §2A | Phase R |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
 | [`docs/DECISIONS.md`](DECISIONS.md) | Decision log: why things are the way they are, newest first | When a task touches that area |
 | [`docs/prompts/orchestrator.md`](prompts/orchestrator.md) | Opus orchestrator: delegates to Sonnet sessions, reviews in tiers, merges | Running several tasks from one Opus session |
@@ -125,7 +125,7 @@ The biggest missing piece: the app currently can't make a printable map.
 
 ### Phase R — Coordinate-system hardening (user request 2026-10-27) ⟵ *next after Phase C's C3.2*
 
-**Goal:** coordinate systems demonstrably work everywhere: transforms, datum shifts, units, axis order, tools, rasters, map, layouts, import/export, and all three platforms. Plan, audit and decisions: [`CRS_PLAN.md`](CRS_PLAN.md). Test cases (98, written before any code): [`TEST_PLAN.md`](TEST_PLAN.md) §2A.
+**Goal:** coordinate systems demonstrably work everywhere: transforms, datum shifts, units, axis order, tools, rasters, map, layouts, import/export, and all three platforms. Plan, audit and decisions: [`CRS_PLAN.md`](CRS_PLAN.md). Test cases (100, written before any code): [`TEST_PLAN.md`](TEST_PLAN.md) §2A.
 
 | Task | Effort | Model | Notes |
 |---|---|---|---|
@@ -135,7 +135,7 @@ The biggest missing piece: the app currently can't make a printable map.
 | R3. Transform quality: operation + accuracy record, ballpark warning, datum grids checked by `--self-test`, GeoJSON export policy, Z/M policy | 1–2 | Sonnet, Opus reviews | |
 | R4. Tool matrix over the CRS zoo, with a guard so new tools can't skip it | 1.5–2 | Sonnet | |
 | R5. Rasters, raster import flavours, pole-safe identify/select (P18), gdaldem scale in geographic CRSs | 1–2 | Sonnet, Opus reviews P18 | |
-| R6. CRS picker with custom entry and preview, CRS shown on layers, area-of-use chip, layout CRS statement; map and layout cases | 1–1.5 | Sonnet | Not beside another map-UI task. |
+| R6. CRS picker with custom entry and preview, CRS shown on layers, area-of-use chip, distortion display (optional Tissot circles, k and convergence in the status bar), layout CRS statement; map and layout cases | 1.5–2 | Sonnet | Not beside another map-UI task. |
 | R7. CI on all three platforms, thread stress, performance baselines, manual Windows/Linux run | 1 + yours | Sonnet + you | Shares M4's P17 stress harness (engine side). |
 
 **Not parallel** with each other (R2–R5 all edit `crs.rs` and `nodes/mod.rs`).
