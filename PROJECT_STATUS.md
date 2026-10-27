@@ -35,11 +35,12 @@ _Updated 2026-10-27. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 
 ## Known issues
 - **e2e suite:** `e2e/*.spec.ts` (Playwright, devDependency). `scripts/run-test-plan.sh --e2e` runs it; run it alone with `scripts/e2e.sh <out-dir>`. Needs Google Chrome, `/Applications/Chromium.app`, `E2E_BROWSER_PATH`, or `npx playwright install chromium`. The devserver address and vite port come from `GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER` (defaults unchanged).
-- **Open bugs:** none (B-T1, B-T2, B-T4–B-T8, B5, E2E-1, E2E-2 fixed on `claude/bug-fix-batch-9271a8`, awaiting Opus review/merge). See `docs/BUGS.md`.
+- **Open bugs:** U-5 (layout Properties pane blank) and D-1 (large DEM download), both user-reported 2026-10-27, cause unknown, see `docs/BUGS.md`. Earlier: (B-T1, B-T2, B-T4–B-T8, B5, E2E-1, E2E-2 fixed on `claude/bug-fix-batch-9271a8`, awaiting Opus review/merge). See `docs/BUGS.md`.
 - **Cancel granularity:** cancel lands between DuckDB work units. Big geodesic Buffer and Dissolve now stop in ~0.1 s (`nodes/batching.rs`); other single-call work may still lag. gdaldem steps ignore GDAL's progress callback.
 - **macOS CI crash:** one intermittent SIGSEGV in layout tests (run 40055424934, conda GDAL, parallel tests). It hasn't happened again. M4's P17 stress test is the gate.
 
 ## Next tasks (in order)
+0. **Q3 (user reports 2026-10-27):** layout Properties pane goes blank / edits lost (U-5) and large-area 3DEP download fails (D-1). Diagnose first with the cases in `docs/TEST_PLAN.md` §9A and §10A, then fix U-5 and add the DEM guard; tiled download is D0 in Phase D. Plan: `docs/MASTER_PLAN.md` Phase C table (Q3).
 1. Bug-fix session (B-T1, B-T2, B-T4–B-T8, B5).
 2. M4 (`docs/MAP_PROJECTION_PLAN.md`, P14–P18) — on hold.
 3. C3.0 layout polish → C3.1 templates → C3.2 map series (end of Phase C).

@@ -109,6 +109,7 @@ The biggest missing piece: the app currently can't make a printable map.
 | C5. Projected map view: the map view draws in the map's CRS | 4 (M1–M4) | Opus designed, Sonnet builds | `MAP_PROJECTION_PLAN.md`. ✅ M1, M2 (OpenLayers replaces MapLibre), M3 (exact tools in any CRS; merged 2026-10-25). ⏸ M4 (rasters in any CRS, P17 GDAL thread-safety gate, P18 pole-safe tools) on hold at the user's request. |
 | Q1. Error handling and crash fixes | 1 | Sonnet | Error pop-up, per-pane error boxes, 8 layout/CRS crashes fixed. ✅ Merged 2026-10-25. |
 | Q2. Test cases for every feature | 1–2 | Sonnet | `docs/TEST_PLAN.md` + missing automated tests (engine 95 → 176, vitest 86 → 310); 8 bugs to `docs/BUGS.md`. ✅ Merged 2026-10-25. |
+| Q3. Layout Properties pane + large DEM download (user reports U-5, D-1) | 1–1.5 | Sonnet | **Next, before L1** (L3 relies on the Properties pane, so it must be dependable first). Step 1: add the tracer (LP-0) and run the diagnostic cases LP-1…LP-16 and DEM-0 (the reproduction ladder), write down the cause in `BUGS.md`. Step 2: fix U-5; for DEM add the guard: read the service limits, `plan_elevation` (size, requests, resolution used), honest message when coarsened, a confirm above 500 MB, Cancel during the wait, and a readable error for each service failure (DEM-1…DEM-3, DEM-6, DEM-10, DEM-12). Test cases: `TEST_PLAN.md` §9A and §10A. Opus reviews if the fix touches the store design. |
 | B5. Keep `lastOutput` outside undo history | 0.5 | Sonnet | ✅ Merged 2026-10-25 with the bug-fix batch (B-T1–B-T8, E2E-1/2, U-1–U-4 also fixed). |
 | B6. Split by attribute (export by category) | 1 | Sonnet | User request 2026-10-25; spec in `docs/DECISIONS.md`. One layer or one file per unique value of a field (QGIS `native:splitvectorlayer`, reimplemented). After L3. |
 | B7. Category precedence in unique-value symbology | 0.5–1 | Sonnet | User request 2026-10-25; spec in `docs/DECISIONS.md`. Drag-to-reorder categories; the order sets draw order on the map and in layouts, and the legend order. Can run beside B6 (different files). |
@@ -119,9 +120,9 @@ The biggest missing piece: the app currently can't make a printable map.
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
-**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Next: L1 → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then B6 ∥ B7 (split by attribute; category precedence; user request), then C3.0 → C3.1 → C3.2. **Then Phase R (coordinate-system hardening, user request 2026-10-27) before anything else.** M4 is on hold at the user's request. C4 waits for E1.
+**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Next: **Q3 (layout Properties pane U-5 and the large-area DEM guard D-1; user reports 2026-10-27)** → L1 → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then B6 ∥ B7 (split by attribute; category precedence; user request), then C3.0 → C3.1 → C3.2. **Then Phase R (coordinate-system hardening, user request 2026-10-27) before anything else.** M4 is on hold at the user's request. C4 waits for E1.
 **Exit:** a user can produce a print-scale PDF map with legend and grid; Topo Map Builder makes a USGS-style quad.
-**Total:** 10–14 sessions.
+**Total:** 11–15 sessions (with Q3).
 
 ### Phase R — Coordinate-system hardening (user request 2026-10-27) ⟵ *next after Phase C's C3.2*
 
@@ -149,6 +150,7 @@ Follows the connector order in [`PUBLIC_DATA_CATALOG.md`](PUBLIC_DATA_CATALOG.md
 
 | Task | Effort | Notes |
 |---|---|---|
+| D0. **Tiled large-area 3DEP download** (bug D-1): split the box into service-sized tiles, retry/resume, cancel, mosaic to one raster, one output CRS policy for wide areas, native-resolution choice; or use 3DEP's staged GeoTIFF/COG products through the National Map API for the largest areas (Opus chooses). Cases DEM-4…DEM-9, DEM-11, DEM-13 | 2 | Builds on Q3's `plan_elevation`; first task of Phase D because the Topo Map Builder (C4) and the raster tools (E1) need big DEMs; may run beside D3 if they don't both add Tauri commands |
 | D1. Generic ArcGIS REST catalog (generalize `tnm_vector.rs`) + catalog entries | 2 | PAD-US, FEMA NFHL, NWI and others become JSON entries. |
 | D2. Census join + OS keychain for the user's API key | 2 | A Join Census Data node; ACS and 2020 data. |
 | D3. STAC search + COG clip (`/vsicurl/`) | 2 | NAIP, Landsat, Sentinel-2, Copernicus DEM; reused by F1. |
@@ -158,7 +160,7 @@ Follows the connector order in [`PUBLIC_DATA_CATALOG.md`](PUBLIC_DATA_CATALOG.md
 
 **Model:** Sonnet throughout; Opus reviews the D1 catalog format once.
 **Exit:** the catalog's "Recommended order" list is done.
-**Total:** 10–11 sessions.
+**Total:** 12–13 sessions (with D0).
 
 ### Phase E — Raster foundation (roadmap P4)
 

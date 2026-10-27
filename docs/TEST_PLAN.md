@@ -460,6 +460,42 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 9.16 | Layout tab: draw/drag elements, rulers (not built), Set from Map View, Frame CRS, text tokens `{scale}`, export dialogs, dpi box (not built) | manual M-19 |
 | 9.17 | Map series, templates (C3), topo map builder (C4), GeoPDF | gap (not built) |
 
+### 9A. Layout Properties pane goes blank / edits lost (bug U-5, diagnosis first)
+
+User report 2026-10-27: in the layout editor, after selecting an element and editing its properties, the Properties pane often goes blank; the element must be selected again before a value change takes effect, sometimes several times. **Cause not known.** Reading the code (`ui/src/layout/LayoutView.tsx`, `ui/src/store/layout.ts`, `ui/src/layout/ElementProperties.tsx`, `ui/src/panes/PropertiesPane.tsx`) gives these hypotheses; the cases below separate them. Pane blank = `useApp.properties` is `null` (the "Select a layer…" hint) or the pane remounted.
+
+| Hyp. | Idea | Where |
+|---|---|---|
+| H1 | Something clears `selected` (`select([])`) while the user is working: a pointer-down that reaches the canvas handler after the element's own handler, or on handles, locked elements or the page background. | `LayoutView.tsx` canvas `onPointerDown`; an effect sets `properties` to `null` when `selected.length != 1` |
+| H2 | `open(id)` resets the selection (`selected: []`) whenever the active layout changes (a tab or dock activation, a second layout, a project event). | `layout.ts` `open`, `LayoutView.tsx` `activate` |
+| H3 | Properties edit the *wrong document*: `update`/`edit` write to the open layout `doc`, while the pane reads `docs[layout]` when another layout is open, so the value is silently dropped until the element is reselected. | `ElementProperties.tsx` selector vs `layout.ts` `edit` |
+| H4 | Another part of the app sets `properties` (layer or model selection, a run finishing, Contents click) and the layout effect doesn't re-assert it because `selected` didn't change. | `useApp.setProperties` callers |
+| H5 | A re-render storm or remount (preview render, debounced save, undo-history step) resets the `Num` field state or the pane. | `Num` effect, `beginStep`/`burst`, preview effect |
+| H6 | Undo/redo or `afterHistory` drops the selection after an edit. | `layout.ts` |
+| H7 | A render error inside the pane is swallowed by the error boundary and shows nothing. | pane error boundary |
+
+| ID | Check | Steps / input | Expected | Tests |
+|---|---|---|---|---|
+| LP-0 | **Tracer** (diagnosis tool, dev builds only) | `?trace=layout` logs every change of `useApp.properties`, `useLayouts.selected` and `useLayouts.id` with a timestamp and the call stack, plus a mount counter for `LayoutElementProperties` and each `Num` | a trace the user can attach to a report; every blank moment has a named cause | planned Q3 |
+| LP-1 | Selection survives edits (store) | select one element; 30 `update` calls on x, y, scale with and without a burst key | `selected` unchanged; final value = last value; one undo step per burst | vitest `layoutStore.test.ts` |
+| LP-2 | Edit goes to the pane's own layout (H3) | layouts A and B; A open, select an element in A; then `open(B)`; call the pane's `set` for A's element | the edit lands in A or is refused with a message; never dropped silently | vitest (expected to fail if H3 is true) |
+| LP-3 | `open()` and selection (H2) | `open(sameId)` keeps selection; `open(otherId)` clears it; reopening A restores a *sensible* selection (last selected element) | documented behaviour; the pane never shows a stale element | vitest |
+| LP-4 | Pointer paths never deselect by accident (H1) | e2e: for each element kind (map frame, text, legend, scale bar, north arrow, sources) × locked / unlocked × click body / move handle / resize handle / rotate | exactly one element is selected after each click; `properties` target is that element; the canvas page-background handler does not run | e2e `layout-props.spec.ts` |
+| LP-5 | Never blank while editing | e2e: select a map frame; type into Scale, Centre X, X, Width 5 times each, 100–900 ms apart; poll the pane every 50 ms | the empty-hint is never shown; every typed value is stored (compare with `useLayouts` state) | e2e |
+| LP-6 | Edits while a preview renders (H5) | e2e: delay `render_layout_preview` by 3 s; edit 5 fields during the render | pane never blank; fields keep what was typed; the preview ends consistent with the last edit | e2e |
+| LP-7 | Edits while a save is in flight (H5) | e2e: delay `save_layout` by 2 s; edit during it | same | e2e |
+| LP-8 | Two layouts, tab switching (H2, H3) | e2e: two layout tabs; select in A, switch to B and back, click into the pane, edit | selection restored or cleanly empty with the hint; edits apply to the visible layout | e2e |
+| LP-9 | Other selections steal the pane (H4) | e2e: with an element selected, click a layer in Contents, run a model, then click the element again and edit | pane follows the last click; no stale target; re-clicking the same element re-opens its properties (no need to select another first) | e2e |
+| LP-10 | Number field behaviour | vitest on `Num`: type `1`, `12`, clear, `-`, `1.`, `1e3`, paste; echoed rounding (`decimals`) | text is never rewritten while typing; value commits only when valid; blur shows the rounded value | vitest `elementProps.test.tsx` |
+| LP-11 | Undo/redo with focus in the pane (H6) | e2e: edit a value, press Ctrl+Z / Ctrl+Y inside the field | one burst undone; selection kept; pane not blank | e2e |
+| LP-12 | Keys in the pane don't act on the canvas | e2e: Delete / Backspace / Arrow keys inside a Properties field | the element is not deleted or nudged | e2e |
+| LP-13 | CRS change and Set from Map View | e2e: Change… CRS (dialog), then edit; Set from Map View, then edit | pane remains; fields show new values; edits stick | e2e |
+| LP-14 | Remount budget (H5) | dev counter: mounts of `LayoutElementProperties` and each `Num` during 20 edits | zero remounts; at most 2 renders per edit | vitest + e2e |
+| LP-15 | Error boundary (H7) | force a throw in a field renderer (test hook) | the pane shows its error box with the message, not blank | vitest |
+| LP-16 | Regression | all of LP-4…LP-13 on the fixed build, 50 repeats in CI (flaky = fail) | 50/50 | e2e (repeat) |
+
+**Done when:** the tracer or a failing LP case names the cause; the fix has a regression test; the cause and fix are recorded in `docs/BUGS.md` (U-5) and `docs/DECISIONS.md`.
+
 ## 10. Downloads (TIGER, National Map, 3DEP)
 
 | ID | Check | Coverage |
@@ -475,6 +511,38 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 10.9 | Cancelling a National Map download imports nothing | auto (ignored, network): downloads::cancelling_a_national_map_download_leaves_nothing_behind |
 | 10.10 | Dialogs: TIGER (state → county → years → datasets → progress bar → layers named with year/area), National Map (map view / layer extent / clip to layer), Elevation | manual M-20 |
 | 10.11 | Offline behaviour: turn off Wi-Fi, start a download | readable error in the dialog, no layer | manual M-21 |
+
+### 10A. Large-area DEM download (bug D-1, diagnosis first)
+
+User report 2026-10-27: downloading a DEM for a large area seems not to work and causes problems (details not given). `crates/engine/src/tnm.rs::download_elevation` makes **one** `exportImage` request for the whole box, UTM zone of the box centre, at most 8000 px per side (8000 × 8000 × 4 bytes = 256 MB), 300 s timeout, and silently coarsens the resolution above that. Suspected causes (confirm with the cases below; none is verified):
+
+| Hyp. | Idea |
+|---|---|
+| D-H1 | The service's own limit is lower than the 8000 px assumed (image size, or time), so a big request fails with a service error or a timeout. The real limit is not recorded anywhere. |
+| D-H2 | One request means no retry, no resume, little progress, and a Cancel that is only noticed while streaming bytes (not while waiting for the service, up to 300 s). |
+| D-H3 | The box is cut in one UTM zone chosen at its centre. A box wider than 6° (or crossing the equator, the poles, or ±180°) is badly distorted or filled with no-data. |
+| D-H4 | The resolution is silently coarsened (`ceil(extent / 8000)`) without telling the user what they will get; the dialog hint says only "large areas use a coarser resolution". |
+| D-H5 | A big raster is imported whole: overviews, the in-project copy, and memory (`raster::import`) may fail or take minutes with no progress. |
+| D-H6 | The width/height estimate uses fixed 111 320 / 110 950 m per degree, which is wrong for large or polar areas. |
+
+| ID | Check | Input | Expected | Tests |
+|---|---|---|---|---|
+| DEM-0 | **Reproduction ladder** (diagnosis tool) | real service: squares of 10, 50, 100, 200, 500, 1000 km at 30 m and at 90 m; log wall time, bytes, HTTP status, service message, resulting cell count and resolution | a table in `docs/DEM_DOWNLOAD.md` (new) naming where it first fails and why | engine test, ignored (network), prints the table |
+| DEM-1 | Service limits are read, not guessed | `…/ImageServer?f=json` | `maxImageWidth`, `maxImageHeight`, supported formats, native resolutions are recorded; the code uses them | network, ignored; mock for the parser |
+| DEM-2 | Download plan (pure function) | boxes from 1 km to 5000 km, resolutions 1–90 m, any latitude | `{ requested_res, used_res, cols, rows, tiles, bytes, coarsened }`; no tile above the service limit or 500 MB; `coarsened` true whenever `used_res > requested_res`; sizes within 2 % of a geodesic computation | unit |
+| DEM-3 | Mock service: failures | local HTTP server stands in for `exportImage` (service URL injectable): HTTP 500, 504, JSON error body with 200, truncated body, no `Content-Length`, trickling body, wrong content type | readable message each time ("USGS 3DEP returned … for tile 4 of 9"); temp files removed; no layer added; engine still works | engine test |
+| DEM-4 | Tiling is seamless | mock serves the plane `z = a·x + b·y` for any tile; 3 × 3 tiles | the mosaic equals a single request to 1e-3 m; no gap or overlap rows at tile edges; no-data count = 0 | engine test |
+| DEM-5 | Wide and special areas | boxes across a UTM zone edge (−96 … −90), across the equator, near 80° N, across ±180°, a hemisphere-sized box | one stated output CRS (policy decided in R0/D0: geographic for > 1 zone, else the local UTM zone); no wedge of no-data above 1 % of cells; correct zone numbers (lon 180 → zone 60) | unit + mock |
+| DEM-6 | Cancel | cancel during tile 3 of 9, and during the wait for a tile | stops within 2 s; temp files removed; no layer | engine test |
+| DEM-7 | Retry and resume | mock fails tile 5 twice then succeeds; another run fails tile 5 permanently | retried up to 3 times with back-off; finished tiles are not requested again; the permanent failure names the tile and keeps the finished ones for a re-run | engine test |
+| DEM-8 | Memory and disk | 20 000 × 20 000 cells (mock, 1.6 GB of floats) | peak memory < 500 MB (streams to disk); free-space check before the download; clear message if short | engine test (perf, ignored) |
+| DEM-9 | Import cost | `raster::import` of an 8000 × 8000 F32 | progress reported; < 60 s (release); stored size reported; tiled/compressed output | engine test (perf, ignored) |
+| DEM-10 | Dialog shows the truth | Elevation dialog: current view at 3 zoom levels, a 500 km layer extent | one engine command (`plan_elevation`) feeds the hint: size in MB, number of requests, resolution actually used, a warning when coarsened, and a confirm above 500 MB; the numbers equal the download's | vitest + e2e |
+| DEM-11 | Real service, large | 1° × 1° at 30 m; 5° × 5° at 90 m containing Mt Whitney (36.5785° N, −118.2923°, 4421 m) | succeeds; maximum elevation within 4300–4430 m; no-data < 1 %; < 10 min | network, ignored |
+| DEM-12 | Real service, offline and down | no network; DNS failure; service returns 503 | "Could not reach …" within 30 s; no layer; progress bar clears | network + offline, extends 21 |
+| DEM-13 | Result metadata | any successful job | CRS stated; NAVD88 metres; citation recorded once per job (not per tile); layer name has the area label | engine test |
+
+**Done when:** DEM-0's table shows the failure point; DEM-3…DEM-10 pass; DEM-11 passes against the real service on the maintainer's machine.
 
 ## 11. Sources and citations
 
@@ -571,6 +639,8 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 |---|---|---|
 | Import / export | 21 / 3 / 0 | `formats.rs` (11) |
 | CRS | 17 / 1 / 0 | `crs_edge.rs` (7), `crsEdge.test.ts`, `scaleEdge.test.ts` |
+| Layout Properties pane, bug U-5 (§9A) | 0 / 0 / 0; 17 diagnostic and regression cases planned in Q3 (LP-0…LP-16) | planned: `layoutStore.test.ts`, `elementProps.test.tsx`, `e2e/layout-props.spec.ts` |
+| Large-area DEM download, bug D-1 (§10A) | 0 / 0 / 0; 14 cases planned in Q3 (guard) and D0 (tiled download) (DEM-0…DEM-13) | planned: `downloads.rs` + mock service, `ElevationDialog` tests |
 | CRS hardening (§2A, Phase R) | 0 / 0 / 0; 112 planned in R1–R8 (A 9, B 9, C 7, D 8, E 8, F 12, G 10, H 12, I 6, J 9, K 6, W 12 = 108, plus 4 manual) | planned: `crs_reference.rs`, `crs_matrix.rs`, `crsZoo.test.ts`, `e2e/crs.spec.ts` |
 | Map view | 15 / 5 / 0 | `styleEdge.test.ts`, `scaleEdge.test.ts` |
 | Selection / identify / measure | 17 / 1 / 0 | `tables.rs` (selection part), `geodesyEdge.test.ts`, `navStore.test.ts`, `appStore.test.ts` |

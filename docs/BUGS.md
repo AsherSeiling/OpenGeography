@@ -99,6 +99,9 @@ Found 2026-10-25 while automating `docs/TEST_PLAN.md` §14 (`e2e/*.spec.ts`). Ea
 | E2E-1 | Low | **Fixed** —  Applying a definition query logs React's "two children with the same key" error: `MapNotices` uses the notice text (`Projecting <layer name>…`) as the key, and two projections of one layer (before and after the query) are listed at once. Can duplicate or drop a notice line | `table.spec.ts` "M-12 BUG E2E-1" (the real M-12 test filters this one message) |
 | E2E-2 | Low | **Fixed** —  Adding a path that does not exist reports "Could not read /path: Query returned no rows" instead of saying the file is missing | `misc.spec.ts` "M-1 BUG E2E-2" |
 
+| U-5 | High | Layout editor: the Properties pane often goes blank after selecting an element and editing a value; the element must be reselected before a change takes effect, sometimes several times. **Open, cause unknown.** Hypotheses H1–H7 and diagnostic cases LP-0…LP-16 in `docs/TEST_PLAN.md` §9A. Planned fix: Q3. | — |
+| D-1 | High | Downloading 3DEP elevation for a large area fails or causes problems (one request for the whole box; service limits unknown; silent coarsening; no tiling, retry or resume). **Open, cause unknown.** Hypotheses D-H1…D-H6 and cases DEM-0…DEM-13 in `docs/TEST_PLAN.md` §10A. Guard in Q3, tiled download in D0. | — |
+
 Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e test allows 30 s.
 
 ## Reported by the user
