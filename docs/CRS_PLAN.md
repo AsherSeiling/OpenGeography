@@ -1,6 +1,6 @@
 # Coordinate systems (CRS) hardening — plan
 
-_Written 2026-10-27 (draft by Sonnet from reading the code and docs; **Opus review of §3 and §4 before R1 starts**). User request: a robust plan so coordinate systems work, with full test cases written down, run right after the current phase (Phase C) in `docs/MASTER_PLAN.md` as **Phase R**. The 100 test cases are in `docs/TEST_PLAN.md` §2A (IDs `R-A1`…`R-L4`); this file owns the design, the audit and the sessions._
+_Written 2026-10-27 (draft by Sonnet from reading the code and docs; **Opus review of §3 and §4 before R1 starts**). User request: a robust plan so coordinate systems work, with full test cases written down, run right after the current phase (Phase C) in `docs/MASTER_PLAN.md` as **Phase R**. The 112 test cases are in `docs/TEST_PLAN.md` §2A (IDs `R-A1`…`R-L4`); this file owns the design, the audit and the sessions._
 
 **Why now.** Every other priority rests on CRS being right: measurements, buffers, joins, map drawing, layouts, downloads and (later) planetary bodies. CRS bugs are silent: a wrong number looks like a right one. Today CRS handling is spread over ~49 `ST_Transform` call sites, string comparisons and a few helpers (`crs.rs`, `nodes/mod.rs::geom_in`, `display.rs`, `raster.rs`, `layout/geo.rs`). 18 CRS cases are covered (`TEST_PLAN.md` §2), mostly one CRS pair per case. Nothing yet proves the whole app is consistent across many CRSs.
 
@@ -20,6 +20,7 @@ _Written 2026-10-27 (draft by Sonnet from reading the code and docs; **Opus revi
 | I10 | **Save, export and reopen preserve the CRS**, including on another OS. | R-E, R-K |
 | I11 | **The screen, the engine and the print agree**: map readout, scale, layout scale bar and graticule and the distortion display (Tissot circles, k, convergence) match the engine's numbers. | R-H, R-I |
 | I12 | **A new tool can't skip CRS testing.** A guard test fails when a registered tool is missing from the CRS matrix. | R-F1 |
+| I13 | **Whole-Earth view works for any CRS** (curved edges, a cut at the right meridian, nothing silently lost). | R-W |
 
 ## 2. Audit — where CRS touches the code, and suspected gaps
 
@@ -42,6 +43,8 @@ Found by reading the code on 2026-10-27; **each is a hypothesis until its test r
 | G13 | PROJ/GDAL versions differ between local (Homebrew) and CI (conda) builds | A reference suite with tight tolerances needs the PROJ version in its log and one tolerance table (§3 RD-4). The layout golden SVG SHA already shows this risk. | R-K1 |
 | G14 | PROJ contexts and GDAL handles across threads | Tile serving, display builds and tools run concurrently; one macOS CI SIGSEGV is open. Shares the M4 P17 stress rule. | R-K3 |
 | G15 | Data outside a CRS's area of use | M1 reports dropped features for the *map*. Tools, exports and layouts need the same rule, and a "data is outside this CRS's recommended area" chip. | R-F7, R-H3, R-J9 |
+
+| G16 | `MAP_PROJECTION_PLAN.md` M-D2 / M-D3: the map grid is the CRS's *area of use*, and features outside it are clipped or dropped | A conic CRS such as Lambert Conformal Conic or Albers for the USA cannot show the whole Earth. The user wants to see how a projection spreads over the entire globe. Also: DuckDB Spatial transforms only vertices (no densify), so long edges across the world would be straight lines instead of curves; the cut meridian (lon_0 ± 180°) and the cone's apex need special handling. | R-W |
 
 **Out of scope (written down, so nobody assumes it):** time-dependent / dynamic datums and reference epochs (ITRF, WGS 84 realisations), geoid and vertical transformations beyond passing Z through unchanged (R-D8), and non-Earth bodies (phase F1 adds a `Body`; here we only keep PROJ's refusal of cross-body transforms, R-B9).
 
@@ -70,6 +73,14 @@ Found by reading the code on 2026-10-27; **each is a hypothesis until its test r
 - **RD-7. GeoJSON export default.** Reproject to EPSG:4326 (RFC 7946) and tell the user; an "Keep layer CRS (legacy `crs` member)" option writes the old form. Other formats keep the layer CRS.
 - **RD-8. Z and M.** Z is carried through unchanged by horizontal transforms and the result says "vertical datum not transformed" when a layer's CRS is compound or has a vertical component; M is dropped with a message. (Opus may choose to refuse instead.)
 - **RD-9. Distance parameters.** A tool parameter that is a distance has an explicit unit in `ToolSpec` (`metres`, `feet`, or `crs units`). `crs units` is refused for a geographic input with "use a projected CRS or metres" (G10).
+
+- **RD-10. World view (user request 2026-10-27).** Any CRS can be viewed over the whole Earth: a **World view** toggle in the Map tab (and a per-CRS extent choice: *Area of use* or *Whole world*). It changes only what is displayed; layers, tools and exports keep their own extents.
+  - **Grid:** `crs_display_info(crs, { world: true })` returns a grid over the projected image of the whole globe (key includes `world`). The globe's outline is the CRS's valid domain: for a conic, the cut at lon_0 ± 180° and the apex pole excluded (Lambert Conformal Conic stretches to infinity toward the pole it is not centred on, so the view stops at a stated latitude, default 80° beyond the standard parallels' hemisphere edge, with a note).
+  - **Display tables:** built in world mode from the source geometry, with edges densified (so a parallel across the world curves) and polygons cut at the CRS's cut meridian. Candidate method: GDAL's geometry transform with dateline wrapping and densify (already linked), instead of per-vertex `ST_Transform`; Opus decides in R0. Features are not dropped as "outside the area of use"; only truly un-projectable parts are, and they are counted (RD-6).
+  - **Reference layers drawn by the engine, no data download needed:** the **graticule** (every 15°, curved, labelled), the **globe outline** (the "sphere" polygon), the **equator, tropics, poles** and the CRS's **standard parallels and central meridian** highlighted, and the optional **Tissot circles** (R-H11). With these, a conic shows its cone shape and where distortion is zero.
+  - **Continents:** a small bundled coastline layer (public domain, Natural Earth 1:110m, about 200 kB; licence and citation recorded through `sources.rs`) is offered as "World outline" so the globe is recognisable without downloading anything. The full Natural Earth catalog entries stay in Phase D.
+  - **Choosing the projection:** the picker gets a **projection builder** for the classic families: conic (Lambert conformal, Albers equal-area, equidistant), cylindrical, azimuthal, with sliders for central meridian and standard parallels, which produce a PROJ string (valid custom CRS, R-B7 key). The user can drag the central meridian and watch the world re-centre.
+  - **Distortion colouring (optional, same session):** colour the globe by area scale or angular distortion from the engine's `factors`, drawn as a raster-like tile layer, so "how it pans out" is visible at a glance.
 
 ## 4. The test CRS "zoo"
 
@@ -117,27 +128,28 @@ One session = one bounded task (rules in `MASTER_PLAN.md` §2). Order is fixed; 
 
 | # | Task | Effort | Model | Acceptance |
 |---|---|---|---|---|
-| R0 | This plan; Opus review of §3 and the tolerance table | 0.5 | Opus | Decisions RD-1–RD-9 accepted or changed in `DECISIONS.md` |
+| R0 | This plan; Opus review of §3 and the tolerance table | 0.5 | Opus | Decisions RD-1–RD-10 accepted or changed in `DECISIONS.md` |
 | R1 | **Reference fixtures and harness.** `scripts/gen_crs_reference.py` (cs2cs; records the PROJ version), `fixtures/crs/reference.json`, `tests/common/crs_tol.rs`, `tests/crs_reference.rs`. Cases R-A, R-C1/C4–C7, R-D1–D3, R-J1–J4/J6–J8. **Find, don't fix:** failures become `#[ignore]` bug tests and `docs/BUGS.md` rows `C-n`. | 1–1.5 | Sonnet | Every R-A/R-C/R-D/R-J case written; engine suite still green; bugs listed |
 | R2 | **Identity and parsing.** `crs::key`/`crs::same`; replace every CRS string comparison; importer flavours (ESRI `.prj`, GeoJSON `crs`, GPKG custom/undefined, CSV); bad-definition hardening. Cases R-B, R-E1–E2, R-E4–E5, R-C2–C3. | 1–1.5 | Sonnet, Opus reviews | R-B all pass; no `eq_ignore_ascii_case` on a CRS remains (grep test); G1, G7 closed |
 | R3 | **Transform quality.** Operation + accuracy record (RD-3); ballpark warning; `--self-test` asserts the datum grids; GeoJSON export policy (RD-7); Z/M policy (RD-8). Cases R-D4–D8, R-E3, R-J5, R-K2. | 1–2 | Sonnet, Opus reviews | R-D all pass; a PROJ_DATA without grids is caught, not silent |
 | R4 | **Tool matrix.** `tests/crs_matrix.rs` runs every vector tool over the zoo (R-F), with the guard (R-F1), unit rule (RD-9) and out-of-domain rule (RD-6). Fix what it finds in the tools. | 1.5–2 | Sonnet | R-F all pass or are ignored with a `C-n` bug; guard passes |
 | R5 | **Rasters and pole-safe queries.** R-G, R-E7–E8, R-J9, P18 (identify/select at the poles via `__disp_*`), `crs_of` improvements, the gdaldem scale fix. Engine side of M4's alignment check (R-G7). | 1–2 | Sonnet, Opus reviews P18 | R-G pass; South Pole identify correct |
 | R6 | **UI and layouts.** CRS picker upgrades (custom entry with validation and preview of name, units, datum, area of use), CRS shown on layers and in the status bar, area-of-use chip, **distortion display** (optional Tissot indicatrix layer from the engine's `factors`, plus scale factor k and convergence in the status bar; user request 2026-10-27), layout CRS statement; R-H, R-I, R-E6, e2e additions. | 1.5–2 | Sonnet | R-H/R-I pass in vitest/e2e/engine; manual M-27–M-29 written |
+| R8 | **World view.** RD-10: world-mode grids and display tables with densify and cut meridian, graticule / outline / standard-parallel layers, bundled world outline, projection builder, optional distortion colouring. Cases R-W. | 2–3 | Sonnet, Opus designs the clipping method first | R-W pass; a Lambert conformal conic, Albers, and a world-centred-on-Fiji map each show the whole Earth correctly in the browser |
 | R7 | **Cross-platform and stress.** CI runs the reference suite on all three platforms and prints PROJ/GDAL versions; thread stress (shares M4 P17); performance baselines; manual run on Windows and Linux; mark the CRS rows in `ROADMAP.md`. | 1 (+ yours for the manual run) | Sonnet + you | R-K pass on macOS, Windows, Linux; M-30 done |
 
-**Total:** 7–10 sessions (R6 grew by about half a session for the distortion display). **Not parallel with each other** (R2–R5 all touch `crs.rs` and `nodes/mod.rs`). R1 may run beside a feature session (new test files only). R6 conflicts with any map-UI task.
+**Total:** 9–13 sessions (R6 grew by about half a session for the distortion display; R8, the world view, adds 2–3). R8 is a feature, not a correctness fix: it can move after R7 or into Phase C's end if you want it sooner (it needs R5's pole-safe queries and R6's Tissot layer). **Not parallel with each other** (R2–R5 all touch `crs.rs` and `nodes/mod.rs`). R1 may run beside a feature session (new test files only). R6 conflicts with any map-UI task.
 
 **Exit criteria (Phase R done):**
 1. All TEST_PLAN §2A cases are `auto` (or `manual` with steps), with no `gap`; any case that exposed a bug is fixed or listed in `BUGS.md` with a decision.
 2. `cargo test -p engine` runs the reference suite on all three CI platforms with one tolerance table.
 3. The tool guard (R-F1) is in CI.
 4. `--self-test` of the packaged app proves the datum grids are present.
-5. Roadmap rows for CRS are ✅ with the test ids; `DECISIONS.md` has the RD-1–RD-9 entry; `PROJECT_STATUS.md` updated.
+5. Roadmap rows for CRS are ✅ with the test ids; `DECISIONS.md` has the RD-1–RD-10 entry; `PROJECT_STATUS.md` updated.
 
 ## 6. Effects on other plans
 
-- **`MAP_PROJECTION_PLAN.md`:** P18 (pole-safe identify/select) moves into R5 because it is a CRS correctness bug that exists today. P14–P17 (rasters in the map view, GDAL thread safety) stay with M4, which remains on hold; R7 reuses the P17 stress harness for the engine side only.
+- **`MAP_PROJECTION_PLAN.md`:** M-D2's "grid from the area of use" gets a second mode (world, RD-10); the default stays as designed. P18 (pole-safe identify/select) moves into R5 because it is a CRS correctness bug that exists today. P14–P17 (rasters in the map view, GDAL thread safety) stay with M4, which remains on hold; R7 reuses the P17 stress harness for the engine side only.
 - **`PLANETARY_PLAN.md`:** F1 replaces the `EPSG:4326` pivot and `aeqd_for`'s datum with a `Body`. The zoo, tolerance table and matrix are written so a second body can be added as one more row of fixtures.
 - **`LAYOUTS_PLAN.md`:** nothing changes; R-I extends P4, P11 and P16 over more CRSs.
 - **Releases:** recommend tagging `v0.2.0` after Phase R rather than after C3.2, so the first release with printable maps has verified coordinates. The tag stays your call.

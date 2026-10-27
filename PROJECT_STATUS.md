@@ -43,5 +43,5 @@ _Updated 2026-10-27. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 1. Bug-fix session (B-T1, B-T2, B-T4–B-T8, B5).
 2. M4 (`docs/MAP_PROJECTION_PLAN.md`, P14–P18) — on hold.
 3. C3.0 layout polish → C3.1 templates → C3.2 map series (end of Phase C).
-4. **Phase R, coordinate-system hardening (user request 2026-10-27):** `docs/CRS_PLAN.md` (R0 Opus review, then R1–R7); the 100 test cases are already written in `docs/TEST_PLAN.md` §2A. Recommended: tag `v0.2.0` after it.
+4. **Phase R, coordinate-system hardening (user request 2026-10-27):** `docs/CRS_PLAN.md` (R0 Opus review, then R1–R8); the 112 test cases are already written in `docs/TEST_PLAN.md` §2A. Recommended: tag `v0.2.0` after it.
 5. Phase D: generic ArcGIS REST catalog (`docs/PUBLIC_DATA_CATALOG.md`), then the Census data join.

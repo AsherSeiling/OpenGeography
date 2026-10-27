@@ -197,6 +197,23 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 | R-H11 | Tissot indicatrix layer (Map tab, optional) | circles on a 15° lon/lat grid in UTM 15N, Albers 5070, Web Mercator, 3031 | each ellipse's axes equal PROJ `proj_factors` (h, k, convergence) within 0.1 %; in 5070 every circle has area ratio 1.0 ± 0.001; in 3031 circles at 71°S have scale 1.0; in 3857 the scale grows as 1/cos φ; circles that can't be projected are skipped and counted | planned R6: engine test + e2e |
 | R-H12 | Distortion readout in the status bar | pointer over 10 positions per CRS | shows scale factor k and convergence equal to the engine's `factors` (same numbers as the layout scale bar); throttled like the coordinate readout (≤ 110 calls per 5 s sweep) | planned R6: readout.test.ts |
 
+### W. World view (Phase R8, RD-10)
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-W1 | Whole-Earth grid for a conic | Lambert Conformal Conic (parallels 33°, 45°, lon_0 −96), Albers 5070, world view | grid extent covers the image of the globe; no feature dropped for "outside the area of use"; the south limit is reported | planned R8: display.rs |
+| R-W2 | Curved edges | the 45°N parallel and a meridian from 0° to 80° in a conic | densified: max deviation of the drawn polyline from the exact curve < 1 px at z2 (not a straight chord) | planned R8 |
+| R-W3 | Cut meridian | world polygon set (Eurasia, Antarctica, Fiji) in a conic with lon_0 = −96 and = 150 | polygons are cut at lon_0 ± 180° with no wrap-around streaks; areas of the pieces sum to the original (±0.01 % in an equal-area CRS) | planned R8 |
+| R-W4 | Apex and poles | conic centred on the north: south pole; azimuthal south polar: north pole; Mercator: both poles | clipped at a stated limit with a notice, finite coordinates only (extends R-J1) | planned R8 |
+| R-W5 | Graticule | every 15°, in 6 projection families | each line intersection equals `cs2cs` to 1 mm; lines curved; labels at the edges | planned R8 |
+| R-W6 | Standard parallels and central meridian highlighted | conic (33°, 45°), lon_0 −96 | highlighted lines lie where scale k = 1 (Tissot circles are round and unit-sized there, R-H11) | planned R8 |
+| R-W7 | Globe outline | each family | closed ring, projected from the CRS's valid domain; equal-area CRS outline area equals the sphere's surface scaled correctly | planned R8 |
+| R-W8 | Bundled world outline | 1:110m coastline in 6 projections | present, cited in Sources (Natural Earth, public domain); the file is ≤ 300 kB; no network call | planned R8 |
+| R-W9 | Projection builder | conic with parallels 20°/60°, lon_0 10°; move the central meridian by drag | valid PROJ string with a stable key (R-B7); the map re-centres within one redraw; invalid parallels (equal and opposite, outside ±90°) rejected with a message | planned R8: vitest + e2e |
+| R-W10 | Distortion colouring | Albers, Lambert conformal, Mercator | Albers: area scale 1.0 everywhere; Lambert: angular distortion 0 everywhere; Mercator: area scale 1/cos² φ; values equal `proj_factors` within 0.1 % | planned R8 |
+| R-W11 | Performance | world view of a 1 M-point layer in a conic | display table build < 15 s (release); pan stays interactive (no frame > 200 ms) | planned R8 (ignored, perf) |
+| R-W12 | Browser check | Lambert conformal conic and Albers, world view; world centred on Fiji | screenshots: cone shape, curved parallels, straight meridians converging at the pole, outline closed, no streaks | manual, planned R8 |
+
 ### I. Layouts
 
 | ID | Check | Input | Expected | Coverage |
@@ -554,7 +571,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 |---|---|---|
 | Import / export | 21 / 3 / 0 | `formats.rs` (11) |
 | CRS | 17 / 1 / 0 | `crs_edge.rs` (7), `crsEdge.test.ts`, `scaleEdge.test.ts` |
-| CRS hardening (§2A, Phase R) | 0 / 0 / 0; 100 planned in R1–R7 (A 9, B 9, C 7, D 8, E 8, F 12, G 10, H 12, I 6, J 9, K 6 = 96, plus 4 manual) | planned: `crs_reference.rs`, `crs_matrix.rs`, `crsZoo.test.ts`, `e2e/crs.spec.ts` |
+| CRS hardening (§2A, Phase R) | 0 / 0 / 0; 112 planned in R1–R8 (A 9, B 9, C 7, D 8, E 8, F 12, G 10, H 12, I 6, J 9, K 6, W 12 = 108, plus 4 manual) | planned: `crs_reference.rs`, `crs_matrix.rs`, `crsZoo.test.ts`, `e2e/crs.spec.ts` |
 | Map view | 15 / 5 / 0 | `styleEdge.test.ts`, `scaleEdge.test.ts` |
 | Selection / identify / measure | 17 / 1 / 0 | `tables.rs` (selection part), `geodesyEdge.test.ts`, `navStore.test.ts`, `appStore.test.ts` |
 | Table / editing | 19 / 3 / 0 | `tables.rs` (17), `queryEdge.test.ts` |
