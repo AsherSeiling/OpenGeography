@@ -1,6 +1,6 @@
 # GIS Studio — master plan
 
-_Written 2026-10-23, updated 2026-10-25 (Opus plan decisions in `docs/DECISIONS.md`; user requests: labels L1–L3, B6, B7; M4 on hold). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
+_Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, added after Phase C at the user's request; earlier: Opus plan decisions in `docs/DECISIONS.md`; user requests: labels L1–L3, B6, B7; M4 on hold). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
 
 **Product priorities** (the user's ranking, which drives the order below):
 1. Easy data manipulation.
@@ -22,6 +22,7 @@ _Written 2026-10-23, updated 2026-10-25 (Opus plan decisions in `docs/DECISIONS.
 | [`docs/ATTRIBUTE_HISTORY_PLAN.md`](ATTRIBUTE_HISTORY_PLAN.md) | B1 design: snapshot persistence, diff rules, table pane UX, sessions B2.1–B2.3 | Phase B |
 | [`docs/LAYOUTS_PLAN.md`](LAYOUTS_PLAN.md) | C1 design: engine SVG→PDF/PNG renderer, document model, print scale/CRS rules, sessions C2.1–C3.2 | Phase C |
 | [`docs/MAP_PROJECTION_PLAN.md`](MAP_PROJECTION_PLAN.md) | Map view draws in the map's CRS: OpenLayers replaces MapLibre, engine tiles per CRS grid, sessions M1–M4 | Phase C (C5) |
+| [`docs/CRS_PLAN.md`](CRS_PLAN.md) | Phase R: CRS invariants, audit of suspected gaps, decisions RD-1–RD-9, the test CRS "zoo", sessions R1–R7. Its 98 test cases are in `TEST_PLAN.md` §2A | Phase R |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
 | [`docs/DECISIONS.md`](DECISIONS.md) | Decision log: why things are the way they are, newest first | When a task touches that area |
 | [`docs/prompts/orchestrator.md`](prompts/orchestrator.md) | Opus orchestrator: delegates to Sonnet sessions, reviews in tiers, merges | Running several tasks from one Opus session |
@@ -118,9 +119,28 @@ The biggest missing piece: the app currently can't make a printable map.
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
-**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Next: L1 → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then B6 ∥ B7 (split by attribute; category precedence; user request), then C3.0 → C3.1 → C3.2. M4 is on hold at the user's request. C4 waits for E1.
+**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Next: L1 → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then B6 ∥ B7 (split by attribute; category precedence; user request), then C3.0 → C3.1 → C3.2. **Then Phase R (coordinate-system hardening, user request 2026-10-27) before anything else.** M4 is on hold at the user's request. C4 waits for E1.
 **Exit:** a user can produce a print-scale PDF map with legend and grid; Topo Map Builder makes a USGS-style quad.
 **Total:** 10–14 sessions.
+
+### Phase R — Coordinate-system hardening (user request 2026-10-27) ⟵ *next after Phase C's C3.2*
+
+**Goal:** coordinate systems demonstrably work everywhere: transforms, datum shifts, units, axis order, tools, rasters, map, layouts, import/export, and all three platforms. Plan, audit and decisions: [`CRS_PLAN.md`](CRS_PLAN.md). Test cases (98, written before any code): [`TEST_PLAN.md`](TEST_PLAN.md) §2A.
+
+| Task | Effort | Model | Notes |
+|---|---|---|---|
+| R0. Opus review of the plan's decisions RD-1–RD-9 and the tolerance table | 0.5 | Opus | Draft written 2026-10-27. Do it before R1. |
+| R1. Reference fixtures (`cs2cs` values with PROJ version), tolerance table, transform / axis / unit / datum / edge cases | 1–1.5 | Sonnet | Finds bugs, doesn't fix them (`BUGS.md` rows `C-n`). Test files only, so it may run beside a feature session. |
+| R2. CRS identity (`crs::key` / `same`), importer flavours, bad-definition hardening | 1–1.5 | Sonnet, Opus reviews | Removes string comparison of CRSs. |
+| R3. Transform quality: operation + accuracy record, ballpark warning, datum grids checked by `--self-test`, GeoJSON export policy, Z/M policy | 1–2 | Sonnet, Opus reviews | |
+| R4. Tool matrix over the CRS zoo, with a guard so new tools can't skip it | 1.5–2 | Sonnet | |
+| R5. Rasters, raster import flavours, pole-safe identify/select (P18), gdaldem scale in geographic CRSs | 1–2 | Sonnet, Opus reviews P18 | |
+| R6. CRS picker with custom entry and preview, CRS shown on layers, area-of-use chip, layout CRS statement; map and layout cases | 1–1.5 | Sonnet | Not beside another map-UI task. |
+| R7. CI on all three platforms, thread stress, performance baselines, manual Windows/Linux run | 1 + yours | Sonnet + you | Shares M4's P17 stress harness (engine side). |
+
+**Not parallel** with each other (R2–R5 all edit `crs.rs` and `nodes/mod.rs`).
+**Exit:** every §2A case is automated (or has manual steps) and passes on macOS, Windows and Linux; the tool guard is in CI; `--self-test` proves the datum grids; roadmap CRS rows ✅. Recommended: tag `v0.2.0` after Phase R.
+**Total:** 7–10 sessions.
 
 ### Phase D — Public data toolkit (Earth)
 
@@ -189,6 +209,7 @@ Details, sources and decisions D1–D5 are in [`PLANETARY_PLAN.md`](PLANETARY_PL
 A  Stabilize + v0.1      ███▒                      (code done; A3 + tag are yours)
 B  Data manipulation        ████                   ✅  (+ B6 split by attribute, B7 category order: user requests)
 C  Map production              ███████▒▒▒          ← now: L1–L3 labels → B6 ∥ B7 → C3.0 → C3.1–C3.2; M4 on hold
+R  CRS hardening                         ███████    ← next after C3.2 (user request); R1 can start earlier beside a feature session
 D  Public data (D1–D3)                  █████       ← D3 can run beside C3 (different files)
 E  Raster foundation                         ███
 C4 Topo Map Builder                             ███  (contour labels build on L1–L3)
@@ -208,7 +229,7 @@ H  Advanced analysis                                         ██████
 
 **Releases** (decided 2026-10-25; the user pushes every tag):
 - v0.1.0 once A3 passes.
-- v0.2.0 at the end of Phase C (B + C together; no separate tag for B, which finished before v0.1).
+- v0.2.0 at the end of Phase C (B + C together; no separate tag for B, which finished before v0.1). Recommended 2026-10-27: after Phase R, so the first release with printable maps has verified coordinates.
 - v0.3.0 after D1–D3 + E.
 - v0.4.0 after F.
 - …
@@ -243,5 +264,6 @@ These can run in two sessions at once:
 | ~~MapLibre can't show the poles~~ | Resolved 2026-10-23 | The C5 map view draws any CRS, including polar stereographic. |
 | GDAL crashes when used from many threads (one macOS CI SIGSEGV) | Raster tiles in M4 could crash the app | P17 stress test before M4 merges; fallback: one process-wide warp mutex. |
 | ~~Vector PDF export in layouts~~ | Resolved in C1/C2 | The engine renders vector SVG → PDF. |
+| A CRS audit finds many bugs at once | Phase R stretches | R1 only finds and files them (`C-n`); fixes are batched by area in R2–R5; Opus triages which are release blockers. |
 | Usage limits | Fewer sessions per week | Opus only for design and review; Sonnet for code; keep sessions short and the status file current. |
 | Remote services change or retire (HIFLD, EJScreen already gone) | Broken importers | Network tests per endpoint; clear "service unavailable" messages; the catalog is data, so fixes are edits, not code. |

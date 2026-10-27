@@ -11,6 +11,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 |---|---|---|
 | Import shp/gpkg/geojson/kml/csv/parquet; rasters (GeoTIFF etc.) | ✅ | engine tests |
 | CRS: explicit, 7,195-entry picker, all State Plane, Define Projection | ✅ | catalog test is network/ignored |
+| CRS hardening: reference-checked transforms, identity by meaning, datum accuracy reporting, tool matrix over 18 CRSs, rasters, map, layouts, 3 platforms | ⬜ | Phase R, `docs/CRS_PLAN.md`; 98 cases in `docs/TEST_PLAN.md` §2A |
 | Map view draws in the map's CRS (OpenLayers; engine tiles per CRS grid; true 1:N scale; basemap datum-offset notice) | 🟠 | M1 + M2 done 2026-10-23 (`docs/MAP_PROJECTION_PLAN.md`); M3 exact identify/select/measure/draw in any CRS in progress; M4 rasters in any CRS ⬜ (rasters draw in Web Mercator only until then) |
 | Attribute table: spreadsheet editing, add/rename/delete field, calculate field/geometry | ✅ | |
 | Definition queries (GUI + Python→SQL), selection, export selection | ✅ | |

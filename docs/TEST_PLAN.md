@@ -1,6 +1,6 @@
 # Test plan
 
-One row per case for every feature in `docs/ROADMAP.md`. Last updated 2026-10-25 (macOS arm64).
+One row per case for every feature in `docs/ROADMAP.md`. Last updated 2026-10-27 (macOS arm64; §2A added, not yet run).
 
 **Coverage column**
 - `auto: <file>::<test>` — an automated test covers it. Rust files are `crates/engine/tests/<file>.rs` (`unit:` = a `#[cfg(test)]` module in `crates/engine/src/`). TypeScript files are `ui/src/**/<file>.test.ts` with the `describe` name after `>`.
@@ -75,6 +75,170 @@ A bug test that starts passing means the bug is fixed: unignore it and update `d
 | 2.16 | Scale factor k | UTM central meridian | 0.9996 | auto: display::display_info_grids; unit: layout::geo p4_utm15_factors_match_proj, factors_match_proj_for_albers_and_state_plane_feet |
 | 2.17 | UI scale ↔ resolution at limits | NaN, zero, feet CRS, k = 0 | inverse pairs; no throw | auto: scaleEdge.test.ts; map/crs.test.ts |
 | 2.18 | Map CRS picker (dialog), map redraws, scale readout unchanged on switching CRS | see M-4 | ground scale within 0.5 % | manual M-4 |
+
+## 2A. Coordinate systems — hardening cases (Phase R, `docs/CRS_PLAN.md`)
+
+Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They extend §2, which stays as is. "Zoo" = the 18 test CRSs in `CRS_PLAN.md` §4; tolerances are `CRS_PLAN.md` §3 RD-4 (1 mm projected, 1e-8° geographic, unless a row says otherwise). Expected values come from analytic facts, `cs2cs` output in `crates/engine/tests/fixtures/crs/reference.json`, or GeographicLib, never from the engine itself. A case that finds a bug stays as an `#[ignore]` test with a `C-n` row in `docs/BUGS.md` until fixed. Files: `crs_reference.rs`, `crs_matrix.rs` (Rust, `crates/engine/tests/`), `ui/src/**/crsZoo.test.ts`, `e2e/crs.spec.ts`.
+
+### A. Transform accuracy
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-A1 | UTM central meridian | lat 0, lon −93 → EPSG:32615 | 500000.000, 0.000 | planned R1: crs_reference |
+| R-A2 | Web Mercator half world; latitude limit | lat 0, lon 180 → 3857; lat 85.0511288, lon 180 | x = 20037508.343, y = 0; y = ±20037508.34 (±1 cm) | planned R1 |
+| R-A3 | Polar stereographic | lat −90 → 3031; lat −71, lon 0 → 3031; lat 90 → 3413 | (0, 0); (0, 2082760.109); (0, 0) | planned R1 |
+| R-A4 | Albers origin | lat 23, lon −96 → 5070 | 0.000, 0.000 | planned R1 |
+| R-A5 | Round trip over the zoo | 25 points per CRS (centre, corners and edges of its area of use) → every other zoo CRS → back | ≤ 1 mm / 1e-9° | planned R1 |
+| R-A6 | Generated reference set | ≥ 500 points × zoo pairs from `cs2cs` | within tolerance; test log prints the PROJ version | planned R1 |
+| R-A7 | Geodesic anchors | meridian from equator to pole; 1° of longitude on the equator; WGS 84 surface | 10 001 965.729 m (±0.01); 111 319.491 m (±0.001); 510 065 621.7 km² (±0.001 %) | planned R1 |
+| R-A8 | Other-body anchors (PROJ only) | `IAU_2015` Mars sphere, Moon sphere | 1° equatorial = 59 274.70 m / 30 323.35 m; engine geodesics land with F1 | planned R1 (PROJ level), F1 (engine) |
+| R-A9 | `transform_point` command parity | 20 zoo points through Tauri-shaped call, devserver route and `api.transformPoint` | identical to R-A6; bad CRS → readable error, no panic | planned R1 (engine, devserver), R6 (vitest) |
+
+### B. Identity and parsing
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-B1 | Equivalent spellings are one CRS | `EPSG:4326`, ` epsg:4326 `, `urn:ogc:def:crs:EPSG::4326`, WKT1, WKT2, PROJJSON, `+proj=longlat +datum=WGS84 +no_defs`, `OGC:CRS84`; the same for EPSG:26915 | equal `crs::key`; no `reprojected` flag when mixed in a tool; coordinates untouched | planned R2 (risk G1) |
+| R-B2 | Different CRSs are never equal | 4326/4269, 4267/4269, 26915/32615, 2277/32139, 2277/international-foot twin, 3857/3395 | keys differ; mixing reprojects and flags | planned R2 |
+| R-B3 | ESRI flavour recognised | `.prj` of `NAD_1983_UTM_Zone_15N` | key equals EPSG:26915's; the layer shows the EPSG code | planned R2 (risk G1) |
+| R-B4 | CRS label everywhere | zoo CRSs, WKT-only CRS | name, authority code if known, linear/angular unit, datum, area of use; "Custom" for a bare PROJ string | planned R6: crsZoo.test.ts |
+| R-B5 | Bad definitions | empty, spaces, `EPSG:0`, `EPSG:99999999`, `+proj=bogus`, truncated WKT, 100 kB text, `EPSG:4326'); DROP TABLE x;--` | `Err` with a readable message; no panic; no SQL executed; layer unchanged | planned R2 (extends 2.7) |
+| R-B6 | Engineering / local CRS | `LOCAL_CS["site"]`, WKT with `ENGCRS` | treated as undefined (I1) with a message; never as metres on Earth | planned R2 |
+| R-B7 | Key stability | same PROJ string with parameters in another order; two runs; Windows/Linux | same key | planned R2, R7 |
+| R-B8 | Datum ensemble | WGS 84 realisations (G1150, G1762) vs EPSG:4326 | same key (RD-2 default); mixing does not reproject | planned R2 |
+| R-B9 | Cross-body guard | Earth layer + `IAU_2015:49900` | PROJ's "ellipsoid does not belong to the same celestial body" surfaced as a sentence; no result | planned R2 |
+
+### C. Axis order and units
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-C1 | East-first everywhere | one point imported from GPKG, shapefile, GeoJSON, FlatGeobuf, GeoParquet, CSV in EPSG:4326, 4269, 3035 (north/east), 2193 (north/east) | stored x = east/lon, y = north/lat; extent, map position and `transform_point` match `cs2cs` | planned R1 (risk G8) |
+| R-C2 | GeoJSON order | RFC 7946 file; legacy file with `crs` member `urn:ogc:def:crs:EPSG::4326` and lon,lat values; legacy `EPSG:3035` member | lon,lat read as lon,lat; projected members honoured; none flipped | planned R2 |
+| R-C3 | CSV columns | `Longitude,Latitude`; `Latitude,Longitude`; values with lat > 90 in the "latitude" column | correct either way; swapped values warn "looks like latitude and longitude are swapped" | planned R2 |
+| R-C4 | Linear units | metre, ftUS (2277) and international-foot CRS: 1000-unit square; length, area, planar buffer, scale bar | ftUS = 1200/3937 m, international = 0.3048 m; the two differ by 2 ppm and tests tell them apart (1 000 000 ft → 2 ft) | planned R1 (extends 2.10) |
+| R-C5 | Angular units | geographic CRS in grads / arc-seconds | map refuses with a message (existing 2.12); tools convert, or refuse with a message | planned R1 |
+| R-C6 | Prime meridian | EPSG:4807 NTF (Paris), grads: lon 0 grad | lon 2.337229167° E in 4326 (verify with `cs2cs` when pinning) | planned R1 |
+| R-C7 | Longitude outside ±180 | points at lon 190 and −190, then 540 | import warns; Project to UTM zone 1 treats 190 as −170; extent and tiles equal those of −170 | planned R1 |
+
+### D. Datum shifts and grids
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-D1 | NAD27 → NAD83 uses the grid | 35.2 N, −97.5 E | 35.200066504, −97.500312182 (≈ 7.4 m N, 28.4 m W) | planned R1 (extends 2.13) |
+| R-D2 | WGS 84 → NAD27 | same point | 35.199935272, −97.499683431 | planned R1 |
+| R-D3 | WGS 84 → NAD83 operation | same point | 35.200001669, −97.499995543 (the 2.0 m Oklahoma operation) within 5 mm | planned R1 |
+| R-D4 | Missing grid is detected | a subprocess with `PROJ_DATA` pointing at a folder without grids; NAD27 → NAD83 | `Err` or a result flagged "ballpark: may be off by up to ~100 m"; never a silent number | planned R3 (risk G2) |
+| R-D5 | Accuracy is reported | NAD27 → NAD83 (CONUS); WGS 84 → NAD83; ballpark case | record `{from, to, operation, accuracyM}`: ≈ 0.15 m; 2.0 or 4.0 m by area; `"ballpark"` | planned R3 |
+| R-D6 | Same-datum projection is exact | 4269 ↔ 26915, 4326 ↔ 32615 | accuracy `"exact"`; round trip ≤ 1 mm | planned R3 |
+| R-D7 | One operation per point | a layer straddling two operation areas (e.g. Oklahoma and Maine) | every vertex equals its own `cs2cs` answer | planned R3 |
+| R-D8 | Vertical / Z policy | compound CRS layer, Z values, through Project and Buffer | Z unchanged, the result says "vertical datum not transformed"; M dropped with a message (RD-8) | planned R3 (risk G5) |
+
+### E. Import, export, project round trip
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-E1 | Format × CRS round trip | export then import in GPKG, shapefile, FlatGeobuf, GeoParquet (not GeoJSON/CSV) × EPSG:4326, 26915, 5070, 2277, 3031, a PROJ string | same key; coordinates ≤ 1 mm / 1e-9° | planned R2 (extends 1.16) |
+| R-E2 | Shapefile `.prj` flavours | ESRI WKT; OGC WKT; custom WKT; garbled `.prj`; no `.prj` | recognised and keyed; garbled → undefined with a warning; none → undefined (existing 1.3) | planned R2 |
+| R-E3 | GeoJSON export policy | UTM layer → GeoJSON | default: reprojected to 4326 with a message (RD-7); option "keep layer CRS" writes the legacy member; round trip ≤ 1 mm | planned R3 (risk G9) |
+| R-E4 | GPKG SRS variants | `srs_id` 4326; custom definition without authority; 0 / −1 (undefined); two layers in different CRSs | custom kept as its WKT; 0/−1 → undefined with a warning (not 4326); each layer its own CRS | planned R2 |
+| R-E5 | Project save / reopen | project with layers, map CRS and layout frames in 5 zoo CRSs; reopen; committed fixture project from another OS | same keys, same display, no re-reprojection | planned R2; R7 for other OS |
+| R-E6 | CSV with X/Y | `x,y` in UTM; user picks the CRS at import | points land at `cs2cs` positions; no CRS chosen → undefined | planned R6 |
+| R-E7 | Raster import flavours | GeoTIFF with EPSG code; WKT only; modified definition with an EPSG code; world file + `.prj`; COG in 3857; rotated geotransform | key equals the file's real CRS (modified definition kept); rotated/sheared → handled or refused with a message | planned R5 (risk G6) |
+| R-E8 | Raster export keeps CRS | Warp output exported | CRS equal; pixel size and origin unchanged | planned R5 |
+
+### F. Tools over the zoo (metamorphic; `crs_matrix.rs`)
+
+For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polygon with a hole, a multipart) are stored in each zoo CRS and run through the tool; the result is converted to EPSG:4326 and compared with the run in the reference CRS (EPSG:5070 for areas, geodesic for distances).
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-F1 | Guard: no tool skips CRS testing | every tool in `tool_specs` | each is in the matrix or in `CRS_EXEMPT` with a written reason; a new tool without either fails CI | planned R4 |
+| R-F2 | Measurements | Add Area / Length / Perimeter, geodesic, shapes in 12 CRSs | equal across CRSs (length 1e-5, area 1e-4) and equal to GeographicLib | planned R4 (extends 2.9) |
+| R-F3 | Geodesic buffer | point and line, r = 10 km and 100 km, at lat 0, 45, 80, −80 in 8 CRSs | every vertex is r ± 0.1 % from the source (GeographicLib); result in the layer's CRS; error bound documented for NAD83/NAD27 data (G3) | planned R4 |
+| R-F4 | Near, join by nearest, summarize | pairs of layers in two CRSs | distances equal GeographicLib; nearest is the same feature in every CRS | planned R4 |
+| R-F5 | Overlay with mixed CRSs | Clip, Intersect, Union, Difference, Symmetrical Difference, Erase: input A in CRS x, B in CRS y | result CRS = A's; `reprojected` true exactly when keys differ; area equals the same run in 5070 within 0.01 % (+ curved-edge allowance, written in the test) | planned R4 (extends 2.14) |
+| R-F6 | Distance parameters | Simplify, Densify, Smooth, Grid, Hex, Points along lines, Buffer (planar) in 4326 and in 2277 | distances are in the unit the spec says (RD-9); a "CRS units" parameter on a geographic layer is refused with a message | planned R4 (risk G10) |
+| R-F7 | Project tool | to each zoo CRS and back | geometry ≤ 1 mm; features outside the target's area of use counted and named in the message | planned R4 |
+| R-F8 | Select / join by location | layers in different CRSs | same feature set in every CRS pair (planar predicate in the first input's CRS; distance geodesic) | planned R4 |
+| R-F9 | Raster × vector tools | Zonal statistics, Clip Raster, Sample: zones in a different CRS than the raster | equal to the run with aligned CRSs (edge cells aside, stated in the test) | planned R4/R5 |
+| R-F10 | Result CRS rule | every tool | output CRS = first input's unless the tool documents otherwise; enforced by the matrix | planned R4 |
+| R-F11 | Dropped features reported | out-of-domain points (lat 89.9° in 3857, > 90° in a bad field, lon far from a Lambert origin) through each tool that transforms | a `dropped` count and a message; no silent empty geometry (RD-6) | planned R4 |
+| R-F12 | Cache follows the CRS | Define Projection on a layer after a model run | downstream nodes re-run (no stale cache hit); attribute history shows the change | planned R4 (risk G12) |
+
+### G. Rasters
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-G1 | Raster CRS recognised | R-E7 files | `crs_of` returns a PROJ-valid string whose key equals the file's | planned R5 |
+| R-G2 | Warp across the zoo | 100×100 plane `z = a·x + b·y` in UTM 15N → 4326, 5070, 3031, 2277 | 20 sample points equal the analytic plane within RD-4 | planned R5 |
+| R-G3 | Warp geometry | same raster | corners round-trip within 1 pixel; target resolution given in the target's unit (m, ° or ftUS) | planned R5 |
+| R-G4 | Identify / sample from another CRS | point given in 4326 on a UTM raster, and the reverse | value equals the native lookup; point outside the domain = no value (B-T6) | planned R5 |
+| R-G5 | Terrain in a geographic CRS | analytic 30° slope in a 4326 DEM | slope 30° ± 0.5°; aspect correct; hillshade matches the projected run | planned R5 (risk G11) |
+| R-G6 | Contours / polygonize | DEM in 4326 and in 2277 | CRS carried; interval in elevation units; vertical unit stated as unknown | planned R5 |
+| R-G7 | Raster and vector line up | raster of a known rectangle and a vector of the same rectangle, same CRS, `render_extent` in the zoo | edges within 1 px | planned R5 (engine half of M4 P14) |
+| R-G8 | Clip raster by vector in another CRS | polygon in 4326, raster in UTM | extent = polygon's transformed bounds, ≤ 1 pixel | planned R5 |
+| R-G9 | Rotated / sheared geotransform | rotated GeoTIFF through Warp, Clip, Identify | correct or refused with a message; never an axis-aligned reading | planned R5 |
+| R-G10 | Raster edge cases | no CRS (existing), zero-size, all NoData, CRS-less world file | readable errors; no crash | planned R5 |
+
+### H. Map view (vitest, e2e, engine)
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-H1 | CRS switching over the zoo | 3 layers, every zoo CRS drawable | centre within 1 px, scale within 0.5 % (extends P9) | planned R6: e2e/crs.spec.ts |
+| R-H2 | Readout vs engine | 10 vertices per CRS | lon/lat equal `transform_point` to 1e-7° (extends P8) | planned R6 |
+| R-H3 | Outside the area of use | world layer in UTM 15N, NZTM, 3031 | notice with the engine's dropped count; a chip "data extends outside this CRS's area of use" | planned R6 (risk G15) |
+| R-H4 | Identify / select at the poles | EPSG:3031 around the South Pole; EPSG:3413 | the right features (P18) | planned R5 (engine), R6 (UI) |
+| R-H5 | Basemap datum chip | map CRS 26715 / 26915 / 4326 | ≈ 15.7 m chip / none / none (extends P9b) | auto: existing M2 test; planned R6 for the zoo |
+| R-H6 | Unsupported CRS | CRS proj4 can't express; custom string without area of use | previous CRS kept with a message; fallback extent used | planned R6 (extends 2.11) |
+| R-H7 | Measure in the zoo | 10 km line in 6 CRSs | 10 km ± 1 m geodesic (extends P12) | planned R6 |
+| R-H8 | Create features | click in CRS A, store in a layer in CRS B | ≤ 1 mm (extends P11) | planned R6 |
+| R-H9 | CRS picker and custom entry | search by code, name, "UTM 15N", State Plane by state, by location; paste an EPSG code, WKT, PROJ string; invalid text | the picked CRS shows name, units, datum, area of use before Apply; invalid text is rejected with the engine's message; recents kept | planned R6: crs.test.ts, e2e |
+| R-H10 | Layer source panel | layer in 26915 on a 3857 map | shows name, code, unit, datum, and "drawn in map CRS (reprojected)" | planned R6 |
+
+### I. Layouts
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-I1 | Scale bar and north arrow over the zoo | frames in 10 CRSs at 1:24 000 and 1:1 000 000 | bar equals geodesic ground distance within 0.1 %; north arrow equals PROJ convergence within 0.001° (extends P4, P11) | planned R6: layout.rs |
+| R-I2 | Graticule labels | UTM edge zone, Lambert, polar, geographic | five intersections per frame match `cs2cs` to 1e-6° (extends P16) | planned R6 |
+| R-I3 | Antimeridian and pole frames | UTM 60/1 boundary; 3031 | graticule skipped or drawn per rule, with a warning; no NaN in the SVG | planned R6 |
+| R-I4 | Set from Map View across a datum change | map CRS switched 26915 → 26715 (NAD27) | the frame keeps the same ground; centre matches `cs2cs` | planned R6 |
+| R-I5 | CRS statement | text token `{crs}`; a new `{datum}` and `{units}` | name + code, datum, unit; "Custom CRS" for bare PROJ strings | planned R6 |
+| R-I6 | Determinism | golden SVG for 3 zoo CRSs on all CI platforms | same bytes or documented tolerance | planned R7 (extends C2.1 open item) |
+
+### J. Edge cases and robustness
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-J1 | Poles | point at lat ±90 through every zoo CRS | finite numbers or a counted drop; never NaN / inf in an output | planned R1 (extends 2.12) |
+| R-J2 | Antimeridian | line 179° → −179°; polygon across 180°; Fiji | geodesic length 2° (not 358°); polygon valid; tiles split correctly | planned R1 |
+| R-J3 | Out of domain | Mercator at lat 89.9°; UTM at 85° N; Lambert far from origin | `Err` or a counted drop with a message | planned R1 |
+| R-J4 | Weird numbers | NaN, ±inf, 1e300, −0.0, subnormals | no panic; clear result | planned R1 |
+| R-J5 | Z and M through tools | 3D lines/points through Project, Buffer, Clip | per RD-8 | planned R3 |
+| R-J6 | Empty and null geometries | reprojected | stay null / empty; counted | planned R1 |
+| R-J7 | Precision | 1e-9° steps in 4326; 1 mm steps in UTM; export and reimport | preserved to 1e-9° / 1 mm | planned R1 |
+| R-J8 | World-sized shapes | whole-world polygon in 4326 → 3857, 5070, 3031 | area 510 065 621.7 km² ± 0.001 % in geodesic measure; projection clipped and reported | planned R1 |
+| R-J9 | Beyond a CRS's recommended area | layer spanning UTM zones 14–16 viewed in zone 15 | drawn; the area-of-use chip appears; scale factor reported at the edge | planned R5 |
+
+### K. Platforms, concurrency, performance
+
+| ID | Check | Input | Expected | Coverage |
+|---|---|---|---|---|
+| R-K1 | Reference suite on all platforms | CI macOS, Windows, Linux | all R-A/R-D pass with one tolerance table; log prints PROJ and GDAL versions | planned R7 (risk G13) |
+| R-K2 | Bundled data is the data used | packaged app `--self-test` | prints `proj.db` version and the datum grids found; asserts R-D1 on the bundled data | planned R3 (self-test), R7 (3 OS) |
+| R-K3 | Concurrency | 16 threads × reproject 100 k points + tiles in 3 CRSs, 20 repeats | no crash; results equal the single-thread run | planned R7 (shares M4 P17) |
+| R-K4 | Performance | 1 M points 4326 → UTM; 100 k polygons × 50 vertices Project | < 3 s; < 20 s (release); baseline file, fail on > 25 % slowdown | planned R7 (ignored, perf) |
+| R-K5 | Cancel | Project of 3 M points, Cancel | stops within 2 s; layer unchanged | planned R7 (extends §13) |
+| R-K6 | Offline PROJ | grid missing, no network | no network request is made (`PROJ_NETWORK` off); same message as R-D4 | planned R3 |
+
+### Manual cases (steps added to §14 by their sessions)
+
+| ID | Check | Coverage |
+|---|---|---|
+| M-27 (R6) | **Cross-check with another GIS.** Export 10 transformed points (zoo spread) as CSV and as GeoPackage; open both in QGIS or ArcGIS; the CRS is recognised by name (no "unknown") and the coordinates match to 1 mm | manual, planned R6 |
+| M-28 (R6) | **Picker flows.** Search, filters, custom WKT / PROJ / EPSG entry, invalid entry, recents; the preview matches `projinfo` | manual, planned R6 |
+| M-29 (R6) | **Print scale.** Export a 1:24 000 PDF in UTM; print at 100 %; a ruler measures the scale bar and a 1 km grid square | manual, planned R6 |
+| M-30 (R7) | **Windows and Linux reference run.** Packaged app: `--self-test`, then R-D1 through the transform dialog; open the committed fixture project; compare numbers with macOS | manual, planned R7 |
 
 ## 3. Map view
 
@@ -388,6 +552,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 |---|---|---|
 | Import / export | 21 / 3 / 0 | `formats.rs` (11) |
 | CRS | 17 / 1 / 0 | `crs_edge.rs` (7), `crsEdge.test.ts`, `scaleEdge.test.ts` |
+| CRS hardening (§2A, Phase R) | 0 / 0 / 0; 98 planned in R1–R7 (A 9, B 9, C 7, D 8, E 8, F 12, G 10, H 10, I 6, J 9, K 6 = 94, plus 4 manual) | planned: `crs_reference.rs`, `crs_matrix.rs`, `crsZoo.test.ts`, `e2e/crs.spec.ts` |
 | Map view | 15 / 5 / 0 | `styleEdge.test.ts`, `scaleEdge.test.ts` |
 | Selection / identify / measure | 17 / 1 / 0 | `tables.rs` (selection part), `geodesyEdge.test.ts`, `navStore.test.ts`, `appStore.test.ts` |
 | Table / editing | 19 / 3 / 0 | `tables.rs` (17), `queryEdge.test.ts` |
