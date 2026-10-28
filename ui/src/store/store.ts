@@ -10,6 +10,26 @@ export interface StyleClass {
   label: string;
 }
 
+/** Feature labels of one layer (L1). One definition, used by the map view and, later, by layouts. */
+export interface LabelStyle {
+  enabled: boolean;
+  field: string;
+  /** Text size, pt. */
+  size: number;
+  color: string;
+  haloColor: string;
+  /** Halo width, px; 0 = none. */
+  haloWidth: number;
+  /** Zoomed-in limit: labels hide when the map is larger than 1:minScale. Unset = no limit. */
+  minScale?: number;
+  /** Zoomed-out limit: labels hide when the map is smaller than 1:maxScale. Unset = no limit. */
+  maxScale?: number;
+}
+
+export function defaultLabel(field: string): LabelStyle {
+  return { enabled: true, field, size: 9, color: "#222222", haloColor: "#ffffff", haloWidth: 1.5 };
+}
+
 export interface LayerStyle {
   kind: "single" | "categorized" | "graduated";
   fill: string;
@@ -23,6 +43,8 @@ export interface LayerStyle {
   /** graduated: upper bounds of each class except the last; colors.length = breaks.length + 1 */
   breaks?: number[];
   colors?: string[];
+  /** Feature labels; projects saved before L1 have none (off). */
+  label?: LabelStyle;
 }
 
 export type MapTool = "pan" | "identify" | "select" | "selectBox" | "measure";

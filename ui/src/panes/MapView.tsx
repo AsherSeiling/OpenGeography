@@ -21,9 +21,10 @@ import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, registerCrs, scaleOf, tileGridFor } from "../map/crs";
 import { serialQueue } from "../map/serialQueue";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
+import { labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
-import { BASEMAPS, styleFields } from "../map/style";
+import { BASEMAPS, labelField, styleFields } from "../map/style";
 import { displayInfo, drawableLayerIds, ownerOf, useApp } from "../store/store";
 import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
 import { MeasurePanel } from "../nav/MeasurePanel";
@@ -70,6 +71,8 @@ interface IdentifyResult {
 interface Drawn {
   layer: BaseLayer;
   key: string;
+  /** L1: the layer's feature labels, on their own declutter layer above it. */
+  labels?: { layer: BaseLayer; key: string };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -235,6 +238,13 @@ export function MapView() {
   const showOriginal = useApp((s) => s.showOriginal);
   const selection = useApp((s) => s.selection);
   const drawn = useRef<Record<string, Drawn>>({});
+  const removeDrawn = (map: OlMap, id: string) => {
+    const d = drawn.current[id];
+    if (!d) return;
+    map.removeLayer(d.layer);
+    if (d.labels) map.removeLayer(d.labels.layer);
+    delete drawn.current[id];
+  };
   const selRef = useRef<Record<string, Set<number>>>({});
   const displayReady = useRef<Set<string>>(new Set());
   const building = useRef<Set<string>>(new Set());
@@ -285,8 +295,7 @@ export function MapView() {
     const wanted = new Set(order.filter((id) => { const l = shown(id); return l && l.geomType !== "Table" && l.crs; }));
     for (const id of Object.keys(drawn.current)) {
       if (!wanted.has(id)) {
-        map.removeLayer(drawn.current[id].layer);
-        delete drawn.current[id];
+        removeDrawn(map, id);
       }
     }
     let skippedRasters = 0;
@@ -299,10 +308,7 @@ export function MapView() {
       const dispKey = `${info.id}|${info.version}|${active.info.crsKey}`;
       if (raster && !mercator) {
         skippedRasters++;
-        if (drawn.current[id]) {
-          map.removeLayer(drawn.current[id].layer);
-          delete drawn.current[id];
-        }
+        removeDrawn(map, id);
         return;
       }
       if (!raster && !mercator && !displayReady.current.has(dispKey)) {
@@ -312,10 +318,10 @@ export function MapView() {
         return;
       }
       const fields = styleFields(style);
-      const key = JSON.stringify([active.info.crsKey, info.id, info.version, info.geomType, fields, style, raster ? 0 : 1]);
+      const key = JSON.stringify([active.info.crsKey, info.id, info.version, info.geomType, fields, { ...style, label: undefined }, raster ? 0 : 1]);
       let d = drawn.current[id];
       if (!d || d.key !== key) {
-        if (d) map.removeLayer(d.layer);
+        if (d) removeDrawn(map, id);
         const url = tileUrl(info, fields, active.info.crsKey);
         let layer: BaseLayer;
         if (raster) {
@@ -339,6 +345,34 @@ export function MapView() {
       }
       d.layer.setZIndex(zIndex);
       d.layer.setVisible(!!visible[id]);
+
+      // Feature labels (L1): their own declutter layer just above the symbols of this layer.
+      const lf = raster ? null : labelField(style);
+      const lkey = lf ? JSON.stringify([key, style.label]) : "";
+      if (d.labels && d.labels.key !== lkey) {
+        map.removeLayer(d.labels.layer);
+        d.labels = undefined;
+      }
+      if (lf && style.label && !d.labels) {
+        const grid = tileGridFor(active.info.grid, VECTOR_MAX_LEVEL);
+        const lt = new VectorTileLayer({
+          source: new VectorTileSource({ url: tileUrl(info, labelTileFields(info.geomType, lf), active.info.crsKey), projection: active.projection, tileGrid: grid, format: new MVT(), transition: 0 }),
+          declutter: true,
+          updateWhileAnimating: true,
+          updateWhileInteracting: true,
+          style: labelStyleFunction(info.geomType, style.label, () => useMapView.getState().scale),
+        });
+        // Declutter layers don't repaint by themselves when their tiles arrive: repaint once the burst of loads settles.
+        let settle: ReturnType<typeof setTimeout> | undefined;
+        lt.getSource()?.on("tileloadend", () => {
+          clearTimeout(settle);
+          settle = setTimeout(() => lt.changed(), 120);
+        });
+        d.labels = { layer: lt, key: lkey };
+        map.addLayer(lt);
+      }
+      d.labels?.layer.setZIndex(zIndex + 0.5);
+      d.labels?.layer.setVisible(!!visible[id]);
     });
     useMapView.setState((s) => {
       const notices = { ...s.notices };

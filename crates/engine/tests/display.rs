@@ -415,3 +415,48 @@ fn p6_one_million_points() {
     }
     assert!(worst < Duration::from_millis(300), "{worst:?}");
 }
+
+// ---------- L1: label anchors (one point per polygon, in the one tile that holds it) ----------
+
+fn anchors_and_polygons(e: &Engine, id: &str, key: &str, z: u32) -> (usize, usize) {
+    let n = 2u32.pow(z);
+    let (mut anchors, mut polys) = (0, 0);
+    for x in 0..n {
+        for y in 0..n {
+            let a = e.tile_in_crs(id, key, z, x, y, &["NAME".into(), engine::tiles::ANCHORS.into()]);
+            let p = e.tile_in_crs(id, key, z, x, y, &[]);
+            if let (Ok(a), Ok(p)) = (a, p) {
+                anchors += feature_set(&a).len();
+                polys += feature_set(&p).len();
+            }
+        }
+    }
+    (anchors, polys)
+}
+
+#[test]
+fn l1_p1_polygon_label_anchors_are_unique_across_tile_edges_in_web_mercator_and_utm() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let sql = "SELECT 'Big' AS \"NAME\", ST_GeomFromText('POLYGON((-20 -10, 20 -10, 20 30, -20 30, -20 -10))') AS geom";
+    let ll = import_one(&e, dir.path(), "big", sql, "EPSG:4326");
+    // z2 Web Mercator: the square covers four tiles, so the polygon is cut four ways but labelled once.
+    let (anchors, polys) = anchors_and_polygons(&e, &ll, engine::display::MERCATOR_KEY, 2);
+    assert_eq!((anchors, polys), (1, 4));
+
+    // UTM 15N: a 400 km square cut by tile edges at a high zoom.
+    let utm = import_one(
+        &e,
+        dir.path(),
+        "utm_big",
+        "SELECT 'Big' AS \"NAME\", ST_GeomFromText('POLYGON((300000 4400000, 700000 4400000, 700000 4800000, 300000 4800000, 300000 4400000))') AS geom",
+        "EPSG:26915",
+    );
+    let di = e.crs_display_info("EPSG:26915", None).unwrap();
+    e.build_display_blocking(&utm, "EPSG:26915").unwrap();
+    for z in [4u32, 5] {
+        let (anchors, polys) = anchors_and_polygons(&e, &utm, &di.crs_key, z);
+        assert_eq!(anchors, 1, "z{z}");
+        assert!(polys >= 1, "z{z}");
+    }
+}

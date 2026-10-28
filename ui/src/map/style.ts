@@ -25,6 +25,11 @@ export function styleFields(style: LayerStyle): string[] {
   return style.kind !== "single" && style.field ? [style.field] : [];
 }
 
+/** The label field, only while labels are on (so tiles carry it only then). */
+export function labelField(style: LayerStyle): string | null {
+  return style.label?.enabled && style.label.field ? style.label.field : null;
+}
+
 function colorExpr(style: LayerStyle, base: string): ExpressionSpecification | string {
   if (style.kind === "categorized" && style.field && style.classes?.length) {
     const pairs = style.classes.flatMap((c) => [c.value, c.color]);
