@@ -42,7 +42,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Add", items: [{ cmd: "addData" }, { cmd: "catalog" }, { cmd: "tiger" }, { cmd: "nationalMap" }, { cmd: "elevation" }] },
     { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
     { label: "Coordinate Systems", items: [{ cmd: "defineProjection" }, { cmd: "mapCrs" }] },
-    { label: "Export", items: [{ cmd: "exportLayer" }, { cmd: "layerFromSelection" }] },
+    { label: "Export", items: [{ cmd: "exportLayer" }, { cmd: "layerFromSelection" }, { cmd: "splitByAttribute" }] },
     { label: "Filter", items: [{ cmd: "definitionQuery" }] },
     { label: "Sources", items: [{ cmd: "sources" }] },
     { label: "Testing", items: [{ cmd: "testData" }] },
@@ -74,7 +74,7 @@ const TABS: Record<string, Group[]> = {
   "Feature Layer": [
     { label: "Layer", items: [{ cmd: "layerProps" }, { cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
     { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
-    { label: "Data", items: [{ cmd: "definitionQuery" }, { cmd: "defineProjection" }, { cmd: "exportLayer" }, { cmd: "layerFromSelection" }] },
+    { label: "Data", items: [{ cmd: "definitionQuery" }, { cmd: "defineProjection" }, { cmd: "exportLayer" }, { cmd: "layerFromSelection" }, { cmd: "splitByAttribute" }] },
     { label: "Remove", items: [{ cmd: "removeLayer" }] },
   ],
 };

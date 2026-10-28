@@ -206,6 +206,11 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let fids: Option<Vec<i64>> = de(a, "fids")?;
             json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?, fids.as_deref())?)
         }
+        "split_groups" => json!(e.split_groups(&s(a, "id")?, &s(a, "field")?)?),
+        "split_by_attribute" => {
+            let target: engine::split::SplitTarget = de(a, "target")?;
+            json!(e.split_by_attribute(&s(a, "id")?, &s(a, "field")?, &target, a["confirmed"].as_bool().unwrap_or(false))?)
+        }
         "set_definition_query" => json!(e.set_definition_query(&s(a, "id")?, a["query"].as_str())?),
         "rename_layer" => json!(e.rename_layer(&s(a, "id")?, &s(a, "name")?)?),
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),

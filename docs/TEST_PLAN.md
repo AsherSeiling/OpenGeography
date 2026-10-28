@@ -321,6 +321,18 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 | 4.18 | Resection / intersection | 3 landmarks; parallel rays | fix + error triangle; readable message | auto: geodesy.test.ts > intersection and resection |
 | 4.19 | Tool buttons: Select (Shift adds, Ctrl toggles), Select by Rectangle, Identify popup, Measure (double-click ends, Esc clears), Measure Area, Land Nav panels | see M-10 | as in tooltips | manual M-10 |
 
+### 4A. Split by Attribute (B6, `docs/DECISIONS.md`)
+
+| ID | Check | Expected | Coverage |
+|---|---|---|---|
+| B6-1 | Groups: one per distinct value, NULL as "(no value)", row counts, definition query honoured | exact counts; hidden rows not split | auto: split::b6_groups_*, b6_a_definition_query_* |
+| B6-2 | Layers target: one new layer per value; CRS and citations kept; no row lost or doubled; input untouched | sum of rows = input rows | auto: split::b6_layers_one_per_value_* |
+| B6-3 | Files target: one file per value (GeoPackage, Shapefile); file names safe on every OS; `_2` on clashes, also between case variants; an existing file is never overwritten; CRS written | as stated | auto: split::b6_files_*, b6_shapefile_*, b6_safe_names |
+| B6-4 | Limits: more than 200 outputs need a confirmation, more than 1 000 are refused, nothing is made before the user confirms | readable messages | auto: split::b6_limits_confirm_and_cap; vitest splitDialog.test.ts |
+| B6-5 | Cancel: layers made so far are removed, the task disappears, the engine still works | nothing left behind | auto: split::b6_cancel_* |
+| B6-6 | Dialog in the app: field picker, counts shown before writing, layers and files targets, folder required | as stated | auto: e2e/split.spec.ts |
+| B6-7 | Edge cases: a 1 000-value field into files; a value with a leading dot or only spaces; read-only folder; the folder is the source file's folder (the source is not touched); a table without geometry; a layer with a node-tree result | to automate |
+
 ## 5. Attribute table and editing
 
 | ID | Check | Input | Expected | Coverage |

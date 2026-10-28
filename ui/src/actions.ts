@@ -5,7 +5,7 @@ import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { reportError } from "./errors/store";
-import { api, errorText, type LayerInfo } from "./ipc/api";
+import { api, errorText, type SplitTarget, type LayerInfo } from "./ipc/api";
 import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
@@ -31,6 +31,7 @@ export type DialogState =
   | { kind: "renameField"; layer: string; field: string }
   | { kind: "tiger" }
   | { kind: "export"; owner: string }
+  | { kind: "splitByAttribute"; owner: string }
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
   | { kind: "nationalMap" }
@@ -155,6 +156,28 @@ export function pickMapCrs() {
     initial: cur?.id,
     onPick: (id, name) => void setMapCrsChecked(id, name),
   });
+}
+
+/** Open the Split by Attribute dialog (B6). */
+export function splitByAttribute(owner: string) {
+  const info = shown(owner);
+  if (!info || info.geomType === "Raster") {
+    status("Split by Attribute works on vector layers and tables.");
+    return;
+  }
+  useDialog.getState().show({ kind: "splitByAttribute", owner });
+}
+
+/** Run a split from the dialog: new layers join the map; files are reported by folder. Returns false on failure (the error pop-up has the details). */
+export async function runSplit(owner: string, field: string, target: SplitTarget, confirmed: boolean): Promise<boolean> {
+  const info = shown(owner);
+  if (!info) return false;
+  const r = await busy("Splitting by attribute", () => api.splitByAttribute(info.id, field, target, confirmed));
+  if (!r) return false;
+  if (r.layers.length) useApp.getState().addLayers(r.layers);
+  const n = r.outputs.length;
+  status(target.kind === "files" ? `Wrote ${n} file${n === 1 ? "" : "s"} to ${target.dir}` : `Created ${n} layer${n === 1 ? "" : "s"} from ${info.name} by ${field}`);
+  return true;
 }
 
 /** Open the Export Features dialog (all or selected features). */

@@ -153,6 +153,22 @@ export interface DisplayStatus {
   error: string | null;
 }
 
+/** One value of a field and its row count; NULL is "(no value)" (B6). */
+export interface SplitGroup {
+  value: string;
+  rows: number;
+}
+export type SplitTarget = { kind: "layers" } | { kind: "files"; dir: string; format: "GPKG" | "ESRI Shapefile" };
+export interface SplitResult {
+  layers: LayerInfo[];
+  outputs: { value: string; rows: number; name: string }[];
+  skippedRows: number;
+  notes: string[];
+}
+/** Splitting asks for a confirmation above this many outputs and refuses more than the limit. */
+export const SPLIT_CONFIRM_ABOVE = 200;
+export const SPLIT_MAX_OUTPUTS = 1000;
+
 export interface LayerInfo {
   id: string;
   name: string;
@@ -322,6 +338,8 @@ export const api = {
   downloadElevation: (bbox: Extent, resolution: number, label: string) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
+  splitGroups: (id: string, field: string) => invoke<SplitGroup[]>("split_groups", { id, field }),
+  splitByAttribute: (id: string, field: string, target: SplitTarget, confirmed: boolean) => invoke<SplitResult>("split_by_attribute", { id, field, target, confirmed }),
   setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),
   addField: (id: string, name: string, ty: FieldType) => invoke<LayerInfo>("add_field", { id, name, ty }),
   deleteField: (id: string, name: string) => invoke<LayerInfo>("delete_field", { id, name }),
