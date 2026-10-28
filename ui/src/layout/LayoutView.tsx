@@ -10,6 +10,7 @@ import { layoutRequest } from "./actions";
 import { dragged, withFeatureEdit, withoutDropped } from "./labelEdits";
 import { sameLabel, useLabelHits } from "./labelHits";
 import { Ruler, RULER_PX } from "./Rulers";
+import { useSeriesView } from "./series";
 import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
 const MIN_MM = 2;
@@ -114,6 +115,13 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
   const layers = useApp((s) => s.layers);
+  // The map series: its pages are worked out again when the series, or the index layer's data, changes (C3.2).
+  const seriesPage = useSeriesView((s) => s.page);
+  const indexVersion = useApp((s) => (layout.series ? `${s.layers[layout.series.indexLayer]?.version}|${s.layers[layout.series.indexLayer]?.definitionQuery}` : ""));
+  useEffect(() => {
+    void useSeriesView.getState().refresh(layout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout.series, layout.id, indexVersion]);
   const dpi = Math.min(144, Math.max(96, Math.ceil((z * 25.4 * (window.devicePixelRatio || 1)) / 24) * 24));
   const seq = useRef(0);
   useEffect(() => {
@@ -140,7 +148,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     }, 150);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, styles, order, visible, results, showOriginal, layers, dpi]);
+  }, [layout, styles, order, visible, results, showOriginal, layers, dpi, seriesPage]);
 
   // Selecting one element shows it in Properties.
   useEffect(() => {

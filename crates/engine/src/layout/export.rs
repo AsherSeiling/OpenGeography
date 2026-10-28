@@ -51,6 +51,43 @@ pub fn svg_to_pdf(svg: &str) -> Result<Vec<u8>> {
     svg2pdf::to_pdf(&tree, svg2pdf::ConversionOptions::default(), svg2pdf::PageOptions { dpi: 96.0 }).map_err(|e| anyhow!("PDF export failed: {e:?}"))
 }
 
+/// One vector PDF with a page per SVG, each page the size of its layout page (map series, C3.2).
+pub fn svgs_to_pdf(svgs: &[String]) -> Result<Vec<u8>> {
+    use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref};
+    use std::collections::HashMap;
+    if svgs.is_empty() {
+        return Err(anyhow!("There are no pages to write"));
+    }
+    let mut pdf = Pdf::new();
+    let mut next = Ref::new(1);
+    let catalog = next.bump();
+    let page_tree = next.bump();
+    let mut kids = Vec::new();
+    for svg in svgs {
+        let tree = parse(svg)?;
+        let (chunk, root) = svg2pdf::to_chunk(&tree, svg2pdf::ConversionOptions::default()).map_err(|e| anyhow!("PDF export failed: {e:?}"))?;
+        // Give this page's objects numbers of their own in the shared file.
+        let mut map = HashMap::new();
+        let chunk = chunk.renumber(|old| *map.entry(old).or_insert_with(|| next.bump()));
+        let xobject = map[&root];
+        // The SVG is in CSS pixels (96 per inch); PDF user units are 1/72 inch.
+        let (w, h) = (tree.size().width() * 0.75, tree.size().height() * 0.75);
+        let (page, content_id) = (next.bump(), next.bump());
+        let mut p = pdf.page(page);
+        p.media_box(Rect::new(0.0, 0.0, w, h)).parent(page_tree).contents(content_id);
+        p.resources().x_objects().pair(Name(b"S1"), xobject);
+        p.finish();
+        let mut c = Content::new();
+        c.save_state().transform([w, 0.0, 0.0, h, 0.0, 0.0]).x_object(Name(b"S1")).restore_state();
+        pdf.stream(content_id, &c.finish());
+        pdf.extend(&chunk);
+        kids.push(page);
+    }
+    pdf.catalog(catalog).pages(page_tree);
+    pdf.pages(page_tree).count(kids.len() as i32).kids(kids);
+    Ok(pdf.finish())
+}
+
 /// PNG of the page at `dpi` (clamped to 20–1200).
 pub fn svg_to_png(svg: &str, dpi: f64) -> Result<Vec<u8>> {
     let tree = parse(svg)?;

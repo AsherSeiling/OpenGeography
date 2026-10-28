@@ -52,6 +52,8 @@ export interface MapFrame extends Placement {
   border: Border | null;
   /** Label edits made in this layout only, by layer id (L3). */
   labelOverrides?: Record<string, LabelOverrides>;
+  /** The layout's map series moves this frame to each index feature (C3.2). */
+  followsSeries?: boolean;
 }
 
 /** This layout's label style for one layer: unset fields fall back to the map's `LayerStyle.label`. */
@@ -155,7 +157,19 @@ export interface Layout {
   body: "earth";
   page: Page;
   elements: LayoutElement[];
-  series: unknown | null;
+  series: SeriesSpec | null;
+}
+
+/** Map series (C3.2): one page per feature of the index layer; a map frame with `followsSeries` moves to each feature. */
+export interface SeriesSpec {
+  indexLayer: string;
+  nameField: string;
+  /** Pages are ordered by this field (default: the name field). */
+  sortField?: string;
+  extent: "fit" | "fixed_scale";
+  /** Space around the feature, % of its size on each side (fit only). */
+  marginPct: number;
+  scale?: number;
 }
 
 export interface RenderRequest {
@@ -165,6 +179,8 @@ export interface RenderRequest {
   visible: Record<string, boolean>;
   project: string;
   date: string;
+  /** Draw this page (0-based) of the layout's map series. */
+  seriesPage?: number;
 }
 
 export interface LayoutPreview {

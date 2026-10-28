@@ -50,7 +50,7 @@ pub struct Layout {
     pub page: Page,
     #[serde(default)]
     pub elements: Vec<Element>,
-    /// Map series (C3.2); stored, not rendered yet.
+    /// Map series (C3.2): see [`super::series::SeriesSpec`].
     #[serde(default)]
     pub series: Option<serde_json::Value>,
 }
@@ -183,6 +183,9 @@ pub enum Element {
         /// Label edits made in this layout only, by layer id (L3).
         #[serde(default, rename = "labelOverrides", skip_serializing_if = "BTreeMap::is_empty")]
         label_overrides: BTreeMap<String, LabelOverrides>,
+        /// The layout's map series moves this frame to each index feature (C3.2).
+        #[serde(default, rename = "followsSeries", skip_serializing_if = "std::ops::Not::not")]
+        follows_series: bool,
     },
     Text {
         #[serde(flatten)]
@@ -279,6 +282,9 @@ impl Layout {
         }
         if !(self.page.width.is_finite() && self.page.height.is_finite() && self.page.width > 0.0 && self.page.height > 0.0) {
             bail!("Page size must be positive");
+        }
+        if let Some(s) = &self.series {
+            super::series::SeriesSpec::parse(s)?;
         }
         let mut ids = BTreeSet::new();
         for e in &self.elements {
@@ -480,4 +486,21 @@ pub struct RenderRequest {
     /// (default 300, clamped to 72–300: PDF images are capped at 300 dpi).
     #[serde(default)]
     pub raster_dpi: Option<f64>,
+    /// Draw this page (0-based) of the layout's map series instead of the frames as saved (C3.2).
+    #[serde(default)]
+    pub series_page: Option<usize>,
+    /// The series page being drawn, for the `{page_*}` text tokens; filled in by the engine.
+    #[serde(default)]
+    pub page: Option<PageCtx>,
+}
+
+/// The series page a render is for: `{page_number}`, `{page_count}`, `{page_name}` and `{page_<field>}` of the index feature.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PageCtx {
+    /// 1-based.
+    pub number: usize,
+    pub count: usize,
+    pub name: String,
+    pub attrs: BTreeMap<String, String>,
 }

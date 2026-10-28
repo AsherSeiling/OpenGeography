@@ -4,7 +4,9 @@ import { Combobox, Menu, MenuDivider, MenuItem, MenuItemRadio, MenuList, MenuPop
 import { DocumentPdfRegular, DocumentRegular, ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, errorText, type LayoutTemplate } from "../ipc/api";
-import { deleteLayoutTemplate, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
+import { pageCaption, useSeriesView } from "../layout/series";
+import { useDialog } from "../actions";
+import { exportLayoutSeries, deleteLayoutTemplate, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
 import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/types";
 import { useLayouts } from "../store/layout";
 import type { AlignOp, OrderOp } from "../layout/arrange";
@@ -74,6 +76,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
     { label: "Arrange", items: [{ custom: <ArrangeMenu /> }] },
+    { label: "Map Series", items: [{ custom: <SeriesGroup /> }] },
     { label: "Export", items: [{ cmd: "layoutPdf" }, { cmd: "layoutPng" }, { cmd: "layoutSvg" }, { custom: <DpiBox /> }] },
   ],
   "Feature Layer": [
@@ -326,6 +329,46 @@ function PageMenu() {
           </MenuList>
         </MenuPopover>
       </Menu>
+    </div>
+  );
+}
+
+/** Layout → Map Series: set it up, step through its pages in the view, export all pages (C3.2). */
+function SeriesGroup() {
+  const series = useLayouts((s) => s.doc?.series ?? null);
+  const open = useLayouts((s) => !!s.doc);
+  const { pages, page, error } = useSeriesView();
+  const show = useSeriesView((s) => s.show);
+  return (
+    <div className="rcol">
+      <button className="rbtn small" disabled={!open} title="One page per feature of an index layer" onClick={() => useDialog.getState().show({ kind: "layoutSeries" })}>
+        <span className="rbtn-icon"><DocumentRegular /></span>
+        <span className="rbtn-label">{series ? "Map Series…" : "Set Up Map Series…"}</span>
+      </button>
+      {series && (
+        <div className="btn-row" title={error ?? "Show a page of the series in the Layout view"}>
+          <button className="rbtn small" aria-label="Previous series page" disabled={!pages.length || page === 0} onClick={() => show(page === null ? pages.length - 1 : page - 1)}>◀</button>
+          <span className="muted small" data-testid="series-caption">{error ? "Series can't be shown" : pageCaption(page, pages)}</span>
+          <button className="rbtn small" aria-label="Next series page" disabled={!pages.length || page === pages.length - 1} onClick={() => show(page === null ? 0 : page + 1)}>▶</button>
+          {page !== null && <button className="rbtn small" onClick={() => show(null)} title="Show the frames as saved">As saved</button>}
+        </div>
+      )}
+      {series && (
+        <Menu>
+          <MenuTrigger>
+            <button className="rbtn small" disabled={!pages.length} title="Export every page of the series">
+              <span className="rbtn-icon"><DocumentPdfRegular /></span>
+              <span className="rbtn-label">Export Series ▾</span>
+            </button>
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              <MenuItem onClick={() => void exportLayoutSeries("pdf")}>One PDF with every page</MenuItem>
+              <MenuItem onClick={() => void exportLayoutSeries("png")}>One PNG per page (choose a folder)</MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
+      )}
     </div>
   );
 }

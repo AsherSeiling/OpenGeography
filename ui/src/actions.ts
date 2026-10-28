@@ -32,6 +32,7 @@ export type DialogState =
   | { kind: "tiger" }
   | { kind: "export"; owner: string }
   | { kind: "splitByAttribute"; owner: string }
+  | { kind: "layoutSeries" }
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
   | { kind: "nationalMap" }

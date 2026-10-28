@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
-import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type SurroundElement, type TextElement } from "../layout/types";
+import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type SeriesSpec, type SurroundElement, type TextElement } from "../layout/types";
 import { reportError } from "../errors/store";
 import { useApp, type Basemap } from "./store";
 
@@ -32,6 +32,8 @@ interface LayoutState {
   /** Change an element. `burst` groups quick edits of one setting (typing) into one undo step. */
   update: (elementId: string, patch: Record<string, unknown>, burst?: string) => void;
   removeElements: (ids: string[]) => void;
+  /** Set or clear the layout's map series (C3.2); one undo step. */
+  setSeries: (series: SeriesSpec | null) => void;
   /** Change the stacking order of the selected elements (C3.0), one undo step. */
   arrange: (op: OrderOp) => void;
   /** Line up the selected elements (to each other, or to the page for one), one undo step. */
@@ -162,6 +164,10 @@ export const useLayouts = create<LayoutState>()(
         if (burst) groupBurst(`${elementId}:${burst}`);
         else flushBurst();
         edit((d) => ({ ...d, elements: d.elements.map((e) => (e.id === elementId ? ({ ...e, ...patch } as LayoutElement) : e)) }));
+      },
+      setSeries: (series) => {
+        flushBurst();
+        edit((d) => ({ ...d, series }));
       },
       removeElements: (ids) => {
         flushBurst();

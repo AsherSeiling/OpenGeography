@@ -153,6 +153,18 @@ export interface DisplayStatus {
   error: string | null;
 }
 
+/** One page of a layout's map series (C3.2). */
+export interface SeriesPageInfo {
+  index: number;
+  fid: number;
+  name: string;
+}
+export interface SeriesExportResult {
+  pages: number;
+  files: string[];
+  warnings: string[];
+}
+
 /** A bundled or user layout template (C3.1). */
 export interface LayoutTemplate {
   id: string;
@@ -347,6 +359,8 @@ export const api = {
   downloadElevation: (bbox: Extent, resolution: number, label: string) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
+  layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),
+  exportLayoutSeries: (req: RenderRequest, format: string, dpi: number, path: string) => invoke<SeriesExportResult>("export_layout_series", { req, format, dpi, path }),
   listLayoutTemplates: () => invoke<{ templates: LayoutTemplate[]; skipped: string[] }>("list_layout_templates"),
   getLayoutTemplate: (id: string) => invoke<Layout>("get_layout_template", { id }),
   saveLayoutTemplate: (name: string, layout: Layout) => invoke<LayoutTemplate>("save_layout_template", { name, layout }),

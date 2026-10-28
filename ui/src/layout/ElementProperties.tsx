@@ -86,10 +86,18 @@ function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
       </Field>
       <GridFields label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
       <GridFields label="Grid (map coordinates)" unit="CRS units" value={el.grid} onChange={(grid) => set({ grid }, "grid")} />
+      <SeriesFollow el={el} set={set} />
       <FrameLabels el={el} set={set} />
       <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} decimals={2} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />
     </>
   );
+}
+
+/** Whether this frame follows the layout's map series (only offered when the layout has one). */
+function SeriesFollow({ el, set }: { el: MapFrame; set: Set }) {
+  const has = useLayouts((s) => !!s.doc?.series);
+  if (!has && !el.followsSeries) return null;
+  return <Checkbox label="Follows the map series" checked={!!el.followsSeries} onChange={(_, d) => set({ followsSeries: d.checked ? true : undefined })} />;
 }
 
 /** Labels in this layout: per layer, follow the map's label setting or show or hide them here (L3). Edits to single labels are made by clicking a label in the page. */
