@@ -558,6 +558,18 @@ pub async fn render_layout_preview(engine: Eng<'_>, req: engine::layout::model::
     blocking(&engine, move |e| e.render_layout_preview(&req, dpi)).await
 }
 
+/// The pages of the layout's map series (C3.2).
+#[tauri::command]
+pub async fn layout_series_pages(engine: Eng<'_>, layout: engine::layout::model::Layout) -> Res<Vec<engine::layout::series::SeriesPage>> {
+    blocking(&engine, move |e| e.series_pages(&layout)).await
+}
+
+/// Export the whole series: one multi-page PDF at `path`, or one PNG per page in the folder `path`.
+#[tauri::command]
+pub async fn export_layout_series(engine: Eng<'_>, req: engine::layout::model::RenderRequest, format: String, dpi: f64, path: PathBuf) -> Res<engine::layout::series::SeriesExport> {
+    blocking(&engine, move |e| e.export_series(&req, engine::layout::ExportFormat::parse(&format)?, dpi, &path)).await
+}
+
 /// Returns the render's warnings.
 #[tauri::command]
 pub async fn export_layout(engine: Eng<'_>, req: engine::layout::model::RenderRequest, format: String, dpi: f64, path: PathBuf) -> Res<Vec<String>> {

@@ -10,6 +10,7 @@ pub mod geo;
 pub mod grid;
 pub mod labels;
 pub mod model;
+pub mod series;
 pub mod surround;
 pub mod templates;
 pub mod svg;
@@ -55,14 +56,20 @@ fn tokens(text: &str, req: &RenderRequest) -> String {
         _ => None,
     });
     let (crs, scale) = first.map_or(("", 0.0), |f| f);
-    text.replace("{layout_name}", &req.layout.name)
+    let out = text
+        .replace("{layout_name}", &req.layout.name)
         .replace("{project}", &req.project)
         .replace("{date}", &req.date)
         .replace("{scale}", &if scale > 0.0 { format!("1:{}", grouped(scale)) } else { String::new() })
         .replace("{crs}", crs)
-        .replace("{page_name}", &req.layout.name)
-        .replace("{page_number}", "1")
-        .replace("{page_count}", "1")
+        .replace("{page_name}", &req.page.as_ref().map_or(req.layout.name.clone(), |p| p.name.clone()))
+        .replace("{page_number}", &req.page.as_ref().map_or(1, |p| p.number).to_string())
+        .replace("{page_count}", &req.page.as_ref().map_or(1, |p| p.count).to_string());
+    // {page_<field>}: any attribute of the series' index feature.
+    match &req.page {
+        Some(p) => p.attrs.iter().fold(out, |s, (k, v)| s.replace(&format!("{{page_{k}}}"), v)),
+        None => out,
+    }
 }
 
 fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, size: f64, align: &str, color: &str) {
@@ -116,7 +123,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     // Frames first: legends, scale bars and arrows read what each one drew.
     let mut frames: HashMap<&str, (String, surround::FrameCtx)> = HashMap::new();
     for e in layout.elements.iter().filter(|e| e.at().visible) {
-        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border, label_overrides } = e {
+        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border, label_overrides, .. } = e {
             check()?;
             let (graticule, grid) = (graticule.as_ref().map(|g| GridSpec::parse(g, "graticule")).transpose()?, grid.as_ref().map(|g| GridSpec::parse(g, "grid")).transpose()?);
             let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref(), graticule: graticule.as_ref(), grid: grid.as_ref(), basemap, open_basemap, label_overrides };
@@ -232,7 +239,7 @@ impl ExportFormat {
 
 /// Write `bytes` to a temp file beside `path`, then rename: a cancelled or
 /// failed export never leaves a partial file.
-fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(super) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).with_context(|| format!("Could not create {}", dir.display()))?;
     }
@@ -320,6 +327,15 @@ impl Engine {
     /// (the tests use a local raster instead of the network). Every basemap
     /// drawn is recorded in the project's sources.
     pub fn render_layout_svg_with(&self, req: &RenderRequest, open_basemap: &dyn Fn(&str) -> Result<gdal::Dataset>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
+        // A series page (C3.2): move the followed frames to that page's feature first.
+        let applied;
+        let req = match req.series_page {
+            Some(i) => {
+                applied = self.apply_series_page(req, i)?.0;
+                &applied
+            }
+            None => req,
+        };
         let lookup = |id: &str| self.layer(id).ok();
         self.with_conn(|c| {
             let cites = short_citations(c)?;

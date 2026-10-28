@@ -520,6 +520,14 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 9.16v | C3.1 user templates: save (name kept as typed, file name made safe), list after the bundled ones, load, replace on the same name, delete; bundled ones can't be deleted; ids can't leave the folder; an invalid layout or empty name is refused; a broken file is skipped and reported | auto: templates.rs user_templates_*, templates_refuse_*, a_broken_user_file_*, the_engine_keeps_user_templates_* |
 | 9.16w | C3.1 in the app: New Layout → From template (frame takes the map's CRS and view; refused with words when the map has no CRS); Layout → Save as Template (replace asks first); Delete Template | auto: e2e/templates.spec.ts |
 | 9.16x | C3.1 edge cases: a template saved from a layout with several frames; templates with a basemap; a read-only templates folder; a very long template name; two layouts from one template | to automate |
+| 9.17a | C3.2 pages: ordered by the sort field (numbers as numbers, text without regard to case, NULL last, ties by feature id), the definition query limits them, readable errors for a missing layer, field, geometry or series, and an invalid series is refused by the layout JSON | auto: series.rs series_pages_*, series_errors_are_readable |
+| 9.17b | C3.2 frames: a followed frame is centred on its feature, fits it with the margin in the tighter direction (scale a whole number, no looser than needed); fixed scale gives every page the same scale; a point index falls back to the series scale or 1:10 000 | auto: series.rs a_followed_frame_*; point fallback to automate |
+| 9.17c | C3.2 tokens `{page_name}`, `{page_number}`, `{page_count}`, `{page_<field>}`; unchanged without a series page | auto: series.rs tokens_* |
+| 9.17d | **P21** 10 counties → a valid 10-page Letter PDF with embedded fonts, pages in name order, title shows the county, frame spans the county | auto: series.rs p21_* |
+| 9.17e | **P22** Cancel on page 3 leaves no PDF, no `.part` file and (PNG) an empty folder; the task disappears; the engine still works | auto: series.rs p22_* (run three times) |
+| 9.17f | C3.2 PNG: one file per page named `<layout>_<NNN>_<name>.png`, all or nothing; SVG is refused for a series | auto: series.rs png_export_* |
+| 9.17g | C3.2 in the app: Map Series dialog, Follows the map series, page stepping with a caption, As saved, export PDF/PNG, readable errors | auto: e2e/series.spec.ts; ui layout/series.test.ts |
+| 9.17h | C3.2 edge cases: 500+ pages (refused), a layout with two following frames, a frame in another CRS than the index layer, a very long or duplicate page name, highlight of other features (not built) | to automate / not built |
 | 9.17 | Map series, templates (C3), topo map builder (C4), GeoPDF | gap (not built) |
 
 ### 9A. Layout Properties pane goes blank / edits lost (bug U-5, diagnosis first)

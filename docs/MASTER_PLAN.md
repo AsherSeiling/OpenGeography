@@ -118,7 +118,7 @@ The biggest missing piece: the app currently can't make a printable map.
 | L2. Labels in print layouts | 1 | Sonnet | **Built 2026-10-28 (pushed with L3).**  `LAYOUTS_PLAN.md` L2: same settings, greedy collision on the page, skipped labels reported. After L1. |
 | L3. **Built 2026-10-28; pushed with L2 (CI once for L1–L3).** Adjust labels in the layout | 1–2 | Sonnet | `LAYOUTS_PLAN.md` L3: per-layout label style overrides; per-label move, rotate, edit text, hide, reset; pinned labels placed first. User request 2026-10-25. After L2. |
 | C3.0 Layout polish | 1 | Sonnet | **Built 2026-10-28 (local; pushed with C3.1–C3.2, one CI run).**  Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
-| C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | **C3.1 built 2026-10-28 (local; pushed with C3.2).**  Templates use C3.0's label and arrange. |
+| C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | **C3.1 and C3.2 built 2026-10-28 (Phase C pushed in one CI run).**  Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
 **Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Q3 done 2026-10-28. Next: **L1** (labels on the map) → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then B6 ∥ B7 (split by attribute; category precedence; user request), then C3.0 → C3.1 → C3.2. **Then Phase R (coordinate-system hardening, user request 2026-10-27) before anything else.** M4 is on hold at the user's request. C4 waits for E1.

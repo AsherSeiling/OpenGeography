@@ -1106,6 +1106,7 @@ dependencies = [
  "hex",
  "lru",
  "parking_lot",
+ "pdf-writer",
  "png 0.18.1",
  "resvg",
  "serde",

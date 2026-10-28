@@ -1,5 +1,5 @@
 // Layout actions shared by the ribbon, Contents and the layout view.
-import { save } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
 import { useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI } from "../ipc/api";
@@ -7,6 +7,7 @@ import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapControll
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
+import { useSeriesView } from "./series";
 import { addMapFrame, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
 import { frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
@@ -26,7 +27,10 @@ export function layoutRequest(layout: Layout): RenderRequest {
     visible[shown] = s.visible[id] ?? true;
   }
   const project = s.projectDir?.split(/[\\/]/).pop()?.replace(/\.gproj$/, "") || "Untitled";
-  return { layout, styles, order, visible, project, date: new Date().toISOString().slice(0, 10) };
+  // The Layout view shows one page of the map series when asked to (and exports of the open page match it).
+  const shown = useSeriesView.getState().page;
+  const seriesPage = layout.series && shown !== null && useLayouts.getState().id === layout.id ? { seriesPage: shown } : {};
+  return { layout, styles, order, visible, project, date: new Date().toISOString().slice(0, 10), ...seriesPage };
 }
 
 const panelId = (id: string) => `layout:${id}`;
@@ -262,5 +266,43 @@ export async function deleteLayoutTemplate(t: { id: string; name: string }) {
   } catch (e) {
     status(`The template could not be deleted: ${errorText(e)}`);
     reportError(e, "action:Delete template", { title: "The template could not be deleted", context: "deleting a layout template" });
+  }
+}
+
+// ---------- map series (C3.2)
+
+/** Export every page of the open layout's series: one multi-page PDF, or one PNG per page in a folder. */
+export async function exportLayoutSeries(format: "pdf" | "png") {
+  const doc = useLayouts.getState().doc;
+  if (!doc) return;
+  if (!doc.series) {
+    status("Set up a map series first (Layout tab → Map Series).");
+    return;
+  }
+  let path: string | null;
+  try {
+    if (IN_TAURI) {
+      path =
+        format === "pdf"
+          ? await save({ title: `Export ${doc.name} series as PDF`, defaultPath: `${doc.name}.pdf`, filters: [{ name: "PDF", extensions: ["pdf"] }] })
+          : ((await openDialog({ directory: true, title: `Folder for the ${doc.name} series (one PNG per page)` })) as string | null);
+    } else {
+      path = window.prompt(`Export the series ${format === "pdf" ? "PDF to this file" : "PNG files into this folder"} (on the machine running the dev server)`, format === "pdf" ? `/tmp/${doc.name}.pdf` : `/tmp/${doc.name}-series`);
+    }
+  } catch (e) {
+    reportError(e, "action:Export series", { title: "Export could not start" });
+    return;
+  }
+  if (!path) return;
+  await flushLayoutSaves();
+  status(`Exporting the ${doc.name} series…`);
+  try {
+    // Every page is drawn by the engine: no page is picked here.
+    const req = { ...layoutRequest(doc), seriesPage: undefined };
+    const r = await api.exportLayoutSeries(req, format, useExportDpi.getState().dpi, path);
+    status(`Exported ${r.pages} page${r.pages === 1 ? "" : "s"} to ${format === "pdf" ? path : path}${r.warnings.length ? ` · ${r.warnings.length} warning${r.warnings.length > 1 ? "s" : ""}: ${r.warnings[0]}` : ""}`);
+  } catch (e) {
+    status(isCancelled(e) ? "Series export cancelled" : `Series export failed: ${errorText(e)}`);
+    if (!isCancelled(e)) reportError(e, "action:Export series", { title: `Export of the ${doc.name} series failed`, context: "exporting a map series" });
   }
 }

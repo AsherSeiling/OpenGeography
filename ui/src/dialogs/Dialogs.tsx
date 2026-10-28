@@ -30,6 +30,7 @@ import { ElevationDialog } from "./ElevationDialog";
 import { ShortcutsDialog } from "../nodes/ShortcutsDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
 import { ExportDialog } from "./ExportDialog";
+import { SeriesDialog } from "./SeriesDialog";
 import { SplitDialog } from "./SplitDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
@@ -69,6 +70,8 @@ export function Dialogs() {
       return <TigerDialog onClose={close} />;
     case "export":
       return <ExportDialog owner={dialog.owner} onClose={close} />;
+    case "layoutSeries":
+      return <SeriesDialog onClose={close} />;
     case "splitByAttribute":
       return <SplitDialog owner={dialog.owner} onClose={close} />;
     case "elevation":

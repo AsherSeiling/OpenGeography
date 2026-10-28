@@ -275,6 +275,12 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             e.save_layout(&de(a, "layout")?)?;
             json!(null)
         }
+        "layout_series_pages" => json!(e.series_pages(&de(a, "layout")?)?),
+        "export_layout_series" => {
+            let req: engine::layout::model::RenderRequest = de(a, "req")?;
+            let fmt = engine::layout::ExportFormat::parse(&s(a, "format")?)?;
+            json!(e.export_series(&req, fmt, f(a, "dpi")?, std::path::Path::new(&s(a, "path")?))?)
+        }
         "list_layout_templates" => json!(e.layout_templates()),
         "get_layout_template" => json!(e.layout_template(&s(a, "id")?)?),
         "save_layout_template" => json!(e.save_layout_template(&s(a, "name")?, &de(a, "layout")?)?),
