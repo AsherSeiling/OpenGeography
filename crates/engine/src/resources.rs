@@ -31,6 +31,22 @@ pub fn dir() -> Option<&'static Path> {
         .as_deref()
 }
 
+/// Per-user folder for downloaded map tiles (layout basemap previews), created on first use. `GIS_STUDIO_CACHE`
+/// overrides it (tests, portable installs). Safe to delete: tiles are fetched again.
+pub fn tile_cache_dir() -> Option<PathBuf> {
+    let dir = if let Some(d) = std::env::var_os("GIS_STUDIO_CACHE") {
+        PathBuf::from(d)
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from(std::env::var_os("HOME")?).join("Library/Caches/GIS Studio/tiles")
+    } else if cfg!(windows) {
+        PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("GIS Studio/cache/tiles")
+    } else {
+        std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))?.join("gis-studio/tiles")
+    };
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 /// DuckDB spatial extension shipped with the app.
 ///
 /// It ships gzip-compressed: Linux packagers (AppImage) rewrite every ELF

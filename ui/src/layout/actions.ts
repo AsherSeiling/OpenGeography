@@ -6,6 +6,7 @@ import { api, errorText, IN_TAURI } from "../ipc/api";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
 import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
+import { useExportDpi } from "./exportDpi";
 import { addMapFrame, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
 import { frames, newLayoutDoc, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
@@ -173,7 +174,7 @@ export function pickFrameCrs(frameId?: string) {
 
 const FORMATS = { pdf: "PDF", png: "PNG", svg: "SVG" } as const;
 
-export async function exportLayout(format: keyof typeof FORMATS, dpi = 300) {
+export async function exportLayout(format: keyof typeof FORMATS, dpi = useExportDpi.getState().dpi) {
   const doc = useLayouts.getState().doc;
   if (!doc) return;
   const name = `${doc.name}.${format}`;

@@ -216,6 +216,9 @@ pub enum Element {
         units: String,
         #[serde(default)]
         segments: u32,
+        /// Also print the ratio ("1:24,000") under the bar (C3.0).
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        ratio: bool,
     },
     NorthArrow {
         #[serde(flatten)]

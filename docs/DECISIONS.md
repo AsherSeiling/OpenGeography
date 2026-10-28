@@ -7,6 +7,13 @@ Newest first. One entry per decision that isn't obvious from the code; details l
 - **D-1 guard before tiling:** one download is refused when it is wider than 6° (one UTM zone), beyond 84° latitude, or would need cells coarser than 90 m; coarsening below that is allowed but stated in the progress message. Reason: the old code returned silently coarsened or distorted data. The rest of Q3's DEM list (service limits read from the service, mock-server failure tests, cancel during the wait, the dialog hint and 500 MB confirm) moves to D0 with the tiling, since all of it needs the injectable service URL. Rejected: raising the limits without measuring the 3DEP service (DEM-0 needs the network); tiling now (it is D0, the policy for wide areas needs the R0 CRS review).
 - **Test-plan IDs:** the full test plan's DEM-01…06 became DEMF-01…06 so they cannot be confused with `TEST_PLAN.md`'s DEM-n.
 
+## C3.0 Layout polish (built 2026-10-28)
+- **Tile cache:** GDAL's WMS `<Cache>` in a per-user folder from `resources::tile_cache_dir()` (macOS `~/Library/Caches`, Windows `%LOCALAPPDATA%`, Linux XDG cache; `GIS_STUDIO_CACHE` overrides), tiles kept 30 days. Only tiles a preview needs are fetched, as the USGS policy allows; there is no prefetching. OpenStreetMap stays out of print.
+- **Arrange:** the element array order is the stacking order. Align uses the common box of two or more elements, or the page margins for one; locked elements never move; rotation is ignored (the unrotated box is used).
+- **dpi box:** one session-wide value (72–600, remembered in the browser or webview storage), used by the PNG and PDF exports. Map images are still capped at 300 dpi.
+- **Scale bar ratio:** a separate line under the distances, so it never collides with them; the bar needs about 4 mm more height (the engine warns when too short).
+- **Rulers:** millimetres from the page corner, SVG, measured from the page's position in the scroll area.
+
 ## B7 Category drawing order (built 2026-10-28)
 - **One list, one order:** `LayerStyle.classes` order is the order everywhere (no new field, so no engine mirror change and old projects keep their value order). A class higher in the list draws on top: in OpenLayers through a per-class zIndex on the style (clones cached per style and rank), in layouts by drawing "everything else" first and then the classes from the last to the first.
 - **Visible side effect:** layouts used to draw the first class at the bottom. Only overlapping categories look different; three golden SVG hashes were regenerated on purpose.

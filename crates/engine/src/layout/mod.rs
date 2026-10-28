@@ -151,9 +151,9 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
                     surround::legend(&mut s, &mut warnings, at, title, *columns, c, req, lookup);
                 }
             }
-            Element::ScaleBar { at, frame, units, segments } => {
+            Element::ScaleBar { at, frame, units, segments, ratio } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::scale_bar(&mut s, &mut warnings, at, units, *segments, c);
+                    surround::scale_bar(&mut s, &mut warnings, at, units, *segments, *ratio, c);
                 }
             }
             Element::NorthArrow { at, frame, style } => {
@@ -293,8 +293,8 @@ impl Engine {
         let task = Task::start(format!("Exporting layout — {}", req.layout.name)).cancellable();
         task.detail("Drawing the page");
         let mut req = req.clone();
-        if format == ExportFormat::Png {
-            req.raster_dpi.get_or_insert(dpi);
+        if format != ExportFormat::Svg {
+            req.raster_dpi.get_or_insert(dpi); // PNG pixels, and the images inside a PDF
         }
         let out = self.render_layout_svg(&req, &|| task.check())?;
         task.check()?;

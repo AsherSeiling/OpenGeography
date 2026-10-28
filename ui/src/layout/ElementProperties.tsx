@@ -206,6 +206,7 @@ function ScaleBarFields({ el, set }: { el: ScaleBarElement; set: Set }) {
     <>
       <Choice label="Units" value={el.units || "km"} options={units} onPick={(units) => set({ units })} />
       <Num label="Segments" value={el.segments || 4} min={1} max={10} step={1} onChange={(segments) => set({ segments: Math.round(segments) })} />
+      <Checkbox label="Also print the ratio (1:N) under the bar" checked={!!el.ratio} onChange={(_, d) => set({ ratio: d.checked ? true : undefined })} />
     </>
   );
 }

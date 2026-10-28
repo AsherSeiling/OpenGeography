@@ -28,19 +28,20 @@ test("B6 split into layers: one per value, none lost, the input untouched", asyn
 test("B6 split into files: needs a folder, writes one file per value, never overwrites", async ({ app }) => {
   const layer = await addTestLayer(app, "points", 30, [-100, 30, -95, 35]);
   const dir = mkdtempSync(join(tmpdir(), "gis-e2e-split-"));
-  const distinct = (await gis(app, (g, id) => g.api.uniqueValues(id, "class", 100), layer.id)).length;
+  const vals = (await gis(app, (g, id) => g.api.uniqueValues(id, "class", 100), layer.id)).map((v: [string, number]) => String(v[0]));
+  const distinct = vals.length;
   const dlg = await open(app, layer.id);
   await dlg.getByRole("radio", { name: /One file per value/ }).check();
   await expect(dlg.getByRole("button", { name: "Split", exact: true })).toBeDisabled(); // no folder yet
   await dlg.getByPlaceholder("Folder to write into").fill(dir);
   await dlg.getByRole("button", { name: "Split", exact: true }).click();
   await expect.poll(() => readdirSync(dir).filter((f) => f.endsWith(".gpkg")).length).toBe(distinct);
-  expect(existsSync(join(dir, "0.gpkg"))).toBe(true);
+  expect(existsSync(join(dir, `${vals[0]}.gpkg`))).toBe(true);
   // Again into the same folder: the files are kept, new ones get a number.
   const dlg2 = await open(app, layer.id);
   await dlg2.getByRole("radio", { name: /One file per value/ }).check();
   await dlg2.getByPlaceholder("Folder to write into").fill(dir);
   await dlg2.getByRole("button", { name: "Split", exact: true }).click();
   await expect.poll(() => readdirSync(dir).filter((f) => f.endsWith(".gpkg")).length).toBe(2 * distinct);
-  expect(existsSync(join(dir, "0_2.gpkg"))).toBe(true);
+  expect(existsSync(join(dir, `${vals[0]}_2.gpkg`))).toBe(true);
 });

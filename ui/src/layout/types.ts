@@ -121,6 +121,8 @@ export interface ScaleBarElement extends Placement {
   frame: string;
   units: "km" | "mi" | "m" | "ft";
   segments: number;
+  /** Also print "1:N" under the bar (C3.0). */
+  ratio?: boolean;
 }
 
 export interface NorthArrowElement extends Placement {
