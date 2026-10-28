@@ -159,17 +159,20 @@ impl Tool for Voronoi {
             description: "The area closest to each point, carrying that point's attributes (QGIS: Voronoi polygons).", inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Vector),
             params: vec![Param::new("buffer", "Buffer region (% of extent)", ParamKind::Number).default(10)] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let pct = p.f64("buffer").unwrap_or(10.0) / 100.0;
         let t = ident(&i.table);
+        let (into, back) = c.metric_wrap(i)?;
         sel(format!(
-            "WITH pts AS (SELECT * FROM {t} WHERE ST_Dimension(geom) = 0),
+            "WITH pts AS (SELECT * REPLACE ({} AS geom) FROM {t} WHERE ST_Dimension(geom) = 0),
              ext AS (SELECT ST_Extent_Agg(geom) AS e FROM pts),
              env AS (SELECT ST_Buffer(e::GEOMETRY, greatest(ST_XMax(e) - ST_XMin(e), ST_YMax(e) - ST_YMin(e)) * {pct}) AS g FROM ext),
              cells AS (SELECT UNNEST(ST_Dump(ST_VoronoiDiagram(ST_Collect(list(geom))))) AS c FROM pts)
-             SELECT pts.* REPLACE (ST_Intersection(cells.c.geom, env.g) AS geom)
-             FROM cells, env, pts WHERE ST_Intersects(cells.c.geom, pts.geom)"
+             SELECT pts.* REPLACE ({} AS geom)
+             FROM cells, env, pts WHERE ST_Intersects(cells.c.geom, pts.geom)",
+            into.replace("{}", "geom"),
+            back.replace("{}", "ST_Intersection(cells.c.geom, env.g)")
         ), i)
     }
 }
@@ -186,12 +189,13 @@ impl Tool for ConcaveHull {
                 Param::new("field", "Group by field", ParamKind::Field).field_of("in").optional(),
             ] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let r = p.f64("ratio").unwrap_or(0.3).clamp(0.0, 1.0);
         let h = p.bool("holes");
         let t = ident(&i.table);
-        let hull = format!("ST_ConcaveHull(ST_Collect(list(geom)), {r}, {h})");
+        let (into, back) = c.metric_wrap(i)?;
+        let hull = back.replace("{}", &format!("ST_ConcaveHull(ST_Collect(list({})), {r}, {h})", into.replace("{}", "geom")));
         sel(match p.str("field") {
             Some(f) => format!("SELECT {f}, count(*) AS COUNT, {hull} AS geom FROM {t} GROUP BY {f}", f = ident(&f)),
             None => format!("SELECT count(*) AS COUNT, {hull} AS geom FROM {t}"),

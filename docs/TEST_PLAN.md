@@ -154,17 +154,17 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-F1 | Guard: no tool skips CRS testing | every tool in `tool_specs` | each is in the matrix or in `CRS_EXEMPT` with a written reason; a new tool without either fails CI | planned R4 |
-| R-F2 | Measurements | Add Area / Length / Perimeter, geodesic, shapes in 12 CRSs | equal across CRSs (length 1e-5, area 1e-4) and equal to GeographicLib | planned R4 (extends 2.9) |
+| R-F1 | Guard: no tool skips CRS testing | every tool in `tool_specs` | each is in the matrix or in `CRS_EXEMPT` with a written reason; a new tool without either fails CI | auto: crs_matrix::every_registered_tool_is_in_the_matrix_or_excluded_with_a_reason |
+| R-F2 | Measurements | Add Area / Length / Perimeter, geodesic, shapes in 12 CRSs | equal across CRSs (length 1e-5, area 1e-4) and equal to GeographicLib | auto: crs_matrix (calculate_geometry area and length, total geodesic measures equal across 8 CRSs: 1e-4 / 1e-4); GeographicLib comparison for lines in crs_reference r_j2 |
 | R-F3 | Geodesic buffer | point and line, r = 10 km and 100 km, at lat 0, 45, 80, −80 in 8 CRSs | every vertex is r ± 0.1 % from the source (GeographicLib); result in the layer's CRS; error bound documented for NAD83/NAD27 data (G3) | planned R4 |
-| R-F4 | Near, join by nearest, summarize | pairs of layers in two CRSs | distances equal GeographicLib; nearest is the same feature in every CRS | planned R4 |
+| R-F4 | Near, join by nearest, summarize | pairs of layers in two CRSs | distances equal GeographicLib; nearest is the same feature in every CRS | auto: crs_matrix (near, join_nearest, summarize_within, spatial_join, select_by_location) |
 | R-F5 | Overlay with mixed CRSs | Clip, Intersect, Union, Difference, Symmetrical Difference, Erase: input A in CRS x, B in CRS y | result CRS = A's; `reprojected` true exactly when keys differ; area equals the same run in 5070 within 0.01 % (+ curved-edge allowance, written in the test) | planned R4 (extends 2.14) |
 | R-F6 | Distance parameters | Simplify, Densify, Smooth, Grid, Hex, Points along lines, Buffer (planar) in 4326 and in 2277 | distances are in the unit the spec says (RD-9); a "CRS units" parameter on a geographic layer is refused with a message | planned R4 (risk G10) |
-| R-F7 | Project tool | to each zoo CRS and back | geometry ≤ 1 mm; features outside the target's area of use counted and named in the message | planned R4 |
+| R-F7 | Project tool | to each zoo CRS and back | geometry ≤ 1 mm; features outside the target's area of use counted and named in the message | partial: crs_tools::r_j1 (poles counted and left out, message); crs_reference r_a5 round trips; area-of-use naming in R6 |
 | R-F8 | Select / join by location | layers in different CRSs | same feature set in every CRS pair (planar predicate in the first input's CRS; distance geodesic) | planned R4 |
 | R-F9 | Raster × vector tools | Zonal statistics, Clip Raster, Sample: zones in a different CRS than the raster | equal to the run with aligned CRSs (edge cells aside, stated in the test) | planned R4/R5 |
-| R-F10 | Result CRS rule | every tool | output CRS = first input's unless the tool documents otherwise; enforced by the matrix | planned R4 |
-| R-F11 | Dropped features reported | out-of-domain points (lat 89.9° in 3857, > 90° in a bad field, lon far from a Lambert origin) through each tool that transforms | a `dropped` count and a message; no silent empty geometry (RD-6) | planned R4 |
+| R-F10 | Result CRS rule | every tool | output CRS = first input's unless the tool documents otherwise; enforced by the matrix | auto: crs_matrix (the result keeps the first input's CRS for 33 recipes) |
+| R-F11 | Dropped features reported | out-of-domain points (lat 89.9° in 3857, > 90° in a bad field, lon far from a Lambert origin) through each tool that transforms | a `dropped` count and a message; no silent empty geometry (RD-6) | partial: crs_tools::r_j1 (Project; C-2 fixed); other transforming tools use geom_in, which now drops non-finite results |
 | R-F12 | Cache follows the CRS | Define Projection on a layer after a model run | downstream nodes re-run (no stale cache hit); attribute history shows the change | planned R4 (risk G12) |
 
 ### G. Rasters

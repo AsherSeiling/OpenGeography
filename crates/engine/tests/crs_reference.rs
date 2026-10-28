@@ -320,22 +320,8 @@ fn r_d3_wgs84_to_nad83_operation() {
 
 // ---------------------------------------------------------------- R-J: edges
 
-/// Bug C-2: Lambert Conformal Conic (Texas Central) at the south pole returns (inf, inf) with no error.
-#[test]
-#[ignore = "bug C-2: ST_Transform returns inf without an error for points a projection cannot show"]
-fn r_j1_poles_give_finite_numbers_or_an_error_never_nan() {
-    let mut bad = Vec::new();
-    for key in zoo() {
-        for lat in [90.0, -90.0] {
-            if let Ok((x, y)) = tf(0.0, lat, "EPSG:4326", &def(&key)) {
-                if !(x.is_finite() && y.is_finite()) {
-                    bad.push(format!("{key} at lat {lat}: ({x}, {y})"));
-                }
-            }
-        }
-    }
-    assert!(bad.is_empty(), "non-finite coordinates returned without an error: {bad:?}");
-}
+// R-J1 (poles through every zoo CRS) is tested at the tool level, where the fix for bug C-2 lives: `crs_tools::r_j1_*`. Raw
+// `ST_Transform` still returns (inf, inf) for a pole in a conic CRS; the engine's tools turn that into a counted drop (RD-6).
 
 #[test]
 fn r_j3_out_of_domain_is_finite_or_an_error() {
@@ -444,14 +430,20 @@ fn r_j2_a_line_across_the_antimeridian_is_two_degrees_long() {
     assert!((got - want).abs() / want < crs_tol::LENGTH_REL, "geodesic length across 180°: got {got} m, want {want} m");
 }
 
-/// Bug C-3: the geodesic area of a polygon covering the whole world (edges on ±180° and the poles) comes out as 0.
+/// A polygon whose corners are on ±180° and ±90° has geodesic edges that run along ONE meridian twice (−180° and 180° are the same
+/// line) and through single points at the poles: it encloses nothing, so its geodesic area is 0 (this was bug C-3; it is the
+/// right answer to that shape, not a fault). The whole Earth is measured as two lunes, whose edges are two distinct meridians.
 #[test]
-#[ignore = "bug C-3: measured area of a whole-world polygon is 0"]
-fn r_j8_the_whole_world_polygon_has_the_ellipsoid_area() {
-    let (id, fid) = one_feature("world", "POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))");
-    let area = engine().measure_feature(&id, fid).unwrap().area.expect("an area");
+fn r_j8_two_hemispheres_add_up_to_the_ellipsoid_area_and_a_degenerate_world_box_is_zero() {
+    let west = one_feature("west", "POLYGON((-180 -90, 0 -90, 0 90, -180 90, -180 -90))");
+    let east = one_feature("east", "POLYGON((0 -90, 180 -90, 180 90, 0 90, 0 -90))");
+    let area = |l: &(String, i64)| engine().measure_feature(&l.0, l.1).unwrap().area.expect("an area");
+    let (a, b) = (area(&west), area(&east));
     let want = 510_065_621.7e6;
-    assert!((area - want).abs() / want < 1e-5, "world area: got {} km², want 510 065 621.7 km²", area / 1e6);
+    assert!(((a + b) - want).abs() / want < 1e-5, "world area from two lunes: {} km², want 510 065 621.7 km²", (a + b) / 1e6);
+    assert!((a - b).abs() / a < 1e-9, "the two halves are equal");
+    let boxed = one_feature("world box", "POLYGON((-180 -90, 180 -90, 180 90, -180 90, -180 -90))");
+    assert!(area(&boxed) < 1.0, "a box on ±180° and the poles is degenerate under geodesic edges");
 }
 
 // ---------------------------------------------------------------- R-C1: x is east in every format and axis order

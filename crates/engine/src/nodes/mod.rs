@@ -203,9 +203,16 @@ impl<'a> Ctx<'a> {
         self.reprojected.get()
     }
 
-    /// Notes about datum changes made while reprojecting, without repeats.
+    /// Notes for the tool result (a datum change, features that could not be projected), without repeats.
     pub fn datum_notes(&self) -> Vec<String> {
         self.datum_notes.borrow().clone()
+    }
+
+    pub fn add_note(&self, n: String) {
+        let mut notes = self.datum_notes.borrow_mut();
+        if !notes.contains(&n) {
+            notes.push(n);
+        }
     }
 
     /// Non-geometry column names of a relation.
@@ -229,7 +236,12 @@ impl<'a> Ctx<'a> {
                     notes.push(n);
                 }
             }
-            Ok(format!("ST_Transform({col}, {}, {}, true)", lit(src), lit(target)))
+            // A point a projection can't show comes back from PROJ as (inf, inf) with no error (bug C-2): that becomes a null
+            // geometry, never a non-finite number in a result (RD-6).
+            let t = format!("ST_Transform({col}, {}, {}, true)", lit(&crate::crs::resolve(src)), lit(&crate::crs::resolve(target)));
+            Ok(format!(
+                "CASE WHEN ST_IsEmpty({t}) OR (isfinite(ST_XMin({t})) AND isfinite(ST_YMin({t})) AND isfinite(ST_XMax({t})) AND isfinite(ST_YMax({t}))) THEN {t} ELSE NULL END"
+            ))
         }
     }
 
@@ -246,6 +258,20 @@ impl<'a> Ctx<'a> {
             (Some(x), Some(y)) => Ok((x, y)),
             _ => bail!("Input has no features"),
         }
+    }
+
+    /// For tools whose shapes depend on distances (triangulation, Voronoi cells, hulls): the CRS to compute in, with the
+    /// transform expressions into it and back. A geographic layer works in degrees, which stretch east–west by 1/cos(lat), so
+    /// its shapes would differ from the same layer stored in a projected CRS (bug C-6): it is computed in its local UTM zone
+    /// instead. A projected layer is computed as it is. Returns `(into, back)` with `{}` standing for the geometry expression.
+    pub fn metric_wrap(&self, rel: &Rel) -> Result<(String, String)> {
+        let crs = need_crs(rel)?;
+        if !crate::crs::is_geographic(crs) {
+            return Ok(("{}".to_string(), "{}".to_string()));
+        }
+        let utm = self.utm(rel)?;
+        let (from, to) = (lit(&crate::crs::resolve(crs)), lit(&crate::crs::resolve(&utm)));
+        Ok((format!("ST_Transform({{}}, {from}, {to}, true)"), format!("ST_Transform({{}}, {to}, {from}, true)")))
     }
 
     /// UTM zone (WGS 84) at the center of a relation, for metric operations.

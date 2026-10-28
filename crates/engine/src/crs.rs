@@ -288,6 +288,11 @@ pub fn key(crs: &str) -> Result<String> {
     Ok(hash12(&canonical_json(&s)?))
 }
 
+/// True for a CRS in degrees (longitude/latitude).
+pub fn is_geographic(crs: &str) -> bool {
+    srs(&resolve(crs)).map(|s| s.is_geographic()).unwrap_or(false)
+}
+
 /// The datum of a CRS as a short name ("North American Datum 1983"), or None when it can't be told.
 pub fn datum_of(crs: &str) -> Option<String> {
     let s = srs(&resolve(crs)).ok()?;
