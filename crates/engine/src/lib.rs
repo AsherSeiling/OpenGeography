@@ -18,6 +18,7 @@ pub mod sources;
 pub mod resources;
 pub mod table;
 pub mod tiger;
+pub mod split;
 pub mod tiles;
 pub mod tnm;
 pub mod tnm_vector;
@@ -596,15 +597,22 @@ impl Engine {
             self.with_conn(|c| sources::inherit(c, &from, &info.id, &info.name))?;
             return Ok(info);
         }
-        let hidden = if src_info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
         let only = match fids {
             Some([]) => " AND FALSE".to_string(),
             Some(ids) => format!(" AND __fid IN ({})", ids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")),
             None => String::new(),
         };
+        self.copy_layer_where(&src_info, name, &only)
+    }
+
+    /// A vector layer's rows that pass `extra` (SQL starting with " AND …", on the layer table) as a new layer.
+    /// Keeps the CRS, the source and the citations of the input.
+    pub(crate) fn copy_layer_where(&self, src_info: &LayerInfo, name: &str, extra: &str) -> Result<LayerInfo> {
+        let from: Vec<&str> = std::iter::once(src_info.id.as_str()).chain(src_info.result_of.as_deref()).collect();
+        let hidden = if src_info.has_geometry() { "__fid, __g, __x0, __y0, __sz" } else { "__fid" };
         let src = ImportSource {
             name: name.to_string(),
-            select: format!("SELECT * EXCLUDE ({hidden}) FROM {} WHERE TRUE{}{only}", ident(&src_info.table), src_info.def_and()),
+            select: format!("SELECT * EXCLUDE ({hidden}) FROM {} WHERE TRUE{}{extra}", ident(&src_info.table), src_info.def_and()),
             crs: src_info.crs.clone(),
             crs_name: src_info.crs_name.clone(),
             warnings: vec![],

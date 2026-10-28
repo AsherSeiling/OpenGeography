@@ -68,6 +68,20 @@ pub async fn copy_layer(engine: Eng<'_>, id: String, name: String, fids: Option<
     Ok(info)
 }
 
+/// The values of a field with row counts, for the Split by Attribute dialog (B6).
+#[tauri::command]
+pub async fn split_groups(engine: Eng<'_>, id: String, field: String) -> Res<Vec<engine::split::SplitGroup>> {
+    blocking(&engine, move |e| e.split_groups(&id, &field)).await
+}
+
+/// Split a layer by a field into new layers or files (B6).
+#[tauri::command]
+pub async fn split_by_attribute(engine: Eng<'_>, id: String, field: String, target: engine::split::SplitTarget, confirmed: bool) -> Res<engine::split::SplitResult> {
+    let r = blocking(&engine, move |e| e.split_by_attribute(&id, &field, &target, confirmed)).await?;
+    prewarm(&engine, r.layers.iter().map(|l| l.id.clone()).collect());
+    Ok(r)
+}
+
 #[tauri::command]
 pub async fn set_definition_query(engine: Eng<'_>, id: String, query: Option<String>) -> Res<LayerInfo> {
     let info = blocking(&engine, move |e| e.set_definition_query(&id, query.as_deref())).await?;

@@ -32,6 +32,8 @@ fn main() {
             commands::remove_layer,
             commands::rename_layer,
             commands::copy_layer,
+            commands::split_groups,
+            commands::split_by_attribute,
             commands::set_definition_query,
             commands::define_projection,
             commands::suggest_crs,

@@ -53,6 +53,7 @@ import type { ReactElement } from "react";
 import {
   addData,
   exportLayer,
+  splitByAttribute,
   layerFromSelection,
   openDefinitionQuery,
   newProject,
@@ -131,6 +132,7 @@ const list: Command[] = [
   { id: "defineProjection", label: "Define Projection", icon: <GlobeRegular />, run: () => active() && useDialog.getState().show({ kind: "defineProjection", layer: active()!.id }), enabled: () => !!active() },
   { id: "definitionQuery", label: "Definition Query", icon: <FilterRegular />, run: () => active() && openDefinitionQuery(active()!.id), enabled: () => !!active(), tip: "Limit the layer to features matching an expression" },
   { id: "layerFromSelection", label: "Layer From Selection", icon: <LayerDiagonalAddRegular />, run: () => active() && layerFromSelection(active()!.id), enabled: () => !!active() && (app().selection[active()!.id]?.length ?? 0) > 0, tip: "Copy the selected features into a new layer" },
+  { id: "splitByAttribute", label: "Split by Attribute", icon: <LayerDiagonalAddRegular />, run: () => active() && splitByAttribute(active()!.id), enabled: () => !!active() && active()!.geomType !== "Raster", tip: "Make one layer or one file per value of a field" },
   { id: "exportLayer", label: "Export Features", icon: <ArrowExportRegular />, run: () => active() && exportLayer(active()!.id), enabled: () => !!active() },
   { id: "nationalMap", label: "National Map", icon: <MapRegular />, run: () => useDialog.getState().show({ kind: "nationalMap" }), tip: "Download USGS streams, lakes, watersheds, roads, trails, structures, place names and federal lands for an area" },
   { id: "elevation", label: "Elevation (3DEP)", icon: <MountainTrailRegular />, run: () => useDialog.getState().show({ kind: "elevation" }), tip: "Download USGS 3DEP elevation for the map view or a layer's area" },

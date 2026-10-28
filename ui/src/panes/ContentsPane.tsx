@@ -18,7 +18,7 @@ import {
   ZoomFitRegular,
 } from "@fluentui/react-icons";
 import { useEffect, useRef, useState } from "react";
-import { exportLayer, layerFromSelection, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
+import { exportLayer, layerFromSelection, splitByAttribute, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
@@ -249,6 +249,7 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<FilterRegular />} onClick={() => openDefinitionQuery(id)}>Definition Query…</MenuItem>
           <MenuItem icon={<GlobeRegular />} onClick={() => dlg({ kind: "defineProjection", layer: id })}>Define Projection…</MenuItem>
           <MenuItem icon={<ArrowExportRegular />} onClick={() => exportLayer(id)}>Export Features…</MenuItem>
+          <MenuItem icon={<LayerDiagonalAddRegular />} disabled={info.geomType === "Raster"} onClick={() => splitByAttribute(id)}>Split by Attribute…</MenuItem>
           <MenuItem icon={<LayerDiagonalAddRegular />} disabled={!nsel} onClick={() => layerFromSelection(id)}>Create Layer From Selection{nsel ? ` (${nsel.toLocaleString()})` : ""}</MenuItem>
           <MenuItem icon={<EditRegular />} onClick={() => dlg({ kind: "rename", layer: id })}>Rename…</MenuItem>
           <MenuDivider />
