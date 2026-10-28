@@ -171,16 +171,16 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-G1 | Raster CRS recognised | R-E7 files | `crs_of` returns a PROJ-valid string whose key equals the file's | planned R5 |
-| R-G2 | Warp across the zoo | 100×100 plane `z = a·x + b·y` in UTM 15N → 4326, 5070, 3031, 2277 | 20 sample points equal the analytic plane within RD-4 | planned R5 |
-| R-G3 | Warp geometry | same raster | corners round-trip within 1 pixel; target resolution given in the target's unit (m, ° or ftUS) | planned R5 |
-| R-G4 | Identify / sample from another CRS | point given in 4326 on a UTM raster, and the reverse | value equals the native lookup; point outside the domain = no value (B-T6) | planned R5 |
-| R-G5 | Terrain in a geographic CRS | analytic 30° slope in a 4326 DEM | slope 30° ± 0.5°; aspect correct; hillshade matches the projected run | planned R5 (risk G11) |
-| R-G6 | Contours / polygonize | DEM in 4326 and in 2277 | CRS carried; interval in elevation units; vertical unit stated as unknown | planned R5 |
-| R-G7 | Raster and vector line up | raster of a known rectangle and a vector of the same rectangle, same CRS, `render_extent` in the zoo | edges within 1 px | planned R5 (engine half of M4 P14) |
-| R-G8 | Clip raster by vector in another CRS | polygon in 4326, raster in UTM | extent = polygon's transformed bounds, ≤ 1 pixel | planned R5 |
-| R-G9 | Rotated / sheared geotransform | rotated GeoTIFF through Warp, Clip, Identify | correct or refused with a message; never an axis-aligned reading | planned R5 |
-| R-G10 | Raster edge cases | no CRS (existing), zero-size, all NoData, CRS-less world file | readable errors; no crash | planned R5 |
+| R-G1 | Raster CRS recognised | R-E7 files | `crs_of` returns a PROJ-valid string whose key equals the file's | auto: crs_raster::r_g1 (modified definition kept, C-7) |
+| R-G2 | Warp across the zoo | 100×100 plane `z = a·x + b·y` in UTM 15N → 4326, 5070, 3031, 2277 | 20 sample points equal the analytic plane within RD-4 | auto: crs_raster::r_g2 (UTM 15N plane → 4326, 3857, 5070, 32615, 25 points each) |
+| R-G3 | Warp geometry | same raster | corners round-trip within 1 pixel; target resolution given in the target's unit (m, ° or ftUS) | partial: crs_raster::r_g2 (values); corner round trip and target-unit resolution to add |
+| R-G4 | Identify / sample from another CRS | point given in 4326 on a UTM raster, and the reverse | value equals the native lookup; point outside the domain = no value (B-T6) | auto: crs_raster::r_g4 (+ P18 at the pole: crs_raster::p18) |
+| R-G5 | Terrain in a geographic CRS | analytic 30° slope in a 4326 DEM | slope 30° ± 0.5°; aspect correct; hillshade matches the projected run | auto: crs_raster::r_g5 (30° north- and east-facing planes at 45° N, aspect; G11 fixed) |
+| R-G6 | Contours / polygonize | DEM in 4326 and in 2277 | CRS carried; interval in elevation units; vertical unit stated as unknown | to automate (contours/polygonize CRS carry) |
+| R-G7 | Raster and vector line up | raster of a known rectangle and a vector of the same rectangle, same CRS, `render_extent` in the zoo | edges within 1 px | to automate with M4 (render_extent alignment) |
+| R-G8 | Clip raster by vector in another CRS | polygon in 4326, raster in UTM | extent = polygon's transformed bounds, ≤ 1 pixel | to automate (clip raster by vector in another CRS) |
+| R-G9 | Rotated / sheared geotransform | rotated GeoTIFF through Warp, Clip, Identify | correct or refused with a message; never an axis-aligned reading | to automate (rotated geotransform; geographic terrain refuses a rotated raster in words) |
+| R-G10 | Raster edge cases | no CRS (existing), zero-size, all NoData, CRS-less world file | readable errors; no crash | partial: crs_raster::r_g10 (no CRS refused in words; all NoData imports with a warning, C-8); zero-size and CRS-less world file to add |
 
 ### H. Map view (vitest, e2e, engine)
 

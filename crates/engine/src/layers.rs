@@ -502,6 +502,9 @@ pub fn raster_layer(id: &str, name: &str, path: &std::path::Path, source: Option
     if crs.is_none() {
         warnings.push("This raster has no coordinate system and can't be drawn.".into());
     }
+    if r.empty {
+        warnings.push("Every cell of this raster is NoData, so there is nothing to draw or compute from it.".into());
+    }
     Ok(LayerInfo {
         id: id.into(),
         name: name.into(),

@@ -29,6 +29,9 @@ pub struct RasterInfo {
     pub kind: String,
     /// Pixel size in the raster's own units.
     pub pixel_size: f64,
+    /// True when every cell is NoData: there is nothing to draw or compute (min and max are 0).
+    #[serde(default)]
+    pub empty: bool,
 }
 
 pub const EXTENSIONS: &[&str] = &["tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2", "nc", "bil", "flt", "adf", "grd"];
@@ -136,7 +139,60 @@ pub fn warp(src: &Dataset, dest: &str, args: &[String]) -> Result<Dataset> {
 }
 
 /// gdaldem (hillshade, slope, aspect, …).
+///
+/// gdaldem takes one scale for both axes, but a degree of longitude is `cos(latitude)` shorter than a degree of latitude: on a
+/// geographic DEM a slope that runs east–west would come out several degrees too gentle (bug G11, R5). Hillshade, slope and aspect
+/// on a geographic raster therefore run on a copy whose pixels have their true size in metres at the raster's centre latitude, and
+/// the result gets the original degrees georeferencing back.
 pub fn dem(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()> {
+    if geographic(src) && matches!(mode, "hillshade" | "slope" | "aspect") {
+        return dem_geographic(src, dest, mode, args);
+    }
+    dem_plain(src, dest, mode, args)
+}
+
+fn dem_geographic(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()> {
+    let gt = src.geo_transform()?;
+    if gt[2] != 0.0 || gt[4] != 0.0 {
+        return Err(anyhow!("This raster is rotated; terrain tools on a rotated geographic raster aren't supported. Warp it to a projected coordinate system first."));
+    }
+    let (cols, rows) = src.raster_size();
+    let lat = gt[3] + gt[5] * rows as f64 / 2.0;
+    let p = lat.to_radians();
+    // Metres per degree on the WGS 84 ellipsoid at this latitude.
+    let per_lon = 111_412.84 * p.cos() - 93.5 * (3.0 * p).cos() + 0.118 * (5.0 * p).cos();
+    let per_lat = 111_132.954 - 559.822 * (2.0 * p).cos() + 1.175 * (4.0 * p).cos();
+    let (w_m, h_m) = (cols as f64 * gt[1].abs() * per_lon, rows as f64 * gt[5].abs() * per_lat);
+    // Callers add a single "-s" scale for geographic rasters; it is replaced by the true pixel size.
+    let mut kept: Vec<String> = Vec::new();
+    let mut skip = false;
+    for a in args {
+        if skip {
+            skip = false;
+        } else if a == "-s" {
+            skip = true;
+        } else {
+            kept.push(a.clone());
+        }
+    }
+    let metric = new_store_path("metric_view", "tif");
+    let result = new_store_path("metric_result", "tif");
+    let run = (|| -> Result<()> {
+        translate(src, &metric, &["-of", "GTiff", "-a_srs", "LOCAL_CS[\"metric\",UNIT[\"metre\",1]]", "-a_ullr", "0", &h_m.to_string(), &w_m.to_string(), "0"].map(String::from))?;
+        let m = Dataset::open(&metric)?;
+        dem_plain(&m, &result, mode, &kept)?;
+        let r = Dataset::open(&result)?;
+        let srs = src.spatial_ref()?.to_wkt()?;
+        let (ulx, uly) = (gt[0], gt[3]);
+        let (lrx, lry) = (gt[0] + cols as f64 * gt[1], gt[3] + rows as f64 * gt[5]);
+        translate(&r, dest, &["-of", "GTiff", "-co", "COMPRESS=DEFLATE", "-a_srs", &srs, "-a_ullr", &ulx.to_string(), &uly.to_string(), &lrx.to_string(), &lry.to_string()].map(String::from))
+    })();
+    let _ = std::fs::remove_file(&metric);
+    let _ = std::fs::remove_file(&result);
+    run
+}
+
+fn dem_plain(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()> {
     let list = argv(args)?;
     let d = cstr(dest.to_str().ok_or_else(|| anyhow!("bad path"))?)?;
     let m = cstr(mode)?;
@@ -158,13 +214,36 @@ pub fn dem(src: &Dataset, dest: &Path, mode: &str, args: &[String]) -> Result<()
     Ok(())
 }
 
+/// True when `sr` is the CRS its own authority code names (same datum, projection, parameters and units).
+fn crs_is_its_code(sr: &gdal::spatial_ref::SpatialRef, code: &str) -> bool {
+    match (crate::crs::canonical_json(sr), crate::crs::srs(&crate::crs::resolve(code)).and_then(|s| crate::crs::canonical_json(&s))) {
+        (Ok(a), Ok(b)) => a == b,
+        // If either can't be described, keep the old behaviour: trust the code.
+        _ => true,
+    }
+}
+
+/// WKT1 without the AUTHORITY node of the whole CRS (the last one), so a driver can't replace the definition by its code.
+fn strip_top_authority(wkt: &str) -> String {
+    let w = wkt.trim();
+    if let Some(i) = w.rfind(",AUTHORITY[") {
+        let tail = &w[i..];
+        if tail.matches('[').count() == 1 && tail.ends_with("]]") {
+            return format!("{}]", &w[..i]);
+        }
+    }
+    w.to_string()
+}
+
 /// CRS of a raster as "AUTH:CODE" when it has one, else WKT.
 pub fn crs_of(ds: &Dataset) -> (Option<String>, Option<String>) {
     match ds.spatial_ref() {
         Ok(sr) => {
             let name = sr.name();
+            // The authority code only when it really is that CRS: a file can carry "EPSG:26915" on a definition whose parameters were
+            // changed, and the code would then hide the change (bug G6). Otherwise the file's own definition is kept.
             let id = match (sr.auth_name(), sr.auth_code()) {
-                (Some(a), Ok(c)) => Some(format!("{a}:{c}")),
+                (Some(a), Ok(c)) if crs_is_its_code(&sr, &format!("{a}:{c}")) => Some(format!("{a}:{c}")),
                 _ => sr.to_wkt().ok(),
             };
             (id, name)
@@ -201,7 +280,13 @@ pub fn describe(path: &Path) -> Result<RasterInfo> {
     }
     let b = ds.rasterband(1)?;
     let dt = format!("{:?}", b.band_type());
-    let stats = b.get_statistics(true, true)?.ok_or_else(|| anyhow!("No statistics for {}", path.display()))?;
+    // A raster with no valid cell has no statistics: GDAL calls that an error. It is still a raster the user may want to see listed.
+    let (min, max, empty) = match b.get_statistics(true, true) {
+        Ok(Some(s)) => (s.min, s.max, false),
+        Ok(None) => (0.0, 0.0, true),
+        Err(e) if e.to_string().contains("no valid pixels") => (0.0, 0.0, true),
+        Err(e) => return Err(e.into()),
+    };
     let gt = ds.geo_transform()?;
     let rgb = n >= 3 && dt.contains("UInt8");
     Ok(RasterInfo {
@@ -211,10 +296,11 @@ pub fn describe(path: &Path) -> Result<RasterInfo> {
         bands: n,
         data_type: dt,
         nodata: b.no_data_value(),
-        min: stats.min,
-        max: stats.max,
+        min,
+        max,
         kind: if rgb { "rgb".into() } else { "elevation".into() },
         pixel_size: gt[1].abs(),
+        empty,
     })
 }
 
@@ -223,7 +309,20 @@ pub fn import(src_path: &Path) -> Result<PathBuf> {
     let src = Dataset::open(src_path).with_context(|| format!("GDAL could not open {}", src_path.display()))?;
     let stem = src_path.file_stem().and_then(|s| s.to_str()).unwrap_or("raster");
     let dest = new_store_path(stem, "tif");
-    translate(&src, &dest, &["-of", "GTiff", "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=IF_SAFER"].map(String::from))?;
+    let mut args: Vec<String> = ["-of", "GTiff", "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", "-co", "BIGTIFF=IF_SAFER"].map(String::from).to_vec();
+    // A definition that carries an EPSG label but differs from that EPSG CRS (a changed false easting, say) would be written to the
+    // GeoTIFF as the bare code, and the raster would silently land somewhere else (bug C-7). Its own definition, without the label, is
+    // written instead, so the stored file means what the source meant.
+    if let Ok(sr) = src.spatial_ref() {
+        if let (Some(a), Ok(c)) = (sr.auth_name(), sr.auth_code()) {
+            if !crs_is_its_code(&sr, &format!("{a}:{c}")) {
+                if let Ok(w) = sr.to_wkt() {
+                    args.extend(["-a_srs".to_string(), strip_top_authority(&w)]);
+                }
+            }
+        }
+    }
+    translate(&src, &dest, &args)?;
     build_overviews(&dest)?;
     Ok(dest)
 }
