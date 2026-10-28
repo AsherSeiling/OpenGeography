@@ -151,3 +151,41 @@ fn r_b_a_custom_datum_string_is_not_assumed_to_be_a_named_datum() {
     // Equal customs are equal to each other.
     assert!(crs::same("+proj=longlat +ellps=WGS84 +towgs84=0,0,0 +no_defs", "+towgs84=0,0,0 +no_defs +ellps=WGS84 +proj=longlat"));
 }
+
+#[test]
+fn crs_info_describes_codes_and_custom_definitions() {
+    let i = engine::crs::info("EPSG:26914").unwrap();
+    assert_eq!(i.code.as_deref(), Some("EPSG:26914"));
+    assert!(!i.geographic);
+    assert_eq!(i.unit.to_lowercase(), "metre");
+    assert!(i.name.contains("UTM zone 14N"), "{}", i.name);
+    assert_eq!(i.datum.as_deref(), Some("North American Datum 1983"));
+    let a = i.area_of_use.expect("area of use");
+    assert!(a[0] < -100.0 && a[2] >= -96.0 && a[2] < -90.0 && a[1] < a[3]);
+
+    let g = engine::crs::info("EPSG:4326").unwrap();
+    assert!(g.geographic);
+    assert_eq!(g.unit.to_lowercase(), "degree");
+
+    // A custom PROJ string has no code and still reads.
+    let c = engine::crs::info("+proj=utm +zone=14 +datum=NAD83 +units=us-ft").unwrap();
+    assert!(c.code.is_none() && !c.geographic);
+    assert!(c.unit.to_lowercase().contains("foot"), "{}", c.unit);
+
+    let e = engine::crs::info("not a crs").unwrap_err().to_string();
+    assert!(e.contains("not a crs"), "{e}");
+}
+
+#[test]
+fn map_factors_match_utm_theory() {
+    let e = engine::Engine::new().unwrap();
+    // On the central meridian of UTM 14N (99°W) k is 0.9996 and the convergence is 0.
+    let (x, y) = e.transform_point(-99.0, 35.0, "EPSG:4326", "EPSG:26914").unwrap();
+    let (k, g) = e.map_factors("EPSG:26914", x, y).unwrap();
+    assert!((k - 0.9996).abs() < 1e-5, "{k}");
+    assert!(g.abs() < 1e-4, "{g}");
+    // 2° east at 35°N: convergence ≈ Δλ·sin φ = 1.147°.
+    let (x, y) = e.transform_point(-97.0, 35.0, "EPSG:4326", "EPSG:26914").unwrap();
+    let (_, g) = e.map_factors("EPSG:26914", x, y).unwrap();
+    assert!((g - 1.147).abs() < 0.01, "{g}");
+}

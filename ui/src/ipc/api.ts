@@ -129,6 +129,16 @@ export interface CrsGrid {
   tileSize: number;
 }
 
+export interface CrsInfo {
+  name: string;
+  code: string | null;
+  geographic: boolean;
+  unit: string;
+  datum: string | null;
+  /** [west, south, east, north] degrees, null when PROJ has no area of use. */
+  areaOfUse: [number, number, number, number] | null;
+}
+
 export interface CrsDisplayInfo {
   /** "3857" for Web Mercator, else a 12-hex-digit key of the CRS. */
   crsKey: string;
@@ -390,6 +400,9 @@ export const api = {
   defineProjection: (id: string, crs: string, crsName: string | null) =>
     invoke<LayerInfo>("define_projection", { id, crs, crsName }),
   suggestCrs: (id: string) => invoke<{ crs: string; reason: string }[]>("suggest_crs", { id }),
+  crsInfo: (crs: string) => invoke<CrsInfo>("crs_info", { crs }),
+  /** [k, convergence in degrees] of `crs` at (x, y) in that CRS. */
+  mapFactors: (crs: string, x: number, y: number) => invoke<[number, number]>("map_factors", { crs, x, y }),
   validateCrs: (crs: string) => invoke<void>("validate_crs", { crs }),
   transformPoint: (x: number, y: number, from: string, to: string) =>
     invoke<[number, number]>("transform_point", { x, y, from, to }),

@@ -237,6 +237,7 @@ body { font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", s
 /* ---------- Status bar ---------- */
 .statusbar { flex: none; height: 24px; display: flex; align-items: center; gap: 12px; padding: 0 8px; border-top: 1px solid var(--border); background: var(--chrome); font-size: 11.5px; }
 .sb-scale input { width: 110px; font: inherit; border: 1px solid var(--border-strong); background: var(--pane); color: var(--text); padding: 1px 4px; height: 18px; }
+.sb-warn { color: var(--colorPaletteDarkOrangeForeground1, #c0580a); font-weight: 600; }
 .sb-coords { flex: 1; display: flex; gap: 16px; overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sb-right { display: flex; gap: 12px; align-items: center; white-space: nowrap; overflow: hidden; }
 .sb-msg { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }

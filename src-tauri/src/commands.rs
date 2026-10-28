@@ -113,6 +113,16 @@ pub async fn suggest_crs(engine: Eng<'_>, id: String) -> Res<Vec<Suggestion>> {
 }
 
 #[tauri::command]
+pub async fn crs_info(engine: Eng<'_>, crs: String) -> Res<engine::crs::CrsInfo> {
+    blocking(&engine, move |e| e.crs_info(&crs)).await
+}
+
+#[tauri::command]
+pub async fn map_factors(engine: Eng<'_>, crs: String, x: f64, y: f64) -> Res<(f64, f64)> {
+    blocking(&engine, move |e| e.map_factors(&crs, x, y)).await
+}
+
+#[tauri::command]
 pub async fn validate_crs(engine: Eng<'_>, crs: String) -> Res<()> {
     blocking(&engine, move |e| e.validate_crs(&crs)).await
 }

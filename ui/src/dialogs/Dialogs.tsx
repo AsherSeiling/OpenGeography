@@ -25,7 +25,7 @@ import { defineProjection, generateTestData, selectByAttributes, selectByLocatio
 import { reportError } from "../errors/store";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
 import { STATES } from "./TigerDialog";
-import { api, errorText } from "../ipc/api";
+import { api, errorText, type CrsInfo } from "../ipc/api";
 import { ElevationDialog } from "./ElevationDialog";
 import { ShortcutsDialog } from "../nodes/ShortcutsDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
@@ -101,6 +101,12 @@ function safeCenter(): [number, number] | null {
   }
 }
 
+/** One line for the custom-definition preview: name, kind, unit, datum, area of use. */
+export function describeCrs(i: CrsInfo): string {
+  const area = i.areaOfUse ? `valid ${i.areaOfUse[1].toFixed(1)}°–${i.areaOfUse[3].toFixed(1)}° N, ${i.areaOfUse[0].toFixed(1)}°–${i.areaOfUse[2].toFixed(1)}° E` : "area of use unknown";
+  return [i.code ? `${i.name} (${i.code})` : i.name, i.geographic ? "geographic" : "projected", i.unit, i.datum, area].filter(Boolean).join(" · ");
+}
+
 export function CrsPicker({ value, onChange }: { value: string | null; onChange: (id: string, name: string) => void }) {
   const [list, setList] = useState<CrsEntry[]>([]);
   const [query, setQuery] = useState("");
@@ -109,6 +115,14 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
   const [spState, setSpState] = useState<string>("");
   const [custom, setCustom] = useState("");
   const [customErr, setCustomErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState<CrsInfo | null>(null);
+  // Live check of a typed definition: what it is, its datum and where it is valid, or why it can't be used.
+  useEffect(() => {
+    if (!custom.trim()) { setPreview(null); setCustomErr(null); return; }
+    let live = true;
+    const t = setTimeout(() => api.crsInfo(custom.trim()).then((i) => { if (live) { setPreview(i); setCustomErr(null); } }).catch((e) => { if (live) { setPreview(null); setCustomErr(errorText(e)); } }), 350);
+    return () => { live = false; clearTimeout(t); };
+  }, [custom]);
   useEffect(() => {
     loadCatalog().then(setList).catch((e) => reportError(e, "dialog:crs", { title: "The coordinate system list could not be loaded" }));
   }, []);
@@ -125,9 +139,10 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
 
   const useCustom = async () => {
     try {
+      const i = await api.crsInfo(custom.trim());
       await api.validateCrs(custom);
       setCustomErr(null);
-      onChange(custom.trim(), "Custom");
+      onChange(i.code ?? custom.trim(), i.name || "Custom");
     } catch (e) {
       setCustomErr(errorText(e));
     }
@@ -181,7 +196,12 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
         ))}
         {list.length > 0 && results.length === 0 && <div className="muted pad">No matches.</div>}
       </div>
-      <Field label="Or enter a custom definition (WKT, PROJ string, or AUTH:CODE)" validationMessage={customErr ?? undefined} validationState={customErr ? "error" : "none"}>
+      <Field
+        label="Or enter a custom definition (WKT, PROJ string, or AUTH:CODE)"
+        validationMessage={customErr ?? undefined}
+        validationState={customErr ? "error" : "none"}
+        hint={preview ? describeCrs(preview) : undefined}
+      >
         <div style={{ display: "flex", gap: 8 }}>
           <Input value={custom} onChange={(_, d) => setCustom(d.value)} style={{ flex: 1 }} placeholder="+proj=utm +zone=14 +datum=NAD83 +units=us-ft" />
           <Button disabled={!custom.trim()} onClick={useCustom}>Use</Button>

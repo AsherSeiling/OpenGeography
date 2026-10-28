@@ -29,7 +29,7 @@ wait_for "http://localhost:$VITE_PORT/" && curl -s -o /dev/null -X POST -d '{}' 
   echo "servers did not start"; printf '# Browser end-to-end\n\nFAILED: servers did not start, see e2e-*.log\n' > "$OUT/e2e.md"; exit 1; }
 
 export E2E_VITE_PORT=$VITE_PORT E2E_API_PORT=$API_PORT E2E_JSON="$OUT/e2e.json" E2E_ARTIFACTS="$OUT/e2e-artifacts"
-npx playwright test > "$OUT/e2e.log" 2>&1
+npx playwright test "${@:2}" > "$OUT/e2e.log" 2>&1
 RC=$?
 tail -25 "$OUT/e2e.log"
 python3 scripts/e2e_report.py "$OUT/e2e.json" > "$OUT/e2e.md"

@@ -216,6 +216,8 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "rename_layer" => json!(e.rename_layer(&s(a, "id")?, &s(a, "name")?)?),
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),
         "suggest_crs" => json!(e.suggest_crs(&s(a, "id")?)?),
+        "crs_info" => json!(e.crs_info(&s(a, "crs")?)?),
+        "map_factors" => json!(e.map_factors(&s(a, "crs")?, f(a, "x")?, f(a, "y")?)?),
         "validate_crs" => json!(e.validate_crs(&s(a, "crs")?)?),
         "transform_point" => json!(e.transform_point(f(a, "x")?, f(a, "y")?, &s(a, "from")?, &s(a, "to")?)?),
         "map_scale_factor" => json!(e.map_scale_factor(&s(a, "crs")?, f(a, "x")?, f(a, "y")?)?),

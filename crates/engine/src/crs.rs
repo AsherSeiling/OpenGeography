@@ -328,3 +328,41 @@ pub fn same_opt(a: Option<&str>, b: Option<&str>) -> bool {
     }
 }
 
+
+// ---------------------------------------------------------------- description for the picker (R6)
+
+/// What the CRS picker shows for a definition before it is used.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CrsInfo {
+    pub name: String,
+    /// "EPSG:26914" when the definition carries an authority code.
+    pub code: Option<String>,
+    pub geographic: bool,
+    /// "metre", "US survey foot", "degree" …
+    pub unit: String,
+    pub datum: Option<String>,
+    /// West, south, east, north in degrees when PROJ knows the area of use.
+    pub area_of_use: Option<[f64; 4]>,
+}
+
+/// Describe any definition PROJ reads (code, WKT, PROJ string). Errors read as sentences.
+pub fn info(crs: &str) -> Result<CrsInfo> {
+    let s = srs(&resolve(crs))?;
+    let geographic = s.is_geographic();
+    let unit = if geographic {
+        s.angular_units_name().unwrap_or_else(|| "degree".into())
+    } else {
+        s.linear_units_name().unwrap_or_else(|| "metre".into())
+    };
+    let code = match (s.auth_name(), s.auth_code()) {
+        (Some(n), Ok(c)) if !n.is_empty() => Some(format!("{n}:{c}")),
+        _ => None,
+    };
+    let name = s.name().filter(|n| !n.is_empty()).unwrap_or_else(|| short(crs));
+    let area_of_use = s
+        .area_of_use()
+        .filter(|a| a.west_lon_degree.is_finite() && a.north_lat_degree > a.south_lat_degree)
+        .map(|a| [a.west_lon_degree, a.south_lat_degree, a.east_lon_degree, a.north_lat_degree]);
+    Ok(CrsInfo { name, code, geographic, unit, datum: datum_of(crs), area_of_use })
+}

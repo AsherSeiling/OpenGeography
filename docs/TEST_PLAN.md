@@ -103,7 +103,7 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 | R-B1 | Equivalent spellings are one CRS | `EPSG:4326`, ` epsg:4326 `, `urn:ogc:def:crs:EPSG::4326`, WKT1, WKT2, PROJJSON, `+proj=longlat +datum=WGS84 +no_defs`, `OGC:CRS84`; the same for EPSG:26915 | equal `crs::key`; no `reprojected` flag when mixed in a tool; coordinates untouched | auto: crs_identity::r_b1 |
 | R-B2 | Different CRSs are never equal | 4326/4269, 4267/4269, 26915/32615, 2277/32139, 2277/international-foot twin, 3857/3395 | keys differ; mixing reprojects and flags | auto: crs_identity::r_b2 |
 | R-B3 | ESRI flavour recognised | `.prj` of `NAD_1983_UTM_Zone_15N` | key equals EPSG:26915's; the layer shows the EPSG code | auto: crs_identity::r_b3 |
-| R-B4 | CRS label everywhere | zoo CRSs, WKT-only CRS | name, authority code if known, linear/angular unit, datum, area of use; "Custom" for a bare PROJ string | planned R6: crsZoo.test.ts |
+| R-B4 | CRS label everywhere | zoo CRSs, WKT-only CRS | name, authority code if known, linear/angular unit, datum, area of use; "Custom" for a bare PROJ string | auto: crs_identity::crs_info_describes_codes_and_custom_definitions (code, unit, datum, area, custom string, error) |
 | R-B5 | Bad definitions | empty, spaces, `EPSG:0`, `EPSG:99999999`, `+proj=bogus`, truncated WKT, 100 kB text, `EPSG:4326'); DROP TABLE x;--` | `Err` with a readable message; no panic; no SQL executed; layer unchanged | auto: crs_identity::r_b5 (the 100 kB definition is cut to 80 characters in the message) |
 | R-B6 | Engineering / local CRS | `LOCAL_CS["site"]`, WKT with `ENGCRS` | treated as undefined (I1) with a message; never as metres on Earth | planned R2 |
 | R-B7 | Key stability | same PROJ string with parameters in another order; two runs; Windows/Linux | same key | auto: crs_identity::r_b7 |
@@ -188,16 +188,16 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 |---|---|---|---|---|
 | R-H1 | CRS switching over the zoo | 3 layers, every zoo CRS drawable | centre within 1 px, scale within 0.5 % (extends P9) | planned R6: e2e/crs.spec.ts |
 | R-H2 | Readout vs engine | 10 vertices per CRS | lon/lat equal `transform_point` to 1e-7° (extends P8) | planned R6 |
-| R-H3 | Outside the area of use | world layer in UTM 15N, NZTM, 3031 | notice with the engine's dropped count; a chip "data extends outside this CRS's area of use" | planned R6 (risk G15) |
+| R-H3 | Outside the area of use | world layer in UTM 15N, NZTM, 3031 | notice with the engine's dropped count; a chip "data extends outside this CRS's area of use" | partial R6: status bar "outside area of use" notice (outsideArea, statusBar.test.ts); data-extent chip planned (risk G15) |
 | R-H4 | Identify / select at the poles | EPSG:3031 around the South Pole; EPSG:3413 | the right features (P18) | planned R5 (engine), R6 (UI) |
 | R-H5 | Basemap datum chip | map CRS 26715 / 26915 / 4326 | ≈ 15.7 m chip / none / none (extends P9b) | auto: existing M2 test; planned R6 for the zoo |
 | R-H6 | Unsupported CRS | CRS proj4 can't express; custom string without area of use | previous CRS kept with a message; fallback extent used | planned R6 (extends 2.11) |
 | R-H7 | Measure in the zoo | 10 km line in 6 CRSs | 10 km ± 1 m geodesic (extends P12) | planned R6 |
 | R-H8 | Create features | click in CRS A, store in a layer in CRS B | ≤ 1 mm (extends P11) | planned R6 |
-| R-H9 | CRS picker and custom entry | search by code, name, "UTM 15N", State Plane by state, by location; paste an EPSG code, WKT, PROJ string; invalid text | the picked CRS shows name, units, datum, area of use before Apply; invalid text is rejected with the engine's message; recents kept | planned R6: crs.test.ts, e2e |
+| R-H9 | CRS picker and custom entry | search by code, name, "UTM 15N", State Plane by state, by location; paste an EPSG code, WKT, PROJ string; invalid text | the picked CRS shows name, units, datum, area of use before Apply; invalid text is rejected with the engine's message; recents kept | auto: statusBar.test.ts (describeCrs), crs_identity::crs_info_*, e2e/crs-ui.spec.ts (custom entry preview + error); recents still to do |
 | R-H10 | Layer source panel | layer in 26915 on a 3857 map | shows name, code, unit, datum, and "drawn in map CRS (reprojected)" | planned R6 |
 | R-H11 | Tissot indicatrix layer (Map tab, optional) | circles on a 15° lon/lat grid in UTM 15N, Albers 5070, Web Mercator, 3031 | each ellipse's axes equal PROJ `proj_factors` (h, k, convergence) within 0.1 %; in 5070 every circle has area ratio 1.0 ± 0.001; in 3031 circles at 71°S have scale 1.0; in 3857 the scale grows as 1/cos φ; circles that can't be projected are skipped and counted | planned R6: engine test + e2e |
-| R-H12 | Distortion readout in the status bar | pointer over 10 positions per CRS | shows scale factor k and convergence equal to the engine's `factors` (same numbers as the layout scale bar); throttled like the coordinate readout (≤ 110 calls per 5 s sweep) | planned R6: readout.test.ts |
+| R-H12 | Distortion readout in the status bar | pointer over 10 positions per CRS | shows scale factor k and convergence equal to the engine's `factors` (same numbers as the layout scale bar); throttled like the coordinate readout (≤ 110 calls per 5 s sweep) | auto: crs_identity::map_factors_match_utm_theory (k = 0.9996, γ = Δλ sin φ), e2e/crs-ui.spec.ts; status bar throttled at 120 ms; same engine `factors` as the layout scale bar |
 
 ### W. World view (Phase R8, RD-10)
 

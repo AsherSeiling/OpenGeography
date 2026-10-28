@@ -1,7 +1,8 @@
 // Status bar: editable map scale, cursor coordinates in the map CRS, decimal
 // degrees / DMS, MGRS, and the map CRS (click to change).
 import { forward as toMgrs } from "mgrs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../ipc/api";
 import { pickMapCrs } from "../actions";
 import { getActiveCrs, setScale } from "../map/mapController";
 import { formatScale, parseScale, SCALE_PRESETS } from "../map/style";
@@ -27,6 +28,37 @@ export function mgrsOf(lon: number, lat: number): string {
   } catch {
     return "—";
   }
+}
+
+/** True when lon/lat lies outside the CRS's area of use [west, south, east, north] (areas crossing the antimeridian have west > east). */
+export function outsideArea(lon: number, lat: number, area: [number, number, number, number]): boolean {
+  const [w, s, e, n] = area;
+  if (lat < s || lat > n) return true;
+  return w <= e ? lon < w || lon > e : lon < w && lon > e;
+}
+
+/** Scale factor k and meridian convergence at the pointer, and a notice when the pointer is outside the CRS's area of use. */
+function PointFactors({ x, y, lon, lat }: { x: number; y: number; lon: number; lat: number }) {
+  const [f, setF] = useState<[number, number] | null>(null);
+  const crs = getActiveCrs();
+  const id = crs?.id;
+  useEffect(() => {
+    if (!id || crs!.info.geographic) { setF(null); return; }
+    let live = true;
+    const t = setTimeout(() => api.mapFactors(id, x, y).then((r) => live && setF(r)).catch(() => live && setF(null)), 120);
+    return () => { live = false; clearTimeout(t); };
+  }, [id, x, y]);
+  const out = crs && crs.info.areaOfUseKnown && outsideArea(lon, lat, crs.info.areaOfUse);
+  return (
+    <>
+      {f && (
+        <span title="Point scale factor k (grid distance ÷ ground distance) and meridian convergence γ at the pointer">
+          k {f[0].toFixed(5)} · γ {f[1].toFixed(3)}°
+        </span>
+      )}
+      {out && <span className="sb-warn" title={`The pointer is outside the area this coordinate system is meant for (${crs!.info.areaOfUse.map((v) => v.toFixed(1)).join(", ")}). Distances and areas get less accurate.`}>⚠ outside area of use</span>}
+    </>
+  );
 }
 
 export function StatusBar() {
@@ -77,6 +109,7 @@ export function StatusBar() {
                 {projected[0].toLocaleString("en-US", { maximumFractionDigits: 1 })} E {projected[1].toLocaleString("en-US", { maximumFractionDigits: 1 })} N
               </span>
             )}
+            {projected && <PointFactors x={projected[0]} y={projected[1]} lon={lon} lat={lat} />}
             <span title="Decimal degrees (WGS 84)">{lat.toFixed(5)}°, {lon.toFixed(5)}°</span>
             <span title="Degrees minutes seconds">{dms(lat, "N", "S")} {dms(lon, "E", "W")}</span>
             <span title="MGRS / USNG grid reference (1 m)">{mgrsOf(lon, lat)}</span>
