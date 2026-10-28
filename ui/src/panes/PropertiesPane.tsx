@@ -21,6 +21,7 @@ import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions
 import { crsName } from "../crs/crs";
 import { api, errorText, type ToolParam } from "../ipc/api";
 import { LayoutElementProperties } from "../layout/ElementProperties";
+import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
 import { QueryEditor } from "../query/QueryEditor";
 import { LabelSettings } from "./LabelSettings";
@@ -32,6 +33,7 @@ export function PropertiesPane() {
   if (target?.kind === "node") return <NodeProperties id={target.id} />;
   if (target?.kind === "layer") return <LayerProperties id={target.id} />;
   if (target?.kind === "layoutElement") return <LayoutElementProperties layout={target.layout} id={target.id} />;
+  if (target?.kind === "layoutLabel") return <LayoutLabelProperties layout={target.layout} frame={target.frame} layer={target.layer} fid={target.fid} />;
   return <div className="empty-hint pad">Select a layer in Contents or a step in the Model to see its properties.</div>;
 }
 

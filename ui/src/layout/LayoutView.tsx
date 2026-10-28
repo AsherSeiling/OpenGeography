@@ -7,7 +7,9 @@ import { api, errorText } from "../ipc/api";
 import { beginStep, useLayouts } from "../store/layout";
 import { useApp } from "../store/store";
 import { layoutRequest } from "./actions";
-import type { Layout, LayoutElement } from "./types";
+import { dragged, withFeatureEdit, withoutDropped } from "./labelEdits";
+import { sameLabel, useLabelHits } from "./labelHits";
+import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
 const MIN_MM = 2;
 const HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
@@ -50,7 +52,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const [fit, setFit] = useState(true);
   const [zoom, setZoom] = useState(2); // screen px per mm
   const [box, setBox] = useState({ w: 800, h: 600 });
-  const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number } | null>(null);
+  const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; labels: PlacedLabel[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
   const { page } = layout;
@@ -102,7 +104,13 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       try {
         const res = await api.renderLayoutPreview(layoutRequest(layout), dpi);
         if (mine !== seq.current) return;
-        setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0) });
+        setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), labels: res.labels ?? [] });
+        useLabelHits.getState().set(layout.id, res.labels ?? []);
+        // Edits for features that are gone are removed (the engine already ignored them).
+        for (const f of new Set((res.droppedLabelEdits ?? []).map((d) => d.frame))) {
+          const el = useLayouts.getState().doc?.elements.find((e) => e.id === f && e.kind === "map_frame") as MapFrame | undefined;
+          if (el && useLayouts.getState().id === layout.id) useLayouts.getState().update(f, { labelOverrides: withoutDropped(el.labelOverrides, f, res.droppedLabelEdits) });
+        }
         setError(null);
       } catch (e) {
         if (mine === seq.current) setError(errorText(e));
@@ -154,6 +162,32 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     };
     target.addEventListener("pointermove", move);
     target.addEventListener("pointerup", up);
+  };
+
+  // Labels: click selects one (Properties edits it), a drag moves it; the edit is saved in this layout only (L3).
+  const props = useApp((s) => s.properties);
+  const startLabelDrag = (e: React.PointerEvent, l: PlacedLabel) => {
+    e.stopPropagation();
+    activate();
+    wrap.current?.focus();
+    store().select([]);
+    useApp.getState().setProperties({ kind: "layoutLabel", layout: layout.id, frame: l.frame, layer: l.layer, fid: l.fid });
+    if (e.button !== 0) return;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const box = e.currentTarget as HTMLElement;
+    box.setPointerCapture(e.pointerId);
+    const move = (m: PointerEvent) => (box.style.transform = `translate(${m.clientX - x0}px, ${m.clientY - y0}px)`);
+    const up = (m: PointerEvent) => {
+      box.removeEventListener("pointermove", move);
+      box.removeEventListener("pointerup", up);
+      box.style.transform = "";
+      const frame = store().doc?.elements.find((el) => el.id === l.frame && el.kind === "map_frame") as MapFrame | undefined;
+      const edit = frame && dragged(frame.labelOverrides?.[l.layer]?.features?.[String(l.fid)], (m.clientX - x0) / z, (m.clientY - y0) / z);
+      if (frame && edit) store().update(frame.id, { labelOverrides: withFeatureEdit(frame.labelOverrides, l.layer, l.fid, edit) });
+    };
+    box.addEventListener("pointermove", move);
+    box.addEventListener("pointerup", up);
   };
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -234,6 +268,21 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
               </Tooltip>
             );
           })}
+          {!rendering &&
+            (preview?.labels ?? []).map((l) => {
+              const chosen = props?.kind === "layoutLabel" && sameLabel(props, l);
+              const [x0, y0, x1, y1] = l.boxMm;
+              return (
+                <div
+                  key={`${l.frame}/${l.layer}/${l.fid}`}
+                  className={`layout-label ${chosen ? "on" : ""} ${l.pinned ? "pinned" : ""} ${l.hidden ? "hidden" : ""}`}
+                  data-label={`${l.layer}:${l.fid}`}
+                  title={l.hidden ? `Hidden label “${l.text}”` : `Label “${l.text}”: drag to move`}
+                  style={{ left: x0 * z, top: y0 * z, width: (x1 - x0) * z, height: (y1 - y0) * z }}
+                  onPointerDown={(e) => startLabelDrag(e, l)}
+                />
+              );
+            })}
         </div>
       </div>
     </div>

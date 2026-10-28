@@ -29,6 +29,10 @@ pub struct LayoutSvg {
     pub warnings: Vec<String>,
     /// Basemap ids that were drawn (their citations are recorded by the engine).
     pub basemaps: Vec<String>,
+    /// Labels as placed, by frame (L3): the UI draws a hit box over each.
+    pub labels: Vec<labels::PlacedLabel>,
+    /// Label edits whose feature no longer exists; the UI removes them.
+    pub dropped_label_edits: Vec<labels::DroppedEdit>,
 }
 
 /// "24000" → "24,000".
@@ -98,6 +102,8 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     let p = &layout.page;
     let mut warnings = Vec::new();
     let mut basemaps: Vec<String> = Vec::new();
+    let mut placed_labels = Vec::new();
+    let mut dropped_label_edits = Vec::new();
     let mut s = String::new();
     let _ = write!(
         s,
@@ -109,12 +115,14 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     // Frames first: legends, scale bars and arrows read what each one drew.
     let mut frames: HashMap<&str, (String, surround::FrameCtx)> = HashMap::new();
     for e in layout.elements.iter().filter(|e| e.at().visible) {
-        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border } = e {
+        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border, label_overrides } = e {
             check()?;
             let (graticule, grid) = (graticule.as_ref().map(|g| GridSpec::parse(g, "graticule")).transpose()?, grid.as_ref().map(|g| GridSpec::parse(g, "grid")).transpose()?);
-            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref(), graticule: graticule.as_ref(), grid: grid.as_ref(), basemap, open_basemap };
+            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref(), graticule: graticule.as_ref(), grid: grid.as_ref(), basemap, open_basemap, label_overrides };
             let out = frame::render_frame(conn, &body, &f, req, lookup, check)?;
             warnings.extend(out.warnings);
+            placed_labels.extend(out.labels);
+            dropped_label_edits.extend(out.dropped_label_edits);
             let mut extra_cites = Vec::new();
             if let Some(b) = &out.basemap {
                 extra_cites.extend(crate::sources::for_basemap(b).map(|c| short_citation(&c)));
@@ -161,7 +169,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
         }
     }
     s.push_str("</svg>");
-    Ok(LayoutSvg { svg: s, warnings, basemaps })
+    Ok(LayoutSvg { svg: s, warnings, basemaps, labels: placed_labels, dropped_label_edits })
 }
 
 /// "U.S. Census Bureau, TIGER/Line Shapefiles (2024)" for the Sources element.
@@ -197,6 +205,9 @@ pub struct LayoutPreview {
     pub png: String,
     pub png_bytes: usize,
     pub warnings: Vec<String>,
+    /// Labels as placed, for hit boxes in the Layout view (L3).
+    pub labels: Vec<labels::PlacedLabel>,
+    pub dropped_label_edits: Vec<labels::DroppedEdit>,
 }
 
 /// Output formats of [`Engine::export_layout`].
@@ -271,7 +282,7 @@ impl Engine {
         req.raster_dpi.get_or_insert(dpi); // a screen preview needn't carry 300 dpi images
         let out = self.render_layout_svg(&req, &|| Ok(()))?;
         let png = export::svg_to_png(&out.svg, dpi)?;
-        Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings })
+        Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings, labels: out.labels, dropped_label_edits: out.dropped_label_edits })
     }
 
     /// Export a layout page to `path` as a cancellable task ("Exporting

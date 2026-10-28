@@ -25,7 +25,7 @@ Existing: TP §9 (layouts), §11 (sources), §12 (projects), §14 manual cases. 
 | LAY-17 | — | Export while the layout is being edited | Snapshot at start; or edits blocked | 2E | to automate (CON-09) | P1 |
 | LAY-18 | — | Layout in a project saved on macOS and opened elsewhere (fonts, paths, units) | Identical render hash within tolerance (golden per OS) | E+PK | partial: TP 9.1 golden (macOS); manual M-24 | P1 |
 | LAY-19 | — | Layout view usability: zoom 10 %–800 %, snap, keyboard nudge, multi-select, lock | Behaves; no jank | M | manual M-19 | P2 |
-| LAY-20 | — | Labels in layouts L2/L3 (collision, overrides, pinned) | — | — | pending feature (L2, L3) | P1 |
+| LAY-20 | — | Labels in layouts L2/L3 (collision, overrides, pinned) | — | E+V+2E | partial: tests/layout.rs l2_*, l3_*; ui labelEdits.test.ts; e2e/labels.spec.ts; to automate more than 50 000 features, labels over a basemap, rotated frame (TEST_PLAN 9.16g) | P1 |
 | LAY-21 | — | Map series, templates, Topo Map, GeoPDF, rulers, dpi box | — | — | pending feature (C3, C4) | P2 |
 | LAY-22 | — | Preview (`render_layout_preview`) debounce: 30 edits in 1 s | One render at the end; stale previews discarded | V+E | to automate | P1 |
 
