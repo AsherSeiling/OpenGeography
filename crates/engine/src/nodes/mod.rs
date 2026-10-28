@@ -213,7 +213,7 @@ impl<'a> Ctx<'a> {
     pub fn geom_in(&self, rel: &Rel, alias: &str, target: &str) -> Result<String> {
         let src = need_crs(rel)?;
         let col = format!("{alias}.geom");
-        if src.eq_ignore_ascii_case(target) {
+        if crate::crs::same(src, target) {
             Ok(col)
         } else {
             self.reprojected.set(true);

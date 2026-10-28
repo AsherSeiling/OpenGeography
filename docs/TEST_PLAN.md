@@ -100,14 +100,14 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-B1 | Equivalent spellings are one CRS | `EPSG:4326`, ` epsg:4326 `, `urn:ogc:def:crs:EPSG::4326`, WKT1, WKT2, PROJJSON, `+proj=longlat +datum=WGS84 +no_defs`, `OGC:CRS84`; the same for EPSG:26915 | equal `crs::key`; no `reprojected` flag when mixed in a tool; coordinates untouched | planned R2 (risk G1) |
-| R-B2 | Different CRSs are never equal | 4326/4269, 4267/4269, 26915/32615, 2277/32139, 2277/international-foot twin, 3857/3395 | keys differ; mixing reprojects and flags | planned R2 |
-| R-B3 | ESRI flavour recognised | `.prj` of `NAD_1983_UTM_Zone_15N` | key equals EPSG:26915's; the layer shows the EPSG code | planned R2 (risk G1) |
+| R-B1 | Equivalent spellings are one CRS | `EPSG:4326`, ` epsg:4326 `, `urn:ogc:def:crs:EPSG::4326`, WKT1, WKT2, PROJJSON, `+proj=longlat +datum=WGS84 +no_defs`, `OGC:CRS84`; the same for EPSG:26915 | equal `crs::key`; no `reprojected` flag when mixed in a tool; coordinates untouched | auto: crs_identity::r_b1 |
+| R-B2 | Different CRSs are never equal | 4326/4269, 4267/4269, 26915/32615, 2277/32139, 2277/international-foot twin, 3857/3395 | keys differ; mixing reprojects and flags | auto: crs_identity::r_b2 |
+| R-B3 | ESRI flavour recognised | `.prj` of `NAD_1983_UTM_Zone_15N` | key equals EPSG:26915's; the layer shows the EPSG code | auto: crs_identity::r_b3 |
 | R-B4 | CRS label everywhere | zoo CRSs, WKT-only CRS | name, authority code if known, linear/angular unit, datum, area of use; "Custom" for a bare PROJ string | planned R6: crsZoo.test.ts |
-| R-B5 | Bad definitions | empty, spaces, `EPSG:0`, `EPSG:99999999`, `+proj=bogus`, truncated WKT, 100 kB text, `EPSG:4326'); DROP TABLE x;--` | `Err` with a readable message; no panic; no SQL executed; layer unchanged | planned R2 (extends 2.7) |
+| R-B5 | Bad definitions | empty, spaces, `EPSG:0`, `EPSG:99999999`, `+proj=bogus`, truncated WKT, 100 kB text, `EPSG:4326'); DROP TABLE x;--` | `Err` with a readable message; no panic; no SQL executed; layer unchanged | auto: crs_identity::r_b5 (the 100 kB definition is cut to 80 characters in the message) |
 | R-B6 | Engineering / local CRS | `LOCAL_CS["site"]`, WKT with `ENGCRS` | treated as undefined (I1) with a message; never as metres on Earth | planned R2 |
-| R-B7 | Key stability | same PROJ string with parameters in another order; two runs; Windows/Linux | same key | planned R2, R7 |
-| R-B8 | Datum ensemble | WGS 84 realisations (G1150, G1762) vs EPSG:4326 | same key (RD-2 default); mixing does not reproject | planned R2 |
+| R-B7 | Key stability | same PROJ string with parameters in another order; two runs; Windows/Linux | same key | auto: crs_identity::r_b7 |
+| R-B8 | Datum ensemble | WGS 84 realisations (G1150, G1762) vs EPSG:4326 | same key (RD-2 default); mixing does not reproject | auto: crs_identity::r_b8 (a custom +ellps/+towgs84 string stays "different": safe direction) |
 | R-B9 | Cross-body guard | Earth layer + `IAU_2015:49900` | PROJ's "ellipsoid does not belong to the same celestial body" surfaced as a sentence; no result | planned R2 |
 
 ### C. Axis order and units
@@ -115,8 +115,8 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
 | R-C1 | East-first everywhere | one point imported from GPKG, shapefile, GeoJSON, FlatGeobuf, GeoParquet, CSV in EPSG:4326, 4269, 3035 (north/east), 2193 (north/east) | stored x = east/lon, y = north/lat; extent, map position and `transform_point` match `cs2cs` | auto: crs_reference::r_c1 (GPKG, shapefile, GeoJSON, FlatGeobuf × 4326, 4269, 3035, 2193); GeoParquet and CSV to add in R2 |
-| R-C2 | GeoJSON order | RFC 7946 file; legacy file with `crs` member `urn:ogc:def:crs:EPSG::4326` and lon,lat values; legacy `EPSG:3035` member | lon,lat read as lon,lat; projected members honoured; none flipped | planned R2 |
-| R-C3 | CSV columns | `Longitude,Latitude`; `Latitude,Longitude`; values with lat > 90 in the "latitude" column | correct either way; swapped values warn "looks like latitude and longitude are swapped" | planned R2 |
+| R-C2 | GeoJSON order | RFC 7946 file; legacy file with `crs` member `urn:ogc:def:crs:EPSG::4326` and lon,lat values; legacy `EPSG:3035` member | lon,lat read as lon,lat; projected members honoured; none flipped | auto: crs_import::r_c2 |
+| R-C3 | CSV columns | `Longitude,Latitude`; `Latitude,Longitude`; values with lat > 90 in the "latitude" column | correct either way; swapped values warn "looks like latitude and longitude are swapped" | auto: crs_import::r_c3 (swapped columns now warn, C-5) |
 | R-C4 | Linear units | metre, ftUS (2277) and international-foot CRS: 1000-unit square; length, area, planar buffer, scale bar | ftUS = 1200/3937 m, international = 0.3048 m; the two differ by 2 ppm and tests tell them apart (1 000 000 ft → 2 ft) | auto: crs_reference::r_c4 |
 | R-C5 | Angular units | geographic CRS in grads / arc-seconds | map refuses with a message (existing 2.12); tools convert, or refuse with a message | planned R4 (tool matrix refuses or converts) |
 | R-C6 | Prime meridian | EPSG:4807 NTF (Paris), grads: lon 0 grad | lon 2.337229167° E in 4326 (verify with `cs2cs` when pinning) | auto: crs_reference::r_c6 (pinned from cs2cs; the NTF datum shift is included) |
@@ -139,10 +139,10 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-E1 | Format × CRS round trip | export then import in GPKG, shapefile, FlatGeobuf, GeoParquet (not GeoJSON/CSV) × EPSG:4326, 26915, 5070, 2277, 3031, a PROJ string | same key; coordinates ≤ 1 mm / 1e-9° | planned R2 (extends 1.16) |
-| R-E2 | Shapefile `.prj` flavours | ESRI WKT; OGC WKT; custom WKT; garbled `.prj`; no `.prj` | recognised and keyed; garbled → undefined with a warning; none → undefined (existing 1.3) | planned R2 |
+| R-E1 | Format × CRS round trip | export then import in GPKG, shapefile, FlatGeobuf, GeoParquet (not GeoJSON/CSV) × EPSG:4326, 26915, 5070, 2277, 3031, a PROJ string | same key; coordinates ≤ 1 mm / 1e-9° | auto: crs_import::r_e1 (GPKG, shapefile, FlatGeobuf × 6 CRSs; GeoParquet to add) |
+| R-E2 | Shapefile `.prj` flavours | ESRI WKT; OGC WKT; custom WKT; garbled `.prj`; no `.prj` | recognised and keyed; garbled → undefined with a warning; none → undefined (existing 1.3) | auto: crs_import::r_e2 |
 | R-E3 | GeoJSON export policy | UTM layer → GeoJSON | default: reprojected to 4326 with a message (RD-7); option "keep layer CRS" writes the legacy member; round trip ≤ 1 mm | planned R3 (risk G9) |
-| R-E4 | GPKG SRS variants | `srs_id` 4326; custom definition without authority; 0 / −1 (undefined); two layers in different CRSs | custom kept as its WKT; 0/−1 → undefined with a warning (not 4326); each layer its own CRS | planned R2 |
+| R-E4 | GPKG SRS variants | `srs_id` 4326; custom definition without authority; 0 / −1 (undefined); two layers in different CRSs | custom kept as its WKT; 0/−1 → undefined with a warning (not 4326); each layer its own CRS | auto: crs_import::r_e4 (undefined stays undefined, C-4) |
 | R-E5 | Project save / reopen | project with layers, map CRS and layout frames in 5 zoo CRSs; reopen; committed fixture project from another OS | same keys, same display, no re-reprojection | planned R2; R7 for other OS |
 | R-E6 | CSV with X/Y | `x,y` in UTM; user picks the CRS at import | points land at `cs2cs` positions; no CRS chosen → undefined | planned R6 |
 | R-E7 | Raster import flavours | GeoTIFF with EPSG code; WKT only; modified definition with an EPSG code; world file + `.prj`; COG in 3857; rotated geotransform | key equals the file's real CRS (modified definition kept); rotated/sheared → handled or refused with a message | planned R5 (risk G6) |
