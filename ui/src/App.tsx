@@ -20,7 +20,7 @@ import { SourcesPane } from "./panes/SourcesPane";
 import { ErrorDialog } from "./errors/ErrorDialog";
 import { PaneBoundary } from "./errors/PaneBoundary";
 import { LayoutView } from "./layout/LayoutView";
-import { useLayouts } from "./store/layout";
+import { followActivePanel, layoutPanelClosed } from "./layout/actions";
 import { ToolsPane } from "./panes/ToolsPane";
 import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
@@ -126,9 +126,9 @@ export function App() {
     defaultLayout();
     // The Layout ribbon tab and Properties follow the active layout tab.
     e.api.onDidActivePanelChange((ev) => {
-      const lid = (ev.panel?.params as { layoutId?: string } | undefined)?.layoutId;
-      useLayouts.getState().open(lid ?? null);
+      followActivePanel((ev.panel?.params as { layoutId?: string } | undefined)?.layoutId);
     });
+    e.api.onDidRemovePanel((panel) => layoutPanelClosed((panel.params as { layoutId?: string } | undefined)?.layoutId));
   };
 
   return (

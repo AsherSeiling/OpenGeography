@@ -9,6 +9,7 @@ vi.mock("../ipc/api", () => ({
 import { api } from "../ipc/api";
 import { resized } from "../layout/LayoutView";
 import { newLayoutDoc, rounded, roundScaleUp, type MapFrame, type TextElement } from "../layout/types";
+import { followActivePanel, layoutPanelClosed } from "../layout/actions";
 import { addMapFrame, addSurround, addText, beginStep, flushLayoutSaves, useLayouts } from "./layout";
 import { useApp } from "./store";
 
@@ -163,3 +164,31 @@ describe("map frame basemap follows the map view", () => {
   });
 });
 
+
+// Bug U-5 (Properties pane blank, edits dropped): LP-1, LP-3
+describe("layout stays open while other panels are active (U-5)", () => {
+  it("LP-3 a click into Properties (non-layout panel) keeps the open layout and its selection", () => {
+    const id = addText()!;
+    followActivePanel(undefined);
+    expect(L.getState().id).toBe("a");
+    expect(L.getState().selected).toEqual([id]);
+    L.getState().update(id, { size: 33 }, "size");
+    expect(text(id).size).toBe(33);
+  });
+
+  it("LP-3 activating another layout's tab opens it; closing the open layout's tab closes it", () => {
+    followActivePanel("b");
+    expect(L.getState().id).toBe("b");
+    layoutPanelClosed("a");
+    expect(L.getState().id).toBe("b");
+    layoutPanelClosed("b");
+    expect(L.getState().id).toBeNull();
+  });
+
+  it("LP-1 selection survives 30 edits, with and without a burst key", () => {
+    const id = addText()!;
+    for (let i = 0; i < 30; i++) L.getState().update(id, { x: i }, i % 2 ? "x" : undefined);
+    expect(L.getState().selected).toEqual([id]);
+    expect(text(id).x).toBe(29);
+  });
+});

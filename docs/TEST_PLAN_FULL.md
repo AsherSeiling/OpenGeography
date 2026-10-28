@@ -51,7 +51,7 @@ This plan **extends** [`TEST_PLAN.md`](TEST_PLAN.md). The 251 existing rows (IDs
 | Graph | `tool_specs`, `run_graph`, `preview_output`, `clear_model_cache`, `prune_node_cache`, `set_node_cache_budget` | MDL, EXE, TOOL |
 | History | `node_table_info`, `node_rows`, `node_diff`, `node_diff_rows`, `drop_node_diff` | HIS |
 | Projects | `save_project`, `open_project`, `new_project` | PRJ |
-| Downloads | `tiger_datasets`, `tiger_vintages`, `tiger_availability`, `tiger_counties`, `tiger_import`, `tnm_datasets`, `tnm_import`, `download_elevation`, `record_basemap` | TIG, TNM, DEM, BMP |
+| Downloads | `tiger_datasets`, `tiger_vintages`, `tiger_availability`, `tiger_counties`, `tiger_import`, `tnm_datasets`, `tnm_import`, `download_elevation`, `record_basemap` | TIG, TNM, DEMF, BMP |
 | Catalog | `fs_roots`, `fs_list`, `fs_stat`, `fs_inspect` | CAT |
 | Sources | `sources`, `update_source`, `remove_source`, `save_text` | SRC, EXP-12 |
 | Layouts | `list_layouts`, `save_layout`, `delete_layout`, `render_layout_preview`, `export_layout` | LAY |

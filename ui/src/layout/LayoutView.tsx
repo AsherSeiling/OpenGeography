@@ -118,7 +118,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   useEffect(() => {
     const app = useApp.getState();
     if (selected.length === 1) app.setProperties({ kind: "layoutElement", layout: layout.id, id: selected[0] });
-    else if (app.properties?.kind === "layoutElement") app.setProperties(null);
+    else if (app.properties?.kind === "layoutElement" && app.properties.layout === layout.id) app.setProperties(null);
   }, [selected, layout.id]);
 
   const activate = () => useLayouts.getState().open(layout.id);
