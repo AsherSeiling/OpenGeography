@@ -200,6 +200,8 @@ body { font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", s
 .wrap { overflow-wrap: anywhere; }
 .classes { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow: auto; border: 1px solid var(--border); padding: 4px; }
 .class-row { display: flex; align-items: center; gap: 6px; }
+.class-row.dragging { opacity: 0.5; }
+.class-grip { cursor: grab; color: var(--text-muted, #888); user-select: none; }
 .class-row input[type="color"], .props input[type="color"] { width: 36px; height: 22px; padding: 0; border: 1px solid var(--border-strong); background: none; }
 .ramp { display: inline-flex; margin-right: 6px; vertical-align: middle; }
 .ramp i { width: 12px; height: 12px; display: inline-block; }

@@ -8,6 +8,7 @@ import Style, { type StyleFunction } from "ol/style/Style";
 import { stylefunction } from "ol-mapbox-style";
 import type { GeomType } from "../ipc/api";
 import type { LayerStyle } from "../store/store";
+import { classRanks } from "./categoryOrder";
 import { buildLayers, SELECTION_COLOR } from "./style";
 
 function rgba(hex: string, a: number): string {
@@ -26,6 +27,31 @@ function highlight(style: LayerStyle): Record<string, Style> {
   };
 }
 
+/**
+ * Unique values (B7): a category higher in the list draws on top. Each feature's style gets its category's rank as zIndex
+ * (clones are cached per style and rank, so the shared styles of the base function stay untouched).
+ */
+export function withCategoryOrder(base: StyleFunction, field: string, ranks: Map<string, number>): StyleFunction {
+  const cache = new Map<Style, Map<number, Style>>();
+  const withRank = (s: Style, rank: number): Style => {
+    let byRank = cache.get(s);
+    if (!byRank) cache.set(s, (byRank = new Map()));
+    let c = byRank.get(rank);
+    if (!c) {
+      c = s.clone();
+      c.setZIndex(rank);
+      byRank.set(rank, c);
+    }
+    return c;
+  };
+  return (feature, resolution) => {
+    const s = base(feature, resolution);
+    if (!s) return s;
+    const rank = ranks.get(String(feature.get(field))) ?? 0;
+    return Array.isArray(s) ? s.map((x) => withRank(x, rank)) : withRank(s as Style, rank);
+  };
+}
+
 const BASE: Record<string, string> = { MultiPolygon: "Polygon", MultiLineString: "LineString", MultiPoint: "Point" };
 
 /**
@@ -38,6 +64,7 @@ export function layerStyleFunction(layer: VectorTileLayer, id: string, geom: Geo
   const glStyle = { version: 8, sources: { [source]: { type: "vector" } }, layers: buildLayers(id, geom, style, true) };
   const base = stylefunction(layer, glStyle, source, resolutions);
   const hl = highlight(style);
+  const ranked = style.kind === "categorized" && style.field ? withCategoryOrder(base, style.field, classRanks(style.classes)) : base;
   return (feature: FeatureLike, resolution: number) => {
     const fid = feature.getId();
     const sel = selected();
@@ -45,7 +72,7 @@ export function layerStyleFunction(layer: VectorTileLayer, id: string, geom: Geo
       const t = feature.getGeometry()?.getType?.() ?? (feature as unknown as { getType(): string }).getType();
       return hl[BASE[t] ?? t];
     }
-    return base(feature, resolution);
+    return ranked(feature, resolution);
   };
 }
 

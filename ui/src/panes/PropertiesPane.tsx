@@ -24,6 +24,7 @@ import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
 import { QueryEditor } from "../query/QueryEditor";
+import { moveClass, reverseClasses } from "../map/categoryOrder";
 import { LabelSettings } from "./LabelSettings";
 import { fieldsForPort, useModel, useRun } from "../store/model";
 import { displayInfo, useApp, type LayerStyle } from "../store/store";
@@ -135,6 +136,7 @@ export function Symbology({ id }: { id: string }) {
   const [ramp, setRamp] = useState("Blues");
   const [classes, setClasses] = useState(5);
   const [err, setErr] = useState<string | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   if (!style) return null;
   const numericFields = info.fields.filter((f) => /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/i.test(f.type));
   const fields = style.kind === "graduated" ? numericFields : info.fields;
@@ -215,14 +217,38 @@ export function Symbology({ id }: { id: string }) {
         </div>
       )}
       {style.kind === "categorized" && style.classes && (
-        <div className="classes">
-          {style.classes.map((c, i) => (
-            <label key={i} className="class-row">
-              <input type="color" value={c.color} onChange={(e) => setStyle({ classes: style.classes!.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)) })} />
-              <span>{c.label}</span>
-            </label>
-          ))}
-        </div>
+        <>
+          <div className="classes" data-testid="classes">
+            {style.classes.map((c, i) => (
+              <div
+                key={c.value}
+                className={`class-row ${dragFrom === i ? "dragging" : ""}`}
+                draggable
+                onDragStart={(e) => {
+                  setDragFrom(i);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragFrom !== null) setStyle({ classes: moveClass(style.classes!, dragFrom, i) });
+                  setDragFrom(null);
+                }}
+                onDragEnd={() => setDragFrom(null)}
+              >
+                <span className="class-grip" title="Drag to change the drawing order" aria-hidden>⠿</span>
+                <input type="color" value={c.color} onChange={(e) => setStyle({ classes: style.classes!.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)) })} />
+                <span className="grow">{c.label}</span>
+                <Button size="small" appearance="subtle" aria-label={`Draw ${c.label} higher`} disabled={i === 0} onClick={() => setStyle({ classes: moveClass(style.classes!, i, i - 1) })}>▲</Button>
+                <Button size="small" appearance="subtle" aria-label={`Draw ${c.label} lower`} disabled={i === style.classes!.length - 1} onClick={() => setStyle({ classes: moveClass(style.classes!, i, i + 1) })}>▼</Button>
+              </div>
+            ))}
+          </div>
+          <div className="btn-row">
+            <Button size="small" onClick={() => setStyle({ classes: reverseClasses(style.classes!) })}>Reverse order</Button>
+            <span className="muted small">The top of the list draws on top, on the map, in layouts and in the legend.</span>
+          </div>
+        </>
       )}
       {style.kind === "graduated" && style.breaks && style.colors && (
         <div className="classes">

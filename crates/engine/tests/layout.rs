@@ -146,7 +146,7 @@ fn p3_deterministic_and_golden() {
     assert_eq!(sha, GOLDEN_SHA256, "SVG output changed; if intended, regenerate with GOLDEN_PRINT=1");
 }
 
-const GOLDEN_SHA256: &str = "cb25ed50ccad12a2c89c65a06a4fd0bf5db7fd6b6a75dd3fc6f358ac617824b8";
+const GOLDEN_SHA256: &str = "b63bbdb71f0f062a6eccdc5e815b877599385fc937ded289795bbcc05f29b2a9";
 
 #[test]
 fn p5_missing_crs_errors_and_layers_without_crs_are_reported() {
@@ -565,7 +565,7 @@ mod surround {
         assert!(export::svg_to_pdf(&a).unwrap().starts_with(b"%PDF-"));
     }
 
-    const GOLDEN_ALL_SHA256: &str = "d061737a73398da134248e68b96a9d48a5bb1914328f7cc92b34ecd3899e3b47";
+    const GOLDEN_ALL_SHA256: &str = "cb0175beb466b0d3ee70f5f66820ac101adbdf9239a35c27bf13da3f37d6b61c";
 }
 
 // ---------------------------------------------------------------- C2.4
@@ -913,7 +913,7 @@ fn l2_p1_labels_are_deterministic_and_golden() {
     assert_eq!(sha, GOLDEN_LABELS_SHA256, "label SVG changed; if intended, regenerate with GOLDEN_PRINT=1");
 }
 
-const GOLDEN_LABELS_SHA256: &str = "68a3026135826a6356e8a05c876754448d5ba308f048546b8717eb2d7a6943b0";
+const GOLDEN_LABELS_SHA256: &str = "12784ce6c4c32c60de038ce87b3303f96f2fcbe186160b5f3958e518b552bc89";
 
 #[test]
 fn l2_p4_pdf_label_text_is_real_text() {
@@ -1065,4 +1065,40 @@ fn l3_labels_overrides_survive_the_layout_json_round_trip() {
     let req = with_overrides(&labelled(&ids), ov.clone());
     let back = serde_json::to_value(&req).unwrap();
     assert_eq!(back["layout"]["elements"][0]["labelOverrides"], ov);
+}
+
+// ---------- B7: category drawing order ----------
+
+/// Colours of the polygon groups of the first layer, in the order they appear in the SVG (first = bottom).
+fn fill_order(svg: &str) -> Vec<String> {
+    svg.split("<g id=\"layer-").nth(1).unwrap_or("").split("</g></g>").next().unwrap_or("").split("fill=\"").skip(1).filter_map(|t| t.split('"').next()).filter(|c| c.starts_with('#')).map(String::from).collect()
+}
+
+#[test]
+fn b7_a_category_higher_in_the_list_is_drawn_on_top_in_layouts() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let a_then_b = render(&e, &request(&ids, categorized()));
+    // categorized(): classes [a: #7aa8d8, b: #e6a35c]; everything else (c) uses the style's fill.
+    let order = fill_order(&a_then_b.svg);
+    let pos = |c: &str| order.iter().position(|x| x == c).unwrap_or_else(|| panic!("{c} in {order:?}"));
+    assert!(pos("#999999") < pos("#e6a35c") && pos("#e6a35c") < pos("#7aa8d8"), "else at the bottom, then b, then a on top: {order:?}");
+    // Reverse the list: b is now above a.
+    let reversed = json!({ "kind": "categorized", "fill": "#999999", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 0.75, "radius": 3.5, "field": "cls",
+            "classes": [ { "value": "b", "color": "#e6a35c", "label": "B" }, { "value": "a", "color": "#7aa8d8", "label": "A" } ] });
+    let b_then_a = render(&e, &request(&ids, reversed));
+    let order = fill_order(&b_then_a.svg);
+    let pos = |c: &str| order.iter().position(|x| x == c).unwrap();
+    assert!(pos("#999999") < pos("#7aa8d8") && pos("#7aa8d8") < pos("#e6a35c"), "now a is under b: {order:?}");
+    assert_ne!(a_then_b.svg, b_then_a.svg);
+}
+
+#[test]
+fn b7_graduated_and_single_styles_keep_their_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let grad = json!({ "kind": "graduated", "fill": "#999999", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 0.75, "radius": 3.5, "field": "pop", "breaks": [20.0, 40.0], "colors": ["#111111", "#222222", "#333333"] });
+    let order = fill_order(&render(&e, &request(&ids, grad)).svg);
+    let pos = |c: &str| order.iter().position(|x| x == c);
+    assert!(pos("#111111") < pos("#222222") && pos("#222222") < pos("#333333"), "{order:?}");
 }
