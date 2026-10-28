@@ -86,15 +86,15 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-A1 | UTM central meridian | lat 0, lon −93 → EPSG:32615 | 500000.000, 0.000 | planned R1: crs_reference |
-| R-A2 | Web Mercator half world; latitude limit | lat 0, lon 180 → 3857; lat 85.0511288, lon 180 | x = 20037508.343, y = 0; y = ±20037508.34 (±1 cm) | planned R1 |
-| R-A3 | Polar stereographic | lat −90 → 3031; lat −71, lon 0 → 3031; lat 90 → 3413 | (0, 0); (0, 2082760.109); (0, 0) | planned R1 |
-| R-A4 | Albers origin | lat 23, lon −96 → 5070 | 0.000, 0.000 | planned R1 |
-| R-A5 | Round trip over the zoo | 25 points per CRS (centre, corners and edges of its area of use) → every other zoo CRS → back | ≤ 1 mm / 1e-9° | planned R1 |
-| R-A6 | Generated reference set | ≥ 500 points × zoo pairs from `cs2cs` | within tolerance; test log prints the PROJ version | planned R1 |
-| R-A7 | Geodesic anchors | meridian from equator to pole; 1° of longitude on the equator; WGS 84 surface | 10 001 965.729 m (±0.01); 111 319.491 m (±0.001); 510 065 621.7 km² (±0.001 %) | planned R1 |
-| R-A8 | Other-body anchors (PROJ only) | `IAU_2015` Mars sphere, Moon sphere | 1° equatorial = 59 274.70 m / 30 323.35 m; engine geodesics land with F1 | planned R1 (PROJ level), F1 (engine) |
-| R-A9 | `transform_point` command parity | 20 zoo points through Tauri-shaped call, devserver route and `api.transformPoint` | identical to R-A6; bad CRS → readable error, no panic | planned R1 (engine, devserver), R6 (vitest) |
+| R-A1 | UTM central meridian | lat 0, lon −93 → EPSG:32615 | 500000.000, 0.000 | auto: crs_reference::r_a1 |
+| R-A2 | Web Mercator half world; latitude limit | lat 0, lon 180 → 3857; lat 85.0511288, lon 180 | x = 20037508.343, y = 0; y = ±20037508.34 (±1 cm) | auto: crs_reference::r_a2 |
+| R-A3 | Polar stereographic | lat −90 → 3031; lat −71, lon 0 → 3031; lat 90 → 3413 | (0, 0); (0, 2082760.109); (0, 0) | auto: crs_reference::r_a3 |
+| R-A4 | Albers origin | lat 23, lon −96 → 5070 | 0.000, 0.000 | auto: crs_reference::r_a4 |
+| R-A5 | Round trip over the zoo | 25 points per CRS (centre, corners and edges of its area of use) → every other zoo CRS → back | ≤ 1 mm / 1e-9° | auto: crs_reference::r_a5 (inside each CRS's area; 1 mm / 1e-9°, NAD27 pairs 3 mm / 1e-8°) |
+| R-A6 | Generated reference set | ≥ 500 points × zoo pairs from `cs2cs` | within tolerance; test log prints the PROJ version | auto: crs_reference::r_a6_…_same_datum; across datums ignored, bug C-1 |
+| R-A7 | Geodesic anchors | meridian from equator to pole; 1° of longitude on the equator; WGS 84 surface | 10 001 965.729 m (±0.01); 111 319.491 m (±0.001); 510 065 621.7 km² (±0.001 %) | auto: crs_reference::r_a7 (GeographicLib) |
+| R-A8 | Other-body anchors (PROJ only) | `IAU_2015` Mars sphere, Moon sphere | 1° equatorial = 59 274.70 m / 30 323.35 m; engine geodesics land with F1 | auto (PROJ level): crs_reference::r_a8 (Mars and Moon spheres by PROJ string; Earth → Mars refused); engine geodesics in F1 |
+| R-A9 | `transform_point` command parity | 20 zoo points through Tauri-shaped call, devserver route and `api.transformPoint` | identical to R-A6; bad CRS → readable error, no panic | engine path covered by every crs_reference test (transform_point); devserver route and vitest in R6 |
 
 ### B. Identity and parsing
 
@@ -114,21 +114,21 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-C1 | East-first everywhere | one point imported from GPKG, shapefile, GeoJSON, FlatGeobuf, GeoParquet, CSV in EPSG:4326, 4269, 3035 (north/east), 2193 (north/east) | stored x = east/lon, y = north/lat; extent, map position and `transform_point` match `cs2cs` | planned R1 (risk G8) |
+| R-C1 | East-first everywhere | one point imported from GPKG, shapefile, GeoJSON, FlatGeobuf, GeoParquet, CSV in EPSG:4326, 4269, 3035 (north/east), 2193 (north/east) | stored x = east/lon, y = north/lat; extent, map position and `transform_point` match `cs2cs` | auto: crs_reference::r_c1 (GPKG, shapefile, GeoJSON, FlatGeobuf × 4326, 4269, 3035, 2193); GeoParquet and CSV to add in R2 |
 | R-C2 | GeoJSON order | RFC 7946 file; legacy file with `crs` member `urn:ogc:def:crs:EPSG::4326` and lon,lat values; legacy `EPSG:3035` member | lon,lat read as lon,lat; projected members honoured; none flipped | planned R2 |
 | R-C3 | CSV columns | `Longitude,Latitude`; `Latitude,Longitude`; values with lat > 90 in the "latitude" column | correct either way; swapped values warn "looks like latitude and longitude are swapped" | planned R2 |
-| R-C4 | Linear units | metre, ftUS (2277) and international-foot CRS: 1000-unit square; length, area, planar buffer, scale bar | ftUS = 1200/3937 m, international = 0.3048 m; the two differ by 2 ppm and tests tell them apart (1 000 000 ft → 2 ft) | planned R1 (extends 2.10) |
-| R-C5 | Angular units | geographic CRS in grads / arc-seconds | map refuses with a message (existing 2.12); tools convert, or refuse with a message | planned R1 |
-| R-C6 | Prime meridian | EPSG:4807 NTF (Paris), grads: lon 0 grad | lon 2.337229167° E in 4326 (verify with `cs2cs` when pinning) | planned R1 |
-| R-C7 | Longitude outside ±180 | points at lon 190 and −190, then 540 | import warns; Project to UTM zone 1 treats 190 as −170; extent and tiles equal those of −170 | planned R1 |
+| R-C4 | Linear units | metre, ftUS (2277) and international-foot CRS: 1000-unit square; length, area, planar buffer, scale bar | ftUS = 1200/3937 m, international = 0.3048 m; the two differ by 2 ppm and tests tell them apart (1 000 000 ft → 2 ft) | auto: crs_reference::r_c4 |
+| R-C5 | Angular units | geographic CRS in grads / arc-seconds | map refuses with a message (existing 2.12); tools convert, or refuse with a message | planned R4 (tool matrix refuses or converts) |
+| R-C6 | Prime meridian | EPSG:4807 NTF (Paris), grads: lon 0 grad | lon 2.337229167° E in 4326 (verify with `cs2cs` when pinning) | auto: crs_reference::r_c6 (pinned from cs2cs; the NTF datum shift is included) |
+| R-C7 | Longitude outside ±180 | points at lon 190 and −190, then 540 | import warns; Project to UTM zone 1 treats 190 as −170; extent and tiles equal those of −170 | auto: crs_reference::r_c7 |
 
 ### D. Datum shifts and grids
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-D1 | NAD27 → NAD83 uses the grid | 35.2 N, −97.5 E | 35.200066504, −97.500312182 (≈ 7.4 m N, 28.4 m W) | planned R1 (extends 2.13) |
-| R-D2 | WGS 84 → NAD27 | same point | 35.199935272, −97.499683431 | planned R1 |
-| R-D3 | WGS 84 → NAD83 operation | same point | 35.200001669, −97.499995543 (the 2.0 m Oklahoma operation) within 5 mm | planned R1 |
+| R-D1 | NAD27 → NAD83 uses the grid | 35.2 N, −97.5 E | 35.200066504, −97.500312182 (≈ 7.4 m N, 28.4 m W) | ignored, bug C-1: crs_reference::r_d1 |
+| R-D2 | WGS 84 → NAD27 | same point | 35.199935272, −97.499683431 | ignored, bug C-1: crs_reference::r_d2 |
+| R-D3 | WGS 84 → NAD83 operation | same point | 35.200001669, −97.499995543 (the 2.0 m Oklahoma operation) within 5 mm | ignored, bug C-1: crs_reference::r_d3 |
 | R-D4 | Missing grid is detected | a subprocess with `PROJ_DATA` pointing at a folder without grids; NAD27 → NAD83 | `Err` or a result flagged "ballpark: may be off by up to ~100 m"; never a silent number | planned R3 (risk G2) |
 | R-D5 | Accuracy is reported | NAD27 → NAD83 (CONUS); WGS 84 → NAD83; ballpark case | record `{from, to, operation, accuracyM}`: ≈ 0.15 m; 2.0 or 4.0 m by area; `"ballpark"` | planned R3 |
 | R-D6 | Same-datum projection is exact | 4269 ↔ 26915, 4326 ↔ 32615 | accuracy `"exact"`; round trip ≤ 1 mm | planned R3 |
@@ -231,14 +231,14 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-J1 | Poles | point at lat ±90 through every zoo CRS | finite numbers or a counted drop; never NaN / inf in an output | planned R1 (extends 2.12) |
-| R-J2 | Antimeridian | line 179° → −179°; polygon across 180°; Fiji | geodesic length 2° (not 358°); polygon valid; tiles split correctly | planned R1 |
-| R-J3 | Out of domain | Mercator at lat 89.9°; UTM at 85° N; Lambert far from origin | `Err` or a counted drop with a message | planned R1 |
-| R-J4 | Weird numbers | NaN, ±inf, 1e300, −0.0, subnormals | no panic; clear result | planned R1 |
+| R-J1 | Poles | point at lat ±90 through every zoo CRS | finite numbers or a counted drop; never NaN / inf in an output | ignored, bug C-2: crs_reference::r_j1 |
+| R-J2 | Antimeridian | line 179° → −179°; polygon across 180°; Fiji | geodesic length 2° (not 358°); polygon valid; tiles split correctly | auto: crs_reference::r_j2 |
+| R-J3 | Out of domain | Mercator at lat 89.9°; UTM at 85° N; Lambert far from origin | `Err` or a counted drop with a message | auto: crs_reference::r_j3 |
+| R-J4 | Weird numbers | NaN, ±inf, 1e300, −0.0, subnormals | no panic; clear result | auto: crs_reference::r_j4 |
 | R-J5 | Z and M through tools | 3D lines/points through Project, Buffer, Clip | per RD-8 | planned R3 |
-| R-J6 | Empty and null geometries | reprojected | stay null / empty; counted | planned R1 |
-| R-J7 | Precision | 1e-9° steps in 4326; 1 mm steps in UTM; export and reimport | preserved to 1e-9° / 1 mm | planned R1 |
-| R-J8 | World-sized shapes | whole-world polygon in 4326 → 3857, 5070, 3031 | area 510 065 621.7 km² ± 0.001 % in geodesic measure; projection clipped and reported | planned R1 |
+| R-J6 | Empty and null geometries | reprojected | stay null / empty; counted | auto: crs_reference::r_j6 |
+| R-J7 | Precision | 1e-9° steps in 4326; 1 mm steps in UTM; export and reimport | preserved to 1e-9° / 1 mm | auto: crs_reference::r_j7 |
+| R-J8 | World-sized shapes | whole-world polygon in 4326 → 3857, 5070, 3031 | area 510 065 621.7 km² ± 0.001 % in geodesic measure; projection clipped and reported | ignored, bug C-3: crs_reference::r_j8 |
 | R-J9 | Beyond a CRS's recommended area | layer spanning UTM zones 14–16 viewed in zone 15 | drawn; the area-of-use chip appears; scale factor reported at the edge | planned R5 |
 
 ### K. Platforms, concurrency, performance
