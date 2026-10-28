@@ -47,6 +47,23 @@ pub fn tile_cache_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// Per-user folder for the user's layout templates, created on first use. `GIS_STUDIO_DATA` overrides the base folder
+/// (tests, portable installs).
+pub fn templates_dir() -> Option<PathBuf> {
+    let base = if let Some(d) = std::env::var_os("GIS_STUDIO_DATA") {
+        PathBuf::from(d)
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support/GIS Studio")
+    } else if cfg!(windows) {
+        PathBuf::from(std::env::var_os("APPDATA").or_else(|| std::env::var_os("LOCALAPPDATA"))?).join("GIS Studio")
+    } else {
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))?.join("gis-studio")
+    };
+    let dir = base.join("layout_templates");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir)
+}
+
 /// DuckDB spatial extension shipped with the app.
 ///
 /// It ships gzip-compressed: Linux packagers (AppImage) rewrite every ELF

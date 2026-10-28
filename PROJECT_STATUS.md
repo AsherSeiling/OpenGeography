@@ -3,7 +3,7 @@
 _Updated 2026-10-28. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Bugs: `docs/BUGS.md`. Test cases: `docs/TEST_PLAN.md`. Session prompts: `docs/prompts/`. The user follows the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj), which the orchestrator updates at every change._
 
 ## Exact next action
-- **Lead developer (Claude Code, standing order of work, MASTER_PLAN §4):** C3.0 built (local, not pushed); C3.1 templates → C3.2 map series (ends Phase C) → Phase R (`docs/CRS_PLAN.md`).
+- **Lead developer (Claude Code, standing order of work, MASTER_PLAN §4):** C3.0 and C3.1 built (local, not pushed) → C3.2 map series (ends Phase C) → Phase R (`docs/CRS_PLAN.md`).
 - **Done:** the bug-fix session is merged. Q3 (2026-10-28): U-5 fixed, D-1 guard built. L1 (2026-10-28): labels on the map (pushed). L2 and L3 (2026-10-28): labels in layouts, and adjusting them in the layout (drag, edit text, hide, per-layout style) built. L2+L3 pushed together; CI green (run 40734953739); CI runs once for L1–L3 (user's rule).
 - **On hold:** M4 (rasters in any CRS). Do not start it.
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`). Next tag: `v0.2.0` at the end of Phase C.
@@ -27,7 +27,7 @@ _Updated 2026-10-28. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 | `cargo test -p engine` | 179 pass, 23 ignored (network, perf, and the open bugs in `docs/BUGS.md`) |
 | `cargo build -p gis-studio` | pass, 0 warnings |
 | Packaged app `--self-test` (clean env) | pass |
-| Browser e2e (`scripts/e2e.sh`, headless Chromium) | 30 pass, 0 fixme, ~1.5 min; automates 9 manual cases fully and 7 in part (`docs/TEST_PLAN.md` §14) |
+| Browser e2e (`scripts/e2e.sh`, headless Chromium) | 33 pass, 0 fixme, ~1.5 min; automates 9 manual cases fully and 7 in part (`docs/TEST_PLAN.md` §14) |
 
 ## Known gaps (layouts) — C3.0 fixes these
 - **Layout view:** no rulers, no Arrange group, no "1:N" scale-bar label.

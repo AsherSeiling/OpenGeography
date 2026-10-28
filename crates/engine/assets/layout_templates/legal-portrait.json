@@ -1,0 +1,112 @@
+{
+  "id": "template-Legal-portrait",
+  "name": "Map — Legal portrait",
+  "version": 1,
+  "body": "earth",
+  "page": {
+    "width": 215.9,
+    "height": 355.6,
+    "units": "mm",
+    "margin": 12.7,
+    "background": "#ffffff"
+  },
+  "elements": [
+    {
+      "kind": "text",
+      "id": "t1",
+      "x": 12.7,
+      "y": 12.7,
+      "w": 190.5,
+      "h": 12,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "text": "{layout_name}",
+      "font": "sans-bold",
+      "size": 18,
+      "align": "center",
+      "color": "#000000"
+    },
+    {
+      "kind": "map_frame",
+      "id": "f1",
+      "x": 12.7,
+      "y": 26.7,
+      "w": 190.5,
+      "h": 306.7,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "crs": "",
+      "center": [
+        0,
+        0
+      ],
+      "scale": 1000000,
+      "layers": "map",
+      "basemap": "none",
+      "graticule": null,
+      "grid": null,
+      "border": {
+        "width": 0.35,
+        "color": "#000000"
+      }
+    },
+    {
+      "kind": "legend",
+      "id": "lg1",
+      "x": 154.2,
+      "y": 29.7,
+      "w": 46,
+      "h": 80,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "title": "Legend",
+      "columns": 1
+    },
+    {
+      "kind": "north_arrow",
+      "id": "na1",
+      "x": 15.7,
+      "y": 29.7,
+      "w": 12,
+      "h": 18,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "style": "simple"
+    },
+    {
+      "kind": "scale_bar",
+      "id": "sb1",
+      "x": 15.7,
+      "y": 316.4,
+      "w": 55,
+      "h": 14,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "units": "km",
+      "segments": 4,
+      "ratio": true
+    },
+    {
+      "kind": "sources",
+      "id": "src1",
+      "x": 12.7,
+      "y": 334.9,
+      "w": 190.5,
+      "h": 8,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "size": 6
+    }
+  ],
+  "series": null
+}

@@ -11,6 +11,7 @@ pub mod grid;
 pub mod labels;
 pub mod model;
 pub mod surround;
+pub mod templates;
 pub mod svg;
 
 use crate::layers::LayerInfo;
@@ -331,4 +332,34 @@ impl Engine {
             Ok(out)
         })
     }
+
+    /// Bundled and user layout templates (C3.1). `skipped` names user files that could not be read.
+    pub fn layout_templates(&self) -> TemplateList {
+        let dir = crate::resources::templates_dir();
+        let (templates, skipped) = templates::list(dir.as_deref().unwrap_or_else(|| Path::new("")));
+        TemplateList { templates, skipped }
+    }
+
+    pub fn layout_template(&self, id: &str) -> Result<model::Layout> {
+        templates::load(id, &user_templates_dir()?)
+    }
+
+    pub fn save_layout_template(&self, name: &str, layout: &model::Layout) -> Result<templates::TemplateInfo> {
+        templates::save(name, layout, &user_templates_dir()?)
+    }
+
+    pub fn delete_layout_template(&self, id: &str) -> Result<()> {
+        templates::delete(id, &user_templates_dir()?)
+    }
+}
+
+fn user_templates_dir() -> Result<std::path::PathBuf> {
+    crate::resources::templates_dir().ok_or_else(|| anyhow::anyhow!("This computer has no per-user folder for templates"))
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateList {
+    pub templates: Vec<templates::TemplateInfo>,
+    pub skipped: Vec<String>,
 }

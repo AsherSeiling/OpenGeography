@@ -1,9 +1,10 @@
 // Office / ArcGIS Pro style ribbon: tabs → labeled groups → large and small
 // buttons. Contextual tabs appear when a layer is selected.
-import { Combobox, Menu, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Option, Tooltip } from "@fluentui/react-components";
+import { Combobox, Menu, MenuDivider, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Option, Tooltip } from "@fluentui/react-components";
 import { DocumentPdfRegular, DocumentRegular, ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { newLayout } from "../layout/actions";
+import { api, errorText, type LayoutTemplate } from "../ipc/api";
+import { deleteLayoutTemplate, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
 import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/types";
 import { useLayouts } from "../store/layout";
 import type { AlignOp, OrderOp } from "../layout/arrange";
@@ -69,6 +70,7 @@ const TABS: Record<string, Group[]> = {
   ],
   Layout: [
     { label: "Page", items: [{ custom: <PageMenu /> }] },
+    { label: "Template", items: [{ custom: <TemplateGroup /> }] },
     { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
     { label: "Arrange", items: [{ custom: <ArrangeMenu /> }] },
@@ -219,9 +221,71 @@ function NewLayoutGallery() {
               </MenuItem>
             )),
           )}
+          <MenuDivider />
+          <TemplateSubmenu />
         </MenuList>
       </MenuPopover>
     </Menu>
+  );
+}
+
+/** New Layout → From template: bundled page templates, then the user's own (C3.1). */
+function TemplateSubmenu() {
+  const [list, setList] = useState<{ templates: LayoutTemplate[]; skipped: string[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const load = () => api.listLayoutTemplates().then((l) => { setList(l); setErr(null); }, (e) => setErr(errorText(e)));
+  const mine = list?.templates.filter((t) => !t.builtin) ?? [];
+  return (
+    <Menu onOpenChange={(_, d) => d.open && void load()}>
+      <MenuTrigger disableButtonEnhancement>
+        <MenuItem icon={<DocumentRegular />}>From template</MenuItem>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          {err && <MenuItem disabled>{err}</MenuItem>}
+          {!list && !err && <MenuItem disabled>Loading…</MenuItem>}
+          {list?.templates.filter((t) => t.builtin).map((t) => (
+            <MenuItem key={t.id} icon={<DocumentRegular />} onClick={() => void newLayoutFromTemplate(t.id)}>{t.name}</MenuItem>
+          ))}
+          {mine.length > 0 && <MenuDivider />}
+          {mine.map((t) => (
+            <MenuItem key={t.id} icon={<DocumentRegular />} onClick={() => void newLayoutFromTemplate(t.id)}>{t.name}</MenuItem>
+          ))}
+          {list && list.skipped.length > 0 && <MenuItem disabled>{list.skipped.length} template file{list.skipped.length === 1 ? "" : "s"} could not be read</MenuItem>}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Layout → Template: keep the open layout as a template, or delete one of yours. */
+function TemplateGroup() {
+  const open = useLayouts((s) => !!s.doc);
+  const [mine, setMine] = useState<LayoutTemplate[]>([]);
+  const load = () => api.listLayoutTemplates().then((l) => setMine(l.templates.filter((t) => !t.builtin)), () => setMine([]));
+  return (
+    <div className="rcol">
+      <button className="rbtn small" disabled={!open} title="Keep this page as a template for new layouts" onClick={() => void saveLayoutAsTemplate()}>
+        <span className="rbtn-icon"><DocumentRegular /></span>
+        <span className="rbtn-label">Save as Template</span>
+      </button>
+      <Menu onOpenChange={(_, d) => d.open && void load()}>
+        <MenuTrigger>
+          <button className="rbtn small" title="Delete one of your templates">
+            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-label">Delete Template ▾</span>
+          </button>
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            {mine.length === 0 && <MenuItem disabled>No templates of yours yet</MenuItem>}
+            {mine.map((t) => (
+              <MenuItem key={t.id} onClick={() => void deleteLayoutTemplate(t)}>{t.name}</MenuItem>
+            ))}
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+    </div>
   );
 }
 

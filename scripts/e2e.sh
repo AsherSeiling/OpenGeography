@@ -21,7 +21,7 @@ trap cleanup EXIT INT TERM
 
 cargo build --release -p devserver > "$OUT/e2e-build.log" 2>&1 || { echo "devserver build failed (see $OUT/e2e-build.log)"; printf '# Browser end-to-end\n\nFAILED: devserver build failed, see e2e-build.log\n' > "$OUT/e2e.md"; exit 1; }
 
-GIS_DEVSERVER_ADDR="127.0.0.1:$API_PORT" ./target/release/devserver > "$OUT/e2e-devserver.log" 2>&1 & PIDS+=($!)
+GIS_STUDIO_DATA="$OUT/e2e-data" GIS_STUDIO_CACHE="$OUT/e2e-cache" GIS_DEVSERVER_ADDR="127.0.0.1:$API_PORT" ./target/release/devserver > "$OUT/e2e-devserver.log" 2>&1 & PIDS+=($!)
 GIS_VITE_PORT=$VITE_PORT VITE_GIS_DEVSERVER="http://127.0.0.1:$API_PORT" npx vite > "$OUT/e2e-vite.log" 2>&1 & PIDS+=($!)
 
 wait_for() { for _ in $(seq 1 120); do curl -s -o /dev/null "$1" && return 0; sleep 0.5; done; return 1; }

@@ -1,0 +1,112 @@
+{
+  "id": "template-Tabloid-portrait",
+  "name": "Map — Tabloid portrait",
+  "version": 1,
+  "body": "earth",
+  "page": {
+    "width": 279.4,
+    "height": 431.8,
+    "units": "mm",
+    "margin": 12.7,
+    "background": "#ffffff"
+  },
+  "elements": [
+    {
+      "kind": "text",
+      "id": "t1",
+      "x": 12.7,
+      "y": 12.7,
+      "w": 254.0,
+      "h": 12,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "text": "{layout_name}",
+      "font": "sans-bold",
+      "size": 18,
+      "align": "center",
+      "color": "#000000"
+    },
+    {
+      "kind": "map_frame",
+      "id": "f1",
+      "x": 12.7,
+      "y": 26.7,
+      "w": 254.0,
+      "h": 382.9,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "crs": "",
+      "center": [
+        0,
+        0
+      ],
+      "scale": 1000000,
+      "layers": "map",
+      "basemap": "none",
+      "graticule": null,
+      "grid": null,
+      "border": {
+        "width": 0.35,
+        "color": "#000000"
+      }
+    },
+    {
+      "kind": "legend",
+      "id": "lg1",
+      "x": 217.7,
+      "y": 29.7,
+      "w": 46,
+      "h": 80,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "title": "Legend",
+      "columns": 1
+    },
+    {
+      "kind": "north_arrow",
+      "id": "na1",
+      "x": 15.7,
+      "y": 29.7,
+      "w": 12,
+      "h": 18,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "style": "simple"
+    },
+    {
+      "kind": "scale_bar",
+      "id": "sb1",
+      "x": 15.7,
+      "y": 392.6,
+      "w": 55,
+      "h": 14,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "units": "km",
+      "segments": 4,
+      "ratio": true
+    },
+    {
+      "kind": "sources",
+      "id": "src1",
+      "x": 12.7,
+      "y": 411.1,
+      "w": 254.0,
+      "h": 8,
+      "rotation": 0,
+      "locked": false,
+      "visible": true,
+      "frame": "f1",
+      "size": 6
+    }
+  ],
+  "series": null
+}
