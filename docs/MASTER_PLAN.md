@@ -23,6 +23,7 @@ _Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, a
 | [`docs/LAYOUTS_PLAN.md`](LAYOUTS_PLAN.md) | C1 design: engine SVG→PDF/PNG renderer, document model, print scale/CRS rules, sessions C2.1–C3.2 | Phase C |
 | [`docs/MAP_PROJECTION_PLAN.md`](MAP_PROJECTION_PLAN.md) | Map view draws in the map's CRS: OpenLayers replaces MapLibre, engine tiles per CRS grid, sessions M1–M4 | Phase C (C5) |
 | [`docs/CRS_PLAN.md`](CRS_PLAN.md) | Phase R: CRS invariants, audit of suspected gaps, decisions RD-1–RD-10, the test CRS "zoo", sessions R1–R7. Its 112 test cases are in `TEST_PLAN.md` §2A | Phase R |
+| [`docs/TEST_PLAN_FULL.md`](TEST_PLAN_FULL.md) | Full test plan: edge and failure cases for every feature, error-reporting procedure, coverage gaps (extends `TEST_PLAN.md`) | Writing or running tests; before a release |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
 | [`docs/DECISIONS.md`](DECISIONS.md) | Decision log: why things are the way they are, newest first | When a task touches that area |
 | [`docs/prompts/orchestrator.md`](prompts/orchestrator.md) | Opus orchestrator: delegates to Sonnet sessions, reviews in tiers, merges | Running several tasks from one Opus session |
