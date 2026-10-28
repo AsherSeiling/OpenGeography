@@ -45,6 +45,8 @@ fn main() {
             commands::define_projection,
             commands::suggest_crs,
             commands::validate_crs,
+            commands::crs_info,
+            commands::map_factors,
             commands::transform_point,
             commands::map_scale_factor,
             commands::crs_display_info,

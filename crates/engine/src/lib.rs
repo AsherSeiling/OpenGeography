@@ -682,6 +682,19 @@ impl Engine {
         self.with_conn(|c| Ok(crs::datum_data_report(c))).unwrap_or_else(|e| crs::DatumReport { ok: false, problems: vec![format!("The datum check could not run: {e}")], proj_data: None })
     }
 
+    /// Name, code, kind, unit, datum and area of use of a definition (the picker's preview).
+    pub fn crs_info(&self, crs: &str) -> Result<crs::CrsInfo> {
+        crs::info(crs)
+    }
+
+    /// Scale factor k and meridian convergence (degrees) of `crs` at (x, y) in that CRS.
+    pub fn map_factors(&self, crs: &str, x: f64, y: f64) -> Result<(f64, f64)> {
+        let body = layout::geo::Body::get("earth")?;
+        let fc = layout::geo::FrameCrs::new(crs, &body)?;
+        let f = layout::geo::factors(&body, &fc, x, y)?;
+        Ok((f.k, f.convergence_deg))
+    }
+
     pub fn validate_crs(&self, crs: &str) -> Result<()> {
         self.with_conn(|c| crs::validate(c, crs))
     }

@@ -223,3 +223,8 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 
 ## Platforms and release
 - **2026-10-23 Linux AppImage:** private libs with unique `gs_` sonames (`5fd5c23`). Linux builds with conda-forge GDAL 3.12 and passes the strict licence gate. Local Homebrew macOS builds still warn; CI release builds are GPL-free.
+
+### R6 — CRS UI core
+- `crs_info` is a pure function of the definition (GDAL/PROJJSON; no DuckDB) so the picker can preview while typing; `map_factors` reuses the layout engine's `factors`, so the status bar, scale bar and north arrow show the same k and γ.
+- The status bar asks for k/γ only in projected map CRSs, 120 ms after the pointer stops; the "outside area of use" notice uses the area already in `crs_display_info`.
+- Tissot layer, layer source panel, layout `{datum}`/`{units}` tokens and picker recents are deferred (rows stay "planned" in TEST_PLAN).
