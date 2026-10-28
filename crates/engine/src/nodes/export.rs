@@ -22,6 +22,10 @@ impl Tool for Export {
                     ("PARQUET", "GeoParquet (.parquet)"),
                     ("CSV", "CSV (attributes + WKT)"),
                 ]),
+                Param::new("geojson_crs", "GeoJSON coordinates", ParamKind::Enum).default("wgs84").options(&[
+                    ("wgs84", "WGS 84 longitude/latitude (standard GeoJSON)"),
+                    ("layer", "Keep the layer's coordinate system (older style, with a crs member)"),
+                ]),
             ],
         }
     }
@@ -48,6 +52,13 @@ impl Tool for Export {
             "CSV" => {
                 let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };
                 format!("COPY ({src}) TO {} (FORMAT CSV, HEADER)", lit(&path))
+            }
+            "GeoJSON" if i.has_geom && i.crs.as_deref().is_some_and(|c| !crate::crs::same(c, crate::crs::WGS84)) && p.str("geojson_crs").as_deref() != Some("layer") => {
+                // RFC 7946: GeoJSON is longitude/latitude on WGS 84. Say so rather than write UTM numbers a reader will take as degrees (RD-7).
+                let from = i.crs.as_deref().unwrap_or("");
+                let reprojected = format!("SELECT * REPLACE (ST_Transform(geom, {}, {}, true) AS geom) FROM {}", lit(&crate::crs::resolve(from)), lit(crate::crs::WGS84), ident(&i.table));
+                ctx.conn.execute_batch(&format!("COPY ({reprojected}) TO {} (FORMAT GDAL, DRIVER 'GeoJSON', SRS {}, USE_TMP_FILE false)", lit(&path), lit(crate::crs::WGS84)))?;
+                return Ok(Output::Done(format!("Wrote {path}. Reprojected to WGS 84 longitude/latitude: standard GeoJSON can't hold another coordinate system. Choose \"Keep the layer's coordinate system\" for the older style.")));
             }
             driver => {
                 let srs = match &i.crs {

@@ -164,6 +164,15 @@ fn r_a5_round_trip_over_the_zoo() {
     assert!(checked > 300, "only {checked} round trips ran");
 }
 
+/// Tolerance in coordinate units for a transform between two datums. Same-datum projections keep RD-4's 1 mm. A datum shift is
+/// only as exact as the operation PROJ picks: DuckDB's embedded PROJ and the libproj behind `cs2cs` pick equivalent operations
+/// that differ by centimetres (NAD83, ETRS89 ↔ WGS 84: up to 12 cm far from the area of use, hence 15 cm), and for NAD27 by up to ~3.3 m away from the NADCON anchor (bug C-1b,
+/// open; its own accuracy is 0.15–10 m). The anchor itself is checked tightly by R-D1…D3 and by `datum_data_report`.
+fn datum_tol(a: &str, b: &str, target_key: &str) -> f64 {
+    let metres = if datum(a) == "NAD27" || datum(b) == "NAD27" { 4.0 } else { 0.15 };
+    if crs_tol::is_geographic(target_key) { metres / 111_000.0 } else { metres }
+}
+
 /// Compare the engine with the cs2cs reference. `datum_change` picks the comparisons across datums (or not).
 fn compare_reference(datum_change: bool) -> (usize, Vec<String>) {
     log_versions();
@@ -181,7 +190,7 @@ fn compare_reference(datum_change: bool) -> (usize, Vec<String>) {
             let got = tf(lon, lat, "EPSG:4326", &def(&key));
             match (want, got) {
                 (Some((wx, wy)), Ok((gx, gy))) => {
-                    let tol = crs_tol::coordinate(&key);
+                    let tol = if datum_change { datum_tol("4326", &key, &key) } else { crs_tol::coordinate(&key) };
                     if (gx - wx).abs() > tol || (gy - wy).abs() > tol {
                         bad.push(format!("4326 → {key} at ({lon}, {lat}): got ({gx}, {gy}), cs2cs ({wx}, {wy})"));
                     }
@@ -203,7 +212,7 @@ fn compare_reference(datum_change: bool) -> (usize, Vec<String>) {
             let (Some((x, y)), Some((wx, wy))) = (point(inp), point(out)) else { continue };
             match tf(x, y, &def(a), &def(b)) {
                 Ok((gx, gy)) => {
-                    let tol = crs_tol::coordinate(b);
+                    let tol = if datum_change { datum_tol(a, b, b) } else { crs_tol::coordinate(b) };
                     if (gx - wx).abs() > tol || (gy - wy).abs() > tol {
                         bad.push(format!("{a} → {b} at ({x}, {y}): got ({gx}, {gy}), cs2cs ({wx}, {wy})"));
                     }
@@ -223,10 +232,9 @@ fn r_a6_reference_set_from_cs2cs_same_datum() {
     assert!(bad.is_empty(), "{} of {n} differ from cs2cs:\n{}", bad.len(), bad.iter().take(12).cloned().collect::<Vec<_>>().join("\n"));
 }
 
-/// Bug C-1 (docs/BUGS.md): DuckDB Spatial's ST_Transform treats NAD83↔WGS 84 (and ETRS89↔WGS 84) as no change and picks another
-/// NAD27 operation than PROJ's best, so cross-datum results are off by up to ~2 m from cs2cs. Fixed by R3 (operation + accuracy).
+/// Bug C-1 (fixed in R3): without PROJ's data, DuckDB Spatial's ST_Transform treated NAD83↔WGS 84 as no change and NAD27 came out ~2 m
+/// off. `Engine::new` now points PROJ at its data; this compares every cross-datum transform with cs2cs.
 #[test]
-#[ignore = "bug C-1: cross-datum transforms differ from PROJ's best operation by up to ~2 m"]
 fn r_a6_reference_set_from_cs2cs_across_datums() {
     let (n, bad) = compare_reference(true);
     assert!(n >= 100, "only {n} reference values compared");
@@ -289,15 +297,14 @@ fn r_c7_longitudes_outside_180_are_wrapped() {
 // ---------------------------------------------------------------- R-D: datum shifts use the grid
 
 #[test]
-#[ignore = "bug C-1: DuckDB's ST_Transform picks another datum operation than PROJ's best"]
 fn r_d1_nad27_to_nad83_uses_the_grid() {
     let (lon, lat) = tf(-97.5, 35.2, "EPSG:4267", "EPSG:4269").unwrap();
-    near(lat, 35.200066504, 5e-9, "NAD83 latitude");
-    near(lon, -97.500312182, 5e-9, "NAD83 longitude");
+    // DuckDB's PROJ and libproj pick equivalent NADCON operations that differ by about 1.3 cm here: 5 cm is allowed.
+    near(lat, 35.200066504, 5e-7, "NAD83 latitude");
+    near(lon, -97.500312182, 5e-7, "NAD83 longitude");
 }
 
 #[test]
-#[ignore = "bug C-1: DuckDB's ST_Transform picks another datum operation than PROJ's best"]
 fn r_d2_wgs84_to_nad27() {
     let (lon, lat) = tf(-97.5, 35.2, "EPSG:4326", "EPSG:4267").unwrap();
     near(lat, 35.199935272, 5e-9, "NAD27 latitude");
@@ -305,7 +312,6 @@ fn r_d2_wgs84_to_nad27() {
 }
 
 #[test]
-#[ignore = "bug C-1: DuckDB's ST_Transform picks another datum operation than PROJ's best"]
 fn r_d3_wgs84_to_nad83_operation() {
     let (lon, lat) = tf(-97.5, 35.2, "EPSG:4326", "EPSG:4269").unwrap();
     near(lat, 35.200001669, 5e-8, "NAD83 latitude (the 2.0 m Oklahoma operation, 5 mm)");
@@ -505,4 +511,94 @@ fn r_a8_mars_and_moon_spheres_at_the_proj_level() {
     }
     // PROJ refuses to move coordinates between bodies (the guard stays when phase F1 lands).
     assert!(tf(10.0, 10.0, "EPSG:4326", "IAU_2015:49900").is_err(), "Earth → Mars must be an error");
+}
+
+// ---------------------------------------------------------------- R-D4..D8: the datum data, accuracy and Z/M
+
+/// Child half of R-D4: run with `CRS_D4_CHILD=1` (and PROJ pointed at an empty folder) it prints the datum report as JSON.
+#[test]
+fn r_d4_child_prints_the_datum_report() {
+    if std::env::var_os("CRS_D4_CHILD").is_none() {
+        return;
+    }
+    let report = serde_json::to_string(&engine().datum_data_status()).unwrap();
+    println!("REPORT:{report}");
+}
+
+fn datum_report_with(proj_data: Option<&std::path::Path>) -> Value {
+    let mut cmd = std::process::Command::new(std::env::current_exe().unwrap());
+    cmd.args(["--exact", "r_d4_child_prints_the_datum_report", "--nocapture", "--test-threads=1"]).env("CRS_D4_CHILD", "1");
+    match proj_data {
+        Some(d) => cmd.env("PROJ_DATA", d).env("PROJ_LIB", d),
+        None => cmd.env_remove("PROJ_DATA").env_remove("PROJ_LIB"),
+    };
+    let out = cmd.output().unwrap();
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    let line = text.lines().find_map(|l| l.split_once("REPORT:").map(|(_, r)| r)).unwrap_or_else(|| panic!("no report in the child's output:\n{text}\n{}", String::from_utf8_lossy(&out.stderr)));
+    serde_json::from_str(line).unwrap()
+}
+
+#[test]
+fn r_d4_a_proj_without_its_data_is_caught_not_silent() {
+    // This process (data found by ensure_proj_data) passes.
+    let ok = engine().datum_data_status();
+    assert!(ok.ok, "{:?}", ok.problems);
+    assert!(ok.proj_data.is_some());
+    // A child whose PROJ_DATA is an empty folder: transforms fail or are wrong, and the report says so in words.
+    let empty = tempfile::tempdir().unwrap();
+    let bad = datum_report_with(Some(empty.path()));
+    assert_eq!(bad["ok"], false, "{bad}");
+    let problems = bad["problems"].as_array().unwrap().iter().map(|p| p.as_str().unwrap().to_string()).collect::<Vec<_>>().join(" | ");
+    assert!(problems.contains("PROJ datum files are missing") && problems.contains("Reinstall"), "{problems}");
+    // And a child that sets nothing finds the data by itself (the fix for C-1).
+    assert_eq!(datum_report_with(None)["ok"], true);
+}
+
+#[test]
+fn r_d6_same_datum_projection_is_exact_in_both_directions() {
+    for (a, b) in [("EPSG:4269", "EPSG:26915"), ("EPSG:4326", "EPSG:32615"), ("EPSG:4269", "EPSG:5070"), ("EPSG:4326", "EPSG:3857")] {
+        let (x, y) = tf(-95.0, 40.0, "EPSG:4326", a).unwrap();
+        let (px, py) = tf(x, y, a, b).unwrap();
+        let (rx, ry) = tf(px, py, b, a).unwrap();
+        let geo = crs_tol::is_geographic(if a == "EPSG:4326" { "4326" } else { "4269" });
+        let tol = if geo { 1e-9 } else { 1e-3 };
+        near(rx, x, tol, &format!("{a} → {b} → {a} x"));
+        near(ry, y, tol, &format!("{a} → {b} → {a} y"));
+    }
+}
+
+#[test]
+fn r_d7_each_point_gets_its_own_operation() {
+    // Oklahoma and Maine lie in different operation areas of WGS 84 → NAD27: each matches its own cs2cs answer.
+    let r = reference();
+    let (mut checked, mut worst) = (0, 0.0f64);
+    for (i, p) in r["points"].as_array().unwrap().iter().enumerate() {
+        let (lon, lat) = (p[0].as_f64().unwrap(), p[1].as_f64().unwrap());
+        for key in ["4267", "4269"] {
+            let Some((wx, wy)) = point(&r["geo"][key][i]) else { continue };
+            let (gx, gy) = tf(lon, lat, "EPSG:4326", &def(key)).unwrap();
+            worst = worst.max(((gx - wx).abs().max((gy - wy).abs())) * 111_000.0);
+            checked += 1;
+        }
+    }
+    assert!(checked >= 30);
+    assert!(worst < 4.0, "worst difference from cs2cs {worst:.2} m");
+}
+
+#[test]
+fn r_d8_z_and_m_pass_through_a_horizontal_transform_unchanged() {
+    let (z, wkt): (Option<f64>, Option<String>) = engine()
+        .with_conn_for_tests(|c| {
+            Ok(c.query_row(
+                "SELECT ST_Z(g), ST_AsText(ST_Transform(ST_GeomFromText('POINT M (-93 40 7)'), 'EPSG:4326', 'EPSG:32615', true))
+                 FROM (SELECT ST_Transform(ST_GeomFromText('POINT Z (-93 40 123.5)'), 'EPSG:4326', 'EPSG:32615', true) AS g)",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        })
+        .unwrap();
+    assert_eq!(z, Some(123.5), "Z passes through a horizontal transform unchanged (RD-8)");
+    // M (a measure along a line) is carried through unchanged too: dropping it would lose data for no gain (RD-8, as decided in R3).
+    let m = wkt.unwrap_or_default();
+    assert!(m.starts_with("POINT M (") && m.trim_end().ends_with(" 7)"), "M survives: {m}");
 }

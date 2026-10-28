@@ -211,6 +211,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let target: engine::split::SplitTarget = de(a, "target")?;
             json!(e.split_by_attribute(&s(a, "id")?, &s(a, "field")?, &target, a["confirmed"].as_bool().unwrap_or(false))?)
         }
+        "datum_data_status" => json!(e.datum_data_status()),
         "set_definition_query" => json!(e.set_definition_query(&s(a, "id")?, a["query"].as_str())?),
         "rename_layer" => json!(e.rename_layer(&s(a, "id")?, &s(a, "name")?)?),
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),

@@ -27,7 +27,7 @@ POINTS = [
 ]
 PAIRS = [("4267", "4269"), ("4326", "4267"), ("4326", "4269"), ("26915", "32615"), ("32615", "3857"), ("26915", "5070"),
          ("2277", "32139"), ("3035", "4326"), ("2193", "4326"), ("32660", "32601"), ("4807", "4326"), ("5070", "3857"),
-         ("3031", "3413"), ("ft_utm15", "26915"), ("esri_26915", "26915"), ("aeqd", "4326")]
+         ("3031", "3413"), ("26915", "ft_utm15"), ("esri_26915", "26915"), ("4326", "aeqd")]
 
 
 def run(args, text):
@@ -54,9 +54,20 @@ def num(s):
     return v if abs(v) < 1e15 else None
 
 
+def legacy_args(src, dst):
+    """cs2cs's legacy `+to` syntax, used when the target is a bare PROJ string (its CRS mode mishandles those, e.g. +units=ft)."""
+    s = {"OGC:CRS84": "+proj=longlat +datum=WGS84 +no_defs"}.get(src)
+    if s is None and src.startswith("EPSG:"):
+        s = f"+init=epsg:{src[5:]}"
+    return (s.split() + ["+to"] + dst.split()) if s else None
+
+
 def convert(src, dst, pts, src_swap, dst_swap):
+    legacy = legacy_args(src, dst) if dst.startswith("+") else None
+    if legacy:
+        src_swap = False  # +init=epsg:… is always east/north, whatever the authority's axis order
     lines = "\n".join((f"{y!r} {x!r}" if src_swap else f"{x!r} {y!r}") for x, y in pts)
-    out = run(["cs2cs", "-d", "12", "-f", "%.9f", src, dst], lines + "\n")
+    out = run(["cs2cs", "-d", "12", "-f", "%.9f"] + legacy, lines + "\n") if legacy else run(["cs2cs", "-d", "12", "-f", "%.9f", src, dst], lines + "\n")
     res = []
     for line in out:
         t = line.replace("\t", " ").split()

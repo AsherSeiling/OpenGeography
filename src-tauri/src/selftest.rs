@@ -30,6 +30,11 @@ fn check() -> anyhow::Result<String> {
     anyhow::ensure!(x > 2_000_000.0 && y > 100_000.0, "unexpected State Plane coordinates {x} {y}");
     out.push(format!("EPSG:4326 → EPSG:2267 (OK North ftUS): {x:.1}, {y:.1}"));
 
+    // Datum shifts: PROJ's datum files must be present (NAD27/NAD83/WGS 84 would be off by metres without them).
+    let datum = e.datum_data_status();
+    anyhow::ensure!(datum.ok, "datum data: {}", datum.problems.join("; "));
+    out.push(format!("datum shifts match PROJ's best operation (PROJ_DATA = {:?})", datum.proj_data));
+
     // Vector layer + tile.
     let l = e.generate_test_layer("polygons", 2000, [-98.0, 35.0, -97.0, 36.0])?;
     let tile = e.tile(&l.id, 6, 14, 25, &[])?;

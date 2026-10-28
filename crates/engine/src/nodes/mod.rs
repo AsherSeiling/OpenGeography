@@ -191,15 +191,21 @@ pub struct Ctx<'a> {
     pub conn: &'a Connection,
     pub layers: &'a HashMap<String, LayerInfo>,
     reprojected: Cell<bool>,
+    datum_notes: std::cell::RefCell<Vec<String>>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(conn: &'a Connection, layers: &'a HashMap<String, LayerInfo>) -> Self {
-        Self { conn, layers, reprojected: Cell::new(false) }
+        Self { conn, layers, reprojected: Cell::new(false), datum_notes: Default::default() }
     }
 
     pub fn was_reprojected(&self) -> bool {
         self.reprojected.get()
+    }
+
+    /// Notes about datum changes made while reprojecting, without repeats.
+    pub fn datum_notes(&self) -> Vec<String> {
+        self.datum_notes.borrow().clone()
     }
 
     /// Non-geometry column names of a relation.
@@ -217,6 +223,12 @@ impl<'a> Ctx<'a> {
             Ok(col)
         } else {
             self.reprojected.set(true);
+            if let Some(n) = crate::crs::datum_change_note(src, target) {
+                let mut notes = self.datum_notes.borrow_mut();
+                if !notes.contains(&n) {
+                    notes.push(n);
+                }
+            }
             Ok(format!("ST_Transform({col}, {}, {}, true)", lit(src), lit(target)))
         }
     }
