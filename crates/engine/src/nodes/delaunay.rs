@@ -35,8 +35,9 @@ impl Tool for Delaunay {
         if n > MAX_FEATURES {
             bail!("Delaunay triangulation supports up to {MAX_FEATURES} features (input has {n})");
         }
+        let (into, back) = ctx.metric_wrap(i)?;
         let wkb: Vec<u8> = ctx.conn.query_row(
-            &format!("SELECT ST_AsWKB(ST_Collect(list(geom)))::BLOB FROM {t} WHERE geom IS NOT NULL"),
+            &format!("SELECT ST_AsWKB(ST_Collect(list({})))::BLOB FROM {t} WHERE geom IS NOT NULL", into.replace("{}", "geom")),
             [],
             |r| r.get(0),
         )?;
@@ -46,8 +47,9 @@ impl Tool for Delaunay {
             .map_err(|e| anyhow!("Delaunay triangulation failed: {e}"))?;
         let hex: String = tri.iter().map(|b| format!("{b:02X}")).collect();
         let sql = format!(
-            "SELECT row_number() OVER () AS TRI_ID, __part.geom AS geom
-             FROM (SELECT UNNEST(ST_Dump(ST_GeomFromHEXWKB('{hex}'))) AS __part)"
+            "SELECT row_number() OVER () AS TRI_ID, {} AS geom
+             FROM (SELECT UNNEST(ST_Dump(ST_GeomFromHEXWKB('{hex}'))) AS __part)",
+            back.replace("{}", "__part.geom")
         );
         Ok(Output::Select { sql, crs: i.crs.clone(), view: false })
     }

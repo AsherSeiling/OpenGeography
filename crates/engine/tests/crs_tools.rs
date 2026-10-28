@@ -58,3 +58,50 @@ fn r_d5_a_datum_change_in_a_tool_is_reported_in_words() {
     assert!(engine::crs::datum_change_note("EPSG:4326", "EPSG:32615").is_none());
     assert!(engine::crs::datum_change_note("EPSG:4267", "EPSG:4326").is_some());
 }
+
+// ---------------------------------------------------------------- R-J1: poles and points a projection cannot show (bug C-2, RD-6)
+
+fn project_to(e: &Engine, layer: &str, crs: &str) -> engine::graph::NodeResult {
+    let g: Graph = serde_json::from_value(json!({
+        "nodes": [{"id": "a", "tool": "input_layer", "params": {"layer": layer}}, {"id": "p", "tool": "project", "params": {"crs": crs}}, {"id": "o", "tool": "layer_output", "params": {"layer": layer}}],
+        "edges": [{"source": "a", "target": "p", "targetHandle": "in"}, {"source": "p", "target": "o", "targetHandle": "in"}]
+    }))
+    .unwrap();
+    let res = e.run_graph(&g, None, &mut |_| {}).unwrap();
+    let p = res.iter().find(|r| r.id == "p").unwrap().clone();
+    assert_eq!(p.status, Status::Done, "{p:?}");
+    let mut out = res.into_iter().find(|r| r.id == "o").unwrap();
+    out.message = p.message;
+    out
+}
+
+#[test]
+fn r_j1_poles_are_counted_and_left_out_never_kept_as_infinite_coordinates() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("poles.gpkg");
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    c.execute_batch(&format!(
+        "COPY (SELECT * FROM (VALUES (1, ST_Point(-97.5, 31.5)), (2, ST_Point(0.0, 90.0)), (3, ST_Point(0.0, -90.0)), (4, ST_Point(-97.0, 30.0))) t(id, geom)) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', SRS 'EPSG:4326', USE_TMP_FILE false)",
+        path.display()
+    ))
+    .unwrap();
+    let e = Engine::new().unwrap();
+    let layer = e.import(&path).unwrap().remove(0);
+    let mut dropped_somewhere = false;
+    for crs in ["EPSG:2277", "EPSG:32139", "EPSG:5070", "EPSG:3857", "EPSG:32614", "EPSG:3031", "EPSG:3413", "EPSG:4269", "EPSG:3035"] {
+        let r = project_to(&e, &layer.id, crs);
+        let l = r.layer.clone().unwrap();
+        let n = l.feature_count;
+        assert!((2..=4).contains(&n), "{crs}: {n} features kept");
+        // Nothing infinite or NaN is left in the result.
+        let [w, s, ee, no] = l.native_extent.expect("a native extent");
+        assert!([w, s, ee, no].iter().all(|v| v.is_finite()), "{crs}: extent {:?}", l.native_extent);
+        if n < 4 {
+            dropped_somewhere = true;
+            let m = r.message.unwrap_or_default();
+            assert!(m.contains("could not be projected") && m.contains("left out"), "{crs}: {m:?}");
+        }
+    }
+    assert!(dropped_somewhere, "a pole in a Lambert conic can't be shown, so at least one projection must have counted a drop");
+}
