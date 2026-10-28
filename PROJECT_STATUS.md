@@ -4,7 +4,7 @@ _Updated 2026-10-28. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 
 ## Exact next action
 - **Lead developer (Claude Code, standing order of work, MASTER_PLAN §4):** B6 (split a layer by attribute) + B7 (category drawing order) → C3.0 layout polish → C3.1 templates → C3.2 map series (ends Phase C) → Phase R (`docs/CRS_PLAN.md`).
-- **Done:** the bug-fix session is merged. Q3 (2026-10-28): U-5 fixed, D-1 guard built. L1 (2026-10-28): labels on the map (pushed). L2 and L3 (2026-10-28): labels in layouts, and adjusting them in the layout (drag, edit text, hide, per-layout style) built. L2+L3 pushed together; CI runs once for L1–L3 (user's rule).
+- **Done:** the bug-fix session is merged. Q3 (2026-10-28): U-5 fixed, D-1 guard built. L1 (2026-10-28): labels on the map (pushed). L2 and L3 (2026-10-28): labels in layouts, and adjusting them in the layout (drag, edit text, hide, per-layout style) built. L2+L3 pushed together; CI green (run 40734953739); CI runs once for L1–L3 (user's rule).
 - **On hold:** M4 (rasters in any CRS). Do not start it.
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`). Next tag: `v0.2.0` at the end of Phase C.
 
@@ -44,7 +44,7 @@ _Updated 2026-10-28. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 - **macOS CI crash:** one intermittent SIGSEGV in layout tests (run 40055424934, conda GDAL, parallel tests). It hasn't happened again. M4's P17 stress test is the gate.
 
 ## Next tasks (in order)
-1. (L1–L3 done.) Check the CI run of the L1–L3 push.
+1. (L1–L3 done; CI green for `f685b41` on all platforms, run 40734953739.)
 2. B6 split a layer by attribute, B7 category drawing order.
 3. C3.0 layout polish → C3.1 templates → C3.2 map series (end of Phase C).
 4. Phase R, coordinate-system hardening (`docs/CRS_PLAN.md`; 112 cases in `docs/TEST_PLAN.md` §2A). Recommended: tag `v0.2.0` after it.
