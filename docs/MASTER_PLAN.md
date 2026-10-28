@@ -115,7 +115,7 @@ The biggest missing piece: the app currently can't make a printable map.
 | B6. Split by attribute (export by category) | 1 | Sonnet | User request 2026-10-25; spec in `docs/DECISIONS.md`. One layer or one file per unique value of a field (QGIS `native:splitvectorlayer`, reimplemented). After L3. |
 | B7. Category precedence in unique-value symbology | 0.5–1 | Sonnet | User request 2026-10-25; spec in `docs/DECISIONS.md`. Drag-to-reorder categories; the order sets draw order on the map and in layouts, and the legend order. Can run beside B6 (different files). |
 | L1. Feature labels on the map | 1 | Sonnet | **Built 2026-10-28 (merge pending CI).**  `LAYOUTS_PLAN.md` L1: field, size, colour, halo, scale range; OpenLayers declutter; polygon labels from engine anchor points. User request 2026-10-25. |
-| L2. Labels in print layouts | 1 | Sonnet | `LAYOUTS_PLAN.md` L2: same settings, greedy collision on the page, skipped labels reported. After L1. |
+| L2. Labels in print layouts | 1 | Sonnet | **Built 2026-10-28 (local; pushed with L3).**  `LAYOUTS_PLAN.md` L2: same settings, greedy collision on the page, skipped labels reported. After L1. |
 | L3. Adjust labels in the layout | 1–2 | Sonnet | `LAYOUTS_PLAN.md` L3: per-layout label style overrides; per-label move, rotate, edit text, hide, reset; pinned labels placed first. User request 2026-10-25. After L2. |
 | C3.0 Layout polish | 1 | Sonnet | Rulers, Arrange group, scale bar "1:N" label, dpi box in Export, basemap tile disk cache. Before C3.1. |
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | Templates use C3.0's label and arrange. |

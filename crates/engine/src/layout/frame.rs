@@ -407,6 +407,32 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         drawn.push(id.clone());
     }
 
+    // Feature labels (L2): top layer first, so the top layer wins when labels collide.
+    let mut placer = super::labels::Placer::default();
+    let mut feature_labels = String::new();
+    let frame_box = [at.x, at.y, at.x + at.w, at.y + at.h];
+    for id in &ids {
+        let Some(info) = lookup(id) else { continue };
+        let Some(style) = req.styles.get(id) else { continue };
+        let Some(label) = style.label.as_ref().filter(|l| l.enabled && info.fields.iter().any(|x| x.name == l.field)) else { continue };
+        if info.raster.is_some() || !info.has_geometry() || info.crs.is_none() || !super::labels::visible_at(label, f.scale) {
+            continue;
+        }
+        check()?;
+        let r = super::labels::layer(conn, &info, label, f.crs, bbox3857, extent, frame_box, &|x, y| m.xy(x, y), &mut placer, style.radius.max(0.0) * PX_MM, check)
+            .map_err(|e| anyhow!("Labels of {} could not be drawn: {e}", info.name))?;
+        feature_labels.push_str(&r.svg);
+        if r.skipped > 0 {
+            warnings.push(format!("{} label{} of {} didn't fit", r.skipped, if r.skipped == 1 { "" } else { "s" }, info.name));
+        }
+        if r.truncated {
+            warnings.push(format!("{} has more than {} features in this frame; only the first {} were considered for labels", info.name, super::labels::MAX_CANDIDATES, super::labels::MAX_CANDIDATES));
+        }
+    }
+    if !feature_labels.is_empty() {
+        let _ = write!(body_svg, "<g id=\"labels-{}\">{feature_labels}</g>", esc(&at.id));
+    }
+
     let mut labels = String::new();
     let to_page = |x: f64, y: f64| m.xy(x, y);
     if let Some(spec) = f.grid {
