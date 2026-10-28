@@ -46,6 +46,20 @@ export function openLayout(id: string) {
   });
 }
 
+/**
+ * The dock's active panel changed. A layout tab opens its layout; any other panel
+ * (Properties, Contents, Map) leaves the layout open. Closing the layout here made
+ * a click into the Properties pane drop the selection and every later edit (bug U-5).
+ */
+export function followActivePanel(layoutId: string | undefined) {
+  if (layoutId) useLayouts.getState().open(layoutId);
+}
+
+/** A dock panel was closed: if it was the open layout's tab, no layout is open any more. */
+export function layoutPanelClosed(layoutId: string | undefined) {
+  if (layoutId && useLayouts.getState().id === layoutId) useLayouts.getState().open(null);
+}
+
 export function closeLayoutPanel(id: string) {
   getDock()?.getPanel(panelId(id))?.api.close();
 }

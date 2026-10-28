@@ -155,3 +155,43 @@ fn elevation_download_small_area() {
     assert!(l.crs.as_deref().is_some_and(|c| c.contains("32614")), "{:?}", l.crs);
     assert!(e.sources().unwrap().iter().any(|s| s.citation.title.contains("3DEP") || s.citation.title.to_lowercase().contains("elevation")));
 }
+
+// Bug D-1, case DEM-2: the plan sizes a download on the ellipsoid and refuses what one download cannot do.
+#[test]
+fn dem_2_elevation_plan_sizes_and_limits() {
+    use engine::tnm::plan_elevation;
+    // 10 km square near 40° N at 30 m: ~333 cells a side, not coarsened.
+    let p = plan_elevation([-100.0, 40.0, -99.8829, 40.0903], 30.0).unwrap();
+    assert!(!p.coarsened && p.used_res == 30.0);
+    assert!((p.height_m - 10_000.0).abs() < 60.0 && (p.width_m - 10_000.0).abs() < 100.0, "{p:?}");
+    assert_eq!(p.bytes, p.cols as u64 * p.rows as u64 * 4);
+    // 1 degree of latitude is 110.6 km at the equator and 111.7 km at 80°.
+    let eq = plan_elevation([0.0, -0.5, 0.1, 0.5], 90.0).unwrap();
+    assert!((eq.height_m - 110_574.0).abs() < 300.0, "{eq:?}");
+    // 3° × 3° at 40° N at 10 m needs more than 8000 cells: coarsened, and says so.
+    let c = plan_elevation([-100.0, 39.0, -97.0, 42.0], 10.0).unwrap();
+    assert!(c.coarsened && c.used_res > 10.0 && c.used_res <= 90.0 && c.cols <= 8000 && c.rows <= 8000, "{c:?}");
+    // No tile above the service limit for any accepted box.
+    for (bbox, res) in [([0.0, 0.0, 6.0, 6.0], 1.0), ([-120.0, -60.0, -114.5, -55.0], 5.0), ([170.0, 10.0, 176.0, 12.0], 30.0)] {
+        let p = plan_elevation(bbox, res).unwrap();
+        assert!(p.cols <= 8000 && p.rows <= 8000, "{bbox:?} {p:?}");
+    }
+}
+
+#[test]
+fn dem_2_elevation_guard_refuses_in_plain_words_before_any_request() {
+    use engine::tnm::{download_elevation, plan_elevation};
+    for (bbox, res, text) in [
+        ([-100.0, 30.0, -90.0, 31.0], 30.0, "6° (one UTM zone)"),
+        ([-100.0, 80.0, -99.0, 85.0], 30.0, "84°"),
+        ([-100.0, -86.0, -99.0, -80.0], 30.0, "84°"),
+        ([0.0, 0.0, 6.0, 8.0], 30.0, "too large for one download"),
+        ([-181.0, 0.0, -180.0, 1.0], 30.0, "outside longitude"),
+        ([0.0, 0.0, 1.0, 1.0], 0.0, "resolution"),
+        ([0.0, 0.0, 1.0, 1.0], f64::NAN, "resolution"),
+    ] {
+        let err = plan_elevation(bbox, res).unwrap_err().to_string();
+        assert!(err.contains(text), "{bbox:?}: {err}");
+        assert_eq!(download_elevation(bbox, res, &noop).unwrap_err().to_string(), err, "download uses the same guard");
+    }
+}
