@@ -471,6 +471,14 @@ pub fn run(
                 Output::Done(msg) => r.message = Some(msg),
             }
             r.reprojected = ctx.was_reprojected();
+            let notes = ctx.datum_notes();
+            if !notes.is_empty() {
+                let n = notes.join(" ");
+                r.message = Some(match r.message.take() {
+                    Some(m) => format!("{m} {n}"),
+                    None => n,
+                });
+            }
             Ok(r)
         })();
         match res {

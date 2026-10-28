@@ -126,14 +126,14 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 
 | ID | Check | Input | Expected | Coverage |
 |---|---|---|---|---|
-| R-D1 | NAD27 → NAD83 uses the grid | 35.2 N, −97.5 E | 35.200066504, −97.500312182 (≈ 7.4 m N, 28.4 m W) | ignored, bug C-1: crs_reference::r_d1 |
-| R-D2 | WGS 84 → NAD27 | same point | 35.199935272, −97.499683431 | ignored, bug C-1: crs_reference::r_d2 |
-| R-D3 | WGS 84 → NAD83 operation | same point | 35.200001669, −97.499995543 (the 2.0 m Oklahoma operation) within 5 mm | ignored, bug C-1: crs_reference::r_d3 |
-| R-D4 | Missing grid is detected | a subprocess with `PROJ_DATA` pointing at a folder without grids; NAD27 → NAD83 | `Err` or a result flagged "ballpark: may be off by up to ~100 m"; never a silent number | planned R3 (risk G2) |
-| R-D5 | Accuracy is reported | NAD27 → NAD83 (CONUS); WGS 84 → NAD83; ballpark case | record `{from, to, operation, accuracyM}`: ≈ 0.15 m; 2.0 or 4.0 m by area; `"ballpark"` | planned R3 |
-| R-D6 | Same-datum projection is exact | 4269 ↔ 26915, 4326 ↔ 32615 | accuracy `"exact"`; round trip ≤ 1 mm | planned R3 |
-| R-D7 | One operation per point | a layer straddling two operation areas (e.g. Oklahoma and Maine) | every vertex equals its own `cs2cs` answer | planned R3 |
-| R-D8 | Vertical / Z policy | compound CRS layer, Z values, through Project and Buffer | Z unchanged, the result says "vertical datum not transformed"; M dropped with a message (RD-8) | planned R3 (risk G5) |
+| R-D1 | NAD27 → NAD83 uses the grid | 35.2 N, −97.5 E | 35.200066504, −97.500312182 (≈ 7.4 m N, 28.4 m W) | auto: crs_reference::r_d1 (5 cm; the NADCON operations differ by 1.3 cm) |
+| R-D2 | WGS 84 → NAD27 | same point | 35.199935272, −97.499683431 | auto: crs_reference::r_d2 |
+| R-D3 | WGS 84 → NAD83 operation | same point | 35.200001669, −97.499995543 (the 2.0 m Oklahoma operation) within 5 mm | auto: crs_reference::r_d3 |
+| R-D4 | Missing grid is detected | a subprocess with `PROJ_DATA` pointing at a folder without grids; NAD27 → NAD83 | `Err` or a result flagged "ballpark: may be off by up to ~100 m"; never a silent number | auto: crs_reference::r_d4 (child process with an empty PROJ_DATA; the report says so in words) |
+| R-D5 | Accuracy is reported | NAD27 → NAD83 (CONUS); WGS 84 → NAD83; ballpark case | record `{from, to, operation, accuracyM}`: ≈ 0.15 m; 2.0 or 4.0 m by area; `"ballpark"` | partial: crs_tools::r_d5 (a datum change is named in the tool result); per-operation accuracy needs the PROJ API, not available through GDAL (decision R3) |
+| R-D6 | Same-datum projection is exact | 4269 ↔ 26915, 4326 ↔ 32615 | accuracy `"exact"`; round trip ≤ 1 mm | auto: crs_reference::r_d6 |
+| R-D7 | One operation per point | a layer straddling two operation areas (e.g. Oklahoma and Maine) | every vertex equals its own `cs2cs` answer | auto: crs_reference::r_d7 (each point equals its own cs2cs answer within the datum tolerance) |
+| R-D8 | Vertical / Z policy | compound CRS layer, Z values, through Project and Buffer | Z unchanged, the result says "vertical datum not transformed"; M dropped with a message (RD-8) | auto: crs_reference::r_d8 (Z and M are carried through unchanged: RD-8 changed in R3) |
 
 ### E. Import, export, project round trip
 
@@ -141,7 +141,7 @@ Written 2026-10-27; **all `planned` until their session runs** (R1–R7). They e
 |---|---|---|---|---|
 | R-E1 | Format × CRS round trip | export then import in GPKG, shapefile, FlatGeobuf, GeoParquet (not GeoJSON/CSV) × EPSG:4326, 26915, 5070, 2277, 3031, a PROJ string | same key; coordinates ≤ 1 mm / 1e-9° | auto: crs_import::r_e1 (GPKG, shapefile, FlatGeobuf × 6 CRSs; GeoParquet to add) |
 | R-E2 | Shapefile `.prj` flavours | ESRI WKT; OGC WKT; custom WKT; garbled `.prj`; no `.prj` | recognised and keyed; garbled → undefined with a warning; none → undefined (existing 1.3) | auto: crs_import::r_e2 |
-| R-E3 | GeoJSON export policy | UTM layer → GeoJSON | default: reprojected to 4326 with a message (RD-7); option "keep layer CRS" writes the legacy member; round trip ≤ 1 mm | planned R3 (risk G9) |
+| R-E3 | GeoJSON export policy | UTM layer → GeoJSON | default: reprojected to 4326 with a message (RD-7); option "keep layer CRS" writes the legacy member; round trip ≤ 1 mm | auto: crs_export::r_e3 (GeoJSON reprojected to WGS 84 with a message; option keeps the layer CRS and writes the crs member) |
 | R-E4 | GPKG SRS variants | `srs_id` 4326; custom definition without authority; 0 / −1 (undefined); two layers in different CRSs | custom kept as its WKT; 0/−1 → undefined with a warning (not 4326); each layer its own CRS | auto: crs_import::r_e4 (undefined stays undefined, C-4) |
 | R-E5 | Project save / reopen | project with layers, map CRS and layout frames in 5 zoo CRSs; reopen; committed fixture project from another OS | same keys, same display, no re-reprojection | planned R2; R7 for other OS |
 | R-E6 | CSV with X/Y | `x,y` in UTM; user picks the CRS at import | points land at `cs2cs` positions; no CRS chosen → undefined | planned R6 |

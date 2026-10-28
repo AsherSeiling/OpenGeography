@@ -98,6 +98,45 @@ pub fn spatial_extension() -> Option<PathBuf> {
     }
 }
 
+/// Make PROJ find its data when this isn't an installed app (dev builds, tests, the browser dev server). DuckDB Spatial carries its
+/// own PROJ, which otherwise falls back to a small built-in database without the datum files: NAD83 ↔ WGS 84 then comes out as no
+/// change and NAD27 is a few metres off (bug C-1). The data folder GDAL's PROJ uses is the right one, so it is handed to both.
+/// An environment that already sets `PROJ_DATA` or `PROJ_LIB` (the installed app, `resources::init`, a test) is left alone.
+pub fn ensure_proj_data() {
+    use std::sync::Once;
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        if std::env::var_os("PROJ_DATA").is_some() || std::env::var_os("PROJ_LIB").is_some() {
+            return;
+        }
+        let mut dirs: Vec<PathBuf> = Vec::new();
+        // The folders GDAL's own PROJ searches.
+        unsafe {
+            let list = gdal_sys::OSRGetPROJSearchPaths();
+            if !list.is_null() {
+                let n = gdal_sys::CSLCount(list);
+                for i in 0..n {
+                    let p = *list.offset(i as isize);
+                    if !p.is_null() {
+                        dirs.push(PathBuf::from(std::ffi::CStr::from_ptr(p).to_string_lossy().to_string()));
+                    }
+                }
+                gdal_sys::CSLDestroy(list);
+            }
+        }
+        dirs.extend(["/opt/homebrew/share/proj", "/usr/local/share/proj", "/usr/share/proj"].map(PathBuf::from));
+        if let Some(d) = dirs.into_iter().find(|d| d.join("proj.db").is_file()) {
+            std::env::set_var("PROJ_DATA", &d);
+            std::env::set_var("PROJ_LIB", &d);
+        }
+    });
+}
+
+/// The folder PROJ is told to use, if any.
+pub fn proj_data_dir() -> Option<PathBuf> {
+    std::env::var_os("PROJ_DATA").or_else(|| std::env::var_os("PROJ_LIB")).map(PathBuf::from)
+}
+
 /// Point GDAL and PROJ at the bundled data. Call once, early, before any
 /// GDAL or engine use. PROJ downloads datum grids on demand (cdn.proj.org).
 pub fn init() {

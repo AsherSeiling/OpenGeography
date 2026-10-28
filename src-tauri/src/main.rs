@@ -32,6 +32,7 @@ fn main() {
             commands::remove_layer,
             commands::rename_layer,
             commands::copy_layer,
+            commands::datum_data_status,
             commands::layout_series_pages,
             commands::export_layout_series,
             commands::list_layout_templates,

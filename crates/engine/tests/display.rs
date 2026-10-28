@@ -246,16 +246,19 @@ fn p1_web_mercator_tiles_are_byte_identical() {
 fn p2_utm_tile_places_the_point_within_a_pixel() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
-    let native = import_one(&e, dir.path(), "utm", "SELECT 1 AS id, ST_Point(500000.0, 4500000.0) AS geom", "EPSG:26915");
-    let lonlat = import_one(&e, dir.path(), "ll", "SELECT 1 AS id, ST_Point(-93.0, 40.0) AS geom", "EPSG:4326");
+    // Off every tile edge (500000 / 4500000 sit exactly on one at low zooms), so a shift of a metre can't tip the point into the next tile.
+    let (nx, ny) = (500_123.0, 4_500_456.0);
+    let (lon, lat) = e.transform_point(nx, ny, "EPSG:26915", "EPSG:4326").unwrap();
+    let native = import_one(&e, dir.path(), "utm", &format!("SELECT 1 AS id, ST_Point({nx}, {ny}) AS geom"), "EPSG:26915");
+    let lonlat = import_one(&e, dir.path(), "ll", &format!("SELECT 1 AS id, ST_Point({lon}, {lat}) AS geom"), "EPSG:4326");
     let di = e.crs_display_info("EPSG:26915", None).unwrap();
-    let (lx, ly) = e.transform_point(-93.0, 40.0, "EPSG:4326", "EPSG:26915").unwrap();
+    let (lx, ly) = e.transform_point(lon, lat, "EPSG:4326", "EPSG:26915").unwrap();
 
     // Not built yet: no tile, and a readable error.
     assert!(!e.display_status(&native, "EPSG:26915").unwrap().ready);
     assert!(e.tile_in_crs(&native, &di.crs_key, 6, 0, 0, &[]).is_err());
 
-    for (id, px, py) in [(&native, 500000.0, 4500000.0), (&lonlat, lx, ly)] {
+    for (id, px, py) in [(&native, nx, ny), (&lonlat, lx, ly)] {
         let st = e.build_display_blocking(id, "EPSG:26915").unwrap();
         assert!(st.ready && !st.building && st.dropped == 0 && st.error.is_none(), "{st:?}");
         for z in [3u32, 6, 10, 14] {

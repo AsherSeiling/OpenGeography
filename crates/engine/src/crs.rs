@@ -118,6 +118,53 @@ mod tests {
     }
 }
 
+// ---------------------------------------------------------------- datum data check (docs/CRS_PLAN.md RD-3, bug C-1)
+
+/// Result of the known-answer datum check.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatumReport {
+    /// True when every datum shift matches PROJ's best operation to within half a metre.
+    pub ok: bool,
+    /// What is wrong, as sentences for the user.
+    pub problems: Vec<String>,
+    /// The folder PROJ reads its data from, when known.
+    pub proj_data: Option<String>,
+}
+
+/// Datum shifts that must come out as PROJ's best operation gives them (`cs2cs`, PROJ 9.8.1, at 35.2 N, 97.5 W). A PROJ without
+/// its datum files answers NAD83 ↔ WGS 84 with "no change" and NAD27 about 2 m off, silently: this makes that visible. The
+/// installed app runs it in `--self-test` and at start-up.
+pub fn datum_data_report(conn: &Connection) -> DatumReport {
+    // (from, to, expected lon/lat, what it is)
+    let checks = [
+        ("EPSG:4267", "EPSG:4269", (-97.500312182, 35.200066504), "NAD27 → NAD83 (NADCON grid)"),
+        ("EPSG:4326", "EPSG:4269", (-97.499995543, 35.200001669), "WGS 84 → NAD83"),
+        ("EPSG:4326", "EPSG:4267", (-97.499683431, 35.199935272), "WGS 84 → NAD27"),
+    ];
+    let mut problems = Vec::new();
+    for (from, to, (lon, lat), what) in checks {
+        match transform_point(conn, -97.5, 35.2, from, to) {
+            Ok((x, y)) => {
+                let (dx, dy) = ((x - lon) * 111_320.0 * 35.2f64.to_radians().cos(), (y - lat) * 110_950.0);
+                let off = (dx * dx + dy * dy).sqrt();
+                if !(off < 0.5) {
+                    problems.push(format!("{what} is off by {off:.1} m (PROJ's best operation was not used)"));
+                }
+            }
+            Err(e) => problems.push(format!("{what} could not be computed: {e}")),
+        }
+    }
+    let proj_data = crate::resources::proj_data_dir().map(|p| p.display().to_string());
+    if !problems.is_empty() {
+        problems.push(format!(
+            "The PROJ datum files are missing or can't be found{}. Coordinates moved between datums (NAD27, NAD83, WGS 84) can be wrong by metres. Reinstall GIS Studio, or set PROJ_DATA to a folder holding proj.db and the datum grids.",
+            proj_data.as_deref().map(|d| format!(" (PROJ_DATA = {d})")).unwrap_or_default()
+        ));
+    }
+    DatumReport { ok: problems.is_empty(), problems, proj_data }
+}
+
 // ---------------------------------------------------------------- identity (docs/CRS_PLAN.md RD-2, bug G1)
 
 /// A definition as it appears in a message: the first 80 characters, so a pasted 100 kB file doesn't fill the error pop-up.
@@ -239,6 +286,23 @@ pub fn canonical_form(crs: &str) -> Result<String> {
 pub fn key(crs: &str) -> Result<String> {
     let s = srs(&resolve(crs))?;
     Ok(hash12(&canonical_json(&s)?))
+}
+
+/// The datum of a CRS as a short name ("North American Datum 1983"), or None when it can't be told.
+pub fn datum_of(crs: &str) -> Option<String> {
+    let s = srs(&resolve(crs)).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&s.to_projjson().ok()?).ok()?;
+    let base = v.get("base_crs").unwrap_or(&v);
+    let d = base.get("datum").or_else(|| base.get("datum_ensemble"))?;
+    Some(datum_name(d.get("name")?.as_str()?))
+}
+
+/// A sentence for the tool result when moving coordinates from `from` to `to` changes the datum (the two are not the same CRS).
+/// PROJ picks its best available operation, typically good to 0.1–4 m in North America; an install without its datum files is
+/// caught at start-up by `datum_data_report`.
+pub fn datum_change_note(from: &str, to: &str) -> Option<String> {
+    let (a, b) = (datum_of(from)?, datum_of(to)?);
+    (a != b).then(|| format!("Datum change {a} → {b}: PROJ's best available operation was used (typically 0.1–4 m in North America)."))
 }
 
 /// True when two CRS definitions mean the same CRS. A definition PROJ can't read is "same" only as the very same text, so a

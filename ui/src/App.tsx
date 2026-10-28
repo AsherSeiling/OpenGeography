@@ -8,6 +8,7 @@ import { startProgressPolling } from "./progress/progress";
 import { addData, registerDock, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
 import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
+import { reportError } from "./errors/store";
 import { api, IN_TAURI, type NodeResult } from "./ipc/api";
 import { AttributeTable } from "./panes/AttributeTable";
 import { ContentsPane } from "./panes/ContentsPane";
@@ -65,6 +66,12 @@ export function App() {
   const dark = useApp((s) => s.dark);
 
   useEffect(startProgressPolling, []);
+  // PROJ without its datum files moves NAD27 / NAD83 / WGS 84 coordinates by metres, silently: say so at start-up (R3).
+  useEffect(() => {
+    api.datumDataStatus().then((r) => {
+      if (!r.ok) reportError(r.problems.join("\n"), "datum-data", { title: "Datum shifts can't be trusted on this computer", context: "checking the coordinate system data" });
+    }, () => {});
+  }, []);
   const basemap = useApp((s) => s.basemap);
   useEffect(() => {
     if (basemap) api.recordBasemap(basemap).catch(() => {});

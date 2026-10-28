@@ -82,6 +82,12 @@ pub async fn split_by_attribute(engine: Eng<'_>, id: String, field: String, targ
     Ok(r)
 }
 
+/// Known-answer check of the datum shifts (RD-3): the UI shows an error when PROJ's datum files are missing.
+#[tauri::command]
+pub async fn datum_data_status(engine: Eng<'_>) -> Res<engine::crs::DatumReport> {
+    blocking(&engine, |e| Ok(e.datum_data_status())).await
+}
+
 #[tauri::command]
 pub async fn set_definition_query(engine: Eng<'_>, id: String, query: Option<String>) -> Res<LayerInfo> {
     let info = blocking(&engine, move |e| e.set_definition_query(&id, query.as_deref())).await?;

@@ -153,6 +153,13 @@ export interface DisplayStatus {
   error: string | null;
 }
 
+/** Known-answer check of PROJ's datum files (R3): `ok` is false when NAD83 / NAD27 / WGS 84 shifts can't be trusted. */
+export interface DatumReport {
+  ok: boolean;
+  problems: string[];
+  projData: string | null;
+}
+
 /** One page of a layout's map series (C3.2). */
 export interface SeriesPageInfo {
   index: number;
@@ -361,6 +368,7 @@ export const api = {
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),
   exportLayoutSeries: (req: RenderRequest, format: string, dpi: number, path: string) => invoke<SeriesExportResult>("export_layout_series", { req, format, dpi, path }),
+  datumDataStatus: () => invoke<DatumReport>("datum_data_status"),
   listLayoutTemplates: () => invoke<{ templates: LayoutTemplate[]; skipped: string[] }>("list_layout_templates"),
   getLayoutTemplate: (id: string) => invoke<Layout>("get_layout_template", { id }),
   saveLayoutTemplate: (name: string, layout: Layout) => invoke<LayoutTemplate>("save_layout_template", { name, layout }),

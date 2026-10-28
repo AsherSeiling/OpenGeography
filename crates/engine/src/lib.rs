@@ -72,6 +72,7 @@ const PROJECT_JSON: &str = "project.json";
 
 impl Engine {
     pub fn new() -> Result<Self> {
+        resources::ensure_proj_data();
         let e = Self {
             pool: RwLock::new(Pool::open(None)?),
             project_dir: RwLock::new(None),
@@ -674,6 +675,11 @@ impl Engine {
         let body = layout::geo::Body::get("earth")?;
         let fc = layout::geo::FrameCrs::new(crs, &body)?;
         Ok(layout::geo::factors(&body, &fc, x, y)?.k)
+    }
+
+    /// Known-answer check of the datum shifts (RD-3): `ok` is false when PROJ's datum data is missing.
+    pub fn datum_data_status(&self) -> crs::DatumReport {
+        self.with_conn(|c| Ok(crs::datum_data_report(c))).unwrap_or_else(|e| crs::DatumReport { ok: false, problems: vec![format!("The datum check could not run: {e}")], proj_data: None })
     }
 
     pub fn validate_crs(&self, crs: &str) -> Result<()> {
