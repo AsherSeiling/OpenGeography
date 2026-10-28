@@ -45,3 +45,23 @@ test("L1 labels draw in Web Mercator and UTM, carry the label field only when on
   const kept = await gis(app, (g, id) => JSON.parse(JSON.stringify(g.useApp.getState().styles[id])).label, layer.id);
   expect(kept).toMatchObject({ enabled: false, field: "class", size: 9 });
 });
+
+test("L2 labels in a layout: the engine preview changes when labels are on, and reports the ones that do not fit", async ({ app }) => {
+  const layer = await addTestLayer(app, "polygons", 12, [-100, 34, -99.7, 34.3]);
+  await gis(app, (g) => g.useApp.getState().setMapCrs({ id: "EPSG:26914", name: "NAD83 / UTM zone 14N" }));
+  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
+  await app.waitForTimeout(800);
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await app.locator(".rtab", { hasText: /^Layout$/ }).click();
+  await app.locator(".rbtn", { hasText: /^Map Frame$/ }).first().click();
+  await gis(app, (g) => { const d = g.useLayouts.getState().doc; const f = d.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { center: [420000, 3779000], scale: 150000, basemap: "none" }); });
+  const preview = (page: any) => gis(page, async (g) => { const r = await g.api.renderLayoutPreview(g.layoutActions.layoutRequest(g.useLayouts.getState().doc), 96); return { len: r.png.length, warnings: r.warnings }; }) as Promise<{ len: number; warnings: string[] }>;
+  const before = await preview(app);
+  await labelsOn(app, layer.id, "value");
+  const after = await preview(app);
+  expect(after.len).not.toBe(before.len); // labels were drawn
+  // Labels that do not fit are reported, in words (L2-P3), and nothing else about labels goes wrong.
+  for (const w of after.warnings.filter((w) => /label/.test(w))) expect(w).toMatch(/^\d+ labels? of .+ didn't fit$/);
+});

@@ -473,6 +473,13 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 9.14 | Page sizes / orientation / custom size; `rounded`; standard scales; `nextId`; `frames()` | auto: layout/types.test.ts |
 | 9.15 | Layout store: insert, move, resize, undo per layout, debounce save, duplicate / rename / delete | auto: store/layout.test.ts |
 | 9.16 | Layout tab: draw/drag elements, rulers (not built), Set from Map View, Frame CRS, text tokens `{scale}`, export dialogs, dpi box (not built) | manual M-19 |
+| 9.16a | L2 labels in layouts: points, lines, polygons labelled with the layer's `LayerStyle.label`; halo underlay; line labels turned to the line and never upside down | auto: layout::l2_labels_draw_for_points_lines_and_polygons_with_halos |
+| 9.16b | L2-P1 deterministic, golden SVG hash (same bytes on every platform; the CI run is the check on Linux and Windows) | auto: layout::l2_p1_labels_are_deterministic_and_golden |
+| 9.16c | L2-P2/P3 no two label boxes overlap (400 labels packed into 8 mm); every candidate is placed or counted; the frame reports "N labels of X didn't fit" | auto: layout::l2_p2_p3_*; e2e/labels.spec.ts |
+| 9.16d | L2 scale range, unknown field, label off, hidden layer: no labels | auto: layout::l2_labels_follow_the_scale_range_*, l2_unknown_field_* |
+| 9.16e | L2-P4 label text in the PDF is real text in an embedded font | auto: layout::l2_p4_pdf_label_text_is_real_text |
+| 9.16f | L2 in the app: the layout preview changes when labels turn on | auto: e2e/labels.spec.ts (L2) |
+| 9.16g | L2 edge cases: more than 50 000 features (warns), labels over a basemap, rotated frame, NULL-heavy field, multi-part lines, polygons cut by the frame | to automate |
 | 9.17 | Map series, templates (C3), topo map builder (C4), GeoPDF | gap (not built) |
 
 ### 9A. Layout Properties pane goes blank / edits lost (bug U-5, diagnosis first)

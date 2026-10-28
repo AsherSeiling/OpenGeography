@@ -780,3 +780,150 @@ mod c24 {
         assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF-"));
     }
 }
+
+// ---------- L2: labels in layouts (docs/LAYOUTS_PLAN.md) ----------
+
+fn label(field: &str) -> engine::layout::model::LabelStyle {
+    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None }
+}
+
+/// (text, x, y, size) of every label fill `<text>`; halo underlays carry a stroke and are skipped.
+fn label_texts(svg: &str) -> Vec<(String, f64, f64, f64, bool)> {
+    let attr = |t: &str, k: &str| t.split(&format!(" {k}=\"")).nth(1).and_then(|r| r.split('"').next()).map(String::from);
+    svg.split("<text ")
+        .skip(1)
+        .map(|t| t.split("</text>").next().unwrap_or(t))
+        .filter(|t| t.contains("text-anchor") && !t.contains("stroke-width") && !t.contains("<tspan"))
+        .map(|t| {
+            let body = t.split('>').nth(1).unwrap_or("").split('<').next().unwrap_or("").to_string();
+            let n = |k: &str| attr(t, k).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+            (body, n("x"), n("y"), n("font-size"), attr(t, "text-anchor").as_deref() == Some("start"))
+        })
+        .collect()
+}
+
+#[test]
+fn l2_labels_draw_for_points_lines_and_polygons_with_halos() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(label("cls"));
+    req.styles.get_mut(&ids[1]).unwrap().label = Some(label("id"));
+    req.styles.get_mut(&ids[2]).unwrap().label = Some(label("id"));
+    let out = render(&e, &req);
+    assert!(out.svg.contains("<g id=\"labels-f1\">"), "a labels group in the frame");
+    let t = label_texts(&out.svg);
+    // 4 polygons (labels a, b, c, a), 1 line, 5 points
+    assert_eq!(t.iter().filter(|x| ["a", "b", "c"].contains(&x.0.as_str())).count(), 4, "{t:?}");
+    assert_eq!(t.len(), 4 + 1 + 5, "{t:?}");
+    assert!(out.svg.contains("stroke-linejoin=\"round\""), "halo underlay drawn");
+    assert!(out.svg.contains("rotate("), "the line's label is turned to the line");
+    // Points are labelled to the right of the symbol (start-anchored).
+    assert_eq!(t.iter().filter(|x| x.4).count(), 5);
+    assert_eq!(out.warnings, vec!["Layer nocrs skipped: no coordinate system".to_string()]);
+}
+
+#[test]
+fn l2_p2_p3_no_two_label_boxes_overlap_and_skipped_labels_are_counted() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    // 400 points packed into 8 mm of page: most labels cannot fit.
+    let dense = dir.path().join("dense.gpkg");
+    write_fixture(&dense, &format!("SELECT x AS id, ST_Point({} + (x % 20) * 10, {} + (x / 20) * 10) AS geom FROM range(400) t(x)", CENTER[0], CENTER[1] - 500.0), Some("EPSG:26915"));
+    let dense_id = e.import(&dense).unwrap()[0].id.clone();
+    let mut req = request(&ids, categorized());
+    req.order.insert(0, dense_id.clone());
+    let mut st = LayerStyle::default();
+    st.label = Some(label("id"));
+    req.styles.insert(dense_id, st);
+    let out = render(&e, &req);
+    let t = label_texts(&out.svg);
+    assert!(!t.is_empty() && t.len() < 400, "{} placed", t.len());
+    // Boxes from the same metrics the placer uses: none overlaps another.
+    let boxes: Vec<[f64; 4]> = t
+        .iter()
+        .map(|(s, x, y, size, start)| {
+            let w = engine::layout::surround::text_width(s, "sans", size * 72.0 / 25.4) + 0.6;
+            let h = size * 1.2 + 0.6;
+            let x0 = if *start { *x - 0.3 } else { x - w / 2.0 };
+            [x0, y - size * 0.35 - (h - size * 0.7) / 2.0, x0 + w, y - size * 0.35 - (h - size * 0.7) / 2.0 + h]
+        })
+        .collect();
+    for (i, a) in boxes.iter().enumerate() {
+        for b in &boxes[i + 1..] {
+            assert!(a[2] <= b[0] + 1e-6 || b[2] <= a[0] + 1e-6 || a[3] <= b[1] + 1e-6 || b[3] <= a[1] + 1e-6, "labels overlap: {a:?} {b:?}");
+        }
+    }
+    let note = out.warnings.iter().find(|w| w.contains("didn't fit")).unwrap_or_else(|| panic!("{:?}", out.warnings));
+    let skipped: usize = note.split_whitespace().next().unwrap().parse().unwrap();
+    assert!(note.contains("labels of dense"), "{note}");
+    assert_eq!(skipped + t.len(), 400, "every candidate is either placed or counted as skipped");
+}
+
+#[test]
+fn l2_labels_follow_the_scale_range_and_never_draw_outside_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    let mut l = label("cls");
+    l.max_scale = Some(10_000); // the frame is 1:24 000: zoomed out past the limit
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(l.clone());
+    assert!(label_texts(&render(&e, &req).svg).is_empty());
+    l.max_scale = Some(50_000);
+    l.min_scale = Some(30_000); // zoomed in past the other limit
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(l.clone());
+    assert!(label_texts(&render(&e, &req).svg).is_empty());
+    l.min_scale = Some(1_000);
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(l);
+    assert_eq!(label_texts(&render(&e, &req).svg).len(), 4);
+}
+
+#[test]
+fn l2_unknown_field_or_off_draws_nothing_and_a_hidden_layer_has_no_labels() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(label("no_such_field"));
+    assert!(label_texts(&render(&e, &req).svg).is_empty());
+    let mut off = label("cls");
+    off.enabled = false;
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(off);
+    assert!(label_texts(&render(&e, &req).svg).is_empty());
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(label("cls"));
+    req.visible.insert(ids[0].clone(), false);
+    assert!(label_texts(&render(&e, &req).svg).is_empty());
+}
+
+#[test]
+fn l2_p1_labels_are_deterministic_and_golden() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(label("cls"));
+    req.styles.get_mut(&ids[1]).unwrap().label = Some(label("id"));
+    req.styles.get_mut(&ids[2]).unwrap().label = Some(label("id"));
+    let a = render(&e, &req).svg;
+    assert_eq!(a, render(&e, &req).svg, "same input, same bytes");
+    let sha = hex::encode(Sha256::digest(a.as_bytes()));
+    if std::env::var("GOLDEN_PRINT").is_ok() {
+        println!("GOLDEN_LABELS {sha}");
+        std::fs::write(std::env::temp_dir().join("layout_labels_golden.svg"), &a).unwrap();
+        std::fs::write(std::env::temp_dir().join("layout_labels_golden.png"), export::svg_to_png(&a, 110.0).unwrap()).unwrap();
+    }
+    assert_eq!(sha, GOLDEN_LABELS_SHA256, "label SVG changed; if intended, regenerate with GOLDEN_PRINT=1");
+}
+
+const GOLDEN_LABELS_SHA256: &str = "68a3026135826a6356e8a05c876754448d5ba308f048546b8717eb2d7a6943b0";
+
+#[test]
+fn l2_p4_pdf_label_text_is_real_text() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(label("cls"));
+    let out = render(&e, &req);
+    let pdf = export::svg_to_pdf(&out.svg).unwrap();
+    assert!(contains(&pdf, "/FontFile2") && contains(&pdf, "/ToUnicode"), "labels are text in an embedded font, not paths");
+    let streams = pdf_streams(&pdf);
+    assert!(streams.iter().filter(|s| contains(s, "BT")).count() >= 1);
+}

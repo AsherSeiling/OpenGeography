@@ -8,6 +8,7 @@ pub mod export;
 pub mod frame;
 pub mod geo;
 pub mod grid;
+pub mod labels;
 pub mod model;
 pub mod surround;
 pub mod svg;
