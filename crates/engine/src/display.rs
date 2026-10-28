@@ -20,7 +20,6 @@ use gdal::spatial_ref::{AxisMappingStrategy, CoordTransform, SpatialRef};
 use geographiclib_rs::InverseGeodesic;
 use parking_lot::Mutex;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -80,20 +79,16 @@ pub struct DisplayInfo {
 }
 
 fn srs(def: &str) -> Result<SpatialRef> {
-    let mut s = SpatialRef::from_definition(def).map_err(|e| anyhow!("Unknown or invalid coordinate system '{def}': {e}"))?;
-    s.set_axis_mapping_strategy(AxisMappingStrategy::TraditionalGisOrder);
-    Ok(s)
+    crs::srs(def)
 }
 
 fn hash12(text: &str) -> String {
-    hex::encode(Sha256::digest(text.as_bytes()))[..12].to_string()
+    crs::hash12(text)
 }
 
-/// PROJJSON re-serialized with sorted keys, so equal CRSs hash equally.
+/// The CRS's canonical JSON (names, ids and axis order left out), so equal CRSs hash equally whatever their spelling.
 fn normalized_projjson(s: &SpatialRef) -> Result<String> {
-    let json = s.to_projjson().map_err(|e| anyhow!("PROJ cannot describe this coordinate system: {e}"))?;
-    let v: serde_json::Value = serde_json::from_str(&json)?;
-    Ok(serde_json::to_string(&v)?)
+    crs::canonical_json(s)
 }
 
 fn mercator_key() -> &'static str {

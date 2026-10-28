@@ -83,6 +83,11 @@ impl LayerInfo {
 fn crs_from_meta(conn: &Connection, crs: &serde_json::Value) -> (Option<String>, Option<String>) {
     let s = |k: &str| crs.get(k).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(String::from);
     let name = s("name");
+    // GeoPackage's "Undefined geographic SRS" / "Undefined Cartesian SRS" (srs_id 0 and −1) means "no CRS", not a datum
+    // with an unknown name: keep it undefined so the user is asked (I1).
+    if name.as_deref().is_some_and(|n| n.to_ascii_lowercase().starts_with("undefined")) || s("wkt").is_some_and(|w| w.contains("DATUM[\"unknown\"")) && s("auth_code").is_none() {
+        return (None, None);
+    }
     let id = match (s("auth_name"), s("auth_code")) {
         // Prefer the code, unless PROJ can't use it; then the file's own WKT.
         (Some(a), Some(c)) => {
@@ -173,12 +178,22 @@ fn csv_source(conn: &Connection, p: &str, stem: &str) -> Result<ImportSource> {
     match (x, y) {
         (Some(x), Some(y)) => {
             let geographic = x.to_lowercase().starts_with("lon") || x.to_lowercase() == "lng";
-            let (crs, crs_name, warnings) = if geographic {
+            let (crs, crs_name, mut warnings) = if geographic {
                 (Some(WGS84.to_string()), Some("WGS 84".to_string()),
                  vec![format!("Coordinates read from '{x}'/'{y}' and assumed to be WGS 84. Use Define Projection if they are NAD83 or another datum.")])
             } else {
                 (None, None, vec![format!("Coordinates read from '{x}'/'{y}' but the coordinate system is unknown. Use Define Projection.")])
             };
+            if geographic {
+                // A latitude beyond ±90 can't be one: the two columns are probably swapped (R-C3).
+                let reach: Option<f64> = conn
+                    .query_row(&format!("SELECT max(abs(TRY_CAST({} AS DOUBLE))) FROM {read}", ident(&y)), [], |r| r.get(0))
+                    .ok()
+                    .flatten();
+                if reach.is_some_and(|m| m > 90.0) {
+                    warnings.push(format!("Values in '{y}' go up to {:.1}, which can't be a latitude (±90): latitude and longitude look swapped. Check the columns before using this layer.", reach.unwrap_or(0.0)));
+                }
+            }
             Ok(ImportSource {
                 name: stem.into(),
                 select: format!("SELECT *, ST_Point({}, {}) AS geom FROM {read}", ident(&x), ident(&y)),

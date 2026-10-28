@@ -3,7 +3,7 @@
 _Updated 2026-10-28. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Bugs: `docs/BUGS.md`. Test cases: `docs/TEST_PLAN.md`. Session prompts: `docs/prompts/`. The user follows the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj), which the orchestrator updates at every change._
 
 ## Exact next action
-- **Lead developer (Claude Code, standing order of work, MASTER_PLAN §4):** Phase C is built (pushed). **Phase R in progress** (`docs/CRS_PLAN.md`): R0 and R1 done (reference suite `crs_reference.rs`, bugs C-1…C-3 found); next R2. **No CI until phases R–H are all complete** (user, 2026-10-28): work locally, push with `[skip ci]`.
+- **Lead developer (Claude Code, standing order of work, MASTER_PLAN §4):** Phase C is built (pushed). **Phase R in progress** (`docs/CRS_PLAN.md`): R0, R1 (reference suite `crs_reference.rs`; bugs C-1…C-3 found, open) and R2 (`crs::key`/`same`, importer fixes C-4, C-5, G1 closed) done; next R3 (fixes C-1). **No CI until phases R–H are all complete** (user, 2026-10-28): work locally, push with `[skip ci]`.
 - **Done:** the bug-fix session is merged. Q3 (2026-10-28): U-5 fixed, D-1 guard built. L1 (2026-10-28): labels on the map (pushed). L2 and L3 (2026-10-28): labels in layouts, and adjusting them in the layout (drag, edit text, hide, per-layout style) built. L2+L3 pushed together; CI green (run 40734953739); CI runs once for L1–L3 (user's rule).
 - **On hold:** M4 (rasters in any CRS). Do not start it.
 - **You:** A3 (check the Windows and Linux installers on real machines), then tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`). Next tag: `v0.2.0` at the end of Phase C.

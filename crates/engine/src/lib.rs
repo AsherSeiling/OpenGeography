@@ -792,7 +792,7 @@ impl Engine {
         }
         let crs = a.crs.clone().ok_or_else(|| anyhow!("{} has no coordinate system — use Define Projection first", a.name))?;
         let bcrs = b.crs.clone().ok_or_else(|| anyhow!("{} has no coordinate system — use Define Projection first", b.name))?;
-        let bg = if crs::resolve(&bcrs) == crs::resolve(&crs) {
+        let bg = if crs::same(&bcrs, &crs) {
             "b.geom".to_string()
         } else {
             format!("ST_Transform(b.geom, {}, {}, true)", lit(&crs::resolve(&bcrs)), lit(&crs::resolve(&crs)))
@@ -1168,7 +1168,7 @@ impl Host for Engine {
         atomically(conn, || {
             let mut info = layers::build_layer(conn, &id, &src)?;
             info.version = prev_version + info.version;
-            info.crs_name = if crs == base.crs { base.crs_name.clone() } else { None };
+            info.crs_name = if crs::same_opt(crs.as_deref(), base.crs.as_deref()) { base.crs_name.clone() } else { None };
             info.result_of = Some(owner.to_string());
             self.record_derived(conn, &info, inputs)?;
             self.save_meta(conn, &info)?;

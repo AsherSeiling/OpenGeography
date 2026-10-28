@@ -5,7 +5,9 @@
 use crate::db::lit;
 use anyhow::{anyhow, Result};
 use duckdb::Connection;
+use gdal::spatial_ref::{AxisMappingStrategy, SpatialRef};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 pub const WGS84: &str = "EPSG:4326";
 pub const WEB_MERCATOR: &str = "EPSG:3857";
@@ -115,3 +117,145 @@ mod tests {
         assert!((lon + 97.5).abs() < 1e-9 && (lat - 35.2).abs() < 1e-9);
     }
 }
+
+// ---------------------------------------------------------------- identity (docs/CRS_PLAN.md RD-2, bug G1)
+
+/// A definition as it appears in a message: the first 80 characters, so a pasted 100 kB file doesn't fill the error pop-up.
+pub fn short(def: &str) -> String {
+    let d = def.trim();
+    if d.chars().count() <= 80 {
+        d.to_string()
+    } else {
+        format!("{}…", d.chars().take(80).collect::<String>())
+    }
+}
+
+/// A GDAL spatial reference for any definition PROJ reads (code, URN, WKT of either flavour, PROJ string), x east / y north.
+pub(crate) fn srs(def: &str) -> Result<SpatialRef> {
+    let mut s = SpatialRef::from_definition(def).map_err(|e| anyhow!("Unknown or invalid coordinate system '{}': {e}", short(def)))?;
+    s.set_axis_mapping_strategy(AxisMappingStrategy::TraditionalGisOrder);
+    Ok(s)
+}
+
+/// JSON keys that name or describe a CRS without changing what it is.
+const DESCRIPTIVE: [&str; 10] = ["id", "ids", "remarks", "scope", "area", "bbox", "usages", "$schema", "accuracy", "members"];
+/// A `name` is part of the meaning only here (the datum, ellipsoid, prime meridian and the projection method and its parameters).
+const MEANINGFUL_NAME_UNDER: [&str; 7] = ["datum", "datum_ensemble", "ellipsoid", "prime_meridian", "method", "parameters", "vertical_datum"];
+
+/// Size in radians or metres of a unit PROJJSON gave by name only.
+fn unit_factor(name: &str) -> Option<f64> {
+    Some(match name.to_ascii_lowercase().as_str() {
+        "degree" => std::f64::consts::PI / 180.0,
+        "radian" => 1.0,
+        "grad" => std::f64::consts::PI / 200.0,
+        "arc-second" => std::f64::consts::PI / 648_000.0,
+        "metre" | "meter" => 1.0,
+        "foot" => 0.3048,
+        "us survey foot" => 1200.0 / 3937.0,
+        "kilometre" => 1000.0,
+        _ => return None,
+    })
+}
+
+/// A datum's name as far as identity goes: WGS 84 realisations (G730 … G2139) and ensembles are one datum, an ensemble of
+/// another datum (ETRS89) is that datum.
+fn datum_name(n: &str) -> String {
+    if n.starts_with("World Geodetic System 1984") {
+        return "World Geodetic System 1984".into();
+    }
+    n.strip_suffix(" ensemble").unwrap_or(n).to_string()
+}
+
+fn canonical(v: &serde_json::Value, parent: &str) -> serde_json::Value {
+    use serde_json::Value;
+    match v {
+        Value::Object(m) => {
+            let mut out = serde_json::Map::new();
+            for (k, val) in m {
+                if DESCRIPTIVE.contains(&k.as_str()) || k == "abbreviation" {
+                    continue;
+                }
+                let in_datum = matches!(parent, "datum" | "datum_ensemble");
+                // How a datum is described (ensemble, dynamic frame, reference epoch) isn't what it is.
+                if in_datum && matches!(k.as_str(), "type" | "frame_reference_epoch" | "anchor" | "anchor_epoch") {
+                    continue;
+                }
+                if k == "name" && !MEANINGFUL_NAME_UNDER.contains(&parent) {
+                    continue;
+                }
+                if k == "name" && in_datum {
+                    if let Some(n) = val.as_str() {
+                        out.insert(k.clone(), Value::String(datum_name(n)));
+                        continue;
+                    }
+                }
+                if k == "unit" {
+                    // A unit is its size in metres or radians, not its name ("metre", "Meter").
+                    let factor = match val {
+                        Value::String(n) => unit_factor(n).map(|f| serde_json::json!(f)).unwrap_or_else(|| val.clone()),
+                        _ => val.get("conversion_factor").cloned().unwrap_or_else(|| val.clone()),
+                    };
+                    out.insert(k.clone(), canonical(&factor, "unit"));
+                    continue;
+                }
+                // A datum ensemble and a single datum are both "the datum".
+                let key = if k == "datum_ensemble" { "datum" } else { k.as_str() };
+                out.insert(key.to_string(), canonical(val, key));
+            }
+            Value::Object(out)
+        }
+        Value::Array(a) => {
+            let mut items: Vec<Value> = a.iter().map(|x| canonical(x, parent)).collect();
+            if parent == "axis" {
+                // Axis order is not part of the identity: north/east and east/north are the same CRS.
+                items.sort_by_key(|x| x.to_string());
+            }
+            Value::Array(items)
+        }
+        // 0, 0.0 and -93.0000000000001 must not make two CRSs differ.
+        Value::Number(n) => n.as_f64().map_or(v.clone(), |f| Value::String(format!("{:.10}", f + 0.0))),
+        _ => v.clone(),
+    }
+}
+
+/// The CRS as canonical JSON: datum, projection and its parameters, units; no names, ids, remarks or axis order.
+pub(crate) fn canonical_json(s: &SpatialRef) -> Result<String> {
+    let json = s.to_projjson().map_err(|e| anyhow!("PROJ cannot describe this coordinate system: {e}"))?;
+    let v: serde_json::Value = serde_json::from_str(&json)?;
+    Ok(serde_json::to_string(&canonical(&v, ""))?)
+}
+
+pub(crate) fn hash12(text: &str) -> String {
+    hex::encode(Sha256::digest(text.as_bytes()))[..12].to_string()
+}
+
+/// The canonical JSON the key is made from (for diagnostics and tests).
+pub fn canonical_form(crs: &str) -> Result<String> {
+    canonical_json(&srs(&resolve(crs))?)
+}
+
+/// Identity of a CRS by meaning, not spelling: `EPSG:26915`, its URN, its ESRI `.prj` and the equivalent PROJ string have one
+/// key; a different datum, projection parameter or unit gives another. Errors read as sentences.
+pub fn key(crs: &str) -> Result<String> {
+    let s = srs(&resolve(crs))?;
+    Ok(hash12(&canonical_json(&s)?))
+}
+
+/// True when two CRS definitions mean the same CRS. A definition PROJ can't read is "same" only as the very same text, so a
+/// bad definition never silently matches another.
+pub fn same(a: &str, b: &str) -> bool {
+    match (key(a), key(b)) {
+        (Ok(x), Ok(y)) => x == y,
+        _ => resolve(a).trim().eq_ignore_ascii_case(resolve(b).trim()),
+    }
+}
+
+/// `same` for optional CRSs: both unset is the same, one unset is not.
+pub fn same_opt(a: Option<&str>, b: Option<&str>) -> bool {
+    match (a, b) {
+        (Some(x), Some(y)) => same(x, y),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
