@@ -18,6 +18,9 @@ const DENSE_TILE_FEATURES: f64 = 25_000.0;
 pub const EXTENT: u32 = 4096;
 const BUFFER: u32 = 64;
 
+/// A pseudo-field: asking for it returns one label anchor point per feature instead of its geometry (L1).
+pub const ANCHORS: &str = "__anchors";
+
 pub fn tile_envelope_sql(z: u32, x: u32, y: u32) -> String {
     format!("ST_TileEnvelope({z}, {x}, {y})")
 }
@@ -91,6 +94,20 @@ fn mvt(conn: &Connection, info: &LayerInfo, count_sql: &str, cand_sql: &str, env
         }
     }
     let cols = cols.join(", ");
+    if fields.iter().any(|f| f == ANCHORS) {
+        // Label anchors: ST_PointOnSurface of the whole feature, kept only in the tile that contains it (half-open, so a
+        // point on a tile edge belongs to exactly one tile and a polygon crossing edges is labelled once). Features under 4 px are not labelled.
+        let sql = format!(
+            "WITH cand AS ({cand_sql}),
+             feats AS (SELECT {cols}, ST_PointOnSurface(__g) AS g FROM cand WHERE __sz >= {})
+             SELECT ST_AsMVT({{'geom': ST_AsMVTGeom(g, ST_Extent({env}), {EXTENT}, {BUFFER}, true), {props}}}, 'layer', {EXTENT}, 'geom', '__fid')
+             FROM feats WHERE g IS NOT NULL AND ST_X(g) >= ST_XMin({env}) AND ST_X(g) < ST_XMax({env}) AND ST_Y(g) >= ST_YMin({env}) AND ST_Y(g) < ST_YMax({env})",
+            px * 4.0,
+            props = props.join(", "),
+        );
+        let blob: Option<Vec<u8>> = conn.query_row(&sql, [], |r| r.get(0))?;
+        return Ok(blob.unwrap_or_default());
+    }
     let simplify = if info.geom_type == "Point" {
         "__g".to_string()
     } else {

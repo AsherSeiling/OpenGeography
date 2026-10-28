@@ -52,7 +52,7 @@ Existing: TP 3.10–3.13. Feature B7 (category precedence) is **pending**.
 | SYM-05 | Symbology saved in project | Save, reopen | Identical style; unknown fields from older project reset with a notice | E+V | partial: TP 12.1 (UI state) | P0 |
 | SYM-06 | Style references a field then field is deleted/renamed | Apply | Style falls back to single symbol; message; no throw | V | to automate | P0 |
 | SYM-07 | Style and layout | Change symbology with a layout open | Layout re-renders with the new style (LayerStyle mirror) | V+E | partial: TP 9.4 | P0 |
-| SYM-08 | Labels L1 | Field, size, colour, halo, scale range; null labels; 100 k labels | Declutters; null skipped; polygons use anchor points | — | pending feature (L1) | P1 |
+| SYM-08 | Labels L1 | Field, size, colour, halo, scale range; null labels; 100 k labels | Declutters; null skipped; polygons use anchor points | V+E+2E | partial: map/labels.test.ts, display::l1_p1_*, e2e/labels.spec.ts; to automate NULL-heavy field, 100 k labels (TEST_PLAN L1-E1) | P1 |
 | SYM-09 | Category precedence B7 | Reorder categories | Draw order & legend follow | — | pending feature (B7) | P1 |
 | SYM-10 | Raster symbology (stretch, min/max, ramp) if present; Table layer | Open Symbology | Table: disabled with tooltip; raster: min≥max refused | 2E | to automate | P2 |
 | SYM-11 | Colour-blind ramps, transparency, dark theme | Legend shows | Contrast adequate | M | manual | P2 |

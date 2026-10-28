@@ -8,5 +8,6 @@
   "field": "pop",
   "classes": [{ "value": "a", "color": "#ff0000", "label": "A" }],
   "breaks": [10.5, 20.5],
-  "colors": ["#111111", "#222222", "#333333"]
+  "colors": ["#111111", "#222222", "#333333"],
+  "label": { "enabled": true, "field": "NAME", "size": 9.5, "color": "#222222", "haloColor": "#ffffff", "haloWidth": 1.5, "minScale": 1000, "maxScale": 500000 }
 }

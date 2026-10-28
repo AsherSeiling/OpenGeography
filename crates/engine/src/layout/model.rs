@@ -355,6 +355,27 @@ pub struct LayerStyle {
     pub breaks: Option<Vec<f64>>,
     #[serde(default)]
     pub colors: Option<Vec<String>>,
+    /// Feature labels (L1); layouts draw them from L2 on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<LabelStyle>,
+}
+
+/// Mirror of `LabelStyle` in ui/src/store/store.ts.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelStyle {
+    pub enabled: bool,
+    pub field: String,
+    /// Text size, pt.
+    pub size: f64,
+    pub color: String,
+    pub halo_color: String,
+    /// Halo width, px; 0 = none.
+    pub halo_width: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_scale: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_scale: Option<u64>,
 }
 
 impl Default for LayerStyle {
@@ -370,6 +391,7 @@ impl Default for LayerStyle {
             classes: None,
             breaks: None,
             colors: None,
+            label: None,
         }
     }
 }

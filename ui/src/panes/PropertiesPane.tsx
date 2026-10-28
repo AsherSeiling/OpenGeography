@@ -23,6 +23,7 @@ import { api, errorText, type ToolParam } from "../ipc/api";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
 import { QueryEditor } from "../query/QueryEditor";
+import { LabelSettings } from "./LabelSettings";
 import { fieldsForPort, useModel, useRun } from "../store/model";
 import { displayInfo, useApp, type LayerStyle } from "../store/store";
 
@@ -247,6 +248,8 @@ export function Symbology({ id }: { id: string }) {
           <Slider min={1} max={14} step={0.5} value={style.radius} onChange={(_, d) => setStyle({ radius: d.value })} />
         </Field>
       )}
+      <div className="props-title">Labels</div>
+      <LabelSettings id={id} />
     </div>
   );
 }

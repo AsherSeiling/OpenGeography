@@ -284,6 +284,19 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 | 3.17 | Dark/light theme, panes dock / float / reset | see M-8 | layout restores | manual M-8 |
 | 3.18 | Frame rate and benchmark dialog | see M-9 | numbers shown; no crash | manual M-9 |
 
+### 3A. Feature labels on the map (L1, `docs/LAYOUTS_PLAN.md`)
+
+| ID | Check | Expected | Coverage |
+|---|---|---|---|
+| L1-P1a | Polygon label anchors: a polygon cut by tile edges is labelled once (Web Mercator z2 and UTM z4, z5); a polygon whose anchor lies exactly on a tile edge belongs to one tile | exactly 1 anchor across all tiles; 4 polygon pieces in Web Mercator | auto: display::l1_p1_polygon_label_anchors_are_unique_across_tile_edges_in_web_mercator_and_utm |
+| L1-P1b | Label text: empty and NULL draw nothing; numbers lose float noise; points label to the right, lines along the line, polygons centred; polygons read anchor tiles, points and lines their own | as stated | auto: map/labels.test.ts |
+| L1-P2 | Labels hide outside the scale range (zoomed-out and zoomed-in limits), read at draw time; limits parse from "250000", "1:250,000", blank | as stated | auto: map/labels.test.ts |
+| L1-P3 | Settings survive save and reopen (style JSON round trip); projects saved before L1 have labels off; the tile carries the label field only while labels are on | as stated | auto: map/labels.test.ts; e2e labels.spec.ts; engine fixture layer_style.json |
+| L1-P4 | Labels draw in Web Mercator and UTM 14N; the label layer is removed when labels go off | label layer present on both grids, anchor tiles non-empty | auto: e2e/labels.spec.ts; visual check in UTM 14N 2026-10-28 |
+| L1-E1 | Label a layer with a NULL-heavy field, a 10 000-feature layer, a field with very long text, a layer edited while labels are on | no error; labels follow the edit; tile size stays bounded | to automate |
+| L1-E2 | Properties → Labels section: on/off, field, size, colours, halo, both scale limits, clearing a limit | each control changes the map and persists | manual (M-8-style pass) |
+| L1-E3 | Label a layer whose display in a CRS is still building | labels appear when the symbols do | to automate |
+
 ## 4. Selection, identify, measure
 
 | ID | Check | Input | Expected | Coverage |
