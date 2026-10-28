@@ -511,6 +511,11 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 9.16n | L3 in the app: click selects a label, drag moves it, Properties edits text, Hide, Reset to automatic | auto: e2e/labels.spec.ts (L3) |
 | 9.16o | L3 edge cases: a data re-import (fids change), two frames showing one layer, a locked frame, drag while a preview renders, rotate by handle (not built: rotation is a number in Properties) | to automate / not built |
 | 9.16g | L2 edge cases: more than 50 000 features (warns), labels over a basemap, rotated frame, NULL-heavy field, multi-part lines, polygons cut by the frame | to automate |
+| 9.16p | C3.0 basemap tiles cached on disk: a second render makes no network requests and gives the same picture; no cache folder = every open fetches again; the cache folder is per user and overridable | auto: basemap_cache.rs c3_0_* |
+| 9.16q | C3.0 scale bar prints "1:N" under the bar when asked (off by default), warns when the bar is too short, flag survives the layout JSON | auto: layout::c3_0_scale_bar_can_print_the_ratio_under_the_bar |
+| 9.16r | C3.0 Arrange: bring to front/back, forward/backward (moved ones keep their order), align left/centre/right/top/middle/bottom (to each other, or to the page margins for one), locked elements skipped, one undo step | auto: layout/arrange.test.ts; e2e/layout-polish.spec.ts |
+| 9.16s | C3.0 rulers: mm ticks along the top and left, majors at least 60 px apart, no "-0", follow zoom and scroll | auto: layout/rulers.test.ts; e2e/layout-polish.spec.ts; visual check 2026-10-28 |
+| 9.16t | C3.0 dpi box: 72–600 whole numbers only, remembered, applies to PNG and to images inside a PDF | auto: arrange.test.ts (parse); e2e/layout-polish.spec.ts; to automate an export at 150 dpi and read its pixel size |
 | 9.17 | Map series, templates (C3), topo map builder (C4), GeoPDF | gap (not built) |
 
 ### 9A. Layout Properties pane goes blank / edits lost (bug U-5, diagnosis first)

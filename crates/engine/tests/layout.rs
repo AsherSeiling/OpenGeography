@@ -1102,3 +1102,35 @@ fn b7_graduated_and_single_styles_keep_their_order() {
     let pos = |c: &str| order.iter().position(|x| x == c);
     assert!(pos("#111111") < pos("#222222") && pos("#222222") < pos("#333333"), "{order:?}");
 }
+
+// ---------- C3.0: scale bar "1:N" label ----------
+
+fn with_scale_bar(req: &RenderRequest, extra: serde_json::Value) -> RenderRequest {
+    let mut v = serde_json::to_value(req).unwrap();
+    let mut bar = json!({ "kind": "scale_bar", "id": "sb", "frame": "f1", "x": 215.0, "y": 120.0, "w": 55.0, "h": 14.0, "units": "km", "segments": 4 });
+    for (k, val) in extra.as_object().unwrap() {
+        bar[k] = val.clone();
+    }
+    v["layout"]["elements"].as_array_mut().unwrap().push(bar);
+    serde_json::from_value(v).unwrap()
+}
+
+#[test]
+fn c3_0_scale_bar_can_print_the_ratio_under_the_bar() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = request(&ids, categorized());
+    let off = render(&e, &with_scale_bar(&base, json!({})));
+    let on = render(&e, &with_scale_bar(&base, json!({ "ratio": true })));
+    assert!(!off.svg.contains("1:24,000>") && !off.svg.contains(">1:24,000<"), "off by default");
+    assert!(on.svg.contains(">1:24,000<"), "the ratio of the frame's scale");
+    assert!(!on.warnings.iter().any(|w| w.contains("1:N")), "{:?}", on.warnings);
+    // A bar too short for the extra line says so.
+    let short = render(&e, &with_scale_bar(&base, json!({ "ratio": true, "h": 8.0 })));
+    assert!(short.warnings.iter().any(|w| w.contains("Scale bar 'sb' is too short for its 1:N label")), "{:?}", short.warnings);
+    // The flag survives the layout JSON, and is left out when off.
+    let v = serde_json::to_value(with_scale_bar(&base, json!({ "ratio": true }))).unwrap();
+    assert_eq!(v["layout"]["elements"][2]["ratio"], true);
+    let v = serde_json::to_value(with_scale_bar(&base, json!({}))).unwrap();
+    assert!(v["layout"]["elements"][2].get("ratio").is_none());
+}

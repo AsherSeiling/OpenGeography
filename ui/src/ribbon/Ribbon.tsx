@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { newLayout } from "../layout/actions";
 import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/types";
 import { useLayouts } from "../store/layout";
+import type { AlignOp, OrderOp } from "../layout/arrange";
+import { DPI_MAX, DPI_MIN, parseDpi, useExportDpi } from "../layout/exportDpi";
 import { useRun } from "../store/model";
 import { useNav } from "../nav/navStore";
 import { useApp } from "../store/store";
@@ -69,7 +71,8 @@ const TABS: Record<string, Group[]> = {
     { label: "Page", items: [{ custom: <PageMenu /> }] },
     { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
-    { label: "Export", items: [{ cmd: "layoutPdf" }, { cmd: "layoutPng" }, { cmd: "layoutSvg" }] },
+    { label: "Arrange", items: [{ custom: <ArrangeMenu /> }] },
+    { label: "Export", items: [{ cmd: "layoutPdf" }, { cmd: "layoutPng" }, { cmd: "layoutSvg" }, { custom: <DpiBox /> }] },
   ],
   "Feature Layer": [
     { label: "Layer", items: [{ cmd: "layerProps" }, { cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
@@ -259,6 +262,63 @@ function PageMenu() {
           </MenuList>
         </MenuPopover>
       </Menu>
+    </div>
+  );
+}
+
+/** Layout → Arrange: stacking order and alignment of the selected elements (C3.0). */
+function ArrangeMenu() {
+  const n = useLayouts((s) => s.selected.length);
+  const order: [OrderOp, string][] = [["front", "Bring to Front"], ["forward", "Bring Forward"], ["backward", "Send Backward"], ["back", "Send to Back"]];
+  const align: [AlignOp, string][] = [["left", "Align Left"], ["center", "Align Centre"], ["right", "Align Right"], ["top", "Align Top"], ["middle", "Align Middle"], ["bottom", "Align Bottom"]];
+  const menu = (label: string, items: [string, string][], run: (op: string) => void, tip: string) => (
+    <Menu>
+      <MenuTrigger>
+        <button className="rbtn small" disabled={!n} title={tip}>
+          <span className="rbtn-icon"><DocumentRegular /></span>
+          <span className="rbtn-label">{label} ▾</span>
+        </button>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          {items.map(([op, text]) => (
+            <MenuItem key={op} onClick={() => run(op)}>{text}</MenuItem>
+          ))}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+  return (
+    <div className="rcol">
+      {menu("Order", order, (op) => useLayouts.getState().arrange(op as OrderOp), "Change which selected elements are in front")}
+      {menu("Align", align, (op) => useLayouts.getState().align(op as AlignOp), "Line up the selected elements (one element aligns to the page margins)")}
+    </div>
+  );
+}
+
+/** Layout → Export: the resolution for PNG pixels and the images inside a PDF. */
+function DpiBox() {
+  const dpi = useExportDpi((s) => s.dpi);
+  const [text, setText] = useState(String(dpi));
+  useEffect(() => setText((t) => (parseDpi(t) === dpi ? t : String(dpi))), [dpi]);
+  const bad = parseDpi(text) === null;
+  return (
+    <div className="rcol scale-box">
+      <label className="muted">Resolution (dpi)</label>
+      <input
+        className="scale-input"
+        value={text}
+        inputMode="numeric"
+        aria-invalid={bad}
+        title={`${DPI_MIN}–${DPI_MAX} dpi. PNG pixels, and the images in a PDF (map images are capped at 300 dpi).`}
+        onChange={(e) => {
+          setText(e.target.value);
+          const v = parseDpi(e.target.value);
+          if (v !== null) useExportDpi.getState().set(v);
+        }}
+        onBlur={() => setText(String(dpi))}
+        aria-label="Export resolution in dots per inch"
+      />
     </div>
   );
 }

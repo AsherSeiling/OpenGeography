@@ -161,7 +161,7 @@ const list: Command[] = [
   { id: "layoutFromMap", label: "Set from Map View", icon: <ZoomFitRegular />, run: () => void setFrameFromMapView(), enabled: hasFrame, tip: "Centre the selected frame on the map view and use the nearest standard scale that shows it" },
   { id: "layoutFrameCrs", label: "Frame CRS", icon: <GlobeRegular />, run: () => pickFrameCrs(), enabled: hasFrame, tip: "Choose the coordinate system the frame is drawn in (true scale needs a projected one)" },
   { id: "layoutPdf", label: "PDF", icon: <DocumentPdfRegular />, run: () => void exportLayout("pdf"), enabled: inLayout, tip: "Export the page as a vector PDF" },
-  { id: "layoutPng", label: "PNG", icon: <ImageRegular />, run: () => void exportLayout("png"), enabled: inLayout, tip: "Export the page as a 300 dpi PNG" },
+  { id: "layoutPng", label: "PNG", icon: <ImageRegular />, run: () => void exportLayout("png"), enabled: inLayout, tip: "Export the page as a PNG at the resolution in the dpi box (300 by default)" },
   { id: "layoutSvg", label: "SVG", icon: <ShapesRegular />, run: () => void exportLayout("svg"), enabled: inLayout, tip: "Export the page as SVG for finishing in Inkscape or Illustrator" },
 
   // View tab

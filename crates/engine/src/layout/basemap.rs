@@ -28,22 +28,44 @@ fn service(id: &str) -> Option<&'static str> {
     })
 }
 
-/// GDAL WMS/TMS definition of one National Map tile service (Web Mercator,
-/// finest level 16 as in the map view).
-fn tile_xml(svc: &str) -> String {
+/// Tiles stay in the disk cache this many seconds before they are fetched again (30 days).
+const CACHE_EXPIRES_S: u32 = 30 * 24 * 3600;
+
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
+
+/// GDAL WMS/TMS definition of a Web Mercator tile service (finest level 16 as in the map view). `url` has
+/// `${z}`, `${y}`, `${x}`; with a `cache` folder GDAL keeps every tile it fetched there, so editing a layout
+/// re-reads tiles from disk instead of the network. Only the tiles a preview needs are fetched (no prefetching).
+fn tile_xml_at(url: &str, cache: Option<&std::path::Path>) -> String {
     let w = 20037508.342789244;
+    let cache = cache
+        .map(|p| format!("<Cache><Path>{}</Path><Depth>2</Depth><Expires>{CACHE_EXPIRES_S}</Expires></Cache>", xml_escape(&p.display().to_string())))
+        .unwrap_or_default();
     format!(
-        "<GDAL_WMS><Service name=\"TMS\"><ServerUrl>https://basemap.nationalmap.gov/arcgis/rest/services/{svc}/MapServer/tile/${{z}}/${{y}}/${{x}}</ServerUrl></Service>\
+        "<GDAL_WMS><Service name=\"TMS\"><ServerUrl>{}</ServerUrl></Service>\
          <DataWindow><UpperLeftX>-{w}</UpperLeftX><UpperLeftY>{w}</UpperLeftY><LowerRightX>{w}</LowerRightX><LowerRightY>-{w}</LowerRightY><TileLevel>16</TileLevel><TileCountX>1</TileCountX><TileCountY>1</TileCountY><YOrigin>top</YOrigin></DataWindow>\
-         <Projection>EPSG:3857</Projection><BlockSizeX>256</BlockSizeX><BlockSizeY>256</BlockSizeY><BandsCount>3</BandsCount>\
-         <UserAgent>GIS Studio (open-source desktop GIS; print layout)</UserAgent><Timeout>30</Timeout></GDAL_WMS>"
+         <Projection>EPSG:3857</Projection><BlockSizeX>256</BlockSizeX><BlockSizeY>256</BlockSizeY><BandsCount>3</BandsCount>{cache}\
+         <UserAgent>GIS Studio (open-source desktop GIS; print layout)</UserAgent><Timeout>30</Timeout></GDAL_WMS>",
+        xml_escape(url)
     )
 }
 
-/// Open a USGS base map over the network (GDAL WMS driver).
+fn tile_xml(svc: &str, cache: Option<&std::path::Path>) -> String {
+    tile_xml_at(&format!("https://basemap.nationalmap.gov/arcgis/rest/services/{svc}/MapServer/tile/${{z}}/${{y}}/${{x}}"), cache)
+}
+
+/// Open a tile service (`url` with `${z}/${y}/${x}`), caching tiles in `cache`.
+pub fn open_url(url: &str, cache: Option<&std::path::Path>) -> Result<Dataset> {
+    Dataset::open(tile_xml_at(url, cache)).map_err(|e| anyhow!("Could not open the base map service: {e}"))
+}
+
+/// Open a USGS base map over the network (GDAL WMS driver), with the per-user tile cache.
 pub fn open(id: &str) -> Result<Dataset> {
     let svc = service(id).ok_or_else(|| anyhow!("'{id}' is not a printable basemap"))?;
-    Dataset::open(tile_xml(svc)).map_err(|e| anyhow!("Could not open the USGS base map service: {e}"))
+    let cache = crate::resources::tile_cache_dir();
+    Dataset::open(tile_xml(svc, cache.as_deref())).map_err(|e| anyhow!("Could not open the USGS base map service: {e}"))
 }
 
 /// `extent` (`[xmin, ymin, xmax, ymax]` in `crs`) of `ds` warped to `w_px` × `h_px`,
@@ -88,7 +110,10 @@ mod tests {
 
     #[test]
     fn tile_definitions_name_the_service() {
-        let x = tile_xml("USGSTopo");
+        let x = tile_xml("USGSTopo", None);
         assert!(x.contains("USGSTopo/MapServer/tile/${z}/${y}/${x}") && x.contains("<TileLevel>16"));
+        assert!(!x.contains("<Cache>"), "no cache folder, no cache element");
+        let c = tile_xml("USGSTopo", Some(std::path::Path::new("/tmp/a&b/tiles")));
+        assert!(c.contains("<Cache><Path>/tmp/a&amp;b/tiles</Path><Depth>2</Depth><Expires>2592000</Expires></Cache>"), "{c}");
     }
 }

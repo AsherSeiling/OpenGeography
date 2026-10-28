@@ -2,13 +2,14 @@
 // preview (the same renderer as the export), and an HTML overlay that selects,
 // moves and resizes elements.
 import { Button, MessageBar, MessageBarBody, Tooltip } from "@fluentui/react-components";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, errorText } from "../ipc/api";
 import { beginStep, useLayouts } from "../store/layout";
 import { useApp } from "../store/store";
 import { layoutRequest } from "./actions";
 import { dragged, withFeatureEdit, withoutDropped } from "./labelEdits";
 import { sameLabel, useLabelHits } from "./labelHits";
+import { Ruler, RULER_PX } from "./Rulers";
 import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
 const MIN_MM = 2;
@@ -49,6 +50,9 @@ export function LayoutView({ layoutId }: { layoutId: string }) {
 
 function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const wrap = useRef<HTMLDivElement>(null);
+  const pageEl = useRef<HTMLDivElement>(null);
+  // Where the page's corner sits in the scroll area, for the rulers (C3.0).
+  const [org, setOrg] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const [fit, setFit] = useState(true);
   const [zoom, setZoom] = useState(2); // screen px per mm
   const [box, setBox] = useState({ w: 800, h: 600 });
@@ -72,6 +76,22 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     setFit(false);
     setZoom(Math.min(12, Math.max(0.3, v)));
   };
+
+  const measureOrigin = () => {
+    const c = wrap.current;
+    const p = pageEl.current;
+    if (!c || !p) return;
+    const cr = c.getBoundingClientRect();
+    const pr = p.getBoundingClientRect();
+    const next = { x: Math.round(pr.left - cr.left), y: Math.round(pr.top - cr.top), w: c.clientWidth, h: c.clientHeight };
+    setOrg((o) => (o.x === next.x && o.y === next.y && o.w === next.w && o.h === next.h ? o : next));
+  };
+  useLayoutEffect(measureOrigin);
+  useEffect(() => {
+    const c = wrap.current;
+    c?.addEventListener("scroll", measureOrigin, { passive: true });
+    return () => c?.removeEventListener("scroll", measureOrigin);
+  }, []);
 
   // Ctrl/⌘ + wheel zooms the page; plain wheel scrolls.
   useEffect(() => {
@@ -239,6 +259,10 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
           <MessageBarBody>{warnings.join(" · ")}</MessageBarBody>
         </MessageBar>
       )}
+      <div className="layout-stage" style={{ gridTemplateColumns: `${RULER_PX}px 1fr`, gridTemplateRows: `${RULER_PX}px 1fr` }}>
+        <div className="ruler-corner" />
+        <div className="ruler-box" data-testid="ruler-h"><Ruler vertical={false} length={org.w} origin={org.x} zoom={z} /></div>
+        <div className="ruler-box" data-testid="ruler-v"><Ruler vertical length={org.h} origin={org.y} zoom={z} /></div>
       <div
         className="layout-canvas"
         ref={wrap}
@@ -250,7 +274,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
           wrap.current?.focus();
         }}
       >
-        <div className="layout-page" style={{ width: page.width * z, height: page.height * z, background: page.background }}>
+        <div className="layout-page" ref={pageEl} style={{ width: page.width * z, height: page.height * z, background: page.background }}>
           {preview && <img className="layout-img" src={preview.src} alt="" draggable={false} />}
           {layout.elements.length === 0 && <div className="layout-empty">Insert a Map Frame or Text from the Layout tab.</div>}
           {sorted.map((el) => {
@@ -284,6 +308,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
               );
             })}
         </div>
+      </div>
       </div>
     </div>
   );

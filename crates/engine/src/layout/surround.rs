@@ -164,7 +164,7 @@ pub fn plan_bar(units: &str, segments: u32, k: f64, scale: f64, max_mm: f64) -> 
 
 const BAR_LABEL_PT: f64 = 7.0;
 
-pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, units: &str, segments: u32, ctx: &FrameCtx) {
+pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, units: &str, segments: u32, ratio: bool, ctx: &FrameCtx) {
     // Room for the half-width of the last label ("4 km") past the bar's end.
     let reserve = 7.0;
     let Some(plan) = plan_bar(units, if segments == 0 { 4 } else { segments }, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) else {
@@ -192,6 +192,14 @@ pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, u
         let v = plan.segment * i as f64;
         let label = if i == plan.segments { format!("{} {}", num(v), plan.unit) } else { num(v) };
         text_line(out, x0 + seg_mm * i as f64, label_y, &label, "sans", BAR_LABEL_PT, "middle");
+    }
+    if ratio {
+        // "1:24,000" on its own line under the distances, so it never collides with them.
+        let ratio_y = label_y + BAR_LABEL_PT * PT_MM * 1.4;
+        if ratio_y > at.y + at.h {
+            warnings.push(format!("Scale bar '{}' is too short for its 1:N label; make it taller", at.id));
+        }
+        text_line(out, x0, ratio_y, &format!("1:{}", super::grouped(ctx.scale)), "sans", BAR_LABEL_PT, "start");
     }
     out.push_str("</g>");
 }
