@@ -333,6 +333,17 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 | B6-6 | Dialog in the app: field picker, counts shown before writing, layers and files targets, folder required | as stated | auto: e2e/split.spec.ts |
 | B6-7 | Edge cases: a 1 000-value field into files; a value with a leading dot or only spaces; read-only folder; the folder is the source file's folder (the source is not touched); a table without geometry; a layer with a node-tree result | to automate |
 
+### 4B. Category drawing order (B7, `docs/DECISIONS.md`)
+
+| ID | Check | Expected | Coverage |
+|---|---|---|---|
+| B7-1 | Reorder: move one class, clamp at the ends, reverse; inputs not changed | as stated | auto: map/categoryOrder.test.ts |
+| B7-2 | Map: each category's rank is its style zIndex (top of the list highest, "everything else" 0); the shared base style is not changed; follows a reorder | as stated | auto: map/categoryOrder.test.ts; visual check of two overlapping polygons, both orders, 2026-10-28 |
+| B7-3 | Layouts: unique values draw "everything else" first, then the list from the bottom up; graduated and single styles keep their order | the first class is on top | auto: layout::b7_* (goldens `p3`, `all_elements`, `l2_p1` regenerated for the new order) |
+| B7-4 | Symbology list: ▲ ▼ buttons (disabled at the ends), drag handle, Reverse order; the order is saved in the style, one entry per value | as stated | auto: e2e/category-order.spec.ts |
+| B7-5 | Legend follows the list order | same order as the list | auto: layout::p13 (legend lists classes in order); to automate after a reorder |
+| B7-6 | Edge cases: drag and drop by mouse (only buttons are tested), a project saved before B7 opens in its value order, a classified field with 60+ values (the list scrolls), a category present in no feature | to automate |
+
 ## 5. Attribute table and editing
 
 | ID | Check | Input | Expected | Coverage |

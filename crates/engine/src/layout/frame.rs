@@ -169,6 +169,16 @@ impl Rd<'_> {
     }
 }
 
+/// Order the class buckets are drawn in, first = bottom (B7). Unique values: a class higher in the list is drawn on
+/// top, and "everything else" (the last bucket) under all of them. Other styles keep their class order.
+fn bucket_draw_order(style: &LayerStyle, buckets: usize) -> Vec<usize> {
+    if style.kind == StyleKind::Categorized && buckets > 1 {
+        std::iter::once(buckets - 1).chain((0..buckets - 1).rev()).collect()
+    } else {
+        (0..buckets).collect()
+    }
+}
+
 /// Class index of a feature (the last bucket is "everything else").
 struct Classes {
     n: usize,
@@ -296,8 +306,8 @@ fn draw_layer(conn: &Connection, info: &LayerInfo, style: &LayerStyle, frame_crs
         }
     }
     let mut out = String::new();
-    for (i, b) in buckets.iter().enumerate() {
-        bucket_svg(info, style, i, b, &mut out);
+    for i in bucket_draw_order(style, buckets.len()) {
+        bucket_svg(info, style, i, &buckets[i], &mut out);
     }
     Ok(out)
 }
