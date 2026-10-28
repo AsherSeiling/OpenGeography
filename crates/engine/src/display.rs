@@ -494,6 +494,16 @@ impl Engine {
         self.crs_display_info(crs, None)
     }
 
+    /// The layer's display table in the map CRS `crs`, when one is built: queries in map coordinates (identify, rectangle select) use it
+    /// directly, so a pole (which Web Mercator can't hold) or any point a conic or polar CRS shows is found where it is drawn (P18).
+    pub(crate) fn ready_display_table(&self, info: &LayerInfo, crs: &str) -> Option<String> {
+        let di = self.display_for(crs).ok()?;
+        if !Self::needs_display_table(info, &di) {
+            return None;
+        }
+        self.with_conn(|c| Ok(lookup(c, &info.id, &di.crs_key, info.version)?.map(|e| e.table))).ok().flatten()
+    }
+
     /// Layers that are drawn straight from `__g` (or aren't drawn at all).
     fn needs_display_table(info: &LayerInfo, di: &DisplayInfo) -> bool {
         info.has_geometry() && info.crs.is_some() && di.crs_key != MERCATOR_KEY

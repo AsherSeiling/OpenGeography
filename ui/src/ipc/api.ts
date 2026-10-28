@@ -29,6 +29,8 @@ export interface RasterInfo {
   max: number;
   kind: "elevation" | "rgb";
   pixelSize: number;
+  /** Every cell is NoData (R5). */
+  empty?: boolean;
 }
 
 export interface TigerDataset {

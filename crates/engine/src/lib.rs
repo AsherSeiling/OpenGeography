@@ -829,12 +829,18 @@ impl Engine {
     /// Features within `tolerance` of (x, y); position and tolerance are in `crs` (the map CRS) units.
     pub fn identify(&self, id: &str, x: f64, y: f64, crs: &str, tolerance: f64) -> Result<Vec<i64>> {
         let info = self.layer(id)?;
+        if let Some(t) = self.ready_display_table(&info, crs) {
+            return self.with_conn(|c| table::identify_display(c, &info, &t, x, y, tolerance));
+        }
         self.with_conn(|c| table::identify(c, &info, x, y, crs, tolerance))
     }
 
     /// Features intersecting a box `[xmin, ymin, xmax, ymax]` given in `crs` (the map CRS).
     pub fn select_rect(&self, id: &str, bbox: [f64; 4], crs: &str) -> Result<Vec<i64>> {
         let info = self.layer(id)?;
+        if let Some(t) = self.ready_display_table(&info, crs) {
+            return self.with_conn(|c| table::select_rect_display(c, &info, &t, bbox));
+        }
         self.with_conn(|c| table::select_rect(c, &info, bbox, crs))
     }
 

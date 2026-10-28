@@ -152,6 +152,44 @@ pub fn identify(conn: &Connection, info: &LayerInfo, x: f64, y: f64, crs: &str, 
     Ok(ids)
 }
 
+/// Identify through the layer's display table in the map CRS (`dtable`), where a pole or any place Web Mercator can't hold is a plain
+/// coordinate: the search disc is in the map CRS already, so nothing is carried through EPSG:3857 (P18, bug G4).
+pub fn identify_display(conn: &Connection, info: &LayerInfo, dtable: &str, x: f64, y: f64, tolerance: f64) -> Result<Vec<i64>> {
+    if !(x.is_finite() && y.is_finite() && tolerance.is_finite() && tolerance > 0.0) {
+        bail!("Identify needs a finite position and a positive tolerance.");
+    }
+    let pts: Vec<String> = disc_ring(x, y, tolerance).iter().map(|(a, b)| format!("{a:.9} {b:.9}")).collect();
+    let sql = format!(
+        "SELECT dt.__fid FROM {d} dt JOIN {t} lt ON lt.__fid = dt.__fid
+         WHERE ST_Intersects(dt.__d, ST_GeomFromText('POLYGON(({ring}))')){def}
+         ORDER BY ST_Distance(dt.__d, ST_Point({x}, {y})), dt.__fid DESC LIMIT 25",
+        d = ident(dtable),
+        t = ident(&info.table),
+        ring = pts.join(", "),
+        def = info.def_and(),
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    Ok(ids)
+}
+
+/// Rectangle select through the display table in the map CRS (see `identify_display`).
+pub fn select_rect_display(conn: &Connection, info: &LayerInfo, dtable: &str, bbox: [f64; 4]) -> Result<Vec<i64>> {
+    if !bbox.iter().all(|v| v.is_finite()) {
+        bail!("The selection box has to be finite.");
+    }
+    let (x0, y0, x1, y1) = (bbox[0].min(bbox[2]), bbox[1].min(bbox[3]), bbox[0].max(bbox[2]), bbox[1].max(bbox[3]));
+    let sql = format!(
+        "SELECT dt.__fid FROM {d} dt JOIN {t} lt ON lt.__fid = dt.__fid WHERE ST_Intersects(dt.__d, ST_MakeEnvelope({x0}, {y0}, {x1}, {y1})){def} ORDER BY dt.__fid",
+        d = ident(dtable),
+        t = ident(&info.table),
+        def = info.def_and(),
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    Ok(ids)
+}
+
 /// Features intersecting a map-CRS box `[xmin, ymin, xmax, ymax]` (rectangle select). The box is
 /// densified in the map CRS before it is carried into the layer's CRS, so in a projected map the
 /// curved edges are followed rather than approximated by a lon/lat envelope.
