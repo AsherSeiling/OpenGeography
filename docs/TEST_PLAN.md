@@ -479,6 +479,14 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 9.16d | L2 scale range, unknown field, label off, hidden layer: no labels | auto: layout::l2_labels_follow_the_scale_range_*, l2_unknown_field_* |
 | 9.16e | L2-P4 label text in the PDF is real text in an embedded font | auto: layout::l2_p4_pdf_label_text_is_real_text |
 | 9.16f | L2 in the app: the layout preview changes when labels turn on | auto: e2e/labels.spec.ts (L2) |
+| 9.16h | L3-P1 a moved label keeps its page position in the preview, the SVG and the PDF; the same edits give the same bytes; edits survive the layout JSON round trip | auto: layout::l3_p1_*, l3_labels_overrides_survive_*; labelEdits.test.ts |
+| 9.16i | L3-P2 a hidden label is not drawn, is listed (hidden) so it can be brought back, and the automatic one does not return | auto: layout::l3_p2_* |
+| 9.16j | L3-P3 pinned labels are never dropped (even off the frame); automatic labels avoid them; no two drawn boxes overlap | auto: layout::l3_p3_* |
+| 9.16k | L3-P4 a per-layout style (size, colour, on/off, field) changes this layout only; a layout can label a layer the map does not | auto: layout::l3_edits_text_size_rotation_and_a_per_layout_style; labelEdits.test.ts |
+| 9.16l | L3-P5 an edit for a deleted feature is ignored, reported, and removed by the UI | auto: layout::l3_p5_*; labelEdits.test.ts |
+| 9.16m | L3-P6 undo and redo of a move (one step, selection kept) | auto: labelEdits.test.ts |
+| 9.16n | L3 in the app: click selects a label, drag moves it, Properties edits text, Hide, Reset to automatic | auto: e2e/labels.spec.ts (L3) |
+| 9.16o | L3 edge cases: a data re-import (fids change), two frames showing one layer, a locked frame, drag while a preview renders, rotate by handle (not built: rotation is a number in Properties) | to automate / not built |
 | 9.16g | L2 edge cases: more than 50 000 features (warns), labels over a basemap, rotated frame, NULL-heavy field, multi-part lines, polygons cut by the frame | to automate |
 | 9.17 | Map series, templates (C3), topo map builder (C4), GeoPDF | gap (not built) |
 

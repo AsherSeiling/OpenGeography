@@ -3,12 +3,14 @@ import { Button, Checkbox, Dropdown, Field, Input, Option, Textarea } from "@flu
 import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
+import { displayInfo, useApp } from "../store/store";
+import { withStyleOverride } from "./labelEdits";
 import { pickFrameCrs, setFrameFromMapView } from "./actions";
 import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type ScaleBarElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
-function Num({ label, value, onChange, min, max, step, decimals }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; decimals?: number }) {
+export function Num({ label, value, onChange, min, max, step, decimals }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; decimals?: number }) {
   const show = (v: number) => String(decimals === undefined ? v : rounded(v, decimals));
   const [text, setText] = useState(show(value));
   useEffect(() => setText((t) => (Number(t) === value ? t : show(value))), [value]);
@@ -84,8 +86,65 @@ function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
       </Field>
       <GridFields label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
       <GridFields label="Grid (map coordinates)" unit="CRS units" value={el.grid} onChange={(grid) => set({ grid }, "grid")} />
+      <FrameLabels el={el} set={set} />
       <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} decimals={2} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />
     </>
+  );
+}
+
+/** Labels in this layout: per layer, follow the map's label setting or show or hide them here (L3). Edits to single labels are made by clicking a label in the page. */
+function FrameLabels({ el, set }: { el: MapFrame; set: Set }) {
+  const order = useApp((s) => s.order);
+  const layers = useApp((s) => s.layers);
+  const results = useApp((s) => s.results);
+  const showOriginal = useApp((s) => s.showOriginal);
+  const styles = useApp((s) => s.styles);
+  const ids = (el.layers === "map" ? order : el.layers.filter((l) => l.visible).map((l) => l.id)).filter((id) => {
+    const g = displayInfo({ layers, results, showOriginal }, id)?.geomType;
+    return g === "Point" || g === "Line" || g === "Polygon" || g === "Mixed";
+  });
+  if (!ids.length) return null;
+  return (
+    <Field label="Labels in this layout" size="small">
+      <div className="stack">
+        {ids.map((id) => {
+          const info = displayInfo({ layers, results, showOriginal }, id)!;
+          const ov = el.labelOverrides?.[id];
+          const patch = ov?.style;
+          const mapLabel = styles[id]?.label;
+          const mode = patch?.enabled === undefined ? "map" : patch.enabled ? "show" : "hide";
+          const shown = mode === "show" || (mode === "map" && !!mapLabel?.enabled);
+          const field = patch?.field ?? mapLabel?.field ?? info.fields[0]?.name ?? "";
+          const edit = (p: Parameters<typeof withStyleOverride>[2]) => set({ labelOverrides: withStyleOverride(el.labelOverrides, id, p) }, `labels:${id}`);
+          return (
+            <div key={id} className="stack">
+              <div className="btn-row">
+                <span className="grow">{info.name}</span>
+                <Dropdown size="small" value={{ map: "Map setting", show: "Show", hide: "Hide" }[mode]} selectedOptions={[mode]} onOptionSelect={(_, d) => edit(d.optionValue === "map" ? { enabled: undefined } : { enabled: d.optionValue === "show", ...(d.optionValue === "show" ? { field } : {}) })}>
+                  <Option value="map">Map setting</Option>
+                  <Option value="show">Show</Option>
+                  <Option value="hide">Hide</Option>
+                </Dropdown>
+              </div>
+              {shown && (
+                <div className="props-grid">
+                  <Field label="Field" size="small">
+                    <Dropdown size="small" value={field} selectedOptions={[field]} onOptionSelect={(_, d) => edit({ field: d.optionValue })}>
+                      {info.fields.map((f) => <Option key={f.name} value={f.name}>{f.name}</Option>)}
+                    </Dropdown>
+                  </Field>
+                  <Num label="Size (pt)" value={patch?.size ?? mapLabel?.size ?? 9} min={1} step={0.5} decimals={1} onChange={(size) => edit({ size })} />
+                  <Field label="Text color" size="small">
+                    <input type="color" value={patch?.color ?? mapLabel?.color ?? "#222222"} onChange={(e) => edit({ color: e.target.value })} />
+                  </Field>
+                </div>
+              )}
+              {ov && <Button size="small" onClick={() => set({ labelOverrides: (() => { const { [id]: _drop, ...rest } = el.labelOverrides ?? {}; return Object.keys(rest).length ? rest : undefined; })() })}>Reset labels of {info.name} to the map's</Button>}
+            </div>
+          );
+        })}
+      </div>
+    </Field>
   );
 }
 

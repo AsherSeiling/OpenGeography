@@ -50,6 +50,54 @@ export interface MapFrame extends Placement {
   graticule: GridSpec | null;
   grid: GridSpec | null;
   border: Border | null;
+  /** Label edits made in this layout only, by layer id (L3). */
+  labelOverrides?: Record<string, LabelOverrides>;
+}
+
+/** This layout's label style for one layer: unset fields fall back to the map's `LayerStyle.label`. */
+export interface LabelPatch {
+  enabled?: boolean;
+  field?: string;
+  size?: number;
+  color?: string;
+  haloColor?: string;
+  haloWidth?: number;
+}
+
+/** One label's edits. Any of dxMm, dyMm, rotation, text or sizePt pins it (placed first, never dropped). */
+export interface FeatureLabel {
+  /** Move from the automatic position, page mm (right and down are positive). */
+  dxMm?: number;
+  dyMm?: number;
+  /** Degrees on the page, clockwise. */
+  rotation?: number;
+  text?: string;
+  sizePt?: number;
+  hidden?: boolean;
+}
+
+export interface LabelOverrides {
+  style?: LabelPatch;
+  features?: Record<string, FeatureLabel>;
+}
+
+/** A label as the engine placed it; the Layout view draws a hit box over each. */
+export interface PlacedLabel {
+  frame: string;
+  layer: string;
+  fid: number;
+  text: string;
+  /** [x0, y0, x1, y1], page mm. */
+  boxMm: [number, number, number, number];
+  rotation: number;
+  pinned: boolean;
+  hidden: boolean;
+}
+
+export interface DroppedLabelEdit {
+  frame: string;
+  layer: string;
+  fid: number;
 }
 
 export interface TextElement extends Placement {
@@ -122,6 +170,8 @@ export interface LayoutPreview {
   png: string;
   pngBytes: number;
   warnings: string[];
+  labels: PlacedLabel[];
+  droppedLabelEdits: DroppedLabelEdit[];
 }
 
 /** Page sizes in millimetres, portrait (width < height). */

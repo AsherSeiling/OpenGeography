@@ -180,6 +180,9 @@ pub enum Element {
         grid: Option<serde_json::Value>,
         #[serde(default)]
         border: Option<Border>,
+        /// Label edits made in this layout only, by layer id (L3).
+        #[serde(default, rename = "labelOverrides", skip_serializing_if = "BTreeMap::is_empty")]
+        label_overrides: BTreeMap<String, LabelOverrides>,
     },
     Text {
         #[serde(flatten)]
@@ -358,6 +361,61 @@ pub struct LayerStyle {
     /// Feature labels (L1); layouts draw them from L2 on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<LabelStyle>,
+}
+
+/// Label edits of one layer in one map frame (L3): a partial style for this layout only, and per-feature edits keyed by `__fid`.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelOverrides {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<LabelPatch>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub features: BTreeMap<String, FeatureLabel>,
+}
+
+/// Unset fields fall back to the layer's `LayerStyle.label` (the map's setting).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelPatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub halo_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub halo_width: Option<f64>,
+}
+
+/// One label's edits. Any of `dxMm`, `dyMm`, `rotation`, `text`, `sizePt` pins the label: placed first, never dropped by collision.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureLabel {
+    /// Move from the automatic position, page mm (right and down are positive).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dx_mm: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dy_mm: Option<f64>,
+    /// Degrees on the page, clockwise; replaces the automatic angle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_pt: Option<f64>,
+    /// Not drawn, and the automatic label does not come back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
+}
+
+impl FeatureLabel {
+    pub fn pinned(&self) -> bool {
+        self.dx_mm.is_some() || self.dy_mm.is_some() || self.rotation.is_some() || self.text.is_some() || self.size_pt.is_some()
+    }
 }
 
 /// Mirror of `LabelStyle` in ui/src/store/store.ts.

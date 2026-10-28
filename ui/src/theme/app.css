@@ -578,6 +578,12 @@ select.qe-val { width: 160px; }
 .layout-el:hover { outline: 1px dashed rgba(43, 87, 154, 0.8); }
 .layout-el.on { outline: 2px solid #2b579a; }
 .layout-el.locked { cursor: not-allowed; }
+.layout-label { position: absolute; box-sizing: border-box; cursor: grab; outline: 1px solid transparent; z-index: 2; touch-action: none; }
+.layout-label:hover { outline: 1px dashed rgba(180, 60, 0, 0.9); }
+.layout-label.on { outline: 2px solid #c25400; }
+.layout-label.pinned { outline-color: rgba(194, 84, 0, 0.45); }
+.layout-label.hidden { outline: 1px dotted rgba(120, 120, 120, 0.8); background: rgba(255, 255, 255, 0.35); }
+.layout-label:active { cursor: grabbing; }
 .layout-handle { position: absolute; width: 8px; height: 8px; background: #fff; border: 1px solid #2b579a; box-sizing: border-box; }
 .layout-handle.nw { left: -4px; top: -4px; cursor: nwse-resize; }
 .layout-handle.n { left: calc(50% - 4px); top: -4px; cursor: ns-resize; }

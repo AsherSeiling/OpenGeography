@@ -927,3 +927,142 @@ fn l2_p4_pdf_label_text_is_real_text() {
     let streams = pdf_streams(&pdf);
     assert!(streams.iter().filter(|s| contains(s, "BT")).count() >= 1);
 }
+
+// ---------- L3: adjusting labels in the layout ----------
+
+/// The request with `labelOverrides` on frame f1.
+fn with_overrides(req: &RenderRequest, ov: serde_json::Value) -> RenderRequest {
+    let mut v = serde_json::to_value(req).unwrap();
+    v["layout"]["elements"][0]["labelOverrides"] = ov;
+    serde_json::from_value(v).unwrap()
+}
+
+fn labelled(ids: &[String; 4]) -> RenderRequest {
+    let mut req = request(ids, categorized());
+    req.styles.get_mut(&ids[0]).unwrap().label = Some(label("cls"));
+    req
+}
+
+/// fid of the polygon labelled `text` in an automatic render.
+fn fid_of(out: &engine::layout::LayoutSvg, layer: &str, text: &str) -> i64 {
+    out.labels.iter().find(|l| l.layer == layer && l.text == text).unwrap_or_else(|| panic!("{:?}", out.labels)).fid
+}
+
+#[test]
+fn l3_render_reports_the_placed_labels() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let out = render(&e, &labelled(&ids));
+    assert_eq!(out.labels.len(), 4);
+    assert!(out.labels.iter().all(|l| l.frame == "f1" && l.layer == ids[0] && !l.pinned && !l.hidden && l.box_mm[2] > l.box_mm[0]));
+    assert!(out.dropped_label_edits.is_empty());
+}
+
+#[test]
+fn l3_p1_a_moved_label_stays_at_its_new_position_in_svg_and_pdf() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = render(&e, &labelled(&ids));
+    let fid = fid_of(&base, &ids[0], "b");
+    let before = base.labels.iter().find(|l| l.fid == fid).unwrap().box_mm;
+    let req = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "features": { fid.to_string(): { "dxMm": 10.0, "dyMm": -5.0 } } } }));
+    let out = render(&e, &req);
+    let moved = out.labels.iter().find(|l| l.fid == fid).unwrap();
+    assert!(moved.pinned && !moved.hidden);
+    assert!((moved.box_mm[0] - before[0] - 10.0).abs() < 1e-9 && (moved.box_mm[1] - before[1] + 5.0).abs() < 1e-9, "{before:?} → {:?}", moved.box_mm);
+    let (t0, t1) = (label_texts(&base.svg), label_texts(&out.svg));
+    let (a, b) = (t0.iter().find(|t| t.0 == "b").unwrap(), t1.iter().find(|t| t.0 == "b").unwrap());
+    assert!((b.1 - a.1 - 10.0).abs() < 1e-6 && (b.2 - a.2 + 5.0).abs() < 1e-6);
+    assert_eq!(out.svg, render(&e, &req).svg, "same edits, same bytes");
+    let pdf = export::svg_to_pdf(&out.svg).unwrap();
+    assert!(contains(&pdf, "/ToUnicode"), "the PDF is built from the same svg");
+}
+
+#[test]
+fn l3_p2_a_hidden_label_is_not_drawn_and_does_not_come_back() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = render(&e, &labelled(&ids));
+    let fid = fid_of(&base, &ids[0], "c");
+    let req = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "features": { fid.to_string(): { "hidden": true } } } }));
+    let out = render(&e, &req);
+    assert_eq!(label_texts(&out.svg).iter().filter(|t| t.0 == "c").count(), 0);
+    assert_eq!(label_texts(&out.svg).len(), 3);
+    let h = out.labels.iter().find(|l| l.fid == fid).unwrap();
+    assert!(h.hidden, "listed so the UI can bring it back");
+    assert!(!out.warnings.iter().any(|w| w.contains("didn't fit")));
+}
+
+#[test]
+fn l3_p3_pinned_labels_are_never_dropped_and_automatic_labels_avoid_them() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = render(&e, &labelled(&ids));
+    let (a_fid, b_fid) = (fid_of(&base, &ids[0], "a"), fid_of(&base, &ids[0], "b"));
+    let (a, b) = (base.labels.iter().find(|l| l.fid == a_fid).unwrap().box_mm, base.labels.iter().find(|l| l.fid == b_fid).unwrap().box_mm);
+    // Move b's label right on top of a's; b is pinned there, so a (automatic) must give way.
+    let req = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "features": { b_fid.to_string(): { "dxMm": a[0] - b[0], "dyMm": a[1] - b[1] } } } }));
+    let out = render(&e, &req);
+    let pinned = out.labels.iter().find(|l| l.fid == b_fid).unwrap();
+    assert!(pinned.pinned && !pinned.hidden);
+    assert!(!out.labels.iter().any(|l| l.fid == a_fid), "the automatic label that would overlap is skipped");
+    assert!(out.warnings.iter().any(|w| w.contains("1 label of") && w.contains("didn't fit")), "{:?}", out.warnings);
+    // No two drawn boxes overlap, pinned or not.
+    let boxes: Vec<[f64; 4]> = out.labels.iter().filter(|l| !l.hidden).map(|l| l.box_mm).collect();
+    for (i, p) in boxes.iter().enumerate() {
+        for q in &boxes[i + 1..] {
+            assert!(p[2] <= q[0] || q[2] <= p[0] || p[3] <= q[1] || q[3] <= p[1], "{p:?} {q:?}");
+        }
+    }
+    // A pinned label dragged off the frame is still drawn where the user put it.
+    let off = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "features": { b_fid.to_string(): { "dxMm": 500.0 } } } }));
+    assert!(render(&e, &off).labels.iter().any(|l| l.fid == b_fid && l.pinned));
+}
+
+#[test]
+fn l3_edits_text_size_rotation_and_a_per_layout_style() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = render(&e, &labelled(&ids));
+    let fid = fid_of(&base, &ids[0], "a");
+    let req = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "features": { fid.to_string(): { "text": "North block", "sizePt": 14.0, "rotation": 30.0 } } } }));
+    let out = render(&e, &req);
+    let t = label_texts(&out.svg);
+    assert!(t.iter().any(|x| x.0 == "North block" && (x.3 - 14.0 * 25.4 / 72.0).abs() < 1e-3), "{t:?}");
+    assert!(out.svg.contains("rotate(30"));
+    // A per-layout style: bigger text and another colour, for this layout only (the request's layer style is untouched).
+    let styled = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "style": { "size": 20.0, "color": "#ff0000" } } }));
+    let s = render(&e, &styled);
+    assert!(label_texts(&s.svg).iter().all(|x| x.3 > 9.0 * 25.4 / 72.0 + 1e-6));
+    assert!(s.svg.contains("#ff0000"));
+    assert!(!base.svg.contains("#ff0000"));
+    // A layout can label a layer the map doesn't, and turn off one it does.
+    let on = with_overrides(&request(&ids, categorized()), json!({ ids[0].clone(): { "style": { "enabled": true, "field": "cls" } } }));
+    assert_eq!(render(&e, &on).labels.len(), 4);
+    let off = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "style": { "enabled": false } } }));
+    assert!(render(&e, &off).labels.is_empty());
+}
+
+#[test]
+fn l3_p5_an_edit_for_a_deleted_feature_is_ignored_and_reported() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = render(&e, &labelled(&ids));
+    let fid = fid_of(&base, &ids[0], "a");
+    let req = with_overrides(&labelled(&ids), json!({ ids[0].clone(): { "features": { "424242": { "dxMm": 3.0 }, fid.to_string(): { "dxMm": 1.0 } } } }));
+    let out = render(&e, &req);
+    assert_eq!(out.dropped_label_edits.len(), 1);
+    assert_eq!((out.dropped_label_edits[0].fid, out.dropped_label_edits[0].layer.as_str(), out.dropped_label_edits[0].frame.as_str()), (424242, ids[0].as_str(), "f1"));
+    assert!(out.warnings.iter().any(|w| w.contains("1 label edit of") && w.contains("no longer exist")), "{:?}", out.warnings);
+    assert_eq!(out.labels.len(), 4, "the real label is still drawn, with its edit");
+}
+
+#[test]
+fn l3_labels_overrides_survive_the_layout_json_round_trip() {
+    let dir = tempfile::tempdir().unwrap();
+    let (_e, ids) = fixture(dir.path());
+    let ov = json!({ ids[0].clone(): { "style": { "size": 12.0 }, "features": { "3": { "dxMm": 1.5, "hidden": true } } } });
+    let req = with_overrides(&labelled(&ids), ov.clone());
+    let back = serde_json::to_value(&req).unwrap();
+    assert_eq!(back["layout"]["elements"][0]["labelOverrides"], ov);
+}

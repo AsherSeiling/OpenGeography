@@ -33,6 +33,8 @@ pub struct FrameInput<'a> {
     pub basemap: &'a str,
     /// Opens a basemap's tile service (the network in the app; a fixture in tests).
     pub open_basemap: &'a dyn Fn(&str) -> Result<gdal::Dataset>,
+    /// Label edits of this layout, by layer id (L3).
+    pub label_overrides: &'a std::collections::BTreeMap<String, super::model::LabelOverrides>,
 }
 
 pub struct FrameOutput {
@@ -44,6 +46,10 @@ pub struct FrameOutput {
     pub factors: geo::Factors,
     /// The basemap that was drawn, if any.
     pub basemap: Option<String>,
+    /// Labels as placed (and the hidden ones), for the UI's hit boxes (L3).
+    pub labels: Vec<super::labels::PlacedLabel>,
+    /// Label edits that pointed at features that no longer exist.
+    pub dropped_label_edits: Vec<super::labels::DroppedEdit>,
 }
 
 /// Layer ids a frame draws, top first, with their visibility applied.
@@ -407,30 +413,44 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         drawn.push(id.clone());
     }
 
-    // Feature labels (L2): top layer first, so the top layer wins when labels collide.
-    let mut placer = super::labels::Placer::default();
-    let mut feature_labels = String::new();
+    // Feature labels (L2, L3): the map's setting with this layout's edits on top. Top layer first, so the top layer wins
+    // when labels collide; edited (pinned) labels are placed before any automatic one.
     let frame_box = [at.x, at.y, at.x + at.w, at.y + at.h];
+    let mut cands = Vec::new();
+    let mut dropped = Vec::new();
     for id in &ids {
         let Some(info) = lookup(id) else { continue };
-        let Some(style) = req.styles.get(id) else { continue };
-        let Some(label) = style.label.as_ref().filter(|l| l.enabled && info.fields.iter().any(|x| x.name == l.field)) else { continue };
-        if info.raster.is_some() || !info.has_geometry() || info.crs.is_none() || !super::labels::visible_at(label, f.scale) {
+        let style = req.styles.get(id);
+        let ov = f.label_overrides.get(id);
+        let fields: Vec<String> = info.fields.iter().map(|x| x.name.clone()).collect();
+        let Some(label) = super::labels::effective(style.and_then(|s| s.label.as_ref()), ov.and_then(|o| o.style.as_ref()), &fields) else { continue };
+        if info.raster.is_some() || !info.has_geometry() || info.crs.is_none() || !super::labels::visible_at(&label, f.scale) {
             continue;
         }
         check()?;
-        let r = super::labels::layer(conn, &info, label, f.crs, bbox3857, extent, frame_box, &|x, y| m.xy(x, y), &mut placer, style.radius.max(0.0) * PX_MM, check)
+        let radius = style.map_or(3.5, |s| s.radius).max(0.0) * PX_MM;
+        let mut c = super::labels::candidates(conn, &info, id, &label, ov, f.crs, bbox3857, extent, &|x, y| m.xy(x, y), radius, check)
             .map_err(|e| anyhow!("Labels of {} could not be drawn: {e}", info.name))?;
-        feature_labels.push_str(&r.svg);
-        if r.skipped > 0 {
-            warnings.push(format!("{} label{} of {} didn't fit", r.skipped, if r.skipped == 1 { "" } else { "s" }, info.name));
-        }
-        if r.truncated {
+        if c.truncated {
             warnings.push(format!("{} has more than {} features in this frame; only the first {} were considered for labels", info.name, super::labels::MAX_CANDIDATES, super::labels::MAX_CANDIDATES));
         }
+        if !c.dropped.is_empty() {
+            warnings.push(format!("{} label edit{} of {} pointed at features that no longer exist and {} ignored", c.dropped.len(), if c.dropped.len() == 1 { "" } else { "s" }, info.name, if c.dropped.len() == 1 { "was" } else { "were" }));
+            dropped.extend(c.dropped.iter().map(|fid| super::labels::DroppedEdit { frame: at.id.clone(), layer: id.clone(), fid: *fid }));
+        }
+        cands.append(&mut c.list);
     }
-    if !feature_labels.is_empty() {
-        let _ = write!(body_svg, "<g id=\"labels-{}\">{feature_labels}</g>", esc(&at.id));
+    let mut placer = super::labels::Placer::default();
+    let placed = super::labels::place(&cands, frame_box, &mut placer);
+    for (name, n) in &placed.skipped {
+        warnings.push(format!("{n} label{} of {name} didn't fit", if *n == 1 { "" } else { "s" }));
+    }
+    let mut placed_labels = placed.labels;
+    for l in &mut placed_labels {
+        l.frame = at.id.clone();
+    }
+    if !placed.svg.is_empty() {
+        let _ = write!(body_svg, "<g id=\"labels-{}\">{}</g>", esc(&at.id), placed.svg);
     }
 
     let mut labels = String::new();
@@ -476,5 +496,5 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         );
     }
     out.push_str("</g>");
-    Ok(FrameOutput { svg: out, warnings, drawn, extent, factors, basemap })
+    Ok(FrameOutput { svg: out, warnings, drawn, extent, factors, basemap, labels: placed_labels, dropped_label_edits: dropped })
 }
