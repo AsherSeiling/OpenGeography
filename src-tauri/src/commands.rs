@@ -527,6 +527,27 @@ pub async fn save_layout(engine: Eng<'_>, layout: engine::layout::model::Layout)
     blocking(&engine, move |e| e.save_layout(&layout)).await
 }
 
+/// Layout templates, bundled and the user's (C3.1).
+#[tauri::command]
+pub async fn list_layout_templates(engine: Eng<'_>) -> Res<engine::layout::TemplateList> {
+    blocking(&engine, |e| Ok(e.layout_templates())).await
+}
+
+#[tauri::command]
+pub async fn get_layout_template(engine: Eng<'_>, id: String) -> Res<engine::layout::model::Layout> {
+    blocking(&engine, move |e| e.layout_template(&id)).await
+}
+
+#[tauri::command]
+pub async fn save_layout_template(engine: Eng<'_>, name: String, layout: engine::layout::model::Layout) -> Res<engine::layout::templates::TemplateInfo> {
+    blocking(&engine, move |e| e.save_layout_template(&name, &layout)).await
+}
+
+#[tauri::command]
+pub async fn delete_layout_template(engine: Eng<'_>, id: String) -> Res<()> {
+    blocking(&engine, move |e| e.delete_layout_template(&id)).await
+}
+
 #[tauri::command]
 pub async fn delete_layout(engine: Eng<'_>, id: String) -> Res<()> {
     blocking(&engine, move |e| e.delete_layout(&id)).await

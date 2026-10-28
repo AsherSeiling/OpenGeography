@@ -516,6 +516,10 @@ Every row: output fields, known result, CRS preserved (`crs` = input's), and the
 | 9.16r | C3.0 Arrange: bring to front/back, forward/backward (moved ones keep their order), align left/centre/right/top/middle/bottom (to each other, or to the page margins for one), locked elements skipped, one undo step | auto: layout/arrange.test.ts; e2e/layout-polish.spec.ts |
 | 9.16s | C3.0 rulers: mm ticks along the top and left, majors at least 60 px apart, no "-0", follow zoom and scroll | auto: layout/rulers.test.ts; e2e/layout-polish.spec.ts; visual check 2026-10-28 |
 | 9.16t | C3.0 dpi box: 72–600 whole numbers only, remembered, applies to PNG and to images inside a PDF | auto: arrange.test.ts (parse); e2e/layout-polish.spec.ts; to automate an export at 150 dpi and read its pixel size |
+| 9.16u | C3.1 P20: every bundled template validates, has the six elements inside its page, and renders (title token, scale bar ratio, no "too narrow/short" warnings) | auto: templates.rs p20_*, bundled_templates_are_unique_named_and_ordered |
+| 9.16v | C3.1 user templates: save (name kept as typed, file name made safe), list after the bundled ones, load, replace on the same name, delete; bundled ones can't be deleted; ids can't leave the folder; an invalid layout or empty name is refused; a broken file is skipped and reported | auto: templates.rs user_templates_*, templates_refuse_*, a_broken_user_file_*, the_engine_keeps_user_templates_* |
+| 9.16w | C3.1 in the app: New Layout → From template (frame takes the map's CRS and view; refused with words when the map has no CRS); Layout → Save as Template (replace asks first); Delete Template | auto: e2e/templates.spec.ts |
+| 9.16x | C3.1 edge cases: a template saved from a layout with several frames; templates with a basemap; a read-only templates folder; a very long template name; two layouts from one template | to automate |
 | 9.17 | Map series, templates (C3), topo map builder (C4), GeoPDF | gap (not built) |
 
 ### 9A. Layout Properties pane goes blank / edits lost (bug U-5, diagnosis first)

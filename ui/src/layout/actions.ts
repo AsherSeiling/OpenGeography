@@ -9,7 +9,7 @@ import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { addMapFrame, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
-import { frames, newLayoutDoc, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
+import { frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 
 const status = (s: string) => useApp.getState().setStatus(s);
 
@@ -203,5 +203,64 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = useExport
   } catch (e) {
     status(isCancelled(e) ? "Export cancelled" : `Export failed: ${errorText(e)}`);
     if (!isCancelled(e)) reportError(e, "action:Export layout", { title: `Export of ${name} failed`, context: "exporting a layout" });
+  }
+}
+
+// ---------- templates (C3.1)
+
+/** A new layout from a bundled or user template: its map frames take the map's coordinate system and view. */
+export async function newLayoutFromTemplate(id: string) {
+  const crs = useApp.getState().mapCrs;
+  if (!crs) {
+    status("Set a coordinate system for the map (Map tab → Coordinate System), then create the layout from a template.");
+    return;
+  }
+  let template: Layout;
+  try {
+    template = normalizeLayout(await api.getLayoutTemplate(id));
+  } catch (e) {
+    status(`Could not open the template: ${errorText(e)}`);
+    reportError(e, "action:Layout template", { title: "The template could not be opened", context: "creating a layout from a template" });
+    return;
+  }
+  const names = new Set(useLayouts.getState().list().map((l) => l.name));
+  let n = 1;
+  while (names.has(`Layout ${n}`)) n++;
+  const layout: Layout = { ...JSON.parse(JSON.stringify(template)), id: newLayoutId(), name: `Layout ${n}`, series: null };
+  const basemap = printBasemap(useApp.getState().basemap);
+  layout.elements = layout.elements.map((e) => (e.kind === "map_frame" ? { ...e, crs: crs.id, basemap } : e));
+  useLayouts.getState().add(layout);
+  useLayouts.getState().open(layout.id);
+  openLayout(layout.id);
+  for (const f of frames(layout)) await setFrameFromMapView(f.id);
+  status(`Created ${layout.name} from the template "${template.name}".`);
+}
+
+/** Keep the open layout as a user template (a name that exists is replaced after asking). */
+export async function saveLayoutAsTemplate() {
+  const doc = useLayouts.getState().doc;
+  if (!doc) return;
+  const name = window.prompt("Template name", doc.name)?.trim();
+  if (!name) return;
+  try {
+    const existing = (await api.listLayoutTemplates()).templates.find((t) => !t.builtin && t.name.toLowerCase() === name.toLowerCase());
+    if (existing && !window.confirm(`Replace your template "${existing.name}"?`)) return;
+    await flushLayoutSaves();
+    await api.saveLayoutTemplate(name, doc);
+    status(`Saved the template "${name}". It is in New Layout → From template.`);
+  } catch (e) {
+    status(`The template could not be saved: ${errorText(e)}`);
+    reportError(e, "action:Save template", { title: "The template could not be saved", context: "saving a layout template" });
+  }
+}
+
+export async function deleteLayoutTemplate(t: { id: string; name: string }) {
+  if (!window.confirm(`Delete your template "${t.name}"? Layouts made from it are not changed.`)) return;
+  try {
+    await api.deleteLayoutTemplate(t.id);
+    status(`Deleted the template "${t.name}".`);
+  } catch (e) {
+    status(`The template could not be deleted: ${errorText(e)}`);
+    reportError(e, "action:Delete template", { title: "The template could not be deleted", context: "deleting a layout template" });
   }
 }

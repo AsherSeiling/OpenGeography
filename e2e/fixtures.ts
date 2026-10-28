@@ -24,6 +24,11 @@ export const test = base.extend<{ app: Page; errors: { expected: boolean; known:
     await page.waitForFunction(() => !!(window as any).__gis);
     await gis(page, async (g) => { await g.api.newProject(); g.useApp.setState({ basemap: "none" }); }); // the devserver's engine outlives the page: start every test empty
     await use(page);
+    // A test that stopped early (a timeout) must not leave a long job running on the shared devserver for the tests after it.
+    await Promise.race([
+      page.evaluate(async () => { const g = (window as any).__gis; for (const t of await g.api.progress()) await g.api.cancelTask(t.id); }).catch(() => {}),
+      new Promise((r) => setTimeout(r, 5000)),
+    ]);
     expect(errors, "uncaught console errors").toEqual([]);
     if (!errState.expected) await expect(page.getByRole("alertdialog"), "unexpected error pop-up").toHaveCount(0);
   },

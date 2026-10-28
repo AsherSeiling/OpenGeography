@@ -275,6 +275,10 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             e.save_layout(&de(a, "layout")?)?;
             json!(null)
         }
+        "list_layout_templates" => json!(e.layout_templates()),
+        "get_layout_template" => json!(e.layout_template(&s(a, "id")?)?),
+        "save_layout_template" => json!(e.save_layout_template(&s(a, "name")?, &de(a, "layout")?)?),
+        "delete_layout_template" => json!(e.delete_layout_template(&s(a, "id")?)?),
         "delete_layout" => json!(e.delete_layout(&s(a, "id")?)?),
         "render_layout_preview" => json!(e.render_layout_preview(&de(a, "req")?, f(a, "dpi")?)?),
         "export_layout" => json!(e.export_layout(&de(a, "req")?, engine::layout::ExportFormat::parse(&s(a, "format")?)?, f(a, "dpi")?, &PathBuf::from(s(a, "path")?))?),

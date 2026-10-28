@@ -153,6 +153,15 @@ export interface DisplayStatus {
   error: string | null;
 }
 
+/** A bundled or user layout template (C3.1). */
+export interface LayoutTemplate {
+  id: string;
+  name: string;
+  builtin: boolean;
+  width: number;
+  height: number;
+}
+
 /** One value of a field and its row count; NULL is "(no value)" (B6). */
 export interface SplitGroup {
   value: string;
@@ -338,6 +347,10 @@ export const api = {
   downloadElevation: (bbox: Extent, resolution: number, label: string) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
+  listLayoutTemplates: () => invoke<{ templates: LayoutTemplate[]; skipped: string[] }>("list_layout_templates"),
+  getLayoutTemplate: (id: string) => invoke<Layout>("get_layout_template", { id }),
+  saveLayoutTemplate: (name: string, layout: Layout) => invoke<LayoutTemplate>("save_layout_template", { name, layout }),
+  deleteLayoutTemplate: (id: string) => invoke<void>("delete_layout_template", { id }),
   splitGroups: (id: string, field: string) => invoke<SplitGroup[]>("split_groups", { id, field }),
   splitByAttribute: (id: string, field: string, target: SplitTarget, confirmed: boolean) => invoke<SplitResult>("split_by_attribute", { id, field, target, confirmed }),
   setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),
