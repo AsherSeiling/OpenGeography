@@ -908,7 +908,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LB3-5 | Map: contour style = OpenLayers line placement with `repeat` = spacing (≥ 40 px), curved and upright, in-line break = thick halo in the halo colour; Symbology and Labels node params produce it | | auto: vitest labels.test.ts; e2e/symbology-node.spec.ts |
 | LB3-6 | Not built: curved text in layouts (labels only where the line is nearly straight), contour labels that follow tight bends, label masks | decision D-LB3 | — |
 
-## RS — Raster symbology (2026-10-29, `docs/CARTOGRAPHY_PLAN.md`)
+## RS — Raster symbology (2026-10-29, `docs/CARTOGRAPHY_PLAN.md`; full protocol with pixel-level proof and results: `docs/CARTOGRAPHY_TEST_PROTOCOL.md`)
 | # | Case | Result | Automation |
 |---|---|---|---|
 | RS1-1 | Colour-ramp library: every ramp parses, names unique, groups Scientific/Terrain/Sequential/Diverging/Qualitative present | | auto: raster_style.rs ramps_parse_and_are_unique |
