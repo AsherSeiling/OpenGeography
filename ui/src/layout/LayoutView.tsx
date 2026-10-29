@@ -1,6 +1,7 @@
 // The Layout document tab: the page on a grey canvas, an engine-rendered
 // preview (the same renderer as the export), and an HTML overlay that selects,
 // moves and resizes elements.
+import { useLegendRows } from "./legendRows";
 import { Button, MessageBar, MessageBarBody, Tooltip } from "@fluentui/react-components";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, errorText } from "../ipc/api";
@@ -134,6 +135,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         if (mine !== seq.current) return;
         setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), labels: res.labels ?? [] });
         useLabelHits.getState().set(layout.id, res.labels ?? []);
+        useLegendRows.getState().set(layout.id, res.legendRows ?? []);
         // Edits for features that are gone are removed (the engine already ignored them).
         for (const f of new Set((res.droppedLabelEdits ?? []).map((d) => d.frame))) {
           const el = useLayouts.getState().doc?.elements.find((e) => e.id === f && e.kind === "map_frame") as MapFrame | undefined;

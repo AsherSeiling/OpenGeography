@@ -6,6 +6,7 @@ import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { displayInfo, useApp } from "../store/store";
 import { withStyleOverride } from "./labelEdits";
+import { useLegendRows, withOverride } from "./legendRows";
 import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
 import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
@@ -44,7 +45,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
       <div className="props-body stack">
         {el.kind === "map_frame" && <FrameFields el={el} set={set} />}
         {el.kind === "text" && <TextFields el={el} set={set} />}
-        {el.kind === "legend" && <LegendFields el={el} set={set} />}
+        {el.kind === "legend" && <LegendFields el={el} set={set} layout={layout} />}
         {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
         {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
         {el.kind === "sources" && <SourcesFields el={el} set={set} />}
@@ -201,13 +202,44 @@ function Choice<T extends string>({ label, value, options, onPick }: { label: st
   );
 }
 
-function LegendFields({ el, set }: { el: LegendElement; set: Set }) {
+function LegendFields({ el, set, layout }: { el: LegendElement; set: Set; layout: string }) {
+  const rows = useLegendRows((s) => s.byLayout[layout])?.filter((r) => r.legend === el.id) ?? [];
+  const edit = (key: string, patch: { label?: string; hidden?: boolean }) => set({ overrides: withOverride(el.overrides, key, patch) });
+  const custom = el.custom ?? [];
   return (
     <>
       <Field label="Title" size="small">
         <Input size="small" value={el.title} onChange={(_, d) => set({ title: d.value }, "title")} />
       </Field>
       <Num label="Columns" value={el.columns || 1} min={1} max={6} step={1} onChange={(columns) => set({ columns: Math.round(columns) }, "columns")} />
+      <Num label="Entry text size (pt, 0 = 8)" value={el.textSize ?? 0} min={0} max={24} step={0.5} decimals={1} onChange={(textSize) => set({ textSize }, "textSize")} />
+      <Choice label="Area swatch shape" value={el.patch || "square"} options={[["square", "Square"], ["rounded", "Rounded"], ["circle", "Circle"]]} onPick={(patch) => set({ patch })} />
+      <details open>
+        <summary>Entries ({rows.length})</summary>
+        <div className="props-hint">Untick to hide an entry (a layer's name hides all its entries); type to rename.</div>
+        <div className="stack">
+          {rows.map((r) => (
+            <div key={r.key} className="class-row" style={{ paddingLeft: r.layerRow ? 0 : 16 }}>
+              <Checkbox checked={!(el.overrides?.[r.key]?.hidden)} onChange={(_, d) => edit(r.key, { hidden: !d.checked })} aria-label={`Show ${r.label}`} />
+              <Input size="small" value={el.overrides?.[r.key]?.label ?? ""} placeholder={r.label} onChange={(_, d) => edit(r.key, { label: d.value })} aria-label={`Name of ${r.label}`} />
+            </div>
+          ))}
+          {!rows.length && <div className="props-hint">Entries appear once the preview has drawn.</div>}
+        </div>
+      </details>
+      <details>
+        <summary>Extra entries ({custom.length})</summary>
+        <div className="stack">
+          {custom.map((c, i) => (
+            <div key={i} className="class-row">
+              <input type="color" value={/^#[0-9a-f]{6}$/i.test(c.color) ? c.color : "#888888"} aria-label={`Colour of extra entry ${i + 1}`} onChange={(e) => set({ custom: custom.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)) })} />
+              <Input size="small" value={c.label} aria-label={`Text of extra entry ${i + 1}`} onChange={(_, d) => set({ custom: custom.map((x, j) => (j === i ? { ...x, label: d.value } : x)) })} />
+              <Button size="small" appearance="subtle" aria-label={`Remove extra entry ${i + 1}`} onClick={() => set({ custom: custom.filter((_, j) => j !== i) })}>✕</Button>
+            </div>
+          ))}
+          <Button size="small" onClick={() => set({ custom: [...custom, { label: "New entry", color: "#888888" }] })}>Add entry</Button>
+        </div>
+      </details>
     </>
   );
 }

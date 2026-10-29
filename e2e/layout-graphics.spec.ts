@@ -1,4 +1,4 @@
-import { test, expect, gis, ribbon } from "./fixtures";
+import { test, expect, gis, ribbon, addTestLayer } from "./fixtures";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -62,4 +62,27 @@ test("CG2 north arrow styles and scale bar styles from Properties", async ({ app
   expect([sb.style, sb.verbal]).toEqual(["double", true]);
   const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
   expect(out.warnings.filter((w: string) => /North arrow|Scale bar/.test(w) && !/too short|does not fit/.test(w))).toEqual([]);
+});
+
+test("CG3 legend entries: rename, hide, add an extra entry", async ({ app }) => {
+  const layer = await addTestLayer(app, "polygons", 5, [-93.1, 45.0, -92.9, 45.1]);
+  await gis(app, (g) => g.useApp.setState({ mapCrs: { id: "EPSG:26915", name: "NAD83 / UTM zone 15N" } }));
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { crs: "EPSG:26915", center: [490000, 4985000], scale: 100000, basemap: "none" }); });
+  await ribbon(app, "Layout", /^Legend$/);
+  const name = app.getByRole("textbox", { name: `Name of ${layer.name}` });
+  await expect(name).toBeVisible({ timeout: 30_000 });
+  await name.fill("Parcels");
+  await app.getByText(/^Extra entries/).click();
+  await app.getByRole("button", { name: "Add entry" }).click();
+  const lg = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "legend")) as any;
+  expect(lg.overrides[layer.id].label).toBe("Parcels");
+  expect(lg.custom).toEqual([{ label: "New entry", color: "#888888" }]);
+  await app.locator(".props").getByRole("checkbox", { name: `Show ${layer.name}` }).uncheck();
+  const lg2 = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "legend")) as any;
+  expect(lg2.overrides[layer.id]).toEqual({ label: "Parcels", hidden: true });
 });
