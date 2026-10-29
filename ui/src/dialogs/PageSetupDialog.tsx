@@ -21,6 +21,7 @@ export function PageSetupDialog({ onClose }: { onClose: () => void }) {
   const [marks, setMarks] = useState(!!doc?.page.cropMarks);
   const [bg, setBg] = useState(doc?.page.background ?? "#ffffff");
   const [author, setAuthor] = useState(doc?.author ?? "");
+  const [world, setWorld] = useState(!!doc?.worldFile);
   const [guides, setGuides] = useState<Guide[]>(doc?.guides ?? []);
   if (!doc) return null;
   const parsed = parsePageSetup(f, doc.page);
@@ -28,7 +29,7 @@ export function PageSetupDialog({ onClose }: { onClose: () => void }) {
     if ("error" in parsed) return;
     const s = useLayouts.getState();
     s.setPage({ ...parsed.page, background: bg, cropMarks: marks });
-    s.setMeta({ author, guides });
+    s.setMeta({ author, guides, worldFile: world });
     onClose();
   };
   const field = (k: keyof typeof f, label: string) => (
@@ -49,6 +50,8 @@ export function PageSetupDialog({ onClose }: { onClose: () => void }) {
               {field("bleed", "Bleed (mm)")}
             </div>
             <Checkbox label="Crop marks outside the bleed" checked={marks} onChange={(_, d) => setMarks(!!d.checked)} />
+            <Checkbox label="PNG export also writes a world file (.pgw) and .prj for the map frame" checked={world} onChange={(_, d) => setWorld(!!d.checked)} />
+            <div className="props-hint">The world file places the first map frame (not rotated, nominal scale); the rest of the page is layout. PDF exports embed their fonts as subsets and are RGB: for a print shop that needs CMYK, convert the PDF in Acrobat, Scribus or Ghostscript.</div>
             <Field label="Page background" size="small">
               <input type="color" value={/^#[0-9a-f]{6}$/i.test(bg) ? bg : "#ffffff"} onChange={(e) => setBg(e.target.value)} aria-label="Page background" />
             </Field>

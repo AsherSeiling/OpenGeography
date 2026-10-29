@@ -139,11 +139,12 @@ test("CG6 page setup, guides, snapping, spread, group and the element list", asy
   await app.getByLabel("Bleed (mm)").fill("3");
   await app.getByRole("checkbox", { name: /Crop marks/ }).check();
   await app.getByLabel(/Author/).fill("A. Mapper");
+  await app.getByRole("checkbox", { name: /world file/ }).check();
   await app.getByRole("button", { name: "Add vertical" }).click();
   await app.getByLabel("Guide 1 position").fill("100");
   await app.getByRole("button", { name: "OK" }).click();
   let d = await doc();
-  expect([d.page.bleed, d.page.cropMarks, d.author, d.guides]).toEqual([3, true, "A. Mapper", [{ axis: "x", pos: 100 }]]);
+  expect([d.page.bleed, d.page.cropMarks, d.author, d.guides, d.worldFile]).toEqual([3, true, "A. Mapper", [{ axis: "x", pos: 100 }], true]);
   await expect(app.locator('[data-guide="x:100"]')).toBeVisible();
 
   // Snapping: dragging a rectangle so its left edge ends 0.6 mm from the guide lands on it.

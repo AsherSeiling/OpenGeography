@@ -69,6 +69,9 @@ pub struct Layout {
     /// Text token `{author}`.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub author: String,
+    /// PNG export: also write a world file (`.pgw`) and `.prj` so GIS software can place the map frame's area.
+    #[serde(default, rename = "worldFile", skip_serializing_if = "std::ops::Not::not")]
+    pub world_file: bool,
     /// Editor guides (mm); the snapping targets of the Layout view.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub guides: Vec<Guide>,
