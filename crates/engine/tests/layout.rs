@@ -1529,3 +1529,67 @@ fn cg5_rich_text_and_new_tokens() {
     assert!(g.starts_with("By A. Geologist: 3 layers (pts, lines, polys) </tspan>") || g.contains("3 layers (pts, lines, polys)"), "{}", &g[..120.min(g.len())]);
     assert!(g.contains("font-weight=\"700\""), "bold run");
 }
+
+// ---------- CG7: frame clip shapes and layer shadows ----------
+
+fn set_frame(req: &mut RenderRequest, patch: serde_json::Value) {
+    let mut m = serde_json::to_value(&req.layout.elements[0]).unwrap().as_object().unwrap().clone();
+    m.extend(patch.as_object().unwrap().clone());
+    req.layout.elements[0] = serde_json::from_value(serde_json::Value::Object(m)).unwrap();
+}
+
+fn clip_of(svg: &str) -> &str {
+    let s = svg.find("<clipPath id=\"clip-f1\">").unwrap() + 23;
+    &svg[s..s + svg[s..].find("</clipPath>").unwrap()]
+}
+
+#[test]
+fn cg7_frames_can_be_ellipses_rounded_or_cut_to_a_polygon_layer() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    assert!(clip_of(&render(&e, &req).svg).starts_with("<rect"));
+    set_frame(&mut req, json!({ "clip": { "shape": "ellipse" } }));
+    let out = render(&e, &req);
+    assert!(clip_of(&out.svg).starts_with("<ellipse cx=\"112.7\" cy=\"110\" rx=\"100\" ry=\"80\""), "{}", clip_of(&out.svg));
+    assert!(out.svg.contains("<ellipse") && out.svg.matches("<ellipse").count() >= 2, "the border follows the shape");
+    set_frame(&mut req, json!({ "clip": { "shape": "rounded", "radius": 8.0 } }));
+    assert!(clip_of(&render(&e, &req).svg).contains("rx=\"8\""));
+    // The outline of the polygon layer (four squares; the last runs off the frame).
+    set_frame(&mut req, json!({ "clip": { "shape": "layer", "layer": ids[0] } }));
+    let out = render(&e, &req);
+    let c = clip_of(&out.svg);
+    assert!(c.starts_with("<path clip-rule=\"evenodd\" d=\"M") && c.matches('Z').count() >= 3, "{c}");
+    assert!(out.warnings.iter().all(|w| !w.contains("clip shape")), "{:?}", out.warnings);
+    // A line layer can't outline a frame: say so and keep the rectangle.
+    set_frame(&mut req, json!({ "clip": { "shape": "layer", "layer": ids[1] } }));
+    let out = render(&e, &req);
+    assert!(out.warnings.iter().any(|w| w.contains("is not a polygon layer")) && clip_of(&out.svg).starts_with("<rect"), "{:?}", out.warnings);
+    set_frame(&mut req, json!({ "clip": { "shape": "layer", "layer": "" } }));
+    assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("Choose the polygon layer"));
+    set_frame(&mut req, json!({ "clip": { "shape": "star" } }));
+    assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("Unknown frame shape"));
+    // PDF export of a clipped frame works.
+    set_frame(&mut req, json!({ "clip": { "shape": "layer", "layer": ids[0] } }));
+    assert!(export::svg_to_pdf(&render(&e, &req).svg).unwrap().starts_with(b"%PDF"));
+}
+
+#[test]
+fn cg7_a_layer_can_cast_a_shadow_in_layouts_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    assert!(!render(&e, &req).svg.contains("id=\"shadow-"));
+    let mut st = req.styles.get(&ids[0]).unwrap().clone();
+    st.effect = Some(serde_json::from_value(json!({ "dx": 1.0, "dy": 1.5, "color": "#222222", "opacity": 0.4 })).unwrap());
+    req.styles.insert(ids[0].clone(), st);
+    let svg = render(&e, &req).svg;
+    let s = svg.find(&format!("<g id=\"shadow-{}\"", ids[0])).expect("shadow group");
+    let l = svg.find(&format!("<g id=\"layer-{}\"", ids[0])).unwrap();
+    assert!(s < l, "the shadow is under the layer");
+    let sh = &svg[s..l];
+    assert!(sh.contains("translate(1 1.5)") && sh.contains("opacity=\"0.4\"") && sh.contains("#222222") && !sh.contains("#7aa8d8") && !sh.contains("#e6a35c"), "{sh}");
+    // Round trip: omitted when unset.
+    let v = serde_json::to_value(req.styles.get(&ids[1]).unwrap()).unwrap();
+    assert!(v.get("effect").is_none());
+}

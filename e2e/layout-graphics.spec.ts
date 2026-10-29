@@ -178,3 +178,21 @@ test("CG6 page setup, guides, snapping, spread, group and the element list", asy
   await app.locator(`.layout-outline [data-element="${ids[1]}"] input[type=checkbox]`).uncheck();
   expect((await doc()).elements.find((e: any) => e.id === ids[1]).visible).toBe(false);
 });
+
+test("CG7 frame shape from Properties and a layer shadow in the layout", async ({ app }) => {
+  const layer = await addTestLayer(app, "polygons", 4, [-93.1, 45.0, -92.9, 45.1]);
+  await gis(app, (g) => g.useApp.setState({ mapCrs: { id: "EPSG:26915", name: "NAD83 / UTM zone 15N" } }));
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { crs: "EPSG:26915", center: [490000, 4985000], scale: 100000, basemap: "none" }); });
+  await app.getByRole("combobox", { name: "Frame shape" }).click();
+  await app.getByRole("option", { name: "Outline of a polygon layer" }).click();
+  const f = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame")) as any;
+  expect(f.clip).toEqual({ shape: "layer", layer: layer.id });
+  await gis(app, (g, a: any) => g.useApp.getState().setStyle(a.id, { ...g.useApp.getState().styles[a.id], effect: { dx: 1, dy: 1, color: "#000000", opacity: 0.3 } }), { id: layer.id });
+  const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); const st = g.useApp.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: st.styles, order: st.order, visible: st.visible, project: "p", date: "2026-01-01" }, 96); }) as any;
+  expect(out.warnings.filter((w: string) => /clip shape|polygon layer/.test(w))).toEqual([]);
+});

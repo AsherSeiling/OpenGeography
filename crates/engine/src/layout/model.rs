@@ -241,6 +241,9 @@ pub enum Element {
         /// Label edits made in this layout only, by layer id (L3).
         #[serde(default, rename = "labelOverrides", skip_serializing_if = "BTreeMap::is_empty")]
         label_overrides: BTreeMap<String, LabelOverrides>,
+        /// Cut the frame to a shape other than its rectangle.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        clip: Option<FrameClip>,
         /// Overview/inset: draw the extent of another map frame on this one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         indicator: Option<ExtentIndicator>,
@@ -509,6 +512,14 @@ impl Layout {
                 }
                 super::shapes::check_picture(source)?;
             }
+            if let Element::MapFrame { clip: Some(c), .. } = e {
+                if !matches!(c.shape.as_str(), "ellipse" | "rounded" | "layer") {
+                    bail!("Unknown frame shape '{}' (ellipse, rounded or layer)", c.shape);
+                }
+                if c.shape == "layer" && c.layer.is_empty() {
+                    bail!("Choose the polygon layer that outlines map frame '{}'", a.id);
+                }
+            }
             if let Element::MapFrame { indicator: Some(ind), .. } = e {
                 if ind.frame == a.id {
                     bail!("Map frame '{}' cannot show its own extent; choose another frame", a.id);
@@ -600,6 +611,9 @@ pub struct LayerStyle {
     /// Feature labels (L1); layouts draw them from L2 on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<LabelStyle>,
+    /// Layout-only effects: a drop shadow behind the layer's drawing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect: Option<LayerEffect>,
     /// Raster symbology; the layout draws rasters exactly as the map does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raster: Option<crate::raster_style::RasterStyle>,
@@ -643,6 +657,46 @@ pub struct LegendCustom {
     pub label: String,
     #[serde(default)]
     pub color: String,
+}
+
+/// A drop shadow under a layer in print layouts (QGIS "Draw effects → Drop shadow"; a solid offset copy, since blur is not reliable in PDF).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LayerEffect {
+    /// Offset right and down, mm.
+    #[serde(default = "shadow_dx")]
+    pub dx: f64,
+    #[serde(default = "shadow_dx")]
+    pub dy: f64,
+    #[serde(default = "shadow_color")]
+    pub color: String,
+    /// 0–1.
+    #[serde(default = "shadow_opacity")]
+    pub opacity: f64,
+}
+
+fn shadow_dx() -> f64 {
+    0.8
+}
+fn shadow_color() -> String {
+    "#000000".into()
+}
+fn shadow_opacity() -> f64 {
+    0.35
+}
+
+/// How a map frame is cut out of the page (QGIS "Clip to atlas feature" / ArcGIS "Clip layout frame").
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FrameClip {
+    /// "ellipse" | "rounded" | "layer" (the outline of a polygon layer).
+    pub shape: String,
+    /// "rounded": corner radius, mm.
+    #[serde(default)]
+    pub radius: f64,
+    /// "layer": the polygon layer whose union is the frame's outline.
+    #[serde(default)]
+    pub layer: String,
 }
 
 /// Label edits of one layer in one map frame (L3): a partial style for this layout only, and per-feature edits keyed by `__fid`.
@@ -820,6 +874,7 @@ impl Default for LayerStyle {
             breaks: None,
             colors: None,
             label: None,
+            effect: None,
             raster: None,
         }
     }

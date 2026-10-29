@@ -56,6 +56,7 @@ Order: RS 1→2→3 first (everything else in RS builds on them), then CG 1, 2, 
 - [x] RS7 rs-legend-io (2026-10-29): raster legends in layouts (colour bar, classes, unique values), style save/load files. Project-level presets = the per-layer style saved in the project plus "apply symbology" on multi-selected layers; a named preset library is not built.
 
 CG tasks:
+- [x] CG7 cg-frame-clip (2026-10-29): frame shapes (ellipse, rounded, polygon-layer outline), layer drop shadow. Blur effects deferred (PDF).
 - [x] CG6 cg-page-guides (2026-10-29): Page Setup (size, margin, bleed, crop marks, background, author), guides + snapping, distribute/same size/group, element list. Deferred: smart-guide lines while dragging, rubber-band selection.
 - [x] CG5 cg-text-table-chart (2026-10-29): table and chart elements (Okabe–Ito colours), rich text (bold/italic), tokens author/layer_count/layer_names. Deferred: spatially filtered tables, paging, text auto-wrap.
 - [x] CG4 cg-overview (2026-10-29): overview/inset frame with extent indicator (outline, optional fill), any projection. The indicator shows the other frame's window; rotated target frames are drawn axis-aligned in their own CRS (the whole frame rotates with its content).
