@@ -126,3 +126,55 @@ test("CG5 table and chart elements from a layer's attributes", async ({ app }) =
   const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: { ...s.doc, author: "Me" }, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
   expect(out.warnings.filter((w: string) => /Table|Chart/.test(w))).toEqual([]);
 });
+
+test("CG6 page setup, guides, snapping, spread, group and the element list", async ({ app }) => {
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  const doc = () => gis(app, (g) => g.useLayouts.getState().doc) as Promise<any>;
+
+  // Page Setup: bleed, crop marks, author and a vertical guide.
+  await app.locator(".rbtn", { hasText: /Page Setup/ }).click();
+  await app.getByLabel("Bleed (mm)").fill("3");
+  await app.getByRole("checkbox", { name: /Crop marks/ }).check();
+  await app.getByLabel(/Author/).fill("A. Mapper");
+  await app.getByRole("button", { name: "Add vertical" }).click();
+  await app.getByLabel("Guide 1 position").fill("100");
+  await app.getByRole("button", { name: "OK" }).click();
+  let d = await doc();
+  expect([d.page.bleed, d.page.cropMarks, d.author, d.guides]).toEqual([3, true, "A. Mapper", [{ axis: "x", pos: 100 }]]);
+  await expect(app.locator('[data-guide="x:100"]')).toBeVisible();
+
+  // Snapping: dragging a rectangle so its left edge ends 0.6 mm from the guide lands on it.
+  await ribbon(app, "Layout", /^Rectangle$/);
+  const id = d.elements.length ? d.elements[0].id : (await doc()).elements[0].id;
+  const el = app.locator(`[data-el="${id}"]`);
+  const page = await app.locator(".layout-page").boundingBox();
+  const z = page!.width / d.page.width;
+  const b = (await el.boundingBox())!;
+  const startX = (await doc()).elements[0].x;
+  const wantDx = (100.6 - startX) * z;
+  await app.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await app.mouse.down();
+  await app.mouse.move(b.x + b.width / 2 + wantDx, b.y + b.height / 2, { steps: 6 });
+  await app.mouse.up();
+  expect((await doc()).elements[0].x).toBe(100);
+
+  // Three shapes: spread them, group them, and the element list shows the group.
+  await ribbon(app, "Layout", /^Ellipse$/);
+  await ribbon(app, "Layout", /^Triangle$/);
+  d = await doc();
+  const ids: string[] = d.elements.map((e: any) => e.id);
+  await gis(app, (g, a: any) => { const s = g.useLayouts.getState(); s.update(a.ids[0], { x: 10, y: 10, w: 20, h: 10 }); s.update(a.ids[1], { x: 40, y: 10, w: 20, h: 10 }); s.update(a.ids[2], { x: 150, y: 10, w: 20, h: 10 }); s.select(a.ids); s.distribute("horizontal"); }, { ids });
+  d = await doc();
+  expect(d.elements.map((e: any) => e.x)).toEqual([10, 80, 150]);
+  await gis(app, (g) => g.useLayouts.getState().group());
+  d = await doc();
+  expect(new Set(d.elements.map((e: any) => e.group)).size).toBe(1);
+  await gis(app, (g, a: any) => g.useLayouts.getState().select([a.id]), { id: ids[0] });
+  expect((await gis(app, (g) => g.useLayouts.getState().selected)) as string[]).toHaveLength(3);
+  await expect(app.locator(".layout-outline .row")).toHaveCount(3);
+  await app.locator(`.layout-outline [data-element="${ids[1]}"] input[type=checkbox]`).uncheck();
+  expect((await doc()).elements.find((e: any) => e.id === ids[1]).visible).toBe(false);
+});

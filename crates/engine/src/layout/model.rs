@@ -69,6 +69,9 @@ pub struct Layout {
     /// Text token `{author}`.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub author: String,
+    /// Editor guides (mm); the snapping targets of the Layout view.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guides: Vec<Guide>,
     #[serde(default)]
     pub elements: Vec<Element>,
     /// Map series (C3.2): see [`super::series::SeriesSpec`].
@@ -86,6 +89,20 @@ pub struct Page {
     pub margin: f64,
     #[serde(default = "white")]
     pub background: String,
+    /// Print bleed, mm (0–10): the page background and anything placed past the trim extends this far.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub bleed: f64,
+    /// Draw crop (trim) marks outside the bleed.
+    #[serde(default, rename = "cropMarks", skip_serializing_if = "std::ops::Not::not")]
+    pub crop_marks: bool,
+}
+
+/// An alignment guide in the layout editor; not drawn in exports.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct Guide {
+    /// "x" (vertical line at x mm) or "y" (horizontal line at y mm).
+    pub axis: String,
+    pub pos: f64,
 }
 
 fn mm() -> String {
@@ -110,6 +127,9 @@ pub struct Placement {
     /// Background, frame and drop shadow under the element.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decor: Option<Decor>,
+    /// Elements with the same group id are selected and moved together in the editor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 /// Background, frame and shadow of any layout element (QGIS item "Background / Frame / Drop shadow"; ArcGIS Pro element background, border, shadow).
@@ -447,6 +467,9 @@ impl Layout {
         super::geo::Body::get(&self.body)?;
         if self.page.units != "mm" {
             bail!("Page units must be \"mm\" (got \"{}\")", self.page.units);
+        }
+        if !(0.0..=10.0).contains(&self.page.bleed) {
+            bail!("Bleed must be between 0 and 10 mm");
         }
         if !(self.page.width.is_finite() && self.page.height.is_finite() && self.page.width > 0.0 && self.page.height > 0.0) {
             bail!("Page size must be positive");

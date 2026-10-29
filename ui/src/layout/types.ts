@@ -10,6 +10,10 @@ export interface Page {
   units: "mm";
   margin: number;
   background: string;
+  /** Print bleed, mm (0–10). */
+  bleed?: number;
+  /** Crop marks outside the bleed. */
+  cropMarks?: boolean;
 }
 
 export interface Placement {
@@ -21,6 +25,8 @@ export interface Placement {
   rotation: number;
   locked: boolean;
   visible: boolean;
+  /** Elements with the same group id are selected and moved together. */
+  group?: string;
   /** Background, frame and drop shadow under any element. */
   decor?: Decor;
 }
@@ -34,6 +40,11 @@ export interface Decor {
   shadow?: boolean;
   /** mm, right and down. */
   shadowOffset?: number;
+}
+
+export interface Guide {
+  axis: "x" | "y";
+  pos: number;
 }
 
 export interface Border {
@@ -261,6 +272,8 @@ export interface Layout {
   page: Page;
   /** Text token {author}. */
   author?: string;
+  /** Editor guides, mm; snapping targets (not drawn in exports). */
+  guides?: Guide[];
   elements: LayoutElement[];
   series: SeriesSpec | null;
 }

@@ -182,7 +182,7 @@ mod tests {
     use super::*;
 
     fn at() -> Placement {
-        Placement { id: "s1".into(), x: 10.0, y: 20.0, w: 40.0, h: 20.0, rotation: 0.0, locked: false, visible: true, decor: None }
+        Placement { id: "s1".into(), x: 10.0, y: 20.0, w: 40.0, h: 20.0, rotation: 0.0, locked: false, visible: true, decor: None, group: None }
     }
 
     fn style(shape: &str) -> ShapeStyle<'_> {

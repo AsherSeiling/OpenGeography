@@ -173,13 +173,43 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     let mut dropped_label_edits = Vec::new();
     let mut legend_rows = Vec::new();
     let mut s = String::new();
+    // Bleed and crop marks: the SVG grows past the trim; the page background fills the bleed.
+    let bleed = p.bleed.clamp(0.0, 10.0);
+    let outer = bleed + if p.crop_marks { 10.0 } else { 0.0 };
+    let (tw, th) = (p.width + 2.0 * outer, p.height + 2.0 * outer);
     let _ = write!(
         s,
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}mm\" height=\"{h}mm\" viewBox=\"0 0 {w} {h}\"><rect width=\"{w}\" height=\"{h}\" fill=\"{}\"/>",
-        svg::color(&p.background, "#ffffff"),
-        w = svg::mm(p.width),
-        h = svg::mm(p.height)
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{tw}mm\" height=\"{th}mm\" viewBox=\"{vx} {vx} {tw} {th}\">",
+        tw = svg::mm(tw),
+        th = svg::mm(th),
+        vx = svg::mm(-outer)
     );
+    if outer > bleed {
+        let _ = write!(s, "<rect x=\"{o}\" y=\"{o}\" width=\"{tw}\" height=\"{th}\" fill=\"#ffffff\"/>", o = svg::mm(-outer), tw = svg::mm(tw), th = svg::mm(th));
+    }
+    if bleed == 0.0 {
+        let _ = write!(s, "<rect width=\"{}\" height=\"{}\" fill=\"{}\"/>", svg::mm(p.width), svg::mm(p.height), svg::color(&p.background, "#ffffff"));
+    } else {
+        let _ = write!(
+            s,
+            "<rect x=\"{b}\" y=\"{b}\" width=\"{w}\" height=\"{h}\" fill=\"{}\"/>",
+            svg::color(&p.background, "#ffffff"),
+            b = svg::mm(-bleed),
+            w = svg::mm(p.width + 2.0 * bleed),
+            h = svg::mm(p.height + 2.0 * bleed)
+        );
+    }
+    if p.crop_marks {
+        // Trim marks sit outside the bleed: 5 mm long, starting 1.5 mm beyond it.
+        let (g0, g1) = (bleed + 1.5, bleed + 6.5);
+        let _ = write!(s, "<path id=\"crop-marks\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.25\" d=\"");
+        for (cx, sx) in [(0.0, -1.0), (p.width, 1.0)] {
+            for (cy, sy) in [(0.0, -1.0), (p.height, 1.0)] {
+                let _ = write!(s, "M{} {}L{} {}M{} {}L{} {}", svg::mm(cx + sx * g0), svg::mm(cy), svg::mm(cx + sx * g1), svg::mm(cy), svg::mm(cx), svg::mm(cy + sy * g0), svg::mm(cx), svg::mm(cy + sy * g1));
+            }
+        }
+        s.push_str("\"/>");
+    }
     // Frames first: legends, scale bars and arrows read what each one drew.
     let mut frames: HashMap<&str, (String, surround::FrameCtx)> = HashMap::new();
     for e in layout.elements.iter().filter(|e| e.at().visible) {

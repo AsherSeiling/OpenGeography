@@ -2,6 +2,7 @@
 // preview (the same renderer as the export), and an HTML overlay that selects,
 // moves and resizes elements.
 import { useLegendRows } from "./legendRows";
+import { snapMove, snapTargets } from "./snap";
 import { Button, MessageBar, MessageBarBody, Tooltip } from "@fluentui/react-components";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, errorText } from "../ipc/api";
@@ -160,6 +161,16 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   }, [selected, layout.id]);
 
   const activate = () => useLayouts.getState().open(layout.id);
+  // A drag from a ruler onto the page drops a guide where it is released (CG6); dropping outside the page makes none.
+  const addGuide = (axis: "x" | "y", cx: number, cy: number) => {
+    const r = pageEl.current?.getBoundingClientRect();
+    if (!r) return;
+    const mm = Math.round(((axis === "x" ? cx - r.left : cy - r.top) / z) * 10) / 10;
+    const max = axis === "x" ? layout.page.width : layout.page.height;
+    if (mm < 0 || mm > max) return;
+    activate();
+    store().setMeta({ guides: [...(layout.guides ?? []), { axis, pos: mm }] });
+  };
   const store = useLayouts.getState;
 
   // Drag to move or resize; the whole gesture is one undo step.
@@ -178,9 +189,16 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     const end = beginStep();
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
+    // Snap the dragged box (all moved elements as one box) to guides, page lines and the other elements; Alt turns it off.
+    const boxes = Object.values(start);
+    const union = boxes.length
+      ? { x: Math.min(...boxes.map((b) => b.x)), y: Math.min(...boxes.map((b) => b.y)), w: Math.max(...boxes.map((b) => b.x + b.w)) - Math.min(...boxes.map((b) => b.x)), h: Math.max(...boxes.map((b) => b.y + b.h)) - Math.min(...boxes.map((b) => b.y)) }
+      : null;
+    const targets = snapTargets(layout.page, layout.guides ?? [], (store().doc?.elements ?? []).filter((x) => x.visible && !(x.id in start)));
     const move = (m: PointerEvent) => {
-      const dx = (m.clientX - x0) / z;
-      const dy = (m.clientY - y0) / z;
+      let dx = (m.clientX - x0) / z;
+      let dy = (m.clientY - y0) / z;
+      if (union && !m.altKey) ({ dx, dy } = snapMove(union, dx, dy, targets, 5 / z, handle));
       for (const [id, b] of Object.entries(start)) {
         store().update(id, handle ? resized(b, handle, dx, dy) : { x: round(b.x + dx), y: round(b.y + dy) });
       }
@@ -271,8 +289,8 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       )}
       <div className="layout-stage" style={{ gridTemplateColumns: `${RULER_PX}px 1fr`, gridTemplateRows: `${RULER_PX}px 1fr` }}>
         <div className="ruler-corner" />
-        <div className="ruler-box" data-testid="ruler-h"><Ruler vertical={false} length={org.w} origin={org.x} zoom={z} /></div>
-        <div className="ruler-box" data-testid="ruler-v"><Ruler vertical length={org.h} origin={org.y} zoom={z} /></div>
+        <div className="ruler-box" data-testid="ruler-h"><Ruler vertical={false} length={org.w} origin={org.x} zoom={z} onGuide={(cx, cy) => addGuide("y", cx, cy)} /></div>
+        <div className="ruler-box" data-testid="ruler-v"><Ruler vertical length={org.h} origin={org.y} zoom={z} onGuide={(cx, cy) => addGuide("x", cx, cy)} /></div>
       <div
         className="layout-canvas"
         ref={wrap}
@@ -285,6 +303,9 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         }}
       >
         <div className="layout-page" ref={pageEl} style={{ width: page.width * z, height: page.height * z, background: page.background }}>
+          {(layout.guides ?? []).map((g, i) => (
+            <div key={i} className={`layout-guide ${g.axis}`} data-guide={`${g.axis}:${g.pos}`} style={g.axis === "x" ? { left: g.pos * z } : { top: g.pos * z }} title={`Guide at ${g.pos} mm (double-click to remove)`} onDoubleClick={() => store().setMeta({ guides: (layout.guides ?? []).filter((_, j) => j !== i) })} />
+          ))}
           {preview && <img className="layout-img" src={preview.src} alt="" draggable={false} />}
           {layout.elements.length === 0 && <div className="layout-empty">Insert a Map Frame or Text from the Layout tab.</div>}
           {sorted.map((el) => {

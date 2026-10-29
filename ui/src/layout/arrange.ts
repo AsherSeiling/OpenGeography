@@ -45,3 +45,44 @@ export function alignPatches(elements: LayoutElement[], ids: string[], op: Align
   }
   return out;
 }
+
+export type DistributeAxis = "horizontal" | "vertical";
+
+/** Spread three or more selected, unlocked elements so the gaps between them are equal; the outermost two stay put. */
+export function distributePatches(elements: LayoutElement[], ids: string[], axis: DistributeAxis): Record<string, { x?: number; y?: number }> {
+  const sel = new Set(ids);
+  const t = elements.filter((e) => sel.has(e.id) && !e.locked);
+  if (t.length < 3) return {};
+  const h = axis === "horizontal";
+  const pos = (e: LayoutElement) => (h ? e.x : e.y);
+  const len = (e: LayoutElement) => (h ? e.w : e.h);
+  const sorted = [...t].sort((a, b) => pos(a) - pos(b));
+  const start = pos(sorted[0]);
+  const end = Math.max(...sorted.map((e) => pos(e) + len(e)));
+  const gap = (end - start - sorted.reduce((n, e) => n + len(e), 0)) / (sorted.length - 1);
+  const out: Record<string, { x?: number; y?: number }> = {};
+  let at = start;
+  for (const e of sorted) {
+    const v = r1(at);
+    if (v !== pos(e)) out[e.id] = h ? { x: v } : { y: v };
+    at += len(e) + gap;
+  }
+  return out;
+}
+
+/** Make the selected elements as wide / tall as the first-selected one (or the largest if none is first). */
+export function sizePatches(elements: LayoutElement[], ids: string[], dim: "w" | "h"): Record<string, { w?: number; h?: number }> {
+  const sel = new Set(ids);
+  const t = ids.map((id) => elements.find((e) => e.id === id)).filter((e): e is LayoutElement => !!e && sel.has(e.id));
+  if (t.length < 2) return {};
+  const v = t[0][dim];
+  const out: Record<string, { w?: number; h?: number }> = {};
+  for (const e of t.slice(1)) if (!e.locked && e[dim] !== v) out[e.id] = { [dim]: v };
+  return out;
+}
+
+/** `ids` plus everyone who shares a group with any of them. */
+export function withGroupMates(elements: LayoutElement[], ids: string[]): string[] {
+  const groups = new Set(elements.filter((e) => ids.includes(e.id) && e.group).map((e) => e.group));
+  return elements.filter((e) => ids.includes(e.id) || (e.group && groups.has(e.group))).map((e) => e.id);
+}
