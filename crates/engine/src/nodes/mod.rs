@@ -21,6 +21,7 @@ mod layer_output;
 mod raster_tools;
 mod qgis_vector;
 mod qgis_raster;
+mod raster_ops_tools;
 mod project;
 mod spatial_join;
 mod collect;
@@ -525,6 +526,15 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(qgis_raster::Ruggedness),
         Box::new(qgis_raster::Warp),
         Box::new(qgis_raster::Polygonize),
+        Box::new(raster_ops_tools::Calc1),
+        Box::new(raster_ops_tools::Calc2),
+        Box::new(raster_ops_tools::Reclassify),
+        Box::new(raster_ops_tools::NoData),
+        Box::new(raster_ops_tools::SelectBands),
+        Box::new(raster_ops_tools::ResampleRaster),
+        Box::new(raster_ops_tools::AlignRaster),
+        Box::new(raster_ops_tools::MosaicRasters),
+        Box::new(raster_ops_tools::Rasterize),
         Box::new(qgis_raster::SampleRaster),
         Box::new(qgis_raster::ZonalStatistics),
         Box::new(layer_output::LayerOutput),

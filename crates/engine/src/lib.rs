@@ -5,6 +5,7 @@ pub mod attrs;
 pub mod catalog;
 pub mod crs;
 pub mod arcgis;
+pub mod raster_ops;
 pub mod jsonapis;
 pub mod ogcapi;
 pub mod overture;

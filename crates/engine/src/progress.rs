@@ -41,6 +41,11 @@ pub(crate) fn cancel_arg() -> *mut std::ffi::c_void {
     RUN_CANCEL.with(|c| c.borrow().as_ref().map_or(std::ptr::null_mut(), |f| std::sync::Arc::as_ptr(f) as *mut std::ffi::c_void))
 }
 
+/// True when the model run on this thread has been cancelled (for loops that do their own raster work between GDAL calls).
+pub fn run_cancelled() -> bool {
+    RUN_CANCEL.with(|c| c.borrow().as_ref().is_some_and(|f| f.load(std::sync::atomic::Ordering::Relaxed)))
+}
+
 /// Error message used when a task stops because the user cancelled it.
 pub const CANCELLED: &str = "Cancelled";
 

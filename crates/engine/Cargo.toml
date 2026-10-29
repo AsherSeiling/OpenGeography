@@ -30,6 +30,8 @@ pdf-writer = "0.12"
 ttf-parser = "0.25"
 resvg = { version = "0.45", default-features = false, features = ["text", "raster-images"] }
 geographiclib-rs = "0.2.7"
+# Raster calculator expressions (MIT).
+fasteval = "0.2"
 
 [dev-dependencies]
 tempfile = "3"

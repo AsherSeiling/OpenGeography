@@ -171,7 +171,7 @@ Needed by the Topo Map Builder (C4) and by planetary terrain work (F2).
 |---|---|---|
 | E1. Raster calculator, reclassify, NoData tools, band select | 2 | |
 | E2. Resample/align, mosaic, rasterize | 2 | Same cancellation/progress rules as existing GDAL steps. |
-| E3. Make gdaldem steps cancellable (known issue 1) | 1 | Run them in a child process or chunk by tiles. |
+| E3. Make gdaldem steps cancellable (known issue 1) | 1 | ✅ 2026-10-29: gdaldem already stopped through GDAL's progress hook; overviews now do too; every raster step has a cancel test (`raster_cancel.rs`). |
 
 **Total:** 4–5 sessions.
 

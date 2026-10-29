@@ -65,6 +65,11 @@ fn cstr(s: &str) -> Result<CString> {
     Ok(CString::new(s)?)
 }
 
+/// `argv` for the other raster modules.
+pub(crate) fn argv_pub(args: &[String]) -> Result<CslStringList> {
+    argv(args)
+}
+
 fn argv(args: &[String]) -> Result<CslStringList> {
     let mut l = CslStringList::new();
     for a in args {
@@ -328,16 +333,23 @@ pub fn import(src_path: &Path) -> Result<PathBuf> {
 }
 
 pub fn build_overviews(path: &Path) -> Result<()> {
-    let mut ds = Dataset::open_ex(path, gdal::DatasetOptions { open_flags: gdal::GdalOpenFlags::GDAL_OF_UPDATE | gdal::GdalOpenFlags::GDAL_OF_RASTER, ..Default::default() })?;
+    let ds = Dataset::open_ex(path, gdal::DatasetOptions { open_flags: gdal::GdalOpenFlags::GDAL_OF_UPDATE | gdal::GdalOpenFlags::GDAL_OF_RASTER, ..Default::default() })?;
     let (w, h) = ds.raster_size();
-    let mut levels = Vec::new();
+    let mut levels: Vec<i32> = Vec::new();
     let mut f = 2;
     while w.max(h) / f >= 256 {
         levels.push(f as i32);
         f *= 2;
     }
-    if !levels.is_empty() {
-        ds.build_overviews("AVERAGE", &levels, &[])?;
+    if levels.is_empty() {
+        return Ok(());
+    }
+    // Through the C API so a model run's Cancel stops it between blocks (E3): the gdal crate's wrapper has no progress hook.
+    let method = cstr("AVERAGE")?;
+    // SAFETY: `ds` outlives the call; `levels` holds `levels.len()` ints.
+    let rc = unsafe { gdal_sys::GDALBuildOverviews(ds.c_dataset(), method.as_ptr(), levels.len() as i32, levels.as_mut_ptr(), 0, null_mut(), Some(gdal_progress), crate::progress::cancel_arg()) };
+    if rc != gdal_sys::CPLErr::CE_None {
+        return Err(last_error("Building overviews"));
     }
     Ok(())
 }

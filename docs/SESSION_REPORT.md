@@ -10,7 +10,7 @@ Standing orders: finish R → E; **no GitHub CI until all phases are done** (pus
 | 2 | R8 world view: world-mode display tables, graticule / outline / standard-parallel layers, bundled Natural Earth 110m outline, projection builder | R-W cases automated | **done** (R-W10 colouring, R-W11 perf deferred) |
 | 3 | R7 prep + **local macOS build** (`package-macos.sh`, `--self-test`, copy `.app` + DMG, `cargo clean`) | build runs, self-test passes | **done** (self-test OK after fixing P-1; `cargo clean` at session end) |
 | 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | **D0–D6 done** (WMS/WMTS and NASA POWER deferred) |
-| 5 | Phase E: E1 raster calculator/reclassify/NoData/band select, E2 resample/align/mosaic/rasterize, E3 cancellable gdaldem | tests per tool, added to the CRS matrix guard | planned |
+| 5 | Phase E: E1 raster calculator/reclassify/NoData/band select, E2 resample/align/mosaic/rasterize, E3 cancellable gdaldem | tests per tool, added to the CRS matrix guard | **done** |
 | 6 | Bookkeeping at each block: TEST_PLAN, TEST_PLAN_FULL, DECISIONS, BUGS, PROJECT_STATUS, roadmap, Claude Doc rows | docs match code | continuous |
 
 Rule per block: acceptance criteria → smallest change → focused tests → broader tests → commit on `claude/<task>` → merge `--no-ff` with `[skip ci]`.
@@ -50,6 +50,9 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 **D3–D6 — more public data**
 - Data → Imagery & DEM (STAC): Sentinel-2 and Copernicus DEM scenes searched by area, date and cloud cover, clipped from the cloud; Overture Maps (buildings, places, roads, water, land use, boundaries); OGC API Features (USGS Water Data sites or a pasted service); Earthquakes & Soils (USGS catalog, SSURGO map units).
 
+**E1–E3 — Raster foundation**
+- Nine new model nodes (Raster tab of Shift+A): Raster Calculator (one or two rasters, A and B), Reclassify, NoData Cells (treat a value as no data / give no-data cells a value / fill by interpolation), Select Bands, Resample, Align (onto another raster's grid), Mosaic, Rasterize (vector to raster). Calculator streams in blocks; all stop on Cancel.
+
 **Packaging**
 - The packaged macOS app now carries the NOAA NADCON datum grids (bug P-1, found by the start-up datum check).
 
@@ -86,6 +89,7 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 | D4 Overture | `overture.rs` (GeoParquet over HTTP, httpfs) | — | `overture.spec.ts` |
 | D5 OGC API | `ogcapi.rs` (mock service with paging) | — | `ogc.spec.ts` |
 | D6 quakes + soils | `jsonapis.rs` (mock services) | — | `hazards.spec.ts` |
+| E1–E3 rasters | `raster_ops.rs`, `raster_nodes.rs`, `raster_cancel.rs` | — | `raster-tools.spec.ts` |
 | R8 world view | `world_view.rs` (grid, cut, densify, reference lines, outline) | `crs/projectionBuilder.test.ts` | `world.spec.ts` |
 | R6 CRS UI | `crs_identity.rs` (`crs_info_*`, `map_factors_*`), `crs_ui.rs` (Tissot, statement, same_crs) | `statusbar/statusBar.test.ts`, `dialogs/crsRecents.test.ts` | `crs-ui.spec.ts` |
 
