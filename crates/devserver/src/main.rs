@@ -221,6 +221,20 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             }
             json!(l)
         }
+        "earthquakes_import" => {
+            let l = e.earthquakes_import(de(a, "bbox")?, a["start"].as_str(), a["end"].as_str(), f(a, "minMag")?, &s(a, "label")?)?;
+            if let Some(x) = &l {
+                let _ = e.prewarm(&x.id, 8, &[]);
+            }
+            json!(l)
+        }
+        "ssurgo_import" => {
+            let l = e.ssurgo_import(de(a, "bbox")?, &s(a, "label")?)?;
+            if let Some(x) = &l {
+                let _ = e.prewarm(&x.id, 8, &[]);
+            }
+            json!(l)
+        }
         "arcgis_catalog" => json!(engine::arcgis::catalog()),
         "arcgis_layers" => json!(engine::arcgis::describe_service(&s(a, "url")?)?),
         "arcgis_import" => {

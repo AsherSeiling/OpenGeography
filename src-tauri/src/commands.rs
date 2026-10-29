@@ -709,3 +709,21 @@ pub async fn ogc_import(engine: Eng<'_>, spec: engine::ogcapi::Spec, bbox: [f64;
     }
     Ok(info)
 }
+
+#[tauri::command]
+pub async fn earthquakes_import(engine: Eng<'_>, bbox: [f64; 4], start: Option<String>, end: Option<String>, min_mag: f64, label: String) -> Res<Option<LayerInfo>> {
+    let info = blocking(&engine, move |e| e.earthquakes_import(bbox, start.as_deref(), end.as_deref(), min_mag, &label)).await?;
+    if let Some(i) = &info {
+        prewarm(&engine, vec![i.id.clone()]);
+    }
+    Ok(info)
+}
+
+#[tauri::command]
+pub async fn ssurgo_import(engine: Eng<'_>, bbox: [f64; 4], label: String) -> Res<Option<LayerInfo>> {
+    let info = blocking(&engine, move |e| e.ssurgo_import(bbox, &label)).await?;
+    if let Some(i) = &info {
+        prewarm(&engine, vec![i.id.clone()]);
+    }
+    Ok(info)
+}

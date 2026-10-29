@@ -263,3 +263,7 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 
 ### D5 — OGC API – Features
 - A small client: `/collections` (those with an items link), `/collections/{id}/items?bbox=…&limit=1000`, `next` links followed (relative hrefs resolved against the host), GeoJSON turned into a layer through the existing importer. 200 000 features at most. The USGS Water Data API (verified live) is the one catalog entry; other services are a pasted address with a citation stub. Time series (EDR, `continuous`, `daily`) are tables, not map features, and are not offered here.
+
+### D6 — JSON APIs and soils
+- Built: USGS earthquakes (FDSN GeoJSON; Oklahoma-size queries stay under the 20 000-event limit, larger ones are told to narrow) and NRCS SSURGO map units through Soil Data Access (polygon intersection query; area limited to 0.25° because the polygons are large). Both verified against the live services.
+- Not built, on purpose: **WMS/WMTS display** (a new map layer type in the OpenLayers view with its own CRS and legend handling: its own task, and the layout renderer would need to print it) and **NASA POWER** (a time series for a point, a table rather than a map layer; it belongs with the future table/chart tools). The ribbon has no placeholder for either.

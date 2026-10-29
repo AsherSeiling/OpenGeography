@@ -784,3 +784,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | D5-4 | Errors | empty area → no layer; HTTP 400 with the service's message; 503 retried then "isn't responding"; 404 collection; odd collection name; missing choice | auto: ogcapi::d5_empty_areas… |
 | D5-5 | Real service | USGS Water Data monitoring locations near Norman, OK | ignored network: ogcapi::d5_real… (passes) |
 | D5-6 | Dialog | catalog, source and licence before download; bad address explained; Download disabled until a collection is chosen | auto: e2e/ogc.spec.ts |
+
+## D6. Earthquakes and soils (phase D6)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| D6-1 | Earthquakes | box, dates and smallest magnitude sent; times as dates; depth kept; cited | auto: jsonapis::d6_earthquakes… |
+| D6-2 | Earthquake inputs and failures | no events → no layer; bad dates/magnitude/area refused before any request; HTTP 400 text shown; 20 000+ events asks for a smaller query; not GeoJSON; unreachable | auto: jsonapis::d6_earthquake_inputs… |
+| D6-3 | Soil map units | polygon query to Soil Data Access; mukey, symbol, name; cited | auto: jsonapis::d6_soil_map_units… |
+| D6-4 | Soil refusals | area over 0.25° refused before any request; empty body = nothing there; bad table; HTTP 500 | auto: jsonapis::d6_soil_refusals… |
+| D6-5 | Real services | Oklahoma magnitude 3+ since 2024; soil units in Norman | ignored network: jsonapis::d6_real_services (passes) |
+| D6-6 | Dialog | soils blocked for a large area, quake date errors explained | auto: e2e/hazards.spec.ts |
+| D6-7 | WMS / WMTS display, NASA POWER | not built (see DECISIONS D6) | deferred |

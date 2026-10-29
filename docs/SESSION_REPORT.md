@@ -9,7 +9,7 @@ Standing orders: finish R → E; **no GitHub CI until all phases are done** (pus
 | 1 | R6 leftovers: Tissot layer, layer source panel, layout `{datum}`/`{units}` tokens, picker recents | R-H9, R-H10, R-H11, R-I5 automated | **done** (area-of-use data chip left, G15) |
 | 2 | R8 world view: world-mode display tables, graticule / outline / standard-parallel layers, bundled Natural Earth 110m outline, projection builder | R-W cases automated | **done** (R-W10 colouring, R-W11 perf deferred) |
 | 3 | R7 prep + **local macOS build** (`package-macos.sh`, `--self-test`, copy `.app` + DMG, `cargo clean`) | build runs, self-test passes | **done** (self-test OK after fixing P-1; `cargo clean` at session end) |
-| 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | **D0, D1, D2 done**; D3–D6 not started |
+| 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | **D0–D6 done** (WMS/WMTS and NASA POWER deferred) |
 | 5 | Phase E: E1 raster calculator/reclassify/NoData/band select, E2 resample/align/mosaic/rasterize, E3 cancellable gdaldem | tests per tool, added to the CRS matrix guard | planned |
 | 6 | Bookkeeping at each block: TEST_PLAN, TEST_PLAN_FULL, DECISIONS, BUGS, PROJECT_STATUS, roadmap, Claude Doc rows | docs match code | continuous |
 
@@ -47,6 +47,9 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 **D2 — Census Data**
 - Data → Census Data: ACS 5-year/1-year and 2020 Census values joined by GEOID to the active layer as a new layer; API key kept in the OS keychain (Tauri shell only); suppressed values stored as no value and counted.
 
+**D3–D6 — more public data**
+- Data → Imagery & DEM (STAC): Sentinel-2 and Copernicus DEM scenes searched by area, date and cloud cover, clipped from the cloud; Overture Maps (buildings, places, roads, water, land use, boundaries); OGC API Features (USGS Water Data sites or a pasted service); Earthquakes & Soils (USGS catalog, SSURGO map units).
+
 **Packaging**
 - The packaged macOS app now carries the NOAA NADCON datum grids (bug P-1, found by the start-up datum check).
 
@@ -79,6 +82,10 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 | D0 tiled DEM | `dem_tiles.rs` (mock service: tiling, seams, failures, cancel, resume, confirm, metadata) | — | `dem.spec.ts` |
 | D1 ArcGIS catalog | `arcgis.rs` (mock MapServer, catalog integrity) | — | `arcgis.spec.ts` |
 | D2 Census | `census.rs` (mock Census API, key redaction) | `census/presets.test.ts` | `census.spec.ts` |
+| D3 STAC | `stac.rs` (mock STAC + Range-capable COG server) | — | `stac.spec.ts` |
+| D4 Overture | `overture.rs` (GeoParquet over HTTP, httpfs) | — | `overture.spec.ts` |
+| D5 OGC API | `ogcapi.rs` (mock service with paging) | — | `ogc.spec.ts` |
+| D6 quakes + soils | `jsonapis.rs` (mock services) | — | `hazards.spec.ts` |
 | R8 world view | `world_view.rs` (grid, cut, densify, reference lines, outline) | `crs/projectionBuilder.test.ts` | `world.spec.ts` |
 | R6 CRS UI | `crs_identity.rs` (`crs_info_*`, `map_factors_*`), `crs_ui.rs` (Tissot, statement, same_crs) | `statusbar/statusBar.test.ts`, `dialogs/crsRecents.test.ts` | `crs-ui.spec.ts` |
 
