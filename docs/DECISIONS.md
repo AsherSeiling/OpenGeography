@@ -275,3 +275,8 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - Reclassify ranges are `from <= x < to` and may not overlap (the result must not depend on rule order).
 - E3: gdaldem already stopped through GDAL's progress hook; what was missing was cancel for overviews (now `GDALBuildOverviews` with the hook) and a test for all steps. Known issue 1 ("gdaldem steps can't be cancelled") is closed.
 - Vector tools still go through the CRS matrix; raster tools are excluded from it with a reason and covered in `raster_nodes.rs`.
+
+## H0 — Phase H design: reuse permissive libraries (2026-10-29)
+- User approved reusing MIT/Apache/BSD libraries directly (estimated 40–60% usage saving). GPL-only sources (QGIS, GRASS, SAGA) stay reimplemented. CLAUDE.md rule updated.
+- Plan and source order in `docs/ANALYSIS_PLAN.md`: GDAL grid for interpolation, DuckDB for zonal statistics, WhiteboxTools (MIT, not on crates.io) for hydrology, hand-written textbook formulas for kriging and spatial statistics.
+- Open: how to ship WhiteboxTools (sidecar executable / git dependency / port six algorithms). Recommendation: sidecar for hydrology only.
