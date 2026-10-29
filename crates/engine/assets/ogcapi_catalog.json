@@ -1,0 +1,11 @@
+[
+  {
+    "id": "usgs-waterdata-sites", "group": "Water", "label": "Water monitoring locations (USGS streamgages, wells, springs)",
+    "api": "https://api.waterdata.usgs.gov/ogcapi/v0", "collection": "monitoring-locations",
+    "author": "U.S. Geological Survey", "year": "n.d.", "title": "USGS Water Data APIs — monitoring locations",
+    "version": "OGC API – Features v0", "publisher": "U.S. Geological Survey, Water Resources Mission Area",
+    "url": "https://api.waterdata.usgs.gov/docs/ogcapi/",
+    "license": "Public domain (U.S. Government work); USGS asks that it be credited.",
+    "annotation": "Sites where USGS measures water: streams, lakes, wells, springs and more, with agency, state, county and site type. Used for monitoring-site points."
+  }
+]

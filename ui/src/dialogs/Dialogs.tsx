@@ -31,6 +31,7 @@ import { ShortcutsDialog } from "../nodes/ShortcutsDialog";
 import { ProjectionBuilderDialog } from "./ProjectionBuilderDialog";
 import { ArcGisDialog } from "./ArcGisDialog";
 import { StacDialog } from "./StacDialog";
+import { OgcDialog } from "./OgcDialog";
 import { OvertureDialog } from "./OvertureDialog";
 import { CensusDialog } from "./CensusDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
@@ -55,6 +56,8 @@ export function Dialogs() {
       return <CensusDialog layer={dialog.layer} onClose={close} />;
     case "overture":
       return <OvertureDialog onClose={close} />;
+    case "ogc":
+      return <OgcDialog onClose={close} />;
     case "stac":
       return <StacDialog onClose={close} />;
     case "arcgis":

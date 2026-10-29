@@ -773,3 +773,14 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | D4-4 | Real release | buildings in a few blocks of Norman, OK (257 s on the maintainer's machine) | ignored network: overture::d4_real… |
 | D4-5 | Dialog | themes, area, time and licence notice | auto: e2e/overture.spec.ts |
 | D4-6 | Local GeoParquet files | import by file (existing `parquet_source`) | covered in formats tests |
+
+## D5. OGC API – Features (phase D5)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| D5-1 | Addresses and catalog | trailing `/`, `/collections…` tails and queries removed; non-https refused; catalog citations complete | auto: ogcapi::d5_addresses… |
+| D5-2 | Collections | only collections with an items link are listed | auto: ogcapi::d5_collections… |
+| D5-3 | Paging | `next` links (relative or absolute) followed to the end; features without geometry skipped; layer cited as a Web service (stub to complete) | auto: ogcapi::d5_pages… |
+| D5-4 | Errors | empty area → no layer; HTTP 400 with the service's message; 503 retried then "isn't responding"; 404 collection; odd collection name; missing choice | auto: ogcapi::d5_empty_areas… |
+| D5-5 | Real service | USGS Water Data monitoring locations near Norman, OK | ignored network: ogcapi::d5_real… (passes) |
+| D5-6 | Dialog | catalog, source and licence before download; bad address explained; Download disabled until a collection is chosen | auto: e2e/ogc.spec.ts |

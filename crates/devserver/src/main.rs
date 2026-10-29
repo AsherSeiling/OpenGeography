@@ -212,6 +212,15 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let _ = e.prewarm(&l.id, 8, &[]);
             json!(l)
         }
+        "ogc_catalog" => json!(engine::ogcapi::catalog()),
+        "ogc_collections" => json!(engine::ogcapi::collections(&s(a, "url")?)?),
+        "ogc_import" => {
+            let l = e.ogc_import(&de(a, "spec")?, de(a, "bbox")?, &s(a, "label")?)?;
+            if let Some(x) = &l {
+                let _ = e.prewarm(&x.id, 8, &[]);
+            }
+            json!(l)
+        }
         "arcgis_catalog" => json!(engine::arcgis::catalog()),
         "arcgis_layers" => json!(engine::arcgis::describe_service(&s(a, "url")?)?),
         "arcgis_import" => {

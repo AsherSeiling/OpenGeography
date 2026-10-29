@@ -690,3 +690,22 @@ pub async fn overture_import(engine: Eng<'_>, theme: String, bbox: [f64; 4], lab
     prewarm(&engine, vec![info.id.clone()]);
     Ok(info)
 }
+
+#[tauri::command]
+pub async fn ogc_catalog() -> Res<Vec<engine::ogcapi::Entry>> {
+    Ok(engine::ogcapi::catalog().to_vec())
+}
+
+#[tauri::command]
+pub async fn ogc_collections(url: String) -> Res<Vec<engine::ogcapi::Collection>> {
+    tauri::async_runtime::spawn_blocking(move || engine::ogcapi::collections(&url)).await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn ogc_import(engine: Eng<'_>, spec: engine::ogcapi::Spec, bbox: [f64; 4], label: String) -> Res<Option<LayerInfo>> {
+    let info = blocking(&engine, move |e| e.ogc_import(&spec, bbox, &label)).await?;
+    if let Some(i) = &info {
+        prewarm(&engine, vec![i.id.clone()]);
+    }
+    Ok(info)
+}

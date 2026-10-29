@@ -260,3 +260,6 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - One pass: the rows in the box go into a scratch table (not TEMP, the next step may use another pooled connection), counted (limit 500 000), turned into the layer, dropped. Cancel interrupts the query.
 - Honest speed: the files are not spatially partitioned, so DuckDB reads every file's footer: a few city blocks of buildings took about 4 minutes on a home connection. The dialog says so; a faster path (an index per area, or Overture's own bbox-partitioned release) is a later improvement.
 - Nested columns are flattened to a per-theme list of plain fields; GeoParquet already on disk imports through the existing Parquet importer.
+
+### D5 — OGC API – Features
+- A small client: `/collections` (those with an items link), `/collections/{id}/items?bbox=…&limit=1000`, `next` links followed (relative hrefs resolved against the host), GeoJSON turned into a layer through the existing importer. 200 000 features at most. The USGS Water Data API (verified live) is the one catalog entry; other services are a pasted address with a citation stub. Time series (EDR, `continuous`, `daily`) are tables, not map features, and are not offered here.
