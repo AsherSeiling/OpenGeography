@@ -26,6 +26,7 @@ python3 scripts/third_party_notices.py   # after dependency changes
 - One authoritative tool definition (`ToolSpec` in `nodes/`). The UI reads it via `tool_specs`; don't add parallel catalogs.
 - GIS correctness first: explicit CRS (never guess), geodesic by default for distance/area, report dropped features, never overwrite source data.
 - Cross-platform is a requirement: no hard-coded paths or OS checks outside `resources.rs`/`raster.rs::store_dir`; mark a platform verified only after it actually ran.
+- Open-source register (user, 2026-10-29): any change that adds, removes or newly references open-source software, data or a published method updates `docs/OPEN_SOURCE.md` in the same commit (and `THIRD_PARTY_NOTICES.md` when the shipped set changes).
 - Standalone: never require QGIS. Reuse permissive (MIT/Apache/BSD) libraries directly and cite them (decided 2026-10-29, `docs/ANALYSIS_PLAN.md`); reimplement GPL-only algorithms (QGIS, GRASS, SAGA) and cite their ids — never copy GPL code. Project license MIT OR Apache-2.0.
 - Long work reports through `progress::Task` (progress bar) and should be cancellable.
 - Errors reach the user through the error pop-up (`ui/src/errors/`, once merged) and each pane's error boundary; validate inputs instead of throwing; engine errors are readable sentences. New features add their cases to `docs/TEST_PLAN.md`; bugs go to `docs/BUGS.md`.
