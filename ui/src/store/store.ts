@@ -30,7 +30,29 @@ export interface LabelStyle {
   fontFamily?: string;
   bold?: boolean;
   italic?: boolean;
+  /** Point labels, after QGIS "Placement": where the label sits around the symbol. Default "right". */
+  position?: LabelPosition;
+  /** Extra gap between the symbol (or the line) and the label, px. */
+  distance?: number;
+  /** Line labels, after QGIS "Above line / On line / Below line". Default "on". */
+  linePos?: "above" | "on" | "below";
+  /** After QGIS "Priority" 0–10: higher keeps its spot when labels collide. Default 5. */
+  priority?: number;
+  /** After QGIS "Allow overlaps": draw even where labels collide. */
+  allowOverlap?: boolean;
+  /** Wrap on spaces at this many characters. */
+  wrapAt?: number;
+  /** Multi-line alignment. */
+  align?: "left" | "center" | "right";
+  background?: { fill: string; stroke?: string; padding: number };
+  shadow?: { color: string; dx: number; dy: number };
+  /** Data-defined overrides read from fields: rotation (degrees clockwise), size (pt), colour ("#rrggbb"). */
+  rotationField?: string;
+  sizeField?: string;
+  colorField?: string;
 }
+
+export type LabelPosition = "right" | "left" | "above" | "below" | "center" | "aboveRight" | "aboveLeft" | "belowRight" | "belowLeft";
 
 export function defaultLabel(field: string): LabelStyle {
   return { enabled: true, field, size: 9, color: "#222222", haloColor: "#ffffff", haloWidth: 1.5 };

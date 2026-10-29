@@ -21,7 +21,7 @@ import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, scaleOf, tileGridFor } from "../map/crs";
 import { serialQueue } from "../map/serialQueue";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
-import { labelStyleFunction, labelTileFields } from "../map/labels";
+import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
 import { BASEMAPS, labelField, styleFields } from "../map/style";
@@ -364,8 +364,8 @@ export function MapView() {
       if (lf && style.label && !d.labels) {
         const grid = tileGridFor(active.info.grid, VECTOR_MAX_LEVEL);
         const lt = new VectorTileLayer({
-          source: new VectorTileSource({ url: tileUrl(info, labelTileFields(info.geomType, lf, !!style.label?.indexOnly), active.info.crsKey), projection: active.projection, tileGrid: grid, format: new MVT(), transition: 0 }),
-          declutter: true,
+          source: new VectorTileSource({ url: tileUrl(info, labelTileFields(info.geomType, lf, !!style.label?.indexOnly, labelExtraFields(style.label)), active.info.crsKey), projection: active.projection, tileGrid: grid, format: new MVT(), transition: 0 }),
+          declutter: !style.label.allowOverlap,
           updateWhileAnimating: true,
           updateWhileInteracting: true,
           style: labelStyleFunction(info.geomType, style.label, () => useMapView.getState().scale),

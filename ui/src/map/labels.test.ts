@@ -4,11 +4,13 @@ import { describe, expect, it } from "vitest";
 import { parseScale, withLabel } from "../panes/LabelSettings";
 import { defaultLabel, defaultStyle } from "../store/store";
 import type { LayerInfo } from "../ipc/api";
-import { ANCHORS_FIELD, labelFont, labelStyleFunction, labelText, labelTileFields, labelVisibleAt } from "./labels";
+import { ANCHORS_FIELD, labelExtraFields, labelFont, positionAnchor, wrapText, labelStyleFunction, labelText, labelTileFields, labelVisibleAt } from "./labels";
 import { labelField } from "./style";
 
 const poly = { geomType: "Polygon" } as LayerInfo;
-const draw = (fn: ReturnType<typeof labelStyleFunction>, props: Record<string, unknown>) => fn(new Feature(props), 10) as Style | undefined;
+const drawAll = (fn: ReturnType<typeof labelStyleFunction>, props: Record<string, unknown>) => fn(new Feature(props), 10) as Style[] | undefined;
+/** The main text style (a shadow, when there is one, is drawn first). */
+const draw = (fn: ReturnType<typeof labelStyleFunction>, props: Record<string, unknown>) => drawAll(fn, props)?.at(-1);
 
 describe("feature labels (L1)", () => {
   it("L1-P1 text: empty values draw nothing, numbers lose float noise", () => {
@@ -83,5 +85,48 @@ describe("labelFont", () => {
   it("puts the chosen family first, keeps the fallbacks, and adds style and weight", () => {
     expect(labelFont({ size: 9 })).toBe('12px "Noto Sans", "Segoe UI", sans-serif');
     expect(labelFont({ size: 12, fontFamily: 'Times "New" Roman', bold: true, italic: true })).toBe('italic bold 16px "Times New Roman", "Noto Sans", "Segoe UI", sans-serif');
+  });
+});
+
+describe("label placement and rendering options (LB2)", () => {
+  const base = defaultLabel("NAME");
+  const fn = (geom: "Point" | "Line" | "Polygon", over: object) => labelStyleFunction(geom, { ...base, ...over }, () => null);
+  it("point positions give the QGIS-style quadrants", () => {
+    expect(positionAnchor(undefined)).toMatchObject({ align: "left", baseline: "middle", ox: 1 });
+    expect(positionAnchor("aboveLeft")).toEqual({ align: "right", baseline: "bottom", ox: -1, oy: -1 });
+    const t = draw(fn("Point", { position: "below", distance: 4 }), { NAME: "A" })!.getText()!;
+    expect(t.getTextAlign()).toBe("center");
+    expect(t.getTextBaseline()).toBe("top");
+    expect(t.getOffsetY()).toBe(12);
+  });
+  it("line labels sit above, on or below the line", () => {
+    const b = (linePos: "above" | "on" | "below") => draw(fn("Line", { linePos }), { NAME: "A" })!.getText()!.getTextBaseline();
+    expect([b("above"), b("on"), b("below")]).toEqual(["bottom", "middle", "top"]);
+  });
+  it("wrap breaks at spaces, keeps long words and newlines", () => {
+    expect(wrapText("North Fork Smith River", 10)).toBe("North Fork\nSmith\nRiver");
+    expect(wrapText("Supercalifragilistic is long", 8)).toBe("Supercalifragilistic\nis long");
+    expect(wrapText("a b", undefined)).toBe("a b");
+    expect(draw(fn("Point", { wrapAt: 5 }), { NAME: "ab cd ef" })!.getText()!.getText()).toBe("ab cd\nef");
+  });
+  it("data-defined rotation, size and colour; bad values fall back", () => {
+    const f = fn("Point", { rotationField: "R", sizeField: "S", colorField: "C", size: 9, color: "#111111" });
+    const t = draw(f, { NAME: "A", R: 90, S: 15, C: "#ff0000" })!.getText()!;
+    expect(t.getRotation()).toBeCloseTo(Math.PI / 2);
+    expect(t.getFont()).toContain("20px");
+    expect(t.getFill()!.getColor()).toBe("#ff0000");
+    const bad = draw(f, { NAME: "A", R: "x", S: null, C: "red" })!.getText()!;
+    expect([bad.getRotation(), bad.getFill()!.getColor()]).toEqual([0, "#111111"]);
+    expect(labelExtraFields({ rotationField: "R", colorField: "C" })).toEqual(["R", "C"]);
+    expect(labelTileFields("Point", "NAME", false, ["R", "NAME"])).toEqual(["NAME", "R"]);
+  });
+  it("priority is the zIndex; background and shadow add to the style", () => {
+    const all = drawAll(fn("Point", { priority: 9, shadow: { color: "#888888", dx: 1, dy: 1 }, background: { fill: "#ffffcc", padding: 3 } }), { NAME: "A" })!;
+    expect(all).toHaveLength(2);
+    expect(all.map((s) => s.getZIndex())).toEqual([9, 9]);
+    const main = all[1].getText()!;
+    expect(main.getBackgroundFill()!.getColor()).toBe("#ffffcc");
+    expect(main.getPadding()).toEqual([3, 3, 3, 3]);
+    expect(all[0].getText()!.getOffsetX()).toBe(8 + 1);
   });
 });

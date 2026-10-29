@@ -620,3 +620,7 @@ select.qe-val { width: 160px; }
 .layout-row .row-actions { margin-left: auto; display: none; gap: 2px; }
 .layout-row:hover .row-actions { display: flex; }
 .layout-row .row-actions button { border: 0; background: transparent; cursor: pointer; color: inherit; padding: 0 2px; }
+.quadrants { display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; }
+.quad { width: 22px; height: 22px; border: 1px solid var(--border, #bbb); background: var(--panel, #fff); border-radius: 3px; cursor: pointer; padding: 0; }
+.quad.on { background: var(--accent, #0f6cbd); border-color: var(--accent, #0f6cbd); }
+.quadrants .quad:nth-child(5)::after { content: "•"; color: #777; }
