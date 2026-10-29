@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parseScale, withLabel } from "../panes/LabelSettings";
 import { defaultLabel, defaultStyle } from "../store/store";
 import type { LayerInfo } from "../ipc/api";
-import { ANCHORS_FIELD, labelStyleFunction, labelText, labelTileFields, labelVisibleAt } from "./labels";
+import { ANCHORS_FIELD, labelFont, labelStyleFunction, labelText, labelTileFields, labelVisibleAt } from "./labels";
 import { labelField } from "./style";
 
 const poly = { geomType: "Polygon" } as LayerInfo;
@@ -76,5 +76,12 @@ describe("feature labels (L1)", () => {
     expect(on.label?.field).toBe("STATE");
     expect(withLabel(on, { field: "NAME" }, "STATE").label?.field).toBe("NAME");
     expect(withLabel(on, { size: 12 }, "STATE").label?.field).toBe("STATE");
+  });
+});
+
+describe("labelFont", () => {
+  it("puts the chosen family first, keeps the fallbacks, and adds style and weight", () => {
+    expect(labelFont({ size: 9 })).toBe('12px "Noto Sans", "Segoe UI", sans-serif');
+    expect(labelFont({ size: 12, fontFamily: 'Times "New" Roman', bold: true, italic: true })).toBe('italic bold 16px "Times New Roman", "Noto Sans", "Segoe UI", sans-serif');
   });
 });

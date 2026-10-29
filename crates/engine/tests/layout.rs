@@ -784,7 +784,7 @@ mod c24 {
 // ---------- L2: labels in layouts (docs/LAYOUTS_PLAN.md) ----------
 
 fn label(field: &str) -> engine::layout::model::LabelStyle {
-    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false }
+    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false, font_family: None, bold: false, italic: false }
 }
 
 /// (text, x, y, size) of every label fill `<text>`; halo underlays carry a stroke and are skipped.
@@ -1133,4 +1133,40 @@ fn c3_0_scale_bar_can_print_the_ratio_under_the_bar() {
     assert_eq!(v["layout"]["elements"][2]["ratio"], true);
     let v = serde_json::to_value(with_scale_bar(&base, json!({}))).unwrap();
     assert!(v["layout"]["elements"][2].get("ratio").is_none());
+}
+
+// ---------- LB1: fonts from the device ----------
+
+#[test]
+fn lb1_installed_font_in_labels_renders_to_pdf_and_png_and_a_missing_one_falls_back_with_a_warning() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let fonts = engine::fonts::list();
+    let run = |family: &str| {
+        let mut req = request(&ids, categorized());
+        let mut l = label("id");
+        l.font_family = Some(family.into());
+        l.bold = true;
+        req.styles.get_mut(&ids[1]).unwrap().label = Some(l);
+        render(&e, &req)
+    };
+    if let Some(f) = fonts.first() {
+        assert!(engine::fonts::has_family(&f.name));
+        let out = run(&f.name);
+        assert!(out.svg.contains(&format!("'{}', Noto Sans", f.name)), "font stack in the svg");
+        assert!(out.svg.contains("font-weight=\"700\""));
+        assert!(!out.warnings.iter().any(|w| w.contains("not installed")), "{:?}", out.warnings);
+        assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF-"));
+        assert!(export::svg_to_png(&out.svg, 96.0).unwrap().starts_with(&[0x89, b'P', b'N', b'G']));
+    }
+    let out = run("Definitely Not A Font 123");
+    assert!(out.warnings.iter().any(|w| w.contains("Definitely Not A Font 123") && w.contains("Noto Sans")), "{:?}", out.warnings);
+    assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF-"), "falls back, still exports");
+}
+
+#[test]
+fn lb1_font_list_is_sorted_unique_and_clean_names_are_attribute_safe() {
+    let l = engine::fonts::list();
+    assert!(l.windows(2).all(|w| w[0].name < w[1].name), "sorted, no duplicates");
+    assert_eq!(engine::fonts::clean_name("A\"b'<c>&;d, e"), "Abcd e");
 }

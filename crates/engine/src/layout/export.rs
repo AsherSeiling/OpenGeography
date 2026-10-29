@@ -15,6 +15,14 @@ pub fn font_family() -> &'static str {
     FAMILY
 }
 
+/// CSS font stack for SVG text: the chosen installed family first, the bundled Noto Sans as the fallback.
+pub fn font_stack(family: Option<&str>) -> String {
+    match family.map(crate::fonts::clean_name).filter(|f| !f.is_empty() && f != FAMILY) {
+        Some(f) => format!("'{f}', {FAMILY}"),
+        None => FAMILY.to_string(),
+    }
+}
+
 /// Bundled face for a layout font name ("sans" | "sans-bold" | "sans-italic").
 pub fn font_bytes(font: &str) -> &'static [u8] {
     match font {
@@ -39,8 +47,41 @@ fn fontdb() -> Arc<usvg::fontdb::Database> {
     .clone()
 }
 
+/// The render database for a page: the bundled faces plus the installed families the page's text names (cached per set).
+fn render_db(svg: &str) -> Arc<usvg::fontdb::Database> {
+    static CACHE: OnceLock<std::sync::Mutex<std::collections::HashMap<String, Arc<usvg::fontdb::Database>>>> = OnceLock::new();
+    let mut names: Vec<String> = Vec::new();
+    for part in svg.split("font-family=\"").skip(1) {
+        let Some(value) = part.split('"').next() else { continue };
+        for f in value.split(',') {
+            let f = f.trim().trim_matches('\'').to_string();
+            if !f.is_empty() && f != FAMILY && !names.contains(&f) && crate::fonts::has_family(&f) {
+                names.push(f);
+            }
+        }
+    }
+    if names.is_empty() {
+        return fontdb();
+    }
+    names.sort();
+    let key = names.join("|");
+    let mut cache = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner());
+    cache
+        .entry(key)
+        .or_insert_with(|| {
+            let mut db = (*fontdb()).clone();
+            for n in &names {
+                for data in crate::fonts::family_data(n) {
+                    db.load_font_data(data);
+                }
+            }
+            Arc::new(db)
+        })
+        .clone()
+}
+
 pub fn parse(svg: &str) -> Result<usvg::Tree> {
-    let opt = usvg::Options { fontdb: fontdb(), font_family: FAMILY.into(), dpi: 96.0, ..Default::default() };
+    let opt = usvg::Options { fontdb: render_db(svg), font_family: FAMILY.into(), dpi: 96.0, ..Default::default() };
     usvg::Tree::from_str(svg, &opt).map_err(|e| anyhow!("Layout SVG could not be read: {e}"))
 }
 

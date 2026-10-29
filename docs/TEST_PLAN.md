@@ -886,3 +886,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SY-3 | After a run, the owner layer takes the node's style (map and layouts read the same style) | | auto: e2e/symbology-node.spec.ts |
 | SY-4 | Index-only labels: map tile fields add INDEX; layout labels filter `INDEX = 1` (none if the layer has no INDEX field) | | vitest labels.test.ts; layout engine test to add with LB stage 3 |
 | SY-5 | Raster colour-ramp symbology | not built (rasters have a fixed ramp today) | decision D-SY |
+
+## LB. Labeling suite (design: docs/LABELS_PLAN.md)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| LB1-1 | `list_fonts` returns installed families, sorted, no duplicates, no macOS dot-names | | auto: layout.rs lb1_font_list_*; e2e/label-fonts.spec.ts |
+| LB1-2 | A label font renders in layouts: stack `'Family', Noto Sans` in the SVG, bold/italic attributes, width measured from the installed face; PDF and PNG export succeed | | auto: layout.rs lb1_installed_font_* |
+| LB1-3 | A font that is not installed: Noto Sans is used, the layout warns by name, export still works | | auto: same test |
+| LB1-4 | Font picker (searchable, each name in its own face, Bold/Italic) sets `fontFamily/bold/italic`; the map label font is `style weight size "Family", "Noto Sans", …` | | auto: vitest labels.test.ts, fonts.test.ts; e2e |
+| LB1-5 | Windows and Linux font lists and PDF embedding of a system font | R7 / manual on those systems | to do |

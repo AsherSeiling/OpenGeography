@@ -22,6 +22,13 @@ export function labelText(value: unknown): string | null {
   return t === "" ? null : t;
 }
 
+/** CSS font shorthand of a label: style, weight, size, then the chosen installed family before the app's fallbacks. */
+export function labelFont(label: Pick<LabelStyle, "size" | "fontFamily" | "bold" | "italic">): string {
+  const family = label.fontFamily?.replace(/["\\]/g, "").trim();
+  const stack = [family ? `"${family}"` : null, '"Noto Sans"', '"Segoe UI"', "sans-serif"].filter(Boolean).join(", ");
+  return `${label.italic ? "italic " : ""}${label.bold ? "bold " : ""}${Math.round(label.size * PT_TO_PX * 10) / 10}px ${stack}`;
+}
+
 /** True when a label should draw at map scale `1:scale`; an unknown scale draws. */
 export function labelVisibleAt(label: Pick<LabelStyle, "minScale" | "maxScale">, scale: number | null): boolean {
   if (scale === null || !Number.isFinite(scale)) return true;
@@ -42,7 +49,7 @@ export function labelTileFields(geom: GeomType, field: string, indexOnly = false
  */
 export function labelStyleFunction(geom: GeomType, label: LabelStyle, scale: () => number | null): StyleFunction {
   const cache = new Map<string, Style>();
-  const font = `${Math.round(label.size * PT_TO_PX * 10) / 10}px "Noto Sans", "Segoe UI", sans-serif`;
+  const font = labelFont(label);
   const make = (text: string) =>
     new Style({
       text: new Text({

@@ -26,6 +26,10 @@ export interface LabelStyle {
   maxScale?: number;
   /** Only features with INDEX = 1 (index contours) are labelled. */
   indexOnly?: boolean;
+  /** An installed font family; unset = the app font (Noto Sans). A missing font falls back to it. */
+  fontFamily?: string;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 export function defaultLabel(field: string): LabelStyle {
