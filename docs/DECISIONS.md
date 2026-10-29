@@ -291,3 +291,7 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - Neighbours are each feature's k nearest by centroid (default 8, ties broken by index, so results repeat); weights are row-standardised (Moran) or binary with self (Gi*). Distance-band weights and permutation p-values are not built; local Moran's I and Geary's C are left for later.
 - Geographic layers are refused (distances in degrees mean nothing); the user projects first. Features without a number are left out (Moran's I reports how many); the Gi* columns are empty for them.
 - Results are joined back by DuckDB's scan order (`row_number() OVER ()`): tables have no `rowid` once they are views.
+
+## H2 — Ordinary kriging (2026-10-29)
+- One node, "Kriging (Ordinary)" (Raster tab): fits a spherical, exponential or Gaussian variogram (or tries all three and keeps the best) by weighted least squares over a candidate grid, or takes the user's nugget, sill and range (all three or none). Each cell is predicted from its 8–32 nearest points (default 12). Output: band 1 prediction, band 2 kriging variance; the fitted model is written to the raster's `VARIOGRAM` metadata item. Equations from Isaaks & Srivastava (1989); no library code (the `kriging` crate is 0.0.1 and was not used).
+- Points at the same place are averaged. At most 2000 points (evenly thinned) are used for the variogram; all are used for prediction. Geographic layers are refused. Anisotropy, universal kriging and cross-validation are not built.

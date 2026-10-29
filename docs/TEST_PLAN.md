@@ -830,3 +830,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | H3-4 | Hot Spot (Gi*) | high corner class 3, low corner class -3, middle 0; every input row kept, CRS kept | auto: spatial_stats::gi_star…, tests/spatial_stats.rs |
 | H3-5 | Refusals | geographic layer ("projected coordinate system"), k not a whole number, constant values, < 4 features, > 200 000 features | auto: tests/spatial_stats.rs, unit tests |
 | H3-6 | Normal CDF / p-values | Φ(1.96) = 0.975, two-sided p(2.5758) = 0.01 | auto: spatial_stats::normal_cdf_known_values |
+| H2-1 | Linear-system solver | hand-solved 2×2 system exact; singular matrix → none | auto: kriging::solve_matches… |
+| H2-2 | Variogram models | spherical 0 at lag 0, 6.875 at half range of a 10-sill, flat beyond range; exponential with nugget | auto: kriging::model_shapes… |
+| H2-3 | Exactness | at a data point the prediction equals the value and the variance is 0 | auto: kriging::kriging_is_exact… |
+| H2-4 | Smooth surface | between points within 0.25 of a plane; variance larger far from data than near it | auto: kriging::kriging_a_smooth_surface… |
+| H2-5 | Variogram fit | range/sill of a known smooth field land in the expected band; a chosen model is kept | auto: kriging::fit_finds… |
+| H2-6 | Nearest-point index | identical to brute force inside and outside the data | auto: kriging::nearest_matches… |
+| H2-7 | Node | two bands (prediction, variance), layer CRS kept, grid on a multiple of the cell size, VARIOGRAM metadata set | auto: tests/spatial_stats.rs h2_kriging_node_gives… |
+| H2-8 | Refusals | geographic layer, partial nugget/sill/range, neighbours outside 8–32, < 6 points, constant values, unknown model | auto: tests/spatial_stats.rs, kriging unit tests |
+| H2-9 | Cancel | stops between rows, no partial file | to automate (same per-row check as the calculator) |
