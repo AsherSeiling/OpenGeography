@@ -219,6 +219,8 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "crs_info" => json!(e.crs_info(&s(a, "crs")?)?),
         "tissot_layer" => json!(e.tissot_layer(&s(a, "crs")?, f(a, "spacingDeg")?, f(a, "radiusKm")?)?),
         "same_crs" => json!(e.same_crs(&s(a, "a")?, &s(a, "b")?)),
+        "world_outline" => json!(e.world_outline()?),
+        "world_reference" => json!(e.world_reference(&s(a, "crs")?, f(a, "spacingDeg")?)?),
         "map_factors" => json!(e.map_factors(&s(a, "crs")?, f(a, "x")?, f(a, "y")?)?),
         "validate_crs" => json!(e.validate_crs(&s(a, "crs")?)?),
         "transform_point" => json!(e.transform_point(f(a, "x")?, f(a, "y")?, &s(a, "from")?, &s(a, "to")?)?),

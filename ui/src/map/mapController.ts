@@ -6,7 +6,7 @@ import View from "ol/View";
 import type { Projection } from "ol/proj";
 import { api, type CrsDisplayInfo, type Extent } from "../ipc/api";
 import { useApp } from "../store/store";
-import { geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
+import { displayCrsId, geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
 
 export interface ActiveCrs {
   id: string;
@@ -41,7 +41,7 @@ export function setActiveCrs(c: ActiveCrs) {
 
 /** Run `fn` now if the map is drawn in the project's map CRS, else when the switch to it finishes. */
 function whenCrsReady(fn: () => void) {
-  const want = useApp.getState().mapCrs?.id ?? WEB_MERCATOR;
+  const want = displayCrsId(useApp.getState().mapCrs?.id ?? WEB_MERCATOR, useApp.getState().worldView);
   if (map && active && active.id === want) fn();
   else pending = fn;
 }

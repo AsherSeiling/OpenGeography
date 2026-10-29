@@ -62,3 +62,10 @@ export function carryResolution(resOld: number, unitOld: number, kOld: number, u
 export function geographicK(latDeg: number): number {
   return 1 / Math.max(1e-6, Math.cos((latDeg * Math.PI) / 180));
 }
+
+/** Prefix the engine reads as "show the whole Earth in this CRS" (display.rs WORLD_PREFIX). */
+export const WORLD_PREFIX = "world:";
+/** The id the map draws with: the CRS itself, or its world view. */
+export const displayCrsId = (id: string, world: boolean) => (world && !id.startsWith(WORLD_PREFIX) ? WORLD_PREFIX + id : id);
+/** The CRS behind a display id (what layouts and exports store). */
+export const baseCrsId = (id: string) => (id.startsWith(WORLD_PREFIX) ? id.slice(WORLD_PREFIX.length) : id);

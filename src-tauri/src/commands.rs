@@ -128,6 +128,16 @@ pub async fn same_crs(engine: Eng<'_>, a: String, b: String) -> Res<bool> {
 }
 
 #[tauri::command]
+pub async fn world_outline(engine: Eng<'_>) -> Res<engine::layers::LayerInfo> {
+    blocking(&engine, move |e| e.world_outline()).await
+}
+
+#[tauri::command]
+pub async fn world_reference(engine: Eng<'_>, crs: String, spacing_deg: f64) -> Res<Vec<engine::layers::LayerInfo>> {
+    blocking(&engine, move |e| e.world_reference(&crs, spacing_deg)).await
+}
+
+#[tauri::command]
 pub async fn map_factors(engine: Eng<'_>, crs: String, x: f64, y: f64) -> Res<(f64, f64)> {
     blocking(&engine, move |e| e.map_factors(&crs, x, y)).await
 }

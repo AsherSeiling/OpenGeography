@@ -7,7 +7,7 @@ Standing orders: finish R → E; **no GitHub CI until all phases are done** (pus
 | # | Block | Exit criteria | Status |
 |---|---|---|---|
 | 1 | R6 leftovers: Tissot layer, layer source panel, layout `{datum}`/`{units}` tokens, picker recents | R-H9, R-H10, R-H11, R-I5 automated | **done** (area-of-use data chip left, G15) |
-| 2 | R8 world view: world-mode display tables, graticule / outline / standard-parallel layers, bundled Natural Earth 110m outline, projection builder | R-W cases automated | planned |
+| 2 | R8 world view: world-mode display tables, graticule / outline / standard-parallel layers, bundled Natural Earth 110m outline, projection builder | R-W cases automated | **done** (R-W10 colouring, R-W11 perf deferred) |
 | 3 | R7 prep + **local macOS build** (`package-macos.sh`, `--self-test`, copy `.app` + DMG, `cargo clean`) | build runs, self-test passes | planned |
 | 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | planned |
 | 5 | Phase E: E1 raster calculator/reclassify/NoData/band select, E2 resample/align/mosaic/rasterize, E3 cancellable gdaldem | tests per tool, added to the CRS matrix guard | planned |
@@ -35,6 +35,9 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 - 10 built-in layout templates; save/delete user templates.
 - Map series (atlas): one page per index feature, following frame, multi-page PDF / PNG per page export.
 
+**R8 — World view**
+- Map tab: World View toggle (any CRS over the whole Earth, cut at the opposite side of its central meridian, latitude limit stated), Graticule (curved lines plus central meridian, standard parallels, edge of map), World Outline (bundled Natural Earth 110m, cited), Projection Builder (conic / cylindrical / azimuthal / world families with sliders and validation).
+
 **R0–R6 — Coordinate-system hardening**
 - Datum shifts fixed (C-1): PROJ data folder located at start-up, known-answer datum check (start-up alert and `--self-test`).
 - CRS identity by meaning (`crs::key`/`same`) replaces string comparison everywhere; importer fixes (C-4, C-5, C-7, C-8, G1).
@@ -61,6 +64,7 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 | R3 export / datum | `crs_export.rs`, `crs_edge.rs` | — | `map.spec.ts` (M-4) |
 | R4 tool matrix | `crs_tools.rs`, `crs_matrix.rs` | — | — |
 | R5 rasters/poles | `crs_raster.rs`, `display.rs` | — | — |
+| R8 world view | `world_view.rs` (grid, cut, densify, reference lines, outline) | `crs/projectionBuilder.test.ts` | `world.spec.ts` |
 | R6 CRS UI | `crs_identity.rs` (`crs_info_*`, `map_factors_*`), `crs_ui.rs` (Tissot, statement, same_crs) | `statusbar/statusBar.test.ts`, `dialogs/crsRecents.test.ts` | `crs-ui.spec.ts` |
 
 Gaps found by this table are closed in the blocks above (each new feature adds its row here) and listed in `docs/TEST_PLAN.md` as "planned" until automated.

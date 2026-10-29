@@ -47,6 +47,8 @@ fn main() {
             commands::validate_crs,
             commands::crs_info,
             commands::map_factors,
+            commands::world_outline,
+            commands::world_reference,
             commands::same_crs,
             commands::tissot_layer,
             commands::transform_point,

@@ -36,6 +36,7 @@ export type DialogState =
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
   | { kind: "nationalMap" }
+  | { kind: "projectionBuilder" }
   | { kind: "nodeShortcuts" };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
@@ -157,6 +158,35 @@ export function pickMapCrs() {
     initial: cur?.id,
     onPick: (id, name) => void setMapCrsChecked(id, name),
   });
+}
+
+/** Show the whole Earth in the map CRS, or go back to its area of use (R8). */
+export function toggleWorldView() {
+  const s = useApp.getState();
+  const on = !s.worldView;
+  s.setWorldView(on);
+  status(on ? "World view: the whole Earth, cut at the opposite side of the central meridian. Add Graticule and World Outline from the Map tab." : "Back to the area of use of the map coordinate system");
+}
+
+/** Add the graticule and the CRS's reference lines (central meridian, standard parallels, edge of the map). */
+export async function addWorldReference() {
+  const crs = useApp.getState().mapCrs;
+  if (!crs) {
+    status("Choose a map coordinate system first");
+    return;
+  }
+  const layers = await busy("Drawing the graticule", () => api.worldReference(crs.id, 15));
+  if (!layers) return;
+  useApp.getState().addLayers(layers);
+  status(`Added ${layers.map((l) => l.name).join(" and ")}`);
+}
+
+/** Add the bundled Natural Earth land outline (no download). */
+export async function addWorldOutline() {
+  const info = await busy("Adding the world outline", () => api.worldOutline());
+  if (!info) return;
+  useApp.getState().addLayers([info]);
+  status("Added the world outline (Natural Earth 1:110m, public domain; see Sources)");
 }
 
 /** Add a layer of Tissot circles (R-H11) for the map CRS: each circle is round on the ground, so its shape on the map is the distortion. */

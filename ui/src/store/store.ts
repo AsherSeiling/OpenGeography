@@ -89,6 +89,8 @@ interface AppState {
   /** Tab to show in layer Properties next time (e.g. "query"). */
   propsTab: string | null;
   mapCrs: MapCrs | null;
+  /** Show the whole Earth in the map CRS, cut at its central meridian + 180° (R8). Session-only. */
+  worldView: boolean;
   tool: MapTool;
   basemap: Basemap;
   showFps: boolean;
@@ -110,6 +112,7 @@ interface AppState {
   setActiveLayer: (id: string | null) => void;
   setProperties: (t: PropertiesTarget) => void;
   setMapCrs: (c: MapCrs | null) => void;
+  setWorldView: (on: boolean) => void;
   setTool: (t: MapTool) => void;
   setBasemap: (b: Basemap) => void;
   setStatus: (s: string) => void;
@@ -128,6 +131,7 @@ export const useApp = create<AppState>((set, get) => ({
   properties: null,
   propsTab: null,
   mapCrs: null,
+  worldView: false,
   tool: "pan",
   basemap: "usgsTopo",
   showFps: false,
@@ -226,6 +230,7 @@ export const useApp = create<AppState>((set, get) => ({
   setActiveLayer: (id) => set({ activeLayer: id }),
   setProperties: (t) => set({ properties: t }),
   setMapCrs: (c) => set({ mapCrs: c, dirty: true }),
+  setWorldView: (on) => set({ worldView: on }),
   setTool: (t) => set({ tool: t }),
   setBasemap: (b) => set({ basemap: b, dirty: true }),
   setStatus: (status) => set({ status }),
