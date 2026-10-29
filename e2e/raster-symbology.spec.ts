@@ -72,4 +72,13 @@ test("RS3 raster symbology pane: render type, ramp library, histogram handles, c
   await app.getByRole("combobox", { name: "Resampling when zoomed" }).click();
   await app.getByRole("option", { name: "cubic" }).click();
   expect((await style()).resampling).toBe("cubic");
+
+  // Style files round-trip through the engine; other JSON is refused with a readable message.
+  const file2 = path.join(dir, "style.json");
+  const loaded = await gis(app, async (g, a: any) => { await g.api.saveRasterStyle(a.f, { renderer: "pseudocolor", ramp: "cividis", invert: true }); return g.api.loadRasterStyle(a.f); }, { f: file2 }) as any;
+  expect(loaded.ramp).toBe("cividis");
+  expect(loaded.invert).toBe(true);
+  fs.writeFileSync(file2, "{}");
+  const msg = await gis(app, async (g, a: any) => { try { await g.api.loadRasterStyle(a.f); return ""; } catch (e) { return String(e); } }, { f: file2 }) as string;
+  expect(msg).toContain("not a GIS Studio raster style");
 });

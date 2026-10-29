@@ -306,6 +306,29 @@ impl RasterStyle {
     }
 }
 
+// ---------------------------------------------------------------- style files
+
+const FILE_FORMAT: &str = "gis-studio-raster-style";
+
+/// Write a style to a shareable `.json` file.
+pub fn save_file(path: &std::path::Path, style: &RasterStyle) -> Result<()> {
+    let doc = serde_json::json!({ "format": FILE_FORMAT, "version": 1, "style": style });
+    std::fs::write(path, serde_json::to_vec_pretty(&doc)?).map_err(|e| anyhow!("Could not write {}: {e}", path.display()))
+}
+
+/// Read a style file written by [`save_file`].
+pub fn load_file(path: &std::path::Path) -> Result<RasterStyle> {
+    let bytes = std::fs::read(path).map_err(|e| anyhow!("Could not read {}: {e}", path.display()))?;
+    let doc: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| anyhow!("{} is not a GIS Studio raster style file", path.display()))?;
+    if doc["format"] != FILE_FORMAT {
+        bail!("{} is not a GIS Studio raster style file", path.display());
+    }
+    if doc["version"].as_u64().map_or(true, |v| v > 1) {
+        bail!("{} was saved by a newer GIS Studio; update to open it", path.display());
+    }
+    serde_json::from_value(doc["style"].clone()).map_err(|e| anyhow!("The style in {} is not valid: {e}", path.display()))
+}
+
 // ---------------------------------------------------------------- ramps
 
 #[derive(Serialize, Clone, Debug)]
@@ -769,27 +792,85 @@ pub fn unique_values(info: &RasterInfo, band: usize, max: usize) -> Result<Uniqu
     Ok(UniqueValues { values, sampled, truncated })
 }
 
-/// Legend colour bar: `n` colours across the ramp (hex), with the stretched range, for layouts and the UI.
-pub fn legend_bar(info: &RasterInfo, style: &RasterStyle, n: usize) -> Result<(Vec<String>, f64, f64)> {
-    let range = stretch_range(info, style)?;
-    let mut s2 = style.clone();
-    s2.brightness = style.brightness;
-    let lut = build_lut(&s2)?;
-    let cols = (0..n.max(2))
-        .map(|i| {
-            let t = i as f32 / (n.max(2) - 1) as f32;
-            let c = if style.renderer == Renderer::Gray {
-                let g = if style.invert { 1.0 - t } else { t } * 255.0;
-                [g, g, g]
-            } else {
-                let e = lut[(t * (LUT - 1) as f32).round() as usize];
-                [e[0], e[1], e[2]]
+/// What a layout legend shows for a styled raster.
+#[derive(Debug, PartialEq)]
+pub enum RasterLegend {
+    /// A continuous colour bar from `lo` to `hi`.
+    Bar { colors: Vec<String>, lo: f64, hi: f64 },
+    /// One swatch per class: (colour, label).
+    Classes(Vec<(String, String)>),
+    /// A line of text (multiband composites).
+    Note(String),
+}
+
+/// Four significant digits, no trailing zeros.
+pub fn fmt_num(v: f64) -> String {
+    if v == 0.0 || !v.is_finite() {
+        return "0".into();
+    }
+    let digits = (3 - v.abs().log10().floor() as i32).clamp(0, 6) as usize;
+    let s = format!("{v:.digits$}");
+    if s.contains('.') { s.trim_end_matches('0').trim_end_matches('.').to_string() } else { s }
+}
+
+fn hex(c: [f32; 3]) -> String {
+    format!("#{:02x}{:02x}{:02x}", c[0].clamp(0.0, 255.0).round() as u8, c[1].clamp(0.0, 255.0).round() as u8, c[2].clamp(0.0, 255.0).round() as u8)
+}
+
+/// Legend content for a style, or `None` for the default renderer (the legend keeps its fixed chips).
+pub fn legend(info: &RasterInfo, style: &RasterStyle) -> Result<Option<RasterLegend>> {
+    match style.renderer {
+        Renderer::Default => Ok(None),
+        Renderer::Multiband => {
+            let n = style.rgb_bands;
+            Ok(Some(RasterLegend::Note(format!("R: band {} · G: band {} · B: band {}", n[0], n[1], n[2]))))
+        }
+        Renderer::Paletted => Ok(Some(RasterLegend::Classes(
+            style.entries.iter().filter(|e| !e.hidden).map(|e| (e.color.clone(), if e.label.is_empty() { fmt_num(e.value) } else { e.label.clone() })).collect(),
+        ))),
+        Renderer::Gray | Renderer::Pseudocolor => {
+            let (lo, hi) = stretch_range(info, style)?;
+            let gray = style.renderer == Renderer::Gray;
+            let linear = RasterStyle { mode: ColorMode::Linear, ..style.clone() };
+            let lut = if gray { Vec::new() } else { build_lut(&linear)? };
+            let at = |t: f32| -> String {
+                let c = if gray {
+                    let g = if style.invert { 1.0 - t } else { t } * 255.0;
+                    [g, g, g]
+                } else {
+                    let e = lut[(t.clamp(0.0, 1.0) * (LUT - 1) as f32).round() as usize];
+                    [e[0], e[1], e[2]]
+                };
+                hex(adjust(c, style))
             };
-            let c = adjust(c, style);
-            format!("#{:02x}{:02x}{:02x}", c[0].clamp(0.0, 255.0) as u8, c[1].clamp(0.0, 255.0) as u8, c[2].clamp(0.0, 255.0) as u8)
-        })
-        .collect();
-    Ok((cols, range.0, range.1))
+            if style.mode == ColorMode::Linear {
+                return Ok(Some(RasterLegend::Bar { colors: (0..32).map(|i| at(i as f32 / 31.0)).collect(), lo, hi }));
+            }
+            if !style.breaks.is_empty() {
+                let b = &style.breaks;
+                let n = b.len();
+                let items = (0..=n)
+                    .map(|k| {
+                        let label = if k == 0 { format!("< {}", fmt_num(b[0])) } else if k == n { format!("≥ {}", fmt_num(b[n - 1])) } else { format!("{} – {}", fmt_num(b[k - 1]), fmt_num(b[k])) };
+                        (at(k as f32 / n as f32), label)
+                    })
+                    .collect();
+                return Ok(Some(RasterLegend::Classes(items)));
+            }
+            // One class per ramp stop over the stretched range.
+            let n = if gray { 2 } else { resolved_stops(style)?.len() };
+            let lut_d = if gray { Vec::new() } else { build_lut(style)? };
+            let items = (0..n)
+                .map(|k| {
+                    let t = (k as f32 + 0.5) / n as f32;
+                    let c = if gray { let g = if style.invert { 1.0 - t } else { t } * 255.0; [g, g, g] } else { let e = lut_d[(t * (LUT - 1) as f32).round() as usize]; [e[0], e[1], e[2]] };
+                    let (a, z) = (lo + (hi - lo) * k as f64 / n as f64, lo + (hi - lo) * (k + 1) as f64 / n as f64);
+                    (hex(adjust(c, style)), format!("{} – {}", fmt_num(a), fmt_num(z)))
+                })
+                .collect();
+            Ok(Some(RasterLegend::Classes(items)))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1009,6 +1090,50 @@ mod tests {
         apply_shade(&mut px, &[0.0], 0.0);
         assert_eq!(&px[0..3], &[100, 50, 25]);
         assert!(RasterStyle { resampling: "lanczos".into(), ..Default::default() }.validate(&info()).is_err());
+    }
+
+    #[test]
+    fn legend_content() {
+        let i = info();
+        assert!(legend(&i, &RasterStyle::default()).unwrap().is_none());
+        let manual = Stretch { mode: StretchMode::Manual, min: 0.0, max: 10.0, ..Default::default() };
+        let bar = legend(&i, &RasterStyle { renderer: Renderer::Pseudocolor, stretch: manual.clone(), ..Default::default() }).unwrap().unwrap();
+        match bar {
+            RasterLegend::Bar { colors, lo, hi } => assert_eq!((colors.len(), lo, hi), (32, 0.0, 10.0)),
+            o => panic!("{o:?}"),
+        }
+        let classed = RasterStyle { renderer: Renderer::Gray, mode: ColorMode::Discrete, breaks: vec![3.0, 7.0], stretch: manual, ..Default::default() };
+        match legend(&i, &classed).unwrap().unwrap() {
+            RasterLegend::Classes(c) => {
+                let l: Vec<&str> = c.iter().map(|x| x.1.as_str()).collect();
+                assert_eq!(l, ["< 3", "3 – 7", "≥ 7"]);
+                assert_eq!(c[0].0, "#000000");
+                assert_eq!(c[2].0, "#ffffff");
+            }
+            o => panic!("{o:?}"),
+        }
+        let pal = RasterStyle { renderer: Renderer::Paletted, entries: vec![PalEntry { value: 5.0, color: "#ff0000".into(), label: String::new(), hidden: false }, PalEntry { value: 6.0, color: "#00ff00".into(), label: "Six".into(), hidden: true }], ..Default::default() };
+        assert_eq!(legend(&i, &pal).unwrap().unwrap(), RasterLegend::Classes(vec![("#ff0000".into(), "5".into())]));
+        assert_eq!(fmt_num(1234.5678), "1235");
+        assert_eq!(fmt_num(12.3456), "12.35");
+        assert_eq!(fmt_num(0.012345), "0.01235");
+        assert_eq!(fmt_num(20.0), "20");
+    }
+
+    #[test]
+    fn style_files_round_trip_and_reject_others() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("s.json");
+        let s = RasterStyle { renderer: Renderer::Pseudocolor, ramp: "cividis".into(), invert: true, ..Default::default() };
+        save_file(&f, &s).unwrap();
+        assert_eq!(load_file(&f).unwrap(), s);
+        std::fs::write(&f, b"{\"hello\":1}").unwrap();
+        assert!(load_file(&f).unwrap_err().to_string().contains("not a GIS Studio raster style"));
+        std::fs::write(&f, b"nope").unwrap();
+        assert!(load_file(&f).is_err());
+        std::fs::write(&f, br#"{"format":"gis-studio-raster-style","version":9,"style":{}}"#).unwrap();
+        assert!(load_file(&f).unwrap_err().to_string().contains("newer"));
+        assert!(load_file(&dir.path().join("missing.json")).is_err());
     }
 
     #[test]

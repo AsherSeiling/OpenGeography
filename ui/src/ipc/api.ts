@@ -1,4 +1,5 @@
 // Typed wrappers around the Rust engine's Tauri commands.
+import type { RasterStyle } from "../store/store";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { track } from "../progress/progress";
 import type { Layout, LayoutPreview, RenderRequest } from "../layout/types";
@@ -536,6 +537,8 @@ export const api = {
   rasterRamps: () => invoke<RampInfo[]>("raster_ramps"),
   rasterClassify: (id: string, band: number, method: "equal" | "quantile" | "jenks" | "stddev", classes: number) => invoke<number[]>("raster_classify", { id, band, method, classes }),
   rasterUniqueValues: (id: string, band: number, max: number) => invoke<RasterUniqueValues>("raster_unique_values", { id, band, max }),
+  saveRasterStyle: (path: string, style: RasterStyle) => invoke<void>("save_raster_style", { path, style }),
+  loadRasterStyle: (path: string) => invoke<RasterStyle>("load_raster_style", { path }),
   rasterHistogram: (id: string, band: number, bins: number) => invoke<RasterHistogram>("raster_histogram", { id, band, bins }),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),

@@ -53,4 +53,6 @@ Order: RS 1→2→3 first (everything else in RS builds on them), then CG 1, 2, 
 - [x] RS4 rs-categorical (2026-10-29): paletted renderer, `raster_unique_values`, colour-table colours. RAT labels not built (gdal crate has no RAT API).
 - [x] RS5 rs-multiband (2026-10-29): multiband renderer, band presets (stretch per channel from each band's statistics; per-channel manual stretch UI not built).
 - [x] RS6 rs-shading (2026-10-29): hillshade / multidirectional / slope shading under a ramp, display resampling. Contour overlay stays the Contour tool + Symbology node (decision: no duplicate in the raster renderer).
-- [ ] RS7 …
+- [x] RS7 rs-legend-io (2026-10-29): raster legends in layouts (colour bar, classes, unique values), style save/load files. Project-level presets = the per-layer style saved in the project plus "apply symbology" on multi-selected layers; a named preset library is not built.
+
+CG tasks below are not started.

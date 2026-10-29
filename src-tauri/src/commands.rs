@@ -565,6 +565,16 @@ pub async fn raster_unique_values(engine: Eng<'_>, id: String, band: usize, max:
 }
 
 #[tauri::command]
+pub async fn save_raster_style(engine: Eng<'_>, path: String, style: engine::raster_style::RasterStyle) -> Res<()> {
+    blocking(&engine, move |e| e.save_raster_style(std::path::Path::new(&path), &style)).await
+}
+
+#[tauri::command]
+pub async fn load_raster_style(engine: Eng<'_>, path: String) -> Res<engine::raster_style::RasterStyle> {
+    blocking(&engine, move |e| e.load_raster_style(std::path::Path::new(&path))).await
+}
+
+#[tauri::command]
 pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
     blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
 }

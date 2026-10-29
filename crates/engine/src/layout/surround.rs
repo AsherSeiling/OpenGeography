@@ -263,6 +263,16 @@ struct Row {
     swatch: Option<(Sym, String)>,
     label: String,
     style: LayerStyle,
+    /// Raster colour bar (hex stops) drawn across the row instead of a swatch.
+    bar: Option<Vec<String>>,
+    /// Low and high value printed under a colour bar.
+    ends: Option<(String, String)>,
+}
+
+impl Row {
+    fn new(swatch: Option<(Sym, String)>, label: String, style: &LayerStyle) -> Row {
+        Row { swatch, label, style: style.clone(), bar: None, ends: None }
+    }
 }
 
 fn format_break(v: f64) -> String {
@@ -272,7 +282,25 @@ fn format_break(v: f64) -> String {
 /// Legend rows for one drawn layer, mirroring how `frame.rs` colours it.
 fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
     if let Some(r) = &info.raster {
-        return vec![Row { swatch: Some((Sym::Raster(r.kind != "rgb"), String::new())), label: info.name.clone(), style: style.clone() }];
+        use crate::raster_style::RasterLegend as L;
+        let legend = style.raster.as_ref().and_then(|rs| crate::raster_style::legend(r, rs).ok().flatten());
+        let mut rows = vec![Row::new(None, info.name.clone(), style)];
+        return match legend {
+            None => vec![Row::new(Some((Sym::Raster(r.kind != "rgb"), String::new())), info.name.clone(), style)],
+            Some(L::Bar { colors, lo, hi }) => {
+                rows.push(Row { bar: Some(colors), ..Row::new(None, String::new(), style) });
+                rows.push(Row { ends: Some((crate::raster_style::fmt_num(lo), crate::raster_style::fmt_num(hi))), ..Row::new(None, String::new(), style) });
+                rows
+            }
+            Some(L::Classes(items)) => {
+                rows.extend(items.into_iter().map(|(c, l)| Row::new(Some((Sym::Poly, c)), l, style)));
+                rows
+            }
+            Some(L::Note(t)) => {
+                rows.push(Row { ends: Some((t, String::new())), ..Row::new(None, String::new(), style) });
+                rows
+            }
+        };
     }
     let sym = match info.geom_type.as_str() {
         "Line" => Sym::Line,
@@ -305,10 +333,10 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
         _ => Vec::new(),
     };
     if classes.is_empty() {
-        return vec![Row { swatch: Some((sym, class_color(style, 0))), label: info.name.clone(), style: style.clone() }];
+        return vec![Row::new(Some((sym, class_color(style, 0))), info.name.clone(), style)];
     }
-    let mut rows = vec![Row { swatch: None, label: info.name.clone(), style: style.clone() }];
-    rows.extend(classes.into_iter().map(|(label, color)| Row { swatch: Some((sym, color)), label, style: style.clone() }));
+    let mut rows = vec![Row::new(None, info.name.clone(), style)];
+    rows.extend(classes.into_iter().map(|(label, color)| Row::new(Some((sym, color)), label, style)));
     rows
 }
 
@@ -370,6 +398,25 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, at: &Placement, titl
         let (c, r) = (i / per_col, i % per_col);
         let (cx, ry) = (at.x + LEGEND_PAD + c as f64 * col_w, top + r as f64 * ROW_MM);
         let base = ry + ROW_MM / 2.0 + LEGEND_PT * PT_MM * 0.35;
+        if let Some(cols) = &row.bar {
+            let w = (col_w - 1.0).min(SWATCH_W * 3.0);
+            let sw = w / cols.len() as f64;
+            for (k, c) in cols.iter().enumerate() {
+                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{c}\"/>", mm(cx + sw * k as f64), mm(ry + 0.75), mm(sw + 0.05));
+            }
+            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.2\"/>", mm(cx), mm(ry + 0.75), mm(w));
+            continue;
+        }
+        if let Some((lo, hi)) = &row.ends {
+            let w = (col_w - 1.0).min(SWATCH_W * 3.0);
+            if hi.is_empty() {
+                text_line(out, cx, base, &ellipsize(lo, "sans", LEGEND_PT, col_w - 1.0), "sans", LEGEND_PT, "start");
+            } else {
+                text_line(out, cx, base, lo, "sans", LEGEND_PT, "start");
+                text_line(out, cx + w, base, hi, "sans", LEGEND_PT, "end");
+            }
+            continue;
+        }
         match &row.swatch {
             Some((sym, color)) => {
                 swatch(out, cx, ry, *sym, color, &row.style);

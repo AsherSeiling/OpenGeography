@@ -1,6 +1,7 @@
 // Raster symbology (RS3): renderer, band, stretch with a histogram, colour ramp, classes, transparency and image adjustments.
 // The style is `LayerStyle.raster`; the engine draws it (raster_style.rs).
 import { Button, Checkbox, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, OptionGroup, Slider, SpinButton } from "@fluentui/react-components";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useRef, useState } from "react";
 import { api, errorText, type RampInfo, type RasterHistogram, type RasterUniqueValues } from "../ipc/api";
 import { displayInfo, useApp, type LayerStyle, type RasterStyle } from "../store/store";
@@ -117,8 +118,31 @@ export function RasterSymbology({ id }: { id: string }) {
     }
   };
 
+  const saveStyle = async () => {
+    setErr(null);
+    try {
+      const path = await save({ title: "Save raster style", defaultPath: `${info.name}.rasterstyle.json`, filters: [{ name: "Raster style", extensions: ["json"] }] });
+      if (path) await api.saveRasterStyle(path, r);
+    } catch (e) {
+      setErr(errorText(e));
+    }
+  };
+  const loadStyle = async () => {
+    setErr(null);
+    try {
+      const path = await open({ title: "Load raster style", multiple: false, filters: [{ name: "Raster style", extensions: ["json"] }] });
+      if (typeof path === "string") set(await api.loadRasterStyle(path));
+    } catch (e) {
+      setErr(errorText(e));
+    }
+  };
+
   return (
     <div className="stack">
+      <div className="class-row">
+        <Button size="small" onClick={loadStyle}>Load style…</Button>
+        <Button size="small" onClick={saveStyle} disabled={r.renderer === "default"}>Save style…</Button>
+      </div>
       {err && (
         <MessageBar intent="error">
           <MessageBarBody>{err}</MessageBarBody>

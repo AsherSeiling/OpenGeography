@@ -312,6 +312,14 @@ impl Engine {
         raster_style::unique_values(r, band, max.clamp(1, 2000))
     }
 
+    pub fn save_raster_style(&self, path: &Path, style: &raster_style::RasterStyle) -> Result<()> {
+        raster_style::save_file(path, style)
+    }
+
+    pub fn load_raster_style(&self, path: &Path) -> Result<raster_style::RasterStyle> {
+        raster_style::load_file(path)
+    }
+
     /// Class breaks for a raster band: `method` is equal | quantile | jenks | stddev.
     pub fn raster_classify(&self, id: &str, band: usize, method: &str, classes: usize) -> Result<Vec<f64>> {
         let info = self.layer(id)?;
