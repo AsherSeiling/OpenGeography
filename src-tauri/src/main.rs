@@ -114,6 +114,8 @@ fn main() {
             commands::fs_stat,
             commands::plan_elevation,
             commands::arcgis_catalog,
+            commands::earthquakes_import,
+            commands::ssurgo_import,
             commands::ogc_catalog,
             commands::ogc_collections,
             commands::ogc_import,

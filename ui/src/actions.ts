@@ -37,6 +37,7 @@ export type DialogState =
   | { kind: "elevation" }
   | { kind: "nationalMap" }
   | { kind: "arcgis" }
+  | { kind: "hazardsSoils" }
   | { kind: "ogc" }
   | { kind: "overture" }
   | { kind: "stac" }

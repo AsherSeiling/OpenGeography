@@ -270,6 +270,11 @@ fn fix_dates(props: &mut Map<String, Value>, dates: &[String]) {
     }
 }
 
+/// ISO date from days since 1970-01-01.
+pub fn date_of_days(days: i64) -> String {
+    chrono_date(days)
+}
+
 /// Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
 fn chrono_date(days: i64) -> String {
     let z = days + 719_468;
