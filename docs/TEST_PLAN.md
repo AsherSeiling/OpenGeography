@@ -921,3 +921,4 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | RS2-1 | Classification: equal interval, quantile, Jenks (cuts between two clusters), standard deviation; 2–64 classes | | auto: raster_style.rs classification_methods |
 | RS2-2 | Classed rendering: one colour per class, breaks must increase | | auto: raster_style.rs classed_rendering_* |
 | RS2-3 | Colour-blind-safe flag on ramps (viridis family, single-hue sequentials, RdBu/BrBG/PuOr) | | auto: colour_blind_safe_flags |
+| RS3-1 | Raster Symbology pane: render type, band, stretch + histogram with draggable min/max (becomes manual), grouped ramp picker with colour-blind-safe marks, invert, classified colours with editable breaks, opacity, NoData and value-range transparency, image adjustments | | auto: e2e/raster-symbology.spec.ts, vitest raster/histogram.test.ts; visual check in the packaged app pending |
