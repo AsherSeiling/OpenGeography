@@ -237,18 +237,32 @@ impl Engine {
         Ok(info)
     }
 
-    /// Download USGS 3DEP elevation for a lon/lat box as a raster layer.
-    pub fn download_elevation(&self, bbox: [f64; 4], resolution: f64, area_label: &str) -> Result<LayerInfo> {
+    /// What a 3DEP download of this box would be: output CRS, cells, requests, size, notes (D-1, DEM-2, DEM-10).
+    pub fn plan_elevation(&self, bbox: [f64; 4], resolution: f64) -> Result<tnm::ElevationPlan> {
+        tnm::plan_elevation(bbox, resolution)
+    }
+
+    /// Download USGS 3DEP elevation for a lon/lat box as a raster layer, in tiles. More than 500 MB needs `confirmed`.
+    pub fn download_elevation(&self, bbox: [f64; 4], resolution: f64, area_label: &str, confirmed: bool) -> Result<LayerInfo> {
+        self.download_elevation_from(&tnm::ElevationService::default(), bbox, resolution, area_label, confirmed)
+    }
+
+    /// `download_elevation` from another service URL (tests).
+    pub fn download_elevation_from(&self, service: &tnm::ElevationService, bbox: [f64; 4], resolution: f64, area_label: &str, confirmed: bool) -> Result<LayerInfo> {
         let task = Task::start(format!("Downloading elevation for {area_label}")).cancellable();
-        let (path, res) = tnm::download_elevation(bbox, resolution, &|f, msg| {
-            task.set(f, Some(msg));
+        let (path, plan) = tnm::download_elevation_from(service, bbox, resolution, confirmed, &|f, msg| {
+            if f >= 0.0 {
+                task.set(f, Some(msg.to_string()));
+            }
             task.check()
         })?;
         let id = self.alloc_id();
-        let name = format!("Elevation (3DEP {res} m) — {area_label}");
+        let cells = if plan.crs == "EPSG:4326" { format!("~{:.0} m", plan.used_res) } else { format!("{:.0} m", plan.used_res) };
+        let name = format!("Elevation (3DEP {cells}) — {area_label}");
         let info = layers::raster_layer(&id, &name, &path, Some("USGS 3DEP elevation (The National Map)".into()))?;
         self.with_conn(|c| {
             self.save_meta(c, &info)?;
+            // One citation per job, not per tile.
             sources::record(c, &sources::for_3dep(), &info.id, &info.name)
         })?;
         Ok(info)
