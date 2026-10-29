@@ -312,6 +312,50 @@ export function RasterSymbology({ id }: { id: string }) {
       </Field>
       {r.renderer !== "default" && (
         <>
+          <Field label="Resampling when zoomed">
+            <Dropdown value={r.resampling ?? "bilinear"} selectedOptions={[r.resampling ?? "bilinear"]} onOptionSelect={(_, d) => set({ resampling: d.optionValue as RasterStyle["resampling"] })}>
+              {["nearest", "bilinear", "cubic"].map((k) => (
+                <Option key={k} value={k}>
+                  {k}
+                </Option>
+              ))}
+            </Dropdown>
+          </Field>
+          {(r.renderer === "gray" || r.renderer === "pseudocolor") && (
+            <>
+              <Checkbox label="Relief shading (for elevation data)" checked={!!r.shading} onChange={(_, d) => set({ shading: d.checked ? { mode: "hillshade" } : undefined })} />
+              {r.shading && (
+                <>
+                  <Field label="Shading">
+                    <Dropdown
+                      value={{ hillshade: "Hillshade", multidirectional: "Multidirectional hillshade", slope: "Slope (darker = steeper)" }[r.shading.mode]}
+                      selectedOptions={[r.shading.mode]}
+                      onOptionSelect={(_, d) => set({ shading: { ...r.shading!, mode: d.optionValue as NonNullable<RasterStyle["shading"]>["mode"] } })}
+                    >
+                      <Option value="hillshade">Hillshade</Option>
+                      <Option value="multidirectional">Multidirectional hillshade</Option>
+                      <Option value="slope">Slope (darker = steeper)</Option>
+                    </Dropdown>
+                  </Field>
+                  {(
+                    [
+                      ["azimuth", "Sun azimuth °", 0, 360, 5, 315],
+                      ["altitude", "Sun altitude °", 5, 90, 5, 45],
+                      ["zFactor", "Vertical exaggeration ×", 0.1, 10, 0.1, 1],
+                      ["strength", "Shading strength", 0, 1, 0.05, 0.6],
+                    ] as const
+                  )
+                    .filter(([k]) => r.shading!.mode === "hillshade" || (r.shading!.mode === "multidirectional" && k !== "azimuth") || k === "zFactor" || k === "strength")
+                    .map(([k, label, mn, mx, st, def]) => (
+                      <Field key={k} label={`${label} ${(r.shading![k] ?? def).toFixed(2)}`}>
+                        <Slider min={mn} max={mx} step={st} value={r.shading![k] ?? def} onChange={(_, d) => set({ shading: { ...r.shading!, [k]: d.value } })} />
+                      </Field>
+                    ))}
+                  <div className="props-hint">Heights are read in the raster's own vertical unit; set the exaggeration if it is not metres.</div>
+                </>
+              )}
+            </>
+          )}
           <Checkbox label="NoData is transparent" checked={r.nodataTransparent ?? true} onChange={(_, d) => set({ nodataTransparent: !!d.checked })} />
           <Field label="Transparent value range (min, max)">
             <div className="class-row">

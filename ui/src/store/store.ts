@@ -88,6 +88,10 @@ export interface RasterStyle {
   /** Class upper bounds; with mode "discrete" the ramp is sampled once per class. */
   breaks?: number[];
   /** 0–1, on top of the layer opacity. */
+  /** Relief shading under the colours (gray and pseudocolour). */
+  shading?: { mode: "hillshade" | "multidirectional" | "slope"; azimuth?: number; altitude?: number; zFactor?: number; strength?: number };
+  /** Display resampling; default bilinear. */
+  resampling?: "nearest" | "bilinear" | "cubic";
   /** Multiband: bands drawn as red, green, blue (1-based), and optionally a stretch per channel. */
   rgbBands?: [number, number, number];
   channelStretch?: NonNullable<RasterStyle["stretch"]>[];

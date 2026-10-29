@@ -147,3 +147,18 @@ fn multiband_composite_uses_chosen_bands() {
     let err = raster::render_extent_styled(&info, &RasterStyle { renderer: Renderer::Multiband, rgb_bands: [1, 2, 3], ..Default::default() }, "EPSG:32614", EXTENT, 20, 20).unwrap_err();
     assert!(err.to_string().contains("Band 3"), "{err}");
 }
+
+#[test]
+fn shading_and_resampling_change_the_picture() {
+    let (_d, info) = setup();
+    let plain = RasterStyle { renderer: Renderer::Pseudocolor, ..Default::default() };
+    let shaded = RasterStyle { shading: Some(Default::default()), ..plain.clone() };
+    let (a, b) = (render(&info, &plain), render(&info, &shaded));
+    assert_ne!(a, b);
+    // Alpha is untouched by shading.
+    assert!((0..400).all(|i| a[i * 4 + 3] == b[i * 4 + 3]));
+    let near = render(&info, &RasterStyle { resampling: "nearest".into(), ..plain.clone() });
+    let png = raster::render_extent_styled(&info, &RasterStyle { resampling: "cubic".into(), ..plain }, "EPSG:32614", [600_000.0, 3_899_400.0, 600_300.0, 3_899_700.0], 40, 40).unwrap();
+    assert!(!png.is_empty());
+    assert_eq!(near.len(), a.len());
+}

@@ -52,4 +52,5 @@ Order: RS 1→2→3 first (everything else in RS builds on them), then CG 1, 2, 
 - [x] RS3 rs-ui (2026-10-29): `ui/src/raster/RasterSymbology.tsx` in Properties › Symbology for raster layers; histogram widget with draggable handles.
 - [x] RS4 rs-categorical (2026-10-29): paletted renderer, `raster_unique_values`, colour-table colours. RAT labels not built (gdal crate has no RAT API).
 - [x] RS5 rs-multiband (2026-10-29): multiband renderer, band presets (stretch per channel from each band's statistics; per-channel manual stretch UI not built).
-- [ ] RS6 …
+- [x] RS6 rs-shading (2026-10-29): hillshade / multidirectional / slope shading under a ramp, display resampling. Contour overlay stays the Contour tool + Symbology node (decision: no duplicate in the raster renderer).
+- [ ] RS7 …

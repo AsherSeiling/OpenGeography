@@ -30,6 +30,88 @@ pub enum Renderer {
     Multiband,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ShadeMode {
+    #[default]
+    Hillshade,
+    /// Light from four directions averaged: fewer lost features on slopes facing the light.
+    Multidirectional,
+    /// Steeper = darker; independent of the sun.
+    Slope,
+}
+
+/// Relief shading blended under the colours of a gray or pseudocolour raster (elevation data).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Shading {
+    pub mode: ShadeMode,
+    /// Sun azimuth, degrees clockwise from north.
+    pub azimuth: f32,
+    /// Sun height above the horizon, degrees.
+    pub altitude: f32,
+    /// Vertical exaggeration.
+    pub z_factor: f32,
+    /// 0 = no shading, 1 = full.
+    pub strength: f32,
+}
+
+impl Default for Shading {
+    fn default() -> Self {
+        Shading { mode: ShadeMode::Hillshade, azimuth: 315.0, altitude: 45.0, z_factor: 1.0, strength: 0.6 }
+    }
+}
+
+/// Shade factor per cell (about 1 on flat ground, >1 lit, <1 shadowed) from a Horn slope/aspect on `v`
+/// (`w`×`h`, ground cell size `px`/`py` m). Cells without data (`ok` false) take the centre value for their neighbours.
+pub fn shade_factors(v: &[f32], ok: &[bool], w: usize, h: usize, px: f32, py: f32, sh: &Shading) -> Vec<f32> {
+    let at = |r: isize, c: isize, centre: f32| {
+        let (rr, cc) = (r.clamp(0, h as isize - 1) as usize, c.clamp(0, w as isize - 1) as usize);
+        if ok[rr * w + cc] { v[rr * w + cc] } else { centre }
+    };
+    let alt = sh.altitude.to_radians();
+    let azs: Vec<f32> = match sh.mode {
+        ShadeMode::Multidirectional => vec![225.0, 270.0, 315.0, 360.0],
+        _ => vec![sh.azimuth],
+    };
+    let z = sh.z_factor.max(0.0);
+    let mut out = vec![1.0f32; w * h];
+    for r in 0..h as isize {
+        for c in 0..w as isize {
+            let i = r as usize * w + c as usize;
+            if !ok[i] {
+                continue;
+            }
+            let m = v[i];
+            let g = |dr: isize, dc: isize| at(r + dr, c + dc, m) * z;
+            let dzdx = ((g(-1, 1) + 2.0 * g(0, 1) + g(1, 1)) - (g(-1, -1) + 2.0 * g(0, -1) + g(1, -1))) / (8.0 * px);
+            let dzdy = ((g(1, -1) + 2.0 * g(1, 0) + g(1, 1)) - (g(-1, -1) + 2.0 * g(-1, 0) + g(-1, 1))) / (8.0 * py);
+            let slope = (dzdx * dzdx + dzdy * dzdy).sqrt().atan();
+            out[i] = if sh.mode == ShadeMode::Slope {
+                // 1 on flat ground, 0.35 at 45° and steeper.
+                1.0 - 0.65 * (slope / std::f32::consts::FRAC_PI_4).min(1.0)
+            } else {
+                let aspect = dzdy.atan2(-dzdx);
+                let one = |az: f32| (alt.sin() * slope.cos() + alt.cos() * slope.sin() * (az.to_radians() - std::f32::consts::FRAC_PI_2 - aspect).cos()).max(0.0);
+                let lit = azs.iter().map(|a| one(*a)).sum::<f32>() / azs.len() as f32;
+                (lit / alt.sin().max(0.05)).min(1.4)
+            };
+        }
+    }
+    out
+}
+
+/// Multiply the colour of each pixel by `1 - strength + strength * shade`.
+pub fn apply_shade(rgba: &mut [u8], shade: &[f32], strength: f32) {
+    let s = strength.clamp(0.0, 1.0);
+    for (i, f) in shade.iter().enumerate() {
+        let k = 1.0 - s + s * f;
+        for c in 0..3 {
+            rgba[i * 4 + c] = (rgba[i * 4 + c] as f32 * k).clamp(0.0, 255.0).round() as u8;
+        }
+    }
+}
+
 /// One class of a paletted raster.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct PalEntry {
@@ -114,6 +196,11 @@ pub struct RasterStyle {
     pub channel_stretch: Vec<Stretch>,
     /// Classes of the paletted renderer.
     pub entries: Vec<PalEntry>,
+    /// Relief shading under the colours (gray and pseudocolour).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shading: Option<Shading>,
+    /// Resampling when the display grid differs from the cells: "nearest", "bilinear" (default) or "cubic".
+    pub resampling: String,
     pub opacity: f32,
     /// Cells equal to the raster's NoData value are transparent.
     pub nodata_transparent: bool,
@@ -143,6 +230,8 @@ impl Default for RasterStyle {
             entries: Vec::new(),
             rgb_bands: [1, 2, 3],
             channel_stretch: Vec::new(),
+            shading: None,
+            resampling: String::new(),
             opacity: 1.0,
             nodata_transparent: true,
             transparent_ranges: Vec::new(),
@@ -171,6 +260,14 @@ impl RasterStyle {
     pub fn validate(&self, info: &RasterInfo) -> Result<()> {
         if self.band == 0 || self.band > info.bands {
             bail!("Band {} doesn't exist; this raster has {} band(s)", self.band, info.bands);
+        }
+        if !matches!(self.resampling.as_str(), "" | "nearest" | "bilinear" | "cubic") {
+            bail!("Unknown resampling '{}' (nearest, bilinear or cubic)", self.resampling);
+        }
+        if let Some(sh) = &self.shading {
+            if !(0.0..=90.0).contains(&sh.altitude) || sh.z_factor < 0.0 {
+                bail!("Sun altitude must be 0–90° and the vertical exaggeration above 0");
+            }
         }
         if self.gamma <= 0.0 {
             bail!("Gamma must be above 0");
@@ -886,6 +983,32 @@ mod tests {
         assert!(bad.validate(&i3).unwrap_err().to_string().contains("Band 4"));
         let bad = RasterStyle { renderer: Renderer::Multiband, channel_stretch: vec![Stretch::default()], ..Default::default() };
         assert!(bad.validate(&i3).is_err());
+    }
+
+    #[test]
+    fn shading_flat_unchanged_and_slopes_differ() {
+        let (w, h) = (9, 9);
+        let ok = vec![true; w * h];
+        let flat = vec![100.0f32; w * h];
+        let sh = Shading::default();
+        let f = shade_factors(&flat, &ok, w, h, 30.0, 30.0, &sh);
+        assert!(f.iter().all(|x| (x - 1.0).abs() < 1e-4), "flat ground keeps its colour");
+        // A ramp rising to the east (sun in the north-west): west-facing slope is lit more than an east-facing one.
+        let east_up: Vec<f32> = (0..w * h).map(|i| (i % w) as f32 * 30.0).collect();
+        let west_up: Vec<f32> = (0..w * h).map(|i| (w - 1 - i % w) as f32 * 30.0).collect();
+        let a = shade_factors(&east_up, &ok, w, h, 30.0, 30.0, &sh)[4 * w + 4];
+        let b = shade_factors(&west_up, &ok, w, h, 30.0, 30.0, &sh)[4 * w + 4];
+        assert!(a > b, "{a} {b}");
+        let s = shade_factors(&east_up, &ok, w, h, 30.0, 30.0, &Shading { mode: ShadeMode::Slope, ..sh.clone() })[4 * w + 4];
+        assert!(s < 0.7, "45° slope is darker: {s}");
+        let md = shade_factors(&east_up, &ok, w, h, 30.0, 30.0, &Shading { mode: ShadeMode::Multidirectional, ..sh.clone() })[4 * w + 4];
+        assert!(md > 0.0 && md < 1.4);
+        let mut px = vec![200u8, 100, 50, 255];
+        apply_shade(&mut px, &[0.5], 1.0);
+        assert_eq!(&px[0..3], &[100, 50, 25]);
+        apply_shade(&mut px, &[0.0], 0.0);
+        assert_eq!(&px[0..3], &[100, 50, 25]);
+        assert!(RasterStyle { resampling: "lanczos".into(), ..Default::default() }.validate(&info()).is_err());
     }
 
     #[test]

@@ -63,4 +63,13 @@ test("RS3 raster symbology pane: render type, ramp library, histogram handles, c
   await app.getByRole("option", { name: "Multiband colour" }).click();
   expect((await style()).renderer).toBe("multiband");
   await expect(app.getByRole("combobox", { name: "Red" })).toBeVisible();
+
+  // Relief shading and resampling on a gray render.
+  await app.getByRole("combobox", { name: "Render type" }).click();
+  await app.getByRole("option", { name: "Singleband gray" }).click();
+  await app.getByRole("checkbox", { name: /Relief shading/ }).check();
+  expect((await style()).shading.mode).toBe("hillshade");
+  await app.getByRole("combobox", { name: "Resampling when zoomed" }).click();
+  await app.getByRole("option", { name: "cubic" }).click();
+  expect((await style()).resampling).toBe("cubic");
 });
