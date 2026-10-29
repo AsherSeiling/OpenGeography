@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod secrets;
 mod selftest;
 mod tiles;
 
@@ -113,6 +114,11 @@ fn main() {
             commands::fs_stat,
             commands::plan_elevation,
             commands::arcgis_catalog,
+            commands::census_datasets,
+            commands::census_key_status,
+            commands::census_key_set,
+            commands::census_key_delete,
+            commands::census_join,
             commands::arcgis_layers,
             commands::arcgis_import,
             commands::download_elevation,

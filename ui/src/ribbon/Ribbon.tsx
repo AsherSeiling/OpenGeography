@@ -46,7 +46,7 @@ const TABS: Record<string, Group[]> = {
   ],
   Data: [
     { label: "Add", items: [{ cmd: "addData" }, { cmd: "catalog" }, { cmd: "tiger" }, { cmd: "nationalMap" }, { cmd: "arcgis" }, { cmd: "elevation" }] },
-    { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }] },
+    { label: "Fields", items: [{ cmd: "addField" }, { cmd: "calcField" }, { cmd: "calcGeometry" }, { cmd: "census" }] },
     { label: "Coordinate Systems", items: [{ cmd: "defineProjection" }, { cmd: "mapCrs" }] },
     { label: "Export", items: [{ cmd: "exportLayer" }, { cmd: "layerFromSelection" }, { cmd: "splitByAttribute" }] },
     { label: "Filter", items: [{ cmd: "definitionQuery" }] },

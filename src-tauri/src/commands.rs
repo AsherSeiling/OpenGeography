@@ -633,3 +633,31 @@ pub async fn arcgis_import(engine: Eng<'_>, spec: engine::arcgis::Spec, bbox: [f
     prewarm(&engine, layers.iter().map(|l| l.id.clone()).collect());
     Ok(layers)
 }
+
+#[tauri::command]
+pub async fn census_datasets() -> Res<Vec<engine::census::Dataset>> {
+    Ok(engine::census::DATASETS.to_vec())
+}
+
+#[tauri::command]
+pub async fn census_key_status() -> Res<bool> {
+    Ok(crate::secrets::has(crate::secrets::CENSUS))
+}
+
+#[tauri::command]
+pub async fn census_key_set(key: String) -> Res<()> {
+    crate::secrets::set(crate::secrets::CENSUS, &key)
+}
+
+#[tauri::command]
+pub async fn census_key_delete() -> Res<()> {
+    crate::secrets::delete(crate::secrets::CENSUS)
+}
+
+#[tauri::command]
+pub async fn census_join(engine: Eng<'_>, layer: String, geoid_field: String, spec: engine::census::Spec) -> Res<engine::census::JoinResult> {
+    let key = crate::secrets::get(crate::secrets::CENSUS);
+    let r = blocking(&engine, move |e| e.census_join(&layer, &geoid_field, &spec, key.as_deref())).await?;
+    prewarm(&engine, vec![r.layer.id.clone()]);
+    Ok(r)
+}

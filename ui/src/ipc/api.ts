@@ -146,6 +146,26 @@ export interface ElevationPlan {
   notes: string[];
 }
 
+export interface CensusDataset {
+  id: string;
+  label: string;
+  path: string;
+  title: string;
+}
+export interface CensusSpec {
+  dataset: string;
+  vintage: number;
+  level?: "state" | "county" | "tract" | "block_group";
+  variables: string[];
+}
+export interface CensusJoinResult {
+  layer: LayerInfo;
+  matched: number;
+  unmatched: number;
+  suppressed: number;
+  notes: string[];
+}
+
 export interface ArcgisEntry {
   id: string;
   group: string;
@@ -420,6 +440,12 @@ export const api = {
   measureFeature: (id: string, fid: number) =>
     invoke<{ area: number | null; perimeter: number | null; length: number | null; centroid: [number, number] | null }>("measure_feature", { id, fid }),
   createFeatures: (name: string, features: { wkt: string; props?: Record<string, unknown> }[]) => invoke<LayerInfo>("create_features", { name, features }),
+  censusDatasets: () => invoke<CensusDataset[]>("census_datasets"),
+  censusKeyStatus: () => invoke<boolean>("census_key_status"),
+  /** Store the key in the OS keychain; it is never returned. */
+  censusKeySet: (key: string) => invoke<void>("census_key_set", { key }),
+  censusKeyDelete: () => invoke<void>("census_key_delete"),
+  censusJoin: (layer: string, geoidField: string, spec: CensusSpec) => track(invoke<CensusJoinResult>("census_join", { layer, geoidField, spec })),
   arcgisCatalog: () => invoke<ArcgisEntry[]>("arcgis_catalog"),
   arcgisLayers: (url: string) => invoke<ArcgisServiceLayer[]>("arcgis_layers", { url }),
   arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),

@@ -5,6 +5,7 @@ pub mod attrs;
 pub mod catalog;
 pub mod crs;
 pub mod arcgis;
+pub mod census;
 pub mod tissot;
 pub mod world;
 pub mod db;
