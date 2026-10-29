@@ -9,7 +9,7 @@ Standing orders: finish R → E; **no GitHub CI until all phases are done** (pus
 | 1 | R6 leftovers: Tissot layer, layer source panel, layout `{datum}`/`{units}` tokens, picker recents | R-H9, R-H10, R-H11, R-I5 automated | **done** (area-of-use data chip left, G15) |
 | 2 | R8 world view: world-mode display tables, graticule / outline / standard-parallel layers, bundled Natural Earth 110m outline, projection builder | R-W cases automated | **done** (R-W10 colouring, R-W11 perf deferred) |
 | 3 | R7 prep + **local macOS build** (`package-macos.sh`, `--self-test`, copy `.app` + DMG, `cargo clean`) | build runs, self-test passes | **done** (self-test OK after fixing P-1; `cargo clean` at session end) |
-| 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | planned |
+| 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | **D0, D1, D2 done**; D3–D6 not started |
 | 5 | Phase E: E1 raster calculator/reclassify/NoData/band select, E2 resample/align/mosaic/rasterize, E3 cancellable gdaldem | tests per tool, added to the CRS matrix guard | planned |
 | 6 | Bookkeeping at each block: TEST_PLAN, TEST_PLAN_FULL, DECISIONS, BUGS, PROJECT_STATUS, roadmap, Claude Doc rows | docs match code | continuous |
 
@@ -38,6 +38,18 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 **R8 — World view**
 - Map tab: World View toggle (any CRS over the whole Earth, cut at the opposite side of its central meridian, latitude limit stated), Graticule (curved lines plus central meridian, standard parallels, edge of map), World Outline (bundled Natural Earth 110m, cited), Projection Builder (conic / cylindrical / azimuthal / world families with sliders and validation).
 
+**D0 — Tiled large-area elevation download**
+- Elevation download for any area: cut into service-sized tiles on one cell grid, retried, resumable, cancellable, joined into one compressed GeoTIFF; UTM for one zone, geographic for wider/polar areas; coarsened with a stated note above 10⁹ cells; confirmation above 500 MB; the Elevation dialog shows the engine's plan (size, requests, CRS, notes).
+
+**D1 — ArcGIS Services**
+- Data → ArcGIS Services: PAD-US, FEMA flood zones and boundaries, National Wetlands Inventory and current wildfire perimeters (endpoints verified live), or any pasted MapServer/FeatureServer layer; each cited in Sources.
+
+**D2 — Census Data**
+- Data → Census Data: ACS 5-year/1-year and 2020 Census values joined by GEOID to the active layer as a new layer; API key kept in the OS keychain (Tauri shell only); suppressed values stored as no value and counted.
+
+**Packaging**
+- The packaged macOS app now carries the NOAA NADCON datum grids (bug P-1, found by the start-up datum check).
+
 **R0–R6 — Coordinate-system hardening**
 - Datum shifts fixed (C-1): PROJ data folder located at start-up, known-answer datum check (start-up alert and `--self-test`).
 - CRS identity by meaning (`crs::key`/`same`) replaces string comparison everywhere; importer fixes (C-4, C-5, C-7, C-8, G1).
@@ -64,6 +76,9 @@ Rule per block: acceptance criteria → smallest change → focused tests → br
 | R3 export / datum | `crs_export.rs`, `crs_edge.rs` | — | `map.spec.ts` (M-4) |
 | R4 tool matrix | `crs_tools.rs`, `crs_matrix.rs` | — | — |
 | R5 rasters/poles | `crs_raster.rs`, `display.rs` | — | — |
+| D0 tiled DEM | `dem_tiles.rs` (mock service: tiling, seams, failures, cancel, resume, confirm, metadata) | — | `dem.spec.ts` |
+| D1 ArcGIS catalog | `arcgis.rs` (mock MapServer, catalog integrity) | — | `arcgis.spec.ts` |
+| D2 Census | `census.rs` (mock Census API, key redaction) | `census/presets.test.ts` | `census.spec.ts` |
 | R8 world view | `world_view.rs` (grid, cut, densify, reference lines, outline) | `crs/projectionBuilder.test.ts` | `world.spec.ts` |
 | R6 CRS UI | `crs_identity.rs` (`crs_info_*`, `map_factors_*`), `crs_ui.rs` (Tissot, statement, same_crs) | `statusbar/statusBar.test.ts`, `dialogs/crsRecents.test.ts` | `crs-ui.spec.ts` |
 
