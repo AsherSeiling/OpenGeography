@@ -610,6 +610,16 @@ pub async fn load_raster_style(engine: Eng<'_>, path: String) -> Res<engine::ras
 }
 
 #[tauri::command]
+pub async fn layout_themes(engine: Eng<'_>) -> Res<Vec<engine::layout::themes::Theme>> {
+    Ok(engine.layout_themes())
+}
+
+#[tauri::command]
+pub async fn apply_layout_theme(engine: Eng<'_>, layout: engine::layout::model::Layout, theme: String) -> Res<engine::layout::model::Layout> {
+    blocking(&engine, move |e| e.apply_layout_theme(&layout, &theme)).await
+}
+
+#[tauri::command]
 pub async fn read_picture(engine: Eng<'_>, path: String) -> Res<String> {
     blocking(&engine, move |e| e.read_picture(std::path::Path::new(&path))).await
 }

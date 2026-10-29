@@ -573,6 +573,8 @@ export const api = {
   rasterUniqueValues: (id: string, band: number, max: number) => invoke<RasterUniqueValues>("raster_unique_values", { id, band, max }),
   saveRasterStyle: (path: string, style: RasterStyle) => invoke<void>("save_raster_style", { path, style }),
   loadRasterStyle: (path: string) => invoke<RasterStyle>("load_raster_style", { path }),
+  layoutThemes: () => invoke<LayoutTheme[]>("layout_themes"),
+  applyLayoutTheme: (layout: Layout, theme: string) => invoke<Layout>("apply_layout_theme", { layout, theme }),
   /** A PNG/JPEG/SVG file as the data URI a layout Picture stores. */
   readPicture: (path: string) => invoke<string>("read_picture", { path }),
   rasterHistogram: (id: string, band: number, bins: number) => invoke<RasterHistogram>("raster_histogram", { id, band, bins }),
@@ -682,6 +684,14 @@ export const api = {
   exportLayout: (req: RenderRequest, format: "svg" | "pdf" | "png", dpi: number, path: string) =>
     track(invoke<string[]>("export_layout", { req, format, dpi, path })),
 };
+
+export interface LayoutTheme {
+  id: string;
+  name: string;
+  description: string;
+  /** Single-symbol layer colours, cycled in draw order. */
+  palette: { fill: string; stroke: string; strokeWidth: number; opacity: number }[];
+}
 
 export interface RampInfo {
   name: string;

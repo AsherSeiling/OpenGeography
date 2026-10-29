@@ -10,6 +10,7 @@ import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
 import { addMapFrame, addPicture, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
+import { recolour } from "./themes";
 import { frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 
 const status = (s: string) => useApp.getState().setStatus(s);
@@ -347,4 +348,26 @@ export function insertOverview() {
   const w = Math.min(60, frame.w / 3);
   const id = addMapFrame({ x: frame.x + frame.w - w - 3, y: frame.y + 3, w, h: w, crs: frame.crs, center: frame.center, scale: roundScaleUp(frame.scale * 10), indicator: { frame: frame.id }, border: { width: 0.35, color: "#000000" }, decor: { background: "#ffffff" }, sources: false });
   if (id) s.select([id]);
+}
+
+/** Apply a layout theme: the page look from the engine, and (optionally) its palette on the single-symbol layers. */
+export async function applyTheme(themeId: string, recolourLayers: boolean) {
+  const doc = useLayouts.getState().doc;
+  if (!doc) return;
+  try {
+    const themes = await api.layoutThemes();
+    const theme = themes.find((t) => t.id === themeId);
+    if (!theme) return status(`Unknown theme ${themeId}.`);
+    useLayouts.getState().applyLook(await api.applyLayoutTheme(doc, themeId));
+    if (recolourLayers) {
+      const app = useApp.getState();
+      const next = recolour(app.order, app.layers, app.styles, theme.palette);
+      for (const [id, st] of Object.entries(next)) app.setStyle(id, st);
+      status(`${theme.name} theme applied to the page and ${Object.keys(next).length} layer(s) (classified and raster layers keep their colours).`);
+    } else {
+      status(`${theme.name} theme applied to the page. Layer colours were not changed.`);
+    }
+  } catch (e) {
+    reportError(e, "action:Apply theme", { title: "The theme could not be applied" });
+  }
 }

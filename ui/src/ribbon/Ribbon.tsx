@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, errorText, type LayoutTemplate } from "../ipc/api";
 import { pageCaption, useSeriesView } from "../layout/series";
 import { useDialog } from "../actions";
-import { exportLayoutSeries, deleteLayoutTemplate, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
+import { applyTheme, exportLayoutSeries, deleteLayoutTemplate, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
 import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/types";
 import { useLayouts } from "../store/layout";
 import type { AlignOp, OrderOp } from "../layout/arrange";
@@ -74,6 +74,7 @@ const TABS: Record<string, Group[]> = {
   Layout: [
     { label: "Page", items: [{ custom: <PageMenu /> }] },
     { label: "Template", items: [{ custom: <TemplateGroup /> }] },
+    { label: "Theme", items: [{ custom: <ThemeMenu /> }] },
     { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutOverview" }, { cmd: "layoutText" }, { cmd: "layoutTable" }, { cmd: "layoutChart" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
     { label: "Graphics", items: [{ cmd: "layoutRect" }, { cmd: "layoutEllipse" }, { cmd: "layoutTriangle" }, { cmd: "layoutLine" }, { cmd: "layoutArrow" }, { cmd: "layoutPicture" }] },
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
@@ -260,6 +261,46 @@ function TemplateSubmenu() {
         </MenuList>
       </MenuPopover>
     </Menu>
+  );
+}
+
+/** Layout → Theme: a coordinated look for the page (and optionally the layers' colours). */
+function ThemeMenu() {
+  const open = useLayouts((s) => !!s.doc);
+  const [themes, setThemes] = useState<{ id: string; name: string; description: string }[]>([]);
+  return (
+    <div className="rcol">
+      <Menu onOpenChange={(_, d) => d.open && void api.layoutThemes().then(setThemes, () => setThemes([]))}>
+        <MenuTrigger>
+          <button className="rbtn small" disabled={!open} title="Topographic, thematic or minimalist: page colours, frame, legend box, scale bar and north arrow style">
+            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-label">Page look ▾</span>
+          </button>
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            {themes.map((t) => (
+              <MenuItem key={t.id} title={t.description} onClick={() => void applyTheme(t.id, false)}>{t.name}</MenuItem>
+            ))}
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+      <Menu onOpenChange={(_, d) => d.open && void api.layoutThemes().then(setThemes, () => setThemes([]))}>
+        <MenuTrigger>
+          <button className="rbtn small" disabled={!open} title="The page look plus the theme's colours on single-symbol layers (changes the map too)">
+            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-label">Look + layer colours ▾</span>
+          </button>
+        </MenuTrigger>
+        <MenuPopover>
+          <MenuList>
+            {themes.map((t) => (
+              <MenuItem key={t.id} title={t.description} onClick={() => void applyTheme(t.id, true)}>{t.name}</MenuItem>
+            ))}
+          </MenuList>
+        </MenuPopover>
+      </Menu>
+    </div>
   );
 }
 
