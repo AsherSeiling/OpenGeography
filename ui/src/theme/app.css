@@ -108,6 +108,7 @@ body { font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", s
 .tree-layer { display: flex; align-items: center; gap: 5px; padding: 2px 8px 2px 22px; cursor: default; border-top: 2px solid transparent; }
 .tree-layer:hover { background: var(--accent-hover); }
 .tree-layer.active { background: var(--sel); }
+.tree-layer.multi { box-shadow: inset 2px 0 0 var(--accent, #0f6cbd); }
 .tree-layer.temp .tree-name { font-style: italic; }
 .tree-layer.drop-before { border-top-color: var(--accent); }
 .tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

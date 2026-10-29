@@ -861,3 +861,13 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | ET-4 | Parquet written; refusals: output = a layer's source file, no CRS chosen, unknown CRS, non-point layer, layer without CRS → readable sentence | as stated | auto: export_table::parquet_and_refusals (non-point and no-CRS cases to add) |
 | ET-5 | UI: Export is disabled until a CRS is chosen (none assumed); file written with the right header | | auto: e2e/export-table.spec.ts |
 | ET-6 | XLSX output | not built (needs a writer dependency; CSV opens in Excel) | decision D-ET |
+
+## MS. Selecting several layers
+| # | Case | Expected | Status |
+|---|---|---|---|
+| MS-1 | Click, Ctrl/Cmd-click (toggle), Shift-click (range from the anchor), Shift+Ctrl (add range) | selection as stated, in drawing order | auto: vitest layers/multiselect.test.ts, e2e/multi-select.spec.ts |
+| MS-2 | Move to top/up/down/bottom/gather keep the selected layers' relative order and stop at the edge | as stated | auto: vitest |
+| MS-3 | Zoom to layers covers the union extent; Show/Hide All; Remove N asks once | | auto: vitest (union), e2e |
+| MS-4 | Apply symbology/labels of one layer to the rest: class symbology and labels need the same field in the target, else the status line says what was not copied; rasters/tables are skipped | | auto: vitest |
+| MS-5 | Export Layers: one GeoPackage per layer, safe unique names (case-insensitive), nothing overwritten | | auto: vitest safeFileName, e2e |
+| MS-6 | "Group" is "Gather Together" (contiguous in drawing order); named groups are not built | decision D-MS | — |

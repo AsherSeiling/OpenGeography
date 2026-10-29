@@ -311,3 +311,8 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - New command `export_table` (engine `export_table.rs`; Tauri, devserver, `api.exportTable`). Point layers only; the target CRS is required (the dialog preselects nothing, offers "the layer's" and WGS 84 as one-click choices), coordinates are written with `ST_Transform(..., always_xy)` as lon/lat (geographic) or x/y (projected). CRS name, code, units and datum go to a sidecar `<file>.crs.txt`, because CSV has no place for them; Parquet gets the same sidecar.
 - A path equal to any layer's source file (or its sidecar) is refused; other existing files are replaced, as with Export Features after the OS save dialog.
 - XLSX not built: it needs a new writer dependency for a format Excel already opens as CSV. Revisit if users ask.
+
+## MS — Selecting several layers (2026-10-29)
+- Contents pane: click / Ctrl-or-Cmd-click / Shift-click (range) / Shift+Ctrl-click (add range); right-click on a picked layer opens a menu for the whole selection (zoom to, show/hide, move top/up/down/bottom/gather, apply symbology or labels of the right-clicked layer to the others, export layers to a folder, remove). Selection lives in the store (`selectedLayers`, not saved in projects); the active layer is the last clicked, so Properties and the ribbon keep working on one layer.
+- "Group" is implemented as **Gather Together** (selected layers made contiguous in drawing order). Real named/nestable groups would change the project format and the map's draw code; not built. Say if you want them.
+- Pure logic in `ui/src/layers/multiselect.ts`. Ctrl-click on macOS is a right-click in the browser engine, so use Cmd there.

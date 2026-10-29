@@ -18,13 +18,14 @@ import {
   ZoomFitRegular,
 } from "@fluentui/react-icons";
 import { useEffect, useRef, useState } from "react";
-import { exportLayer, exportTable, layerFromSelection, splitByAttribute, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
+import { applyStyleToLayers, exportLayer, exportTable, moveLayers, pickedLayers, removeLayers, setLayersVisible, zoomToLayers, layerFromSelection, splitByAttribute, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
 import { useLayouts } from "../store/layout";
 import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } from "../layout/actions";
+import { nextSelection } from "../layers/multiselect";
 import { showPane } from "./panes";
 
 export function Swatch({ info, style }: { info: LayerInfo; style?: LayerStyle }) {
@@ -71,6 +72,7 @@ export function ContentsPane() {
   const active = useApp((s) => s.activeLayer);
   const mapCrs = useApp((s) => s.mapCrs);
   const selection = useApp((s) => s.selection);
+  const picked = useApp((s) => s.selectedLayers);
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
@@ -95,9 +97,13 @@ export function ContentsPane() {
     return () => el.removeEventListener("gis-drop", onDrop);
   }, [app]);
 
-  const select = (id: string) => {
-    app().setActiveLayer(id);
-    app().setProperties({ kind: "layer", id });
+  const select = (id: string, mods: { shift?: boolean; toggle?: boolean } = {}) => {
+    const next = nextSelection(app().order, { selected: app().selectedLayers, anchor: app().layerAnchor }, id, mods);
+    app().setLayerSelection(next.selected, next.anchor);
+    // The active layer follows the click, except when Ctrl/Cmd unticks it: then another picked layer takes over.
+    const active = next.selected.includes(id) ? id : (next.selected.at(-1) ?? id);
+    app().setActiveLayer(active);
+    app().setProperties({ kind: "layer", id: active });
   };
 
   return (
@@ -125,7 +131,8 @@ export function ContentsPane() {
           return (
             <div
               key={id}
-              className={`tree-layer ${active === id ? "active" : ""} ${info.temporary ? "temp" : ""}`}
+              className={`tree-layer ${active === id || picked.includes(id) ? "active" : ""} ${picked.includes(id) && picked.length > 1 ? "multi" : ""} ${info.temporary ? "temp" : ""}`}
+              aria-selected={picked.includes(id)}
               data-drop="layer"
               data-index={i}
               onPointerDown={(e) => {
@@ -135,12 +142,12 @@ export function ContentsPane() {
               onClick={(e) => {
                 e.stopPropagation();
                 if (justDragged()) return;
-                select(id);
+                select(id, { shift: e.shiftKey, toggle: e.ctrlKey || e.metaKey });
               }}
               onDoubleClick={() => openLayerProperties(id)}
               onContextMenu={(e) => {
                 e.preventDefault();
-                select(id);
+                if (!app().selectedLayers.includes(id)) select(id); // right-click inside the selection keeps it
                 setMenu({ x: e.clientX, y: e.clientY, id });
               }}
             >
@@ -191,7 +198,7 @@ export function ContentsPane() {
         })}
       </div>
       <LayoutsSection />
-      {menu && <LayerMenu {...menu} onClose={() => setMenu(null)} />}
+      {menu && (picked.length > 1 && picked.includes(menu.id) ? <MultiMenu {...menu} onClose={() => setMenu(null)} /> : <LayerMenu {...menu} onClose={() => setMenu(null)} />)}
     </div>
   );
 }
@@ -257,6 +264,39 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<DeleteRegular />} onClick={() => removeLayer(id)}>Remove</MenuItem>
           <MenuDivider />
           <MenuItem icon={<SettingsRegular />} onClick={() => openLayerProperties(id)}>Properties…</MenuItem>
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Menu for several picked layers (Shift/Ctrl/Cmd-click): actions that make sense on all of them. */
+function MultiMenu({ x, y, id, onClose }: { x: number; y: number; id: string; onClose: () => void }) {
+  const ids = pickedLayers();
+  const names = useApp((s) => s.layers);
+  const vector = ids.filter((i) => names[i] && names[i].geomType !== "Raster" && names[i].geomType !== "Table");
+  const target = { getBoundingClientRect: () => ({ x, y, left: x, top: y, right: x, bottom: y, width: 0, height: 0, toJSON: () => null }) };
+  const from = names[id];
+  return (
+    <Menu open positioning={{ target: target as never, position: "below", align: "start" }} onOpenChange={(_, d) => !d.open && onClose()}>
+      <MenuPopover>
+        <MenuList>
+          <MenuItem disabled>{ids.length} layers selected</MenuItem>
+          <MenuItem icon={<ZoomFitRegular />} onClick={() => zoomToLayers(ids)}>Zoom To Layers</MenuItem>
+          <MenuItem onClick={() => setLayersVisible(ids, true)}>Show All</MenuItem>
+          <MenuItem onClick={() => setLayersVisible(ids, false)}>Hide All</MenuItem>
+          <MenuDivider />
+          <MenuItem onClick={() => moveLayers(ids, "top")}>Move To Top</MenuItem>
+          <MenuItem onClick={() => moveLayers(ids, "up")}>Move Up</MenuItem>
+          <MenuItem onClick={() => moveLayers(ids, "down")}>Move Down</MenuItem>
+          <MenuItem onClick={() => moveLayers(ids, "bottom")}>Move To Bottom</MenuItem>
+          <MenuItem onClick={() => moveLayers(ids, "gather")}>Gather Together</MenuItem>
+          <MenuDivider />
+          <MenuItem icon={<PaintBrushRegular />} disabled={!vector.includes(id) || vector.length < 2} onClick={() => applyStyleToLayers(id, vector, "symbology")}>Apply Symbology of “{from?.name}” To Others</MenuItem>
+          <MenuItem icon={<PaintBrushRegular />} disabled={!vector.includes(id) || vector.length < 2} onClick={() => applyStyleToLayers(id, vector, "labels")}>Apply Labels of “{from?.name}” To Others</MenuItem>
+          <MenuDivider />
+          <MenuItem icon={<ArrowExportRegular />} onClick={() => useDialog.getState().show({ kind: "exportLayers", ids })}>Export Layers…</MenuItem>
+          <MenuItem icon={<DeleteRegular />} onClick={() => void removeLayers(ids)}>Remove {ids.length} Layers</MenuItem>
         </MenuList>
       </MenuPopover>
     </Menu>
