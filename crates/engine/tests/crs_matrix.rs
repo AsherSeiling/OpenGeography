@@ -113,7 +113,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 43] = [
+const EXCLUDED: [(&str, &str); 44] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("layer_output", "writes the result back; covered by every matrix run"),
     ("add_to_map", "a table sink"),
