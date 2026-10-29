@@ -48,7 +48,7 @@ interface LayoutState {
   /** Replace the page look and the elements' styling with a themed copy (one undo step). */
   applyLook: (next: Layout) => void;
   /** Layout-wide settings kept beside the page: author and editor guides. One undo step. */
-  setMeta: (patch: { author?: string; guides?: Guide[] }) => void;
+  setMeta: (patch: { author?: string; guides?: Guide[]; worldFile?: boolean }) => void;
   undo: () => void;
   redo: () => void;
 }

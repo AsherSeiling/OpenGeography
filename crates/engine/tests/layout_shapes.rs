@@ -256,3 +256,51 @@ fn cg6_guides_and_groups_survive_the_round_trip() {
     let svg = render(&e, &r).unwrap().svg;
     assert!(!svg.contains("guide"), "guides are editor-only");
 }
+
+// ---------------------------------------------------------------- CG10
+
+#[test]
+fn cg10_world_file_places_the_map_frame_in_the_png() {
+    use engine::layout::worldfile::compute;
+    let r = req(json!([{ "kind": "map_frame", "id": "f1", "x": 12.7, "y": 30.0, "w": 100.0, "h": 60.0, "crs": "EPSG:26915", "center": [500000.0, 4649776.0], "scale": 24000, "layers": "map" }]));
+    let wf = compute(&r.layout, 300.0).unwrap();
+    let px = 25.4 / 300.0;
+    // 24 m per page mm; pixel = 25.4/300 mm.
+    assert!((wf.params[0] - 24.0 * px).abs() < 1e-9 && (wf.params[3] + 24.0 * px).abs() < 1e-9 && wf.params[1] == 0.0 && wf.params[2] == 0.0);
+    // The pixel under the frame's top-left corner has the frame's top-left ground coordinates (frame is 100 × 60 mm → 2400 × 1440 m).
+    let col = 12.7 / px;
+    let row = 30.0 / px;
+    let x = wf.params[4] + (col - 0.5) * wf.params[0];
+    let y = wf.params[5] + (row - 0.5) * wf.params[3];
+    assert!((x - (500000.0 - 1200.0)).abs() < 0.5 && (y - (4649776.0 + 720.0)).abs() < 0.5, "{x} {y}");
+    assert!(wf.text().lines().count() == 6 && wf.prj().unwrap().contains("UTM zone 15N"));
+    // A bleed shifts the pixel grid by its width.
+    let mut with_bleed = r.layout.clone();
+    with_bleed.page.bleed = 3.0;
+    let wb = compute(&with_bleed, 300.0).unwrap();
+    assert!((wb.params[4] - (wf.params[4] - 3.0 * 24.0)).abs() < 1e-6);
+    // Refusals say why.
+    let rot = req(json!([{ "kind": "map_frame", "id": "f1", "x": 0.0, "y": 0.0, "w": 50.0, "h": 50.0, "rotation": 10.0, "crs": "EPSG:26915", "center": [0.0, 0.0], "scale": 1000, "layers": "map" }]));
+    assert!(compute(&rot.layout, 300.0).unwrap_err().to_string().contains("rotated"));
+    assert!(compute(&req(json!([])).layout, 300.0).unwrap_err().to_string().contains("needs a map frame"));
+}
+
+#[test]
+fn cg10_png_export_writes_the_sidecars_only_when_asked() {
+    let e = Engine::new().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut r = req(json!([{ "kind": "map_frame", "id": "f1", "x": 10.0, "y": 10.0, "w": 100.0, "h": 60.0, "crs": "EPSG:26915", "center": [500000.0, 4649776.0], "scale": 24000, "layers": "map" }]));
+    let png = dir.path().join("map.png");
+    e.export_layout(&r, engine::layout::ExportFormat::Png, 150.0, &png).unwrap();
+    assert!(png.exists() && !dir.path().join("map.pgw").exists());
+    r.layout.world_file = true;
+    e.export_layout(&r, engine::layout::ExportFormat::Png, 150.0, &png).unwrap();
+    let pgw = std::fs::read_to_string(dir.path().join("map.pgw")).unwrap();
+    assert_eq!(pgw.lines().count(), 6);
+    assert!(pgw.lines().next().unwrap().starts_with("4.064"), "24 m/mm × 25.4/150 mm per px: {pgw}");
+    assert!(std::fs::read_to_string(dir.path().join("map.prj")).unwrap().contains("NAD83"));
+    // A PDF has no pixel grid: no sidecars.
+    let pdf = dir.path().join("map.pdf");
+    e.export_layout(&r, engine::layout::ExportFormat::Pdf, 150.0, &pdf).unwrap();
+    assert!(!dir.path().join("map.pgw.pdf").exists());
+}

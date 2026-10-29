@@ -56,6 +56,7 @@ Order: RS 1→2→3 first (everything else in RS builds on them), then CG 1, 2, 
 - [x] RS7 rs-legend-io (2026-10-29): raster legends in layouts (colour bar, classes, unique values), style save/load files. Project-level presets = the per-layer style saved in the project plus "apply symbology" on multi-selected layers; a named preset library is not built.
 
 CG tasks:
+- [x] CG10 cg-export (2026-10-29): world file + .prj for PNG exports, export notes (fonts embedded, RGB). GeoPDF and CMYK deferred (DECISIONS CG10).
 - [x] CG9 cg-themes (2026-10-29): three themes (topographic, thematic, minimalist) defined once in the engine, page look and optional layer recolouring. User-made theme files deferred (Save as Template covers whole layouts).
 - [x] CG8 cg-symbols (2026-10-29): symbol library in layouts (7 point shapes + SVG, 4 line styles, 7 fill patterns). Deferred: the same on the map view (needs a sprite pipeline), pattern/marker in legend swatches, importing whole symbol libraries (QGIS XML/ArcGIS styles).
 - [x] CG7 cg-frame-clip (2026-10-29): frame shapes (ellipse, rounded, polygon-layer outline), layer drop shadow. Blur effects deferred (PDF).

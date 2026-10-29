@@ -15,6 +15,7 @@ pub mod shapes;
 pub mod surround;
 pub mod templates;
 pub mod themes;
+pub mod worldfile;
 pub mod svg;
 pub mod symbols;
 pub mod tabular;
@@ -444,8 +445,23 @@ impl Engine {
         };
         task.check()?;
         task.set(0.95, Some("Writing the file"));
+        let mut warnings = out.warnings;
+        // A world file and .prj beside a PNG (a PDF/SVG page has no pixel grid to describe).
+        let world = if req.layout.world_file && format == ExportFormat::Png {
+            let wf = worldfile::compute(&req.layout, dpi)?;
+            if req.layout.elements.iter().filter(|e| matches!(e, model::Element::MapFrame { at, .. } if at.visible)).count() > 1 {
+                warnings.push(format!("The world file describes map frame '{}' only; other frames on the page are not georeferenced", wf.frame));
+            }
+            Some((wf.text(), wf.prj()?))
+        } else {
+            None
+        };
         write_atomic(path, &bytes)?;
-        Ok(out.warnings)
+        if let Some((pgw, prj)) = world {
+            write_atomic(&path.with_extension("pgw"), pgw.as_bytes())?;
+            write_atomic(&path.with_extension("prj"), prj.as_bytes())?;
+        }
+        Ok(warnings)
     }
 
     /// Render a layout page to SVG against the open project's layers.

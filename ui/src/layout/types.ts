@@ -282,6 +282,8 @@ export interface Layout {
   page: Page;
   /** Text token {author}. */
   author?: string;
+  /** PNG export also writes a world file (.pgw) and .prj for the map frame. */
+  worldFile?: boolean;
   /** Editor guides, mm; snapping targets (not drawn in exports). */
   guides?: Guide[];
   elements: LayoutElement[];

@@ -362,3 +362,6 @@ A raster has no attribute fields, so the existing `fields` query parameter of th
 
 ## CG8 — Symbol library draws in layouts first (2026-10-29)
 Point symbols, line dashes and fill patterns are drawn by the layout renderer (plain SVG, our own geometry, no third-party artwork, so no licence to carry). The map view keeps its plain symbols: giving MapLibre/OpenLayers patterns and markers needs a sprite pipeline, which is a separate piece of work. The layer's Symbology says so ("Layouts and exports draw these"). Legend swatches show the colour only.
+
+## CG10 — World file now, GeoPDF later (2026-10-29)
+PNG exports can write a `.pgw` + `.prj` (engine `layout/worldfile.rs`); georeferencing is the first map frame's, at its nominal scale, unrotated. GeoPDF is deferred: the OGC "Measure" dictionaries must be added to the PDF's page objects after `svg2pdf` has written it, and no permissive PDF object editor is linked (only the writer). Revisit with the C4 topo-map work, where field use (Avenza) is the reason. CMYK stays out of scope: the renderer is RGB; the Page Setup dialog says so.
