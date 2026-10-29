@@ -37,6 +37,7 @@ pub struct FrameInput<'a> {
     pub label_overrides: &'a std::collections::BTreeMap<String, super::model::LabelOverrides>,
     /// Overview map: outline another frame's extent.
     pub indicator: Option<IndicatorInput<'a>>,
+    pub clip: Option<&'a super::model::FrameClip>,
 }
 
 /// The frame whose extent an overview frame outlines.
@@ -360,6 +361,91 @@ fn image_tag(at: &Placement, png: &[u8], opacity_v: f64) -> String {
     )
 }
 
+fn rect_el(at: &Placement, _extra: &str) -> String {
+    format!("<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h))
+}
+
+/// The SVG with every fill and stroke colour replaced by `color` (for a shadow copy); "none" stays "none".
+pub(super) fn recolor(svg_in: &str, color: &str) -> String {
+    let mut out = String::with_capacity(svg_in.len());
+    let mut rest = svg_in;
+    loop {
+        let next = ["fill=\"", "stroke=\""].iter().filter_map(|k| rest.find(k).map(|i| (i, k.len()))).min();
+        let Some((i, klen)) = next else {
+            out.push_str(rest);
+            return out;
+        };
+        out.push_str(&rest[..i + klen]);
+        rest = &rest[i + klen..];
+        let end = rest.find('"').unwrap_or(rest.len());
+        out.push_str(if &rest[..end] == "none" { "none" } else { color });
+        rest = &rest[end..];
+    }
+}
+
+/// Polygon rings of a WKT POLYGON / MULTIPOLYGON as SVG path data, mapped to the page.
+fn wkt_path(wkt: &str, m: &Mapper) -> String {
+    let mut d = String::new();
+    let b = wkt.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'(' {
+            // An innermost group holds only coordinates.
+            if let Some(close) = wkt[i + 1..].find(|c| c == '(' || c == ')') {
+                if b[i + 1 + close] == b')' {
+                    let ring = &wkt[i + 1..i + 1 + close];
+                    for (k, pt) in ring.split(',').enumerate() {
+                        let mut it = pt.split_whitespace().filter_map(|n| n.parse::<f64>().ok());
+                        if let (Some(x), Some(y)) = (it.next(), it.next()) {
+                            let (px, py) = m.xy(x, y);
+                            cmd(&mut d, if k == 0 { 'M' } else { 'L' }, px, py);
+                        }
+                    }
+                    d.push('Z');
+                    i += close + 1;
+                }
+            }
+        }
+        i += 1;
+    }
+    d
+}
+
+/// Clip element (for the clipPath) and outline element of a non-rectangular frame. `None` = fall back to the rectangle.
+#[allow(clippy::too_many_arguments)]
+fn clip_shape(conn: &Connection, _body: &Body, crs: &FrameCrs, f: &FrameInput, c: &super::model::FrameClip, tol: f64, m: &Mapper, lookup: &dyn Fn(&str) -> Option<LayerInfo>) -> Result<Option<(String, String)>> {
+    let at = f.at;
+    Ok(match c.shape.as_str() {
+        "ellipse" => {
+            let e = format!("<ellipse cx=\"{}\" cy=\"{}\" rx=\"{}\" ry=\"{}\"/>", mm(at.x + at.w / 2.0), mm(at.y + at.h / 2.0), mm(at.w / 2.0), mm(at.h / 2.0));
+            Some((e.clone(), e))
+        }
+        "rounded" => {
+            let r = c.radius.max(0.0).min(at.w.min(at.h) / 2.0);
+            let e = format!("<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" rx=\"{}\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h), mm(r));
+            Some((e.clone(), e))
+        }
+        _ => {
+            let info = lookup(&c.layer).ok_or_else(|| anyhow!("layer {} not found", c.layer))?;
+            if info.geom_type != "Polygon" {
+                bail!("{} is not a polygon layer", info.name);
+            }
+            let Some(src) = info.crs.as_deref() else { bail!("{} has no coordinate system", info.name) };
+            let (src, dst) = (crate::crs::resolve(src), crate::crs::resolve(f.crs));
+            let g = if src == dst { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, true)", lit(&src), lit(&dst)) };
+            let _ = crs;
+            let wkt: Option<String> = conn
+                .query_row(&format!("SELECT ST_AsText(ST_Union_Agg(ST_SimplifyPreserveTopology({g}, {tol}))) FROM {t}{def}", t = ident(&info.table), def = info.definition_query.as_deref().filter(|q| !q.trim().is_empty()).map_or(String::new(), |q| format!(" WHERE ({q})"))), [], |r| r.get(0))
+                .map_err(|e| anyhow!("{e}"))?;
+            let d = wkt.map(|w| wkt_path(&w, m)).unwrap_or_default();
+            if d.is_empty() {
+                bail!("{} has no polygons", info.name);
+            }
+            Some((format!("<path clip-rule=\"evenodd\" d=\"{d}\"/>"), format!("<path fill-rule=\"evenodd\" d=\"{d}\"/>")))
+        }
+    })
+}
+
 /// Outline of another frame's extent in this frame's page coordinates: its rectangle (densified, so it curves correctly in a different projection) carried through lon/lat.
 fn indicator_path(body: &Body, crs: &FrameCrs, ind: &IndicatorInput, to_page: &dyn Fn(f64, f64) -> (f64, f64)) -> Result<String> {
     let other = FrameCrs::new(ind.crs, body)?;
@@ -453,6 +539,17 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         let style = req.styles.get(id).cloned().unwrap_or_default();
         let r = draw_layer(conn, &info, &style, f.crs, bbox3857, clip, tol, &m, style.radius.max(0.0) * PX_MM)
             .map_err(|e| anyhow!("Layer {} could not be drawn: {e}", info.name))?;
+        if let Some(fx) = &style.effect {
+            let _ = write!(
+                body_svg,
+                "<g id=\"shadow-{}\" transform=\"translate({} {})\" opacity=\"{}\">{}</g>",
+                esc(id),
+                mm(fx.dx),
+                mm(fx.dy),
+                opacity(fx.opacity),
+                recolor(&r, &svg::color(&fx.color, "#000000"))
+            );
+        }
         let _ = write!(body_svg, "<g id=\"layer-{}\">{r}</g>", esc(id));
         drawn.push(id.clone());
     }
@@ -534,29 +631,32 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         }
     }
 
+    // The frame's outline: a rectangle, or the clip shape.
+    let (clip_el, outline) = match f.clip {
+        None => (rect_el(at, ""), rect_el(at, "")),
+        Some(c) => match clip_shape(conn, body, &crs, f, c, tol, &m, lookup) {
+            Ok(Some((clip_el, outline))) => (clip_el, outline),
+            Ok(None) => (rect_el(at, ""), rect_el(at, "")),
+            Err(e) => {
+                warnings.push(format!("Frame '{}': the clip shape could not be made ({e}); drawn as a rectangle", at.id));
+                (rect_el(at, ""), rect_el(at, ""))
+            }
+        },
+    };
     let id = esc(&at.id);
     let (cx, cy) = (at.x + at.w / 2.0, at.y + at.h / 2.0);
     let rot = if at.rotation != 0.0 { format!(" transform=\"rotate({} {} {})\"", mm(at.rotation), mm(cx), mm(cy)) } else { String::new() };
     let mut out = String::new();
     let _ = write!(
         out,
-        "<g id=\"{id}\"{rot}><clipPath id=\"clip-{id}\"><rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"/></clipPath><g clip-path=\"url(#clip-{id})\">{body_svg}</g>",
-        mm(at.x),
-        mm(at.y),
-        mm(at.w),
-        mm(at.h)
+        "<g id=\"{id}\"{rot}><clipPath id=\"clip-{id}\">{clip_el}</clipPath><g clip-path=\"url(#clip-{id})\">{body_svg}</g>"
     );
     out.push_str(&labels);
     if let Some(b) = f.border {
         let _ = write!(
             out,
-            "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"none\" stroke=\"{}\" stroke-width=\"{}\"/>",
-            mm(at.x),
-            mm(at.y),
-            mm(at.w),
-            mm(at.h),
-            svg::color(&b.color, "#000000"),
-            mm(b.width)
+            "{}",
+            outline.replacen("/>", &format!(" fill=\"none\" stroke=\"{}\" stroke-width=\"{}\"/>", svg::color(&b.color, "#000000"), mm(b.width)), 1)
         );
     }
     out.push_str("</g>");

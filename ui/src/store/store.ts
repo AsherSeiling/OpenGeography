@@ -121,6 +121,8 @@ export interface LayerStyle {
   colors?: string[];
   /** Feature labels; projects saved before L1 have none (off). */
   label?: LabelStyle;
+  /** Layout-only: a drop shadow behind the layer (print layouts). */
+  effect?: { dx: number; dy: number; color: string; opacity: number };
   /** Raster layers only; projects saved before raster symbology have none (the default look). */
   raster?: RasterStyle;
 }

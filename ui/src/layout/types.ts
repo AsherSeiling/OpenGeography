@@ -78,8 +78,18 @@ export interface MapFrame extends Placement {
   labelOverrides?: Record<string, LabelOverrides>;
   /** The layout's map series moves this frame to each index feature (C3.2). */
   followsSeries?: boolean;
+  /** Cut the frame to a shape other than its rectangle. */
+  clip?: FrameClip | null;
   /** Overview/inset: outline the extent of another map frame on this one. */
   indicator?: ExtentIndicator | null;
+}
+
+export interface FrameClip {
+  shape: "ellipse" | "rounded" | "layer";
+  /** "rounded": corner radius, mm. */
+  radius?: number;
+  /** "layer": the polygon layer whose outline cuts the frame. */
+  layer?: string;
 }
 
 export interface ExtentIndicator {

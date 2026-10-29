@@ -325,6 +325,23 @@ export function Symbology({ id }: { id: string }) {
           <Slider min={1} max={14} step={0.5} value={style.radius} onChange={(_, d) => setStyle({ radius: d.value })} />
         </Field>
       )}
+      <details>
+        <summary>Print layout effect</summary>
+        <div className="stack">
+          <Checkbox label="Drop shadow in layouts" checked={!!style.effect} onChange={(_, d) => setStyle({ effect: d.checked ? { dx: 0.8, dy: 0.8, color: "#000000", opacity: 0.35 } : undefined })} />
+          {style.effect && (
+            <>
+              <Field label={`Offset ${style.effect.dx} mm right, ${style.effect.dy} mm down`}>
+                <Slider min={0} max={4} step={0.1} value={style.effect.dx} onChange={(_, d) => setStyle({ effect: { ...style.effect!, dx: d.value, dy: d.value } })} />
+              </Field>
+              <Field label={`Shadow strength ${Math.round(style.effect.opacity * 100)}%`}>
+                <Slider min={5} max={100} value={Math.round(style.effect.opacity * 100)} onChange={(_, d) => setStyle({ effect: { ...style.effect!, opacity: d.value / 100 } })} />
+              </Field>
+              <div className="props-hint">A solid offset copy behind the layer; it appears in layouts and exports, not on the map.</div>
+            </>
+          )}
+        </div>
+      </details>
       <div className="props-title">Labels</div>
       <LabelSettings id={id} />
     </div>

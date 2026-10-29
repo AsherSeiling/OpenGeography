@@ -80,6 +80,7 @@ function FrameFields({ el, set, layout }: { el: MapFrame; set: Set; layout: stri
         </div>
       </Field>
       <Num label="Scale 1 :" value={el.scale} min={1} step={1000} onChange={(scale) => set({ scale }, "scale")} />
+      <FrameShapeFields el={el} set={set} />
       <OverviewFields el={el} set={set} layout={layout} />
       <div className="props-grid">
         <Num label="Centre X" value={el.center?.[0] ?? 0} decimals={2} onChange={(v) => set({ center: [v, el.center?.[1] ?? 0] }, "cx")} />
@@ -243,6 +244,25 @@ function LegendFields({ el, set, layout }: { el: LegendElement; set: Set; layout
           <Button size="small" onClick={() => set({ custom: [...custom, { label: "New entry", color: "#888888" }] })}>Add entry</Button>
         </div>
       </details>
+    </>
+  );
+}
+
+/** Frame shape: rectangle, ellipse, rounded corners, or the outline of a polygon layer. */
+function FrameShapeFields({ el, set }: { el: MapFrame; set: Set }) {
+  const layers = useApp((s) => s.layers);
+  const polys: [string, string][] = Object.values(layers).filter((l) => l.geomType === "Polygon").map((l) => [l.id, l.name]);
+  const c = el.clip;
+  return (
+    <>
+      <Choice
+        label="Frame shape"
+        value={c?.shape ?? ""}
+        options={[["", "Rectangle"], ["ellipse", "Ellipse"], ["rounded", "Rounded rectangle"], ["layer", "Outline of a polygon layer"]]}
+        onPick={(shape) => set({ clip: shape ? { ...(c ?? {}), shape, ...(shape === "layer" && !c?.layer ? { layer: polys[0]?.[0] ?? "" } : {}) } : null })}
+      />
+      {c?.shape === "rounded" && <Num label="Corner radius (mm)" value={c.radius ?? 5} min={0} step={0.5} decimals={1} onChange={(radius) => set({ clip: { ...c, radius } }, "clipRadius")} />}
+      {c?.shape === "layer" && <Choice label="Polygon layer" value={c.layer ?? ""} options={[["", "Choose a layer…"], ...polys]} onPick={(layer) => set({ clip: { ...c, layer } })} />}
     </>
   );
 }
