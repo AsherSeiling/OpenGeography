@@ -11,6 +11,7 @@ pub mod grid;
 pub mod labels;
 pub mod model;
 pub mod series;
+pub mod shapes;
 pub mod surround;
 pub mod templates;
 pub mod svg;
@@ -154,7 +155,14 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             }
             c
         };
+        if let Some(d) = &e.at().decor {
+            shapes::decor(&mut s, e.at(), d);
+        }
         match e {
+            Element::Shape { at, shape, fill, fill_opacity, stroke, stroke_width, dash, corner_radius } => {
+                shapes::shape(&mut s, at, &shapes::ShapeStyle { shape, fill, fill_opacity: *fill_opacity, stroke, stroke_width: *stroke_width, dash, corner_radius: *corner_radius })
+            }
+            Element::Picture { at, source, fit, opacity } => shapes::picture(&mut s, &mut warnings, at, source, fit, *opacity),
             Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
             Element::Text { at, text, font, family, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, family.as_deref(), *size, align, color),
             Element::Legend { at, frame, title, columns } => {

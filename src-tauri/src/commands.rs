@@ -595,6 +595,11 @@ pub async fn load_raster_style(engine: Eng<'_>, path: String) -> Res<engine::ras
 }
 
 #[tauri::command]
+pub async fn read_picture(engine: Eng<'_>, path: String) -> Res<String> {
+    blocking(&engine, move |e| e.read_picture(std::path::Path::new(&path))).await
+}
+
+#[tauri::command]
 pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
     blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
 }

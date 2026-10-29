@@ -8,7 +8,7 @@ import { getDock } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
-import { addMapFrame, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
+import { addMapFrame, addPicture, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
 import { frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 
@@ -304,5 +304,34 @@ export async function exportLayoutSeries(format: "pdf" | "png") {
   } catch (e) {
     status(isCancelled(e) ? "Series export cancelled" : `Series export failed: ${errorText(e)}`);
     if (!isCancelled(e)) reportError(e, "action:Export series", { title: `Export of the ${doc.name} series failed`, context: "exporting a map series" });
+  }
+}
+
+async function pickPicture(title: string): Promise<string | null> {
+  if (IN_TAURI) {
+    const picked = await openDialog({ title, multiple: false, filters: [{ name: "Pictures", extensions: ["png", "jpg", "jpeg", "svg"] }] });
+    return typeof picked === "string" ? picked : null;
+  }
+  // Browser build (dev server): no native dialog; the path is on the machine running the dev server.
+  return window.prompt(`${title}: path of a PNG, JPEG or SVG file (on the machine running the dev server)`);
+}
+
+/** Insert a picture frame and fill it from a PNG, JPEG or SVG file. */
+export async function insertPicture() {
+  try {
+    const path = await pickPicture("Insert picture or logo");
+    if (path) addPicture(await api.readPicture(path));
+  } catch (e) {
+    reportError(e, "action:Insert picture", { title: "The picture could not be added" });
+  }
+}
+
+/** Replace the picture of an existing Picture element. */
+export async function choosePicture(id: string) {
+  try {
+    const path = await pickPicture("Choose picture or logo");
+    if (path) useLayouts.getState().update(id, { source: await api.readPicture(path) });
+  } catch (e) {
+    reportError(e, "action:Choose picture", { title: "The picture could not be added" });
   }
 }

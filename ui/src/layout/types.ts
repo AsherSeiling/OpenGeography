@@ -21,6 +21,19 @@ export interface Placement {
   rotation: number;
   locked: boolean;
   visible: boolean;
+  /** Background, frame and drop shadow under any element. */
+  decor?: Decor;
+}
+
+export interface Decor {
+  background?: string | null;
+  frameColor?: string | null;
+  /** mm; 0 = no frame. */
+  frameWidth?: number;
+  cornerRadius?: number;
+  shadow?: boolean;
+  /** mm, right and down. */
+  shadowOffset?: number;
 }
 
 export interface Border {
@@ -142,9 +155,29 @@ export interface SourcesElement extends Placement {
   size: number;
 }
 
+export interface ShapeElement extends Placement {
+  kind: "shape";
+  shape: "rectangle" | "ellipse" | "triangle" | "line" | "arrow";
+  fill: string;
+  fillOpacity?: number;
+  stroke: string;
+  /** Line width, mm. */
+  strokeWidth: number;
+  dash?: "solid" | "dashed" | "dotted";
+  cornerRadius?: number;
+}
+
+export interface PictureElement extends Placement {
+  kind: "picture";
+  /** `data:image/png|jpeg|svg+xml;base64,…`; empty until a file is chosen. */
+  source: string;
+  fit?: "contain" | "cover" | "stretch";
+  opacity?: number;
+}
+
 export type SurroundElement = LegendElement | ScaleBarElement | NorthArrowElement | SourcesElement;
 
-export type LayoutElement = MapFrame | TextElement | SurroundElement;
+export type LayoutElement = MapFrame | TextElement | SurroundElement | ShapeElement | PictureElement;
 
 /** Value rounded for display (stored values stay as they are). */
 export function rounded(v: number, decimals: number): number {

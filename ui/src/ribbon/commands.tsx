@@ -48,6 +48,11 @@ import {
   NavigationRegular,
   BookInformationRegular,
   ImageRegular,
+  CircleRegular,
+  TriangleRegular,
+  LineHorizontal1Regular,
+  ArrowRightRegular,
+  ImageAddRegular,
 } from "@fluentui/react-icons";
 import type { ReactElement } from "react";
 import {
@@ -74,8 +79,8 @@ import {
 import { zoomToExtent } from "../map/mapController";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
-import { exportLayout, insertMapFrame, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
-import { addText, useLayouts } from "../store/layout";
+import { exportLayout, insertMapFrame, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
+import { addShape, addText, useLayouts } from "../store/layout";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
@@ -171,6 +176,12 @@ const list: Command[] = [
   // Layout contextual tab (shown while a layout tab is active)
   { id: "layoutMapFrame", label: "Map Frame", icon: <MapRegular />, run: insertMapFrame, enabled: inLayout, tip: "Insert a map frame in the map's coordinate system, centred on the map view" },
   { id: "layoutText", label: "Text", icon: <TextTRegular />, run: () => void addText(), enabled: inLayout, tip: "Insert a text box ({layout_name}, {scale}, {date} … are replaced when drawn)" },
+  { id: "layoutRect", label: "Rectangle", icon: <RectangleLandscapeRegular />, run: () => void addShape("rectangle"), enabled: inLayout, tip: "Insert a rectangle (fill, outline, rounded corners)" },
+  { id: "layoutEllipse", label: "Ellipse", icon: <CircleRegular />, run: () => void addShape("ellipse"), enabled: inLayout, tip: "Insert an ellipse" },
+  { id: "layoutTriangle", label: "Triangle", icon: <TriangleRegular />, run: () => void addShape("triangle"), enabled: inLayout, tip: "Insert a triangle" },
+  { id: "layoutLine", label: "Line", icon: <LineHorizontal1Regular />, run: () => void addShape("line"), enabled: inLayout, tip: "Insert a line (rotate it for other directions; solid, dashed or dotted)" },
+  { id: "layoutArrow", label: "Arrow", icon: <ArrowRightRegular />, run: () => void addShape("arrow"), enabled: inLayout, tip: "Insert an arrow" },
+  { id: "layoutPicture", label: "Picture", icon: <ImageAddRegular />, run: () => void insertPicture(), enabled: inLayout, tip: "Insert a picture or logo (PNG, JPEG or SVG) embedded in the layout" },
   { id: "layoutLegend", label: "Legend", icon: <TextBulletListRegular />, run: () => insertSurround("legend"), enabled: hasFrame, tip: "Insert a legend listing the frame's visible layers and their classes" },
   { id: "layoutScaleBar", label: "Scale Bar", icon: <RulerRegular />, run: () => insertSurround("scale_bar"), enabled: hasFrame, tip: "Insert a scale bar that is true to ground distance at the frame centre" },
   { id: "layoutNorthArrow", label: "North Arrow", icon: <NavigationRegular />, run: () => insertSurround("north_arrow"), enabled: hasFrame, tip: "Insert a north arrow pointing to true north (follows meridian convergence and frame rotation)" },

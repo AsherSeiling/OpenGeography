@@ -140,6 +140,7 @@ fn main() {
             commands::download_elevation,
             commands::raster_value,
             commands::raster_ramps,
+            commands::read_picture,
             commands::save_raster_style,
             commands::load_raster_style,
             commands::raster_unique_values,

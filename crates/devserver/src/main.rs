@@ -266,6 +266,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             json!(null)
         }
         "load_raster_style" => json!(e.load_raster_style(std::path::Path::new(&s(a, "path")?))?),
+        "read_picture" => json!(e.read_picture(std::path::Path::new(&s(a, "path")?))?),
         "raster_ramps" => json!(e.raster_ramps()),
         "raster_histogram" => e.raster_histogram(&s(a, "id")?, f(a, "band")? as usize, f(a, "bins")? as usize)?,
         "raster_value" => json!(e.raster_value(&s(a, "id")?, f(a, "lon")?, f(a, "lat")?)?),
