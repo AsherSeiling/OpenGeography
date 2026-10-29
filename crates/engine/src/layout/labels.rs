@@ -190,16 +190,18 @@ fn anchor_sql(info: &LayerInfo, label: &LabelStyle, frame_crs: &str, bbox3857: O
         limit = MAX_CANDIDATES + 1,
     );
     if info.geom_type == "Line" {
+        // Contour labels repeat along every line, so all parts are kept and their geometry comes back as WKT.
+        let (wkt, rn) = if label.contour.is_some() { ("ST_AsText(l)", "TRUE") } else { ("CAST(NULL AS VARCHAR)", "rn = 1") };
         format!(
-            "SELECT __fid, t, ST_X(p), ST_Y(p), ST_X(b) - ST_X(a), ST_Y(b) - ST_Y(a), r, z, k FROM (
-               SELECT __fid, t, r, z, k, ST_LineInterpolatePoint(l, 0.5) AS p, ST_LineInterpolatePoint(l, 0.45) AS a, ST_LineInterpolatePoint(l, 0.55) AS b,
+            "SELECT __fid, t, ST_X(p), ST_Y(p), ST_X(b) - ST_X(a), ST_Y(b) - ST_Y(a), r, z, k, {wkt} FROM (
+               SELECT __fid, t, r, z, k, l, ST_LineInterpolatePoint(l, 0.5) AS p, ST_LineInterpolatePoint(l, 0.45) AS a, ST_LineInterpolatePoint(l, 0.55) AS b,
                       row_number() OVER (PARTITION BY __fid ORDER BY ST_Length(l) DESC) AS rn
                FROM (SELECT __fid, t, r, z, k, (UNNEST(ST_Dump(c))).geom AS l FROM ({clipped}))
                WHERE ST_GeometryType(l) = 'LINESTRING' AND ST_Length(l) > 0
-             ) WHERE rn = 1 ORDER BY __fid"
+             ) WHERE {rn} ORDER BY __fid"
         )
     } else {
-        format!("SELECT __fid, t, ST_X(p), ST_Y(p), 0.0, 0.0, r, z, k FROM (SELECT __fid, t, r, z, k, ST_PointOnSurface(c) AS p FROM ({clipped})) WHERE p IS NOT NULL ORDER BY __fid")
+        format!("SELECT __fid, t, ST_X(p), ST_Y(p), 0.0, 0.0, r, z, k, CAST(NULL AS VARCHAR) FROM (SELECT __fid, t, r, z, k, ST_PointOnSurface(c) AS p FROM ({clipped})) WHERE p IS NOT NULL ORDER BY __fid")
     }
 }
 
@@ -208,6 +210,82 @@ fn rotated_box(cx: f64, cy: f64, w: f64, h: f64, deg: f64) -> [f64; 4] {
     let (s, c) = deg.to_radians().sin_cos();
     let (hw, hh) = ((w * c.abs() + h * s.abs()) / 2.0, (w * s.abs() + h * c.abs()) / 2.0);
     [cx - hw, cy - hh, cx + hw, cy + hh]
+}
+
+/// Elevation text: the value with `decimals` and the unit text; anything that is not a number is kept as it is.
+pub fn contour_text(text: &str, c: &super::model::ContourLabels) -> String {
+    let t = match (text.trim().parse::<f64>(), c.decimals) {
+        (Ok(v), Some(d)) => format!("{v:.d$}", d = d as usize),
+        (Ok(v), None) => format!("{v}"),
+        _ => text.trim().to_string(),
+    };
+    format!("{t}{}", c.unit.as_deref().unwrap_or(""))
+}
+
+/// Vertices of a `LINESTRING (x y, x y …)` as text from DuckDB; other shapes give nothing.
+pub fn parse_linestring(wkt: &str) -> Vec<(f64, f64)> {
+    let Some(body) = wkt.trim().strip_prefix("LINESTRING").map(|r| r.trim().trim_start_matches('(').trim_end_matches(')')) else { return vec![] };
+    body.split(',')
+        .filter_map(|p| {
+            let mut it = p.split_whitespace();
+            Some((it.next()?.parse().ok()?, it.next()?.parse().ok()?))
+        })
+        .collect()
+}
+
+/// Width in mm of `text` in the label's font.
+fn measure(l: &LabelStyle, text: &str, size_pt: f64) -> f64 {
+    let face = if l.bold { "sans-bold" } else if l.italic { "sans-italic" } else { "sans" };
+    l.font_family.as_deref().and_then(|f| crate::fonts::text_width(text, f, l.bold, l.italic, size_pt)).unwrap_or_else(|| text_width(text, face, size_pt))
+}
+
+/// Places for a label `w` mm wide and `h` mm tall along a page-space line, one every `spacing` mm (the first half a spacing in,
+/// or in the middle of a short line): (x, y, degrees). Each is where the line is nearly straight under the label (no vertex strays
+/// from the chord by more than half the text height), the text is upright (never upside down), and the line is at least 1.2 × w long.
+pub fn along_line(pts: &[(f64, f64)], w: f64, h: f64, spacing: f64) -> Vec<(f64, f64, f64)> {
+    if pts.len() < 2 || w <= 0.0 {
+        return vec![];
+    }
+    let mut cum = vec![0.0];
+    for i in 1..pts.len() {
+        cum.push(cum[i - 1] + (pts[i].0 - pts[i - 1].0).hypot(pts[i].1 - pts[i - 1].1));
+    }
+    let total = *cum.last().unwrap();
+    if total < w * 1.2 {
+        return vec![];
+    }
+    let at = |d: f64| -> (f64, f64) {
+        let i = cum.partition_point(|c| *c < d).clamp(1, pts.len() - 1);
+        let (d0, d1) = (cum[i - 1], cum[i]);
+        let t = if d1 > d0 { (d - d0) / (d1 - d0) } else { 0.0 };
+        (pts[i - 1].0 + (pts[i].0 - pts[i - 1].0) * t, pts[i - 1].1 + (pts[i].1 - pts[i - 1].1) * t)
+    };
+    let mut out = Vec::new();
+    let mut d = if total >= spacing { spacing / 2.0 } else { total / 2.0 };
+    while d + w / 2.0 <= total {
+        if d - w / 2.0 >= 0.0 {
+            let (a, b) = (at(d - w / 2.0), at(d + w / 2.0));
+            let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+            let len = dx.hypot(dy);
+            // Distance of the line's own vertices (and a few samples) from the chord.
+            let dev = |p: (f64, f64)| ((p.0 - a.0) * dy - (p.1 - a.1) * dx).abs() / len.max(1e-9);
+            let straight = len > 0.0
+                && (1..=8).all(|k| dev(at(d - w / 2.0 + w * k as f64 / 9.0)) <= h * 0.5)
+                && (0..pts.len()).filter(|&i| cum[i] > d - w / 2.0 && cum[i] < d + w / 2.0).all(|i| dev(pts[i]) <= h * 0.5);
+            if straight {
+                let mut deg = dy.atan2(dx).to_degrees();
+                if deg > 90.0 {
+                    deg -= 180.0;
+                } else if deg < -90.0 {
+                    deg += 180.0;
+                }
+                let m = at(d);
+                out.push((m.0, m.1, deg));
+            }
+        }
+        d += spacing;
+    }
+    out
 }
 
 /// Read one layer's label candidates: features with a label in the frame, with this layout's edits attached.
@@ -245,8 +323,35 @@ pub fn candidates(
         }
         let (fid, text, x, y, dx, dy): (i64, String, f64, f64, f64, f64) = (r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?);
         let (rot, size_pt, color): (Option<f64>, Option<f64>, Option<String>) = (r.get(6)?, r.get(7)?, r.get(8)?);
+        let wkt: Option<String> = r.get(9)?;
         seen.insert(fid);
         let text = text.trim().to_string();
+        if let (Some(c), Some(wkt), Kind::Line) = (&label.contour, &wkt, kind) {
+            // Contour labels: several along the line, formatted, upright, in-line or above.
+            let text = contour_text(&text, c);
+            let mut l = label.clone();
+            if c.in_line {
+                l.background = Some(super::model::LabelBackground { fill: l.halo_color.clone(), stroke: None, padding: 0.4 });
+                l.halo_width = 0.0;
+                l.line_pos = None;
+            } else if l.line_pos.is_none() {
+                l.line_pos = Some("above".into());
+            }
+            let pts: Vec<(f64, f64)> = parse_linestring(wkt).into_iter().map(|(x, y)| to_page(x, y)).collect();
+            let size_pt = size_pt.filter(|v| *v > 0.0).unwrap_or(l.size).max(1.0);
+            let w = measure(&l, &text, size_pt) + 2.0 * PAD_MM;
+            for (px, py, deg) in along_line(&pts, w, size_pt * PT_MM * LINE_HEIGHT, c.spacing.max(20.0) * PX_MM) {
+                if out.list.len() >= MAX_CANDIDATES {
+                    out.truncated = true;
+                    break;
+                }
+                out.list.push(Candidate { layer: layer_id.into(), layer_name: info.name.clone(), fid, text: text.clone(), px, py, deg, kind, label: l.clone(), edit: None, point_radius_mm, rot: None, size_pt: Some(size_pt), color: color.clone().filter(|c| !c.trim().is_empty()) });
+            }
+            if out.list.len() % 512 < 8 {
+                check()?;
+            }
+            continue;
+        }
         if text.is_empty() || !x.is_finite() || !y.is_finite() {
             continue;
         }

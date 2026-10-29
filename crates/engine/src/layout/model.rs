@@ -490,6 +490,26 @@ pub struct LabelStyle {
     pub size_field: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color_field: Option<String>,
+    /// Contour labels: on a line layer, repeat the label along each line (see `ContourLabels`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contour: Option<ContourLabels>,
+}
+
+/// Labels placed along contour lines at intervals, upright, with the line broken under the text or the text above it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContourLabels {
+    /// Distance between labels along a line, px (96 per inch).
+    pub spacing: f64,
+    /// Break the line under the label (the text sits in the line) instead of above it.
+    #[serde(default)]
+    pub in_line: bool,
+    /// Decimals of the elevation value; None = as stored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decimals: Option<u32>,
+    /// Text added after the value, e.g. " m" or " ft".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
 }
 
 fn is_zero(v: &f64) -> bool {

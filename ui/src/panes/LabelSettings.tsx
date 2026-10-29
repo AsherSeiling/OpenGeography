@@ -2,7 +2,7 @@
 import { Accordion, AccordionHeader, AccordionItem, AccordionPanel, Checkbox, Combobox, Dropdown, Field, Input, Option, Slider } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { matchFonts, useFonts } from "../map/fonts";
-import { displayInfo, defaultLabel, useApp, type LabelPosition, type LabelStyle, type LayerStyle } from "../store/store";
+import { displayInfo, defaultLabel, useApp, defaultContourLabels, type LabelPosition, type LabelStyle, type LayerStyle } from "../store/store";
 
 /** A new style with the label settings changed; turning labels on picks a field. */
 export function withLabel(style: LayerStyle, patch: Partial<LabelStyle>, firstField: string): LayerStyle {
@@ -101,6 +101,29 @@ export function LabelSettings({ id }: { id: string }) {
                     <Option value="below">Below the line</Option>
                   </Dropdown>
                 </Field>
+              )}
+              {geom === "Line" && (
+                <>
+                  <Checkbox label="Contour labels (repeat along the line, upright)" checked={!!label.contour} onChange={(_, d) => set({ contour: d.checked ? defaultContourLabels() : undefined })} data-testid="contour-labels" />
+                  {label.contour && (
+                    <>
+                      <Field label={`Label every ${label.contour.spacing} px along each line`} size="small">
+                        <Slider min={60} max={600} step={10} value={label.contour.spacing} onChange={(_, d) => set({ contour: { ...label.contour!, spacing: d.value } })} />
+                      </Field>
+                      <Checkbox label="Break the line under the label (otherwise the text sits above it)" checked={label.contour.inLine} onChange={(_, d) => set({ contour: { ...label.contour!, inLine: !!d.checked } })} />
+                      <div className="row2">
+                        <Field label="Decimals" size="small">
+                          <Input size="small" type="number" min={0} max={6} value={label.contour.decimals === undefined ? "" : String(label.contour.decimals)} onChange={(_, d) => set({ contour: { ...label.contour!, decimals: d.value === "" ? undefined : Math.min(6, Math.max(0, Math.round(Number(d.value)))) } })} />
+                        </Field>
+                        <Field label="Unit after the value" size="small">
+                          <Input size="small" placeholder="e.g. ' m'" value={label.contour.unit ?? ""} onChange={(_, d) => set({ contour: { ...label.contour!, unit: d.value || undefined } })} />
+                        </Field>
+                      </div>
+                      {names.includes("INDEX") && <Checkbox label="Label index contours only (INDEX = 1)" checked={!!label.indexOnly} onChange={(_, d) => set({ indexOnly: d.checked ? true : undefined })} />}
+                      <div className="muted">Choose the elevation field (ELEV from the Contour node) as the label field.</div>
+                    </>
+                  )}
+                </>
               )}
               {geom === "Polygon" && <div className="muted">Polygon labels are centred on a point inside the shape.</div>}
               {geom !== "Polygon" && (

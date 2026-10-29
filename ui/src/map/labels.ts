@@ -5,7 +5,7 @@ import Stroke from "ol/style/Stroke";
 import Style, { type StyleFunction } from "ol/style/Style";
 import Text from "ol/style/Text";
 import type { GeomType } from "../ipc/api";
-import type { LabelPosition, LabelStyle } from "../store/store";
+import type { ContourLabels, LabelPosition, LabelStyle } from "../store/store";
 
 /** Pseudo tile field: the engine returns one label anchor point per feature (`tiles::ANCHORS`). */
 export const ANCHORS_FIELD = "__anchors";
@@ -46,6 +46,13 @@ export function labelExtraFields(label: Pick<LabelStyle, "rotationField" | "size
 export function labelTileFields(geom: GeomType, field: string, indexOnly = false, extra: string[] = []): string[] {
   const f = geom === "Polygon" ? [field, ANCHORS_FIELD] : [field];
   return Array.from(new Set([...f, ...(indexOnly ? [INDEX_FIELD] : []), ...extra]));
+}
+
+/** Elevation text: the value with the chosen decimals and unit; text that is not a number is kept as it is. */
+export function contourText(raw: string, c: Pick<ContourLabels, "decimals" | "unit">): string {
+  const n = Number(raw);
+  const v = raw.trim() !== "" && Number.isFinite(n) ? (c.decimals === undefined ? String(n) : n.toFixed(c.decimals)) : raw.trim();
+  return `${v}${c.unit ?? ""}`;
 }
 
 /** `text` broken at spaces into lines of at most `width` characters (a longer word keeps its own line); newlines are kept. */
@@ -108,10 +115,13 @@ export function labelStyleFunction(geom: GeomType, label: LabelStyle, scale: () 
         text,
         font,
         fill: new Fill({ color: fill }),
-        stroke: halo && label.haloWidth > 0 ? new Stroke({ color: label.haloColor, width: label.haloWidth * 2 }) : undefined,
+        // In-line contour labels break the line under the text with a thick halo in the halo (map background) colour.
+        stroke: halo && (label.contour?.inLine ? true : label.haloWidth > 0) ? new Stroke({ color: label.haloColor, width: label.contour?.inLine ? Math.max(6, label.haloWidth * 2) : label.haloWidth * 2 }) : undefined,
         placement: geom === "Line" ? "line" : "point",
+        // Contours: repeat along the line, spaced in px; OpenLayers keeps the text upright and follows the bends (curved text).
+        repeat: geom === "Line" && label.contour ? Math.max(40, label.contour.spacing) : undefined,
         textAlign: geom === "Point" ? pos.align : label.align ?? "center",
-        textBaseline: geom === "Line" ? (label.linePos === "above" ? "bottom" : label.linePos === "below" ? "top" : "middle") : geom === "Point" ? pos.baseline : "middle",
+        textBaseline: geom === "Line" ? (label.contour ? (label.contour.inLine ? "middle" : "bottom") : label.linePos === "above" ? "bottom" : label.linePos === "below" ? "top" : "middle") : geom === "Point" ? pos.baseline : "middle",
         offsetX: (geom === "Point" ? pos.ox * gap : 0) + ox,
         offsetY: (geom === "Point" ? pos.oy * gap : geom === "Line" ? (label.linePos === "above" ? -1 : label.linePos === "below" ? 1 : 0) * (label.distance ?? 0) : 0) + oy,
         rotation: (rotationDeg * Math.PI) / 180,
@@ -132,7 +142,7 @@ export function labelStyleFunction(geom: GeomType, label: LabelStyle, scale: () 
     if (label.indexOnly && Number(feature.get(INDEX_FIELD)) !== 1) return undefined;
     const raw = labelText(feature.get(label.field));
     if (raw === null) return undefined;
-    const text = wrapText(raw, label.wrapAt);
+    const text = label.contour && geom === "Line" ? contourText(raw, label.contour) : wrapText(raw, label.wrapAt);
     const size = (label.sizeField && number(feature.get(label.sizeField))) || label.size;
     const c = label.colorField ? feature.get(label.colorField) : null;
     const color = typeof c === "string" && HEX.test(c) ? c : label.color;

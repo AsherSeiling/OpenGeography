@@ -38,6 +38,15 @@ export function styleFromSymbologyNode(params: Record<string, unknown>, base: La
       haloWidth: num(params.halo_width, 1.5, 0, 8),
       indexOnly: params.label_index_only === true || undefined,
     };
+    const spacing = num(params.contour_spacing, 0);
+    if (spacing > 0) {
+      next.label.contour = {
+        spacing,
+        inLine: params.contour_break !== false,
+        decimals: params.contour_decimals === undefined || params.contour_decimals === null ? undefined : Math.round(num(params.contour_decimals, 0, 0, 6)),
+        unit: typeof params.contour_unit === "string" && params.contour_unit !== "" ? params.contour_unit : undefined,
+      };
+    }
   } else {
     delete next.label;
   }
