@@ -839,3 +839,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | H2-7 | Node | two bands (prediction, variance), layer CRS kept, grid on a multiple of the cell size, VARIOGRAM metadata set | auto: tests/spatial_stats.rs h2_kriging_node_gives… |
 | H2-8 | Refusals | geographic layer, partial nugget/sill/range, neighbours outside 8–32, < 6 points, constant values, unknown model | auto: tests/spatial_stats.rs, kriging unit tests |
 | H2-9 | Cancel | stops between rows, no partial file | to automate (same per-row check as the calculator) |
+| H4-1 | Fill Depressions | a 3 × 3 pit 8 m deep in a tilted plane is raised; cells away from it unchanged; CRS kept | auto: hydrology::h4_fill_depressions… (skips if WhiteboxTools missing) |
+| H4-2 | Flow Direction / Accumulation / Streams | on a plane falling mostly east: ESRI code 1 everywhere; the cell in column c has c + 1 (or c) upstream cells; streams above a threshold at the east end only | auto: hydrology::h4_flow_direction… |
+| H4-3 | Watersheds | an outlet at the east end of row 5 gets label 1 across that row only; outlets in another CRS are projected to the raster's | auto: hydrology::h4_watersheds… (same-CRS case); other-CRS case to add |
+| H4-4 | Refusals and robustness | threshold ≤ 0 refused; WhiteboxTools missing → says how to fix; 40 repeated FillDepressions runs all succeed (retry of the program's own thread race) | auto: hydrology::h4_refusals…, h4_fill_depressions_survives… |
+| H4-5 | Packaged app | `Resources/resources/whitebox/whitebox_tools` is present and found; a hydrology node runs in the installed app | manual on the Mac app (M-32); Windows and Linux builds at R7 |
+| H4-6 | Cancel | killing the child stops the step, no partial file | to automate |

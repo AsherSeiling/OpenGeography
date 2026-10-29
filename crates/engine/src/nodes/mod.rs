@@ -23,6 +23,7 @@ mod qgis_vector;
 mod qgis_raster;
 mod raster_ops_tools;
 mod stats_tools;
+mod hydrology_tools;
 mod project;
 mod spatial_join;
 mod collect;
@@ -540,6 +541,12 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(stats_tools::MoransI),
         Box::new(stats_tools::HotSpots),
         Box::new(stats_tools::Kriging),
+        Box::new(hydrology_tools::FillDepressions),
+        Box::new(hydrology_tools::FlowDirection),
+        Box::new(hydrology_tools::FlowAccumulation),
+        Box::new(hydrology_tools::Basins),
+        Box::new(hydrology_tools::ExtractStreams),
+        Box::new(hydrology_tools::Watersheds),
         Box::new(qgis_raster::SampleRaster),
         Box::new(qgis_raster::ZonalStatistics),
         Box::new(layer_output::LayerOutput),

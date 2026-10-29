@@ -65,7 +65,9 @@ fn dms_label(v: f64, pos: &str, neg: &str) -> String {
 impl Engine {
     /// The bundled Natural Earth 1:110m land polygons as a new layer, cited in Sources. No network.
     pub fn world_outline(&self) -> Result<LayerInfo> {
-        let path = std::env::temp_dir().join(format!("gis-studio-ne110m-{}.geojson", std::process::id()));
+        // Unique per call: two outlines added at once must not share (and delete) one file.
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!("gis-studio-ne110m-{}-{}.geojson", std::process::id(), SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
         std::fs::write(&path, NE_110M_LAND)?;
         let mut task = Task::start("Adding the world outline");
         let r = self.import_with_public(&path, &mut task);

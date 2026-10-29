@@ -132,3 +132,6 @@ Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e te
 - Symptom: `GIS Studio.app --self-test` failed ("NAD27 → NAD83 is off by 2.0 m … PROJ datum files are missing"). DuckDB's embedded PROJ cannot fetch grids from cdn.proj.org, and the bundle held only `proj.db`.
 - Fix: the seven NOAA NADCON grids (≈ 0.95 MB, public domain) live in `crates/engine/assets/proj-grids/` and `scripts/stage-resources.sh` copies them next to `proj.db`. Self-test passes. Canada's NTv2 grid (7.8 MB) is not bundled; the check names missing shifts.
 - Windows/Linux packaging uses the same script; verify on the CI run (R7).
+
+## W-1 — World outline temp file shared between simultaneous calls (fixed 2026-10-29)
+`world_outline` wrote its GeoJSON to a file named only by process id, so two calls at once overwrote and deleted each other's file (seen as intermittent `world_view` test failures under load). Each call now uses its own name.
