@@ -120,3 +120,18 @@ fn h2_kriging_node_refuses_geographic_layers_and_partial_variograms_in_words() {
     let ok = run(&e, "kriging", json!({"field": "val", "cell": 50, "model": "exponential", "nugget": 0.0, "sill": 4.0, "range": 300.0}), &utm);
     assert!(matches!(ok.status, Status::Done | Status::Cached), "{:?}", ok.error);
 }
+
+#[test]
+fn c3_analysis_tools_warn_when_the_projection_stretches_lengths() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    // The same grid of points in Web Mercator near 45°N (lengths stretched 1.4 times) and in UTM near its central meridian.
+    let merc = grid_layer(&e, dir.path(), "EPSG:3857", false, 1000.0, -10_400_000.0, 5_600_000.0);
+    let r = run(&e, "morans_i", json!({"field": "val", "k": 8}), &merc);
+    assert!(matches!(r.status, Status::Done | Status::Cached), "{:?}", r.error);
+    assert!(r.message.as_deref().unwrap_or("").contains("Warning, Moran's I measures in the map units"), "{:?}", r.message);
+    let utm = grid_layer(&e, dir.path(), "EPSG:32615", false, 100.0, 500_000.0, 4_400_000.0);
+    let r = run(&e, "hot_spots", json!({"field": "val", "k": 8}), &utm);
+    assert!(matches!(r.status, Status::Done | Status::Cached), "{:?}", r.error);
+    assert!(!r.message.as_deref().unwrap_or("").contains("map units"), "{:?}", r.message);
+}

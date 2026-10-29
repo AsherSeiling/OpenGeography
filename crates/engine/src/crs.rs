@@ -346,9 +346,23 @@ pub struct CrsInfo {
     pub datum: Option<String>,
     /// West, south, east, north in degrees when PROJ knows the area of use.
     pub area_of_use: Option<[f64; 4]>,
+    /// A sentence about the unit when it is easy to confuse (the two kinds of foot).
+    pub unit_note: Option<String>,
 }
 
 /// Describe any definition PROJ reads (code, WKT, PROJ string). Errors read as sentences.
+/// The two feet differ by 2 parts per million, which moves State Plane coordinates (millions of feet) by feet: say which one a CRS uses.
+pub fn unit_note(unit: &str) -> Option<String> {
+    let u = unit.to_ascii_lowercase();
+    if u.contains("us survey foot") || u.contains("ftus") || u.contains("u.s. survey") {
+        Some("US survey foot (1200/3937 m, about 0.3048006 m). It differs from the international foot (0.3048 m) by 2 parts per million: State Plane coordinates in the two feet are up to a few feet apart. Do not mix them.".into())
+    } else if u == "foot" || u.contains("international") && u.contains("foot") || u == "ft" {
+        Some("International foot (exactly 0.3048 m). Data in the older US survey foot (1200/3937 m) differs from it by 2 parts per million, which can move State Plane coordinates by a few feet.".into())
+    } else {
+        None
+    }
+}
+
 pub fn info(crs: &str) -> Result<CrsInfo> {
     let s = srs(&resolve(crs))?;
     let geographic = s.is_geographic();
@@ -366,7 +380,8 @@ pub fn info(crs: &str) -> Result<CrsInfo> {
         .area_of_use()
         .filter(|a| a.west_lon_degree.is_finite() && a.north_lat_degree > a.south_lat_degree)
         .map(|a| [a.west_lon_degree, a.south_lat_degree, a.east_lon_degree, a.north_lat_degree]);
-    Ok(CrsInfo { name, code, geographic, unit, datum: datum_of(crs), area_of_use })
+    let unit_note = unit_note(&unit);
+    Ok(CrsInfo { name, code, geographic, unit, datum: datum_of(crs), area_of_use, unit_note })
 }
 
 /// The CRS as text for a map: `crs` ("NAD83 / UTM zone 14N (EPSG:26914)"), `datum` and `units`; "Custom CRS" for a bare

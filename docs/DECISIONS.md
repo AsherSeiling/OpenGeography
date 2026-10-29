@@ -365,3 +365,10 @@ Point symbols, line dashes and fill patterns are drawn by the layout renderer (p
 
 ## CG10 — World file now, GeoPDF later (2026-10-29)
 PNG exports can write a `.pgw` + `.prj` (engine `layout/worldfile.rs`); georeferencing is the first map frame's, at its nominal scale, unrotated. GeoPDF is deferred: the OGC "Measure" dictionaries must be added to the PDF's page objects after `svg2pdf` has written it, and no permissive PDF object editor is linked (only the writer). Revisit with the C4 topo-map work, where field use (Avenza) is the reason. CMYK stays out of scope: the renderer is RGB; the Page Setup dialog says so.
+
+## C1–C4, D3 — vertical datums, distortion, feet, responsible use (2026-10-29)
+- **Vertical datum** is a label in the raster file's metadata (`GIS_STUDIO_VERTICAL_DATUM`), set automatically for 3DEP (NAVD88) and Copernicus DEM (EGM2008), or by the Define Vertical Datum node (copy, values unchanged). Calculator, Align and Mosaic compare labels and warn (Strict: stop); heights-keeping tools pass the label on when their inputs agree. **Not built:** converting between datums (needs geoid grids and a transformation of the values), checking hydrology outputs.
+- **Distortion:** tools that measure in map units (Moran's I, Hot Spots, Kriging, Interpolate) add a note when lengths are off by more than 0.1 % over the data's extent (scale factors from the layout frame's `factors`). Warning only, never a refusal; Strict mode does not apply to it.
+- **Feet:** `CrsInfo.unit_note` says which foot a CRS uses (US survey 1200/3937 m vs international 0.3048 m, 2 ppm apart) and is shown on the Coordinate System tab.
+- **Responsible use:** the user-approved statement (plan §4) is in the app (`ui/src/help/responsibleUse.ts`, Map ▸ Coordinate System ▸ Limits & Responsible Use) and `docs/RESPONSIBLE_USE.md`; a test keeps them equal.
+

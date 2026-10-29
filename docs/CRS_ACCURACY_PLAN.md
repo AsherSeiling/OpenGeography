@@ -50,10 +50,10 @@ Each step: one branch `claude/<id>`, acceptance criteria, focused tests, merge `
 
 | ID | What | Done when |
 |---|---|---|
-| C1 | Record a vertical datum on elevation rasters (NAVD88, EGM2008, ellipsoidal, unknown) from the download source or the user; show it in the layer info | 3DEP and Copernicus downloads fill it automatically |
-| C2 | Warn (or convert with an installed geoid grid via GDAL/PROJ) when Raster Calculator, Align, Mosaic or hydrology mix vertical datums or an unknown one | e2e: subtracting NAVD88 from EGM2008 DEMs warns |
-| C3 | Warnings for planar tools: when a tool measures in map units and the layer's extent has scale factor outside 0.9996–1.0004 or the CRS is Web Mercator, say so and suggest a CRS (UTM zone / state plane / equal-area for the extent, using `crs_info` area of use); refuse area-based statistics in non-equal-area CRSs unless the user confirms | unit tests with known factors; the picker offers "Suggested for this extent" |
-| C4 | Foot units: show "US survey foot" vs "international foot" in the CRS info and warn when a layer in ftUS is combined with one in ft | test with NAD83 / Texas Central (ftUS) vs metre data |
+| C1 (**done 2026-10-29**) | Record a vertical datum on elevation rasters (NAVD88, EGM2008, ellipsoidal, unknown) from the download source or the user; show it in the layer info | 3DEP and Copernicus downloads fill it automatically |
+| C2 (**done 2026-10-29**) | Warn (or convert with an installed geoid grid via GDAL/PROJ) when Raster Calculator, Align, Mosaic or hydrology mix vertical datums or an unknown one | e2e: subtracting NAVD88 from EGM2008 DEMs warns |
+| C3 (**done 2026-10-29**) | Warnings for planar tools: when a tool measures in map units and the layer's extent has scale factor outside 0.9996–1.0004 or the CRS is Web Mercator, say so and suggest a CRS (UTM zone / state plane / equal-area for the extent, using `crs_info` area of use); refuse area-based statistics in non-equal-area CRSs unless the user confirms | unit tests with known factors; the picker offers "Suggested for this extent" |
+| C4 (**done 2026-10-29**) | Foot units: show "US survey foot" vs "international foot" in the CRS info and warn when a layer in ftUS is combined with one in ft | test with NAD83 / Texas Central (ftUS) vs metre data |
 | C5 | Epoch note: state the realisation/epoch assumption for WGS 84 ↔ NAD83(2011) in the report text (not modelled) | text appears in the transform report |
 
 ### Tier 3: keep it honest (1 session, then continuous)
@@ -62,7 +62,7 @@ Each step: one branch `claude/<id>`, acceptance criteria, focused tests, merge `
 |---|---|---|
 | D1 | Extend `crs_reference.rs` and `scripts/gen_crs_reference.py` to the new regions and to vertical shifts, regenerated from `cs2cs` with full proj-data; CI keeps `proj-data` installed (done 2026-10-29) | all regions pass on Linux, macOS and Windows CI |
 | D2 | Matrix test (`crs_matrix.rs`) adds a non-US datum pair per tool recipe | guard still enumerates every tool |
-| D3 | A "Limitations and responsible use" page in the app Help and in `docs/`: coverage table by region (accuracy, grids shipped, grids downloadable), what the tool is not suitable for (legal survey, emergency decisions without verification), how to read the transform report | page linked from the Coordinate System tab and About |
+| D3 (**done 2026-10-29**) | A "Limitations and responsible use" page in the app Help and in `docs/`: coverage table by region (accuracy, grids shipped, grids downloadable), what the tool is not suitable for (legal survey, emergency decisions without verification), how to read the transform report | page linked from the Coordinate System tab and About |
 | D4 | Release checklist item: before each release run the datum coverage table and fix any "missing" | listed in `docs/MASTER_PLAN.md` release steps |
 
 ## 4. Decisions (user, 2026-10-29)

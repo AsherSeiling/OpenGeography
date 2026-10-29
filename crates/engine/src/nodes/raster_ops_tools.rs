@@ -29,7 +29,10 @@ impl Tool for Calc1 {
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
-        rout(ro::calc(&[Path::new(need_raster(i)?)], &p.req_str("expr", "Expression")?)?, i.crs.clone())
+        let src = Path::new(need_raster(i)?);
+        let out = ro::calc(&[src], &p.req_str("expr", "Expression")?)?;
+        crate::vertical::inherit(&out, &[src]);
+        rout(out, i.crs.clone())
     }
 }
 
@@ -43,9 +46,15 @@ impl Tool for Calc2 {
             output: Some(PortKind::Raster),
             params: vec![Param::new("expr", "Expression", ParamKind::Expression).default("A - B")] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (a, b) = (&inputs["a"], &inputs["b"]);
-        rout(ro::calc(&[Path::new(need_raster(a)?), Path::new(need_raster(b)?)], &p.req_str("expr", "Expression")?)?, a.crs.clone())
+        let (pa, pb) = (Path::new(need_raster(a)?), Path::new(need_raster(b)?));
+        if let Some(n) = crate::vertical::check("the Raster Calculator", &[pa, pb])? {
+            c.add_note(n);
+        }
+        let out = ro::calc(&[pa, pb], &p.req_str("expr", "Expression")?)?;
+        crate::vertical::inherit(&out, &[pa, pb]);
+        rout(out, a.crs.clone())
     }
 }
 
@@ -88,7 +97,10 @@ impl Tool for NoData {
             Some("fill") => NoDataMode::Fill { max_distance: p.f64("distance").unwrap_or(10.0), smoothing: p.f64("smoothing").unwrap_or(0.0).max(0.0) as u32 },
             _ => NoDataMode::Declare(v),
         };
-        rout(ro::nodata_tool(Path::new(need_raster(i)?), mode)?, i.crs.clone())
+        let src = Path::new(need_raster(i)?);
+        let out = ro::nodata_tool(src, mode)?;
+        crate::vertical::inherit(&out, &[src]);
+        rout(out, i.crs.clone())
     }
 }
 
@@ -119,7 +131,10 @@ impl Tool for ResampleRaster {
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
-        rout(ro::resample(Path::new(need_raster(i)?), p.f64("cell").unwrap_or(0.0), &p.str("resampling").unwrap_or_else(|| "bilinear".into()))?, i.crs.clone())
+        let src = Path::new(need_raster(i)?);
+        let out = ro::resample(src, p.f64("cell").unwrap_or(0.0), &p.str("resampling").unwrap_or_else(|| "bilinear".into()))?;
+        crate::vertical::inherit(&out, &[src]);
+        rout(out, i.crs.clone())
     }
 }
 
@@ -131,10 +146,16 @@ impl Tool for AlignRaster {
             inputs: vec![rin("Raster to align"), Port { id: "reference", label: "Reference raster", kind: PortKind::Raster }], output: Some(PortKind::Raster),
             params: vec![Param::new("resampling", "Resampling", ParamKind::Enum).default("bilinear").options(&RESAMPLING)] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (i, r) = (&inputs["in"], &inputs["reference"]);
         need_raster_crs(i)?;
-        rout(ro::align(Path::new(need_raster(i)?), Path::new(need_raster(r)?), &p.str("resampling").unwrap_or_else(|| "bilinear".into()))?, r.crs.clone())
+        let (src, refp) = (Path::new(need_raster(i)?), Path::new(need_raster(r)?));
+        if let Some(n) = crate::vertical::check("Align Raster", &[src, refp])? {
+            c.add_note(n);
+        }
+        let out = ro::align(src, refp, &p.str("resampling").unwrap_or_else(|| "bilinear".into()))?;
+        crate::vertical::inherit(&out, &[src]); // the values are the aligned raster's own heights
+        rout(out, r.crs.clone())
     }
 }
 
@@ -146,11 +167,17 @@ impl Tool for MosaicRasters {
             inputs: vec![Port { id: "a", label: "First raster", kind: PortKind::Raster }, Port { id: "b", label: "Second raster", kind: PortKind::Raster }], output: Some(PortKind::Raster),
             params: vec![Param::new("resampling", "Resampling", ParamKind::Enum).default("near").options(&RESAMPLING)] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (a, b) = (&inputs["a"], &inputs["b"]);
         need_raster_crs(a)?;
         need_raster_crs(b)?;
-        rout(ro::mosaic(&[Path::new(need_raster(a)?), Path::new(need_raster(b)?)], &p.str("resampling").unwrap_or_else(|| "near".into()))?, a.crs.clone())
+        let (pa, pb) = (Path::new(need_raster(a)?), Path::new(need_raster(b)?));
+        if let Some(n) = crate::vertical::check("Mosaic Rasters", &[pa, pb])? {
+            c.add_note(n);
+        }
+        let out = ro::mosaic(&[pa, pb], &p.str("resampling").unwrap_or_else(|| "near".into()))?;
+        crate::vertical::inherit(&out, &[pa, pb]);
+        rout(out, a.crs.clone())
     }
 }
 
@@ -203,6 +230,18 @@ impl Tool for Interpolate {
         let i = &inputs["in"];
         let crs = crate::crs::resolve(need_crs(i)?);
         let field = p.req_str("field", "Value field")?;
+        // Cell size and radius are in map units: say so when the projection stretches lengths over the points (CRS accuracy plan C3).
+        if let Ok(ext) = ctx.conn.query_row(
+            &format!("SELECT min(ST_XMin(geom)), min(ST_YMin(geom)), max(ST_XMax(geom)), max(ST_YMax(geom)) FROM {} WHERE geom IS NOT NULL", ident(&i.table)),
+            [],
+            |r| Ok([r.get::<_, Option<f64>>(0)?, r.get(1)?, r.get(2)?, r.get(3)?]),
+        ) {
+            if let [Some(a), Some(b), Some(c), Some(d)] = ext {
+                if let Some(n) = crate::crs_warnings::planar_note("Interpolate Points to Raster", need_crs(i)?, [a, b, c, d]) {
+                    ctx.add_note(n);
+                }
+            }
+        }
         let gpkg = raster::new_store_path("interpolate_in", "gpkg");
         ctx.conn.execute_batch(&format!(
             "COPY (SELECT TRY_CAST({}::VARCHAR AS DOUBLE) AS v, geom FROM {} WHERE geom IS NOT NULL AND ST_GeometryType(geom) = 'POINT' AND TRY_CAST({}::VARCHAR AS DOUBLE) IS NOT NULL) TO {} (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'f', SRS {}, USE_TMP_FILE false)",
@@ -211,5 +250,21 @@ impl Tool for Interpolate {
         let out = ro::interpolate(&gpkg, p.str("method").as_deref().unwrap_or("idw"), p.f64("cell").unwrap_or(0.0), p.f64("power").unwrap_or(2.0), p.f64("radius").unwrap_or(0.0));
         let _ = std::fs::remove_file(&gpkg);
         rout(out?, i.crs.clone())
+    }
+}
+
+/// Record which height reference a raster's values use (CRS accuracy plan C1).
+pub struct DefineVerticalDatum;
+impl Tool for DefineVerticalDatum {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec { id: "define_vertical_datum", name: "Define Vertical Datum", category: "Raster › Management", role: Role::Tool,
+            description: "Record which height reference an elevation raster uses (NAVD88, a geoid such as EGM2008, ellipsoidal heights from GPS, …). The values do not change. Raster Calculator, Align and Mosaic then warn when you combine rasters on different vertical datums, whose heights can differ by metres. USGS 3DEP downloads are recorded as NAVD88 and Copernicus DEM as EGM2008 automatically. Converting between datums needs a geoid grid and is not done here.",
+            inputs: vec![rin("Elevation raster")], output: Some(PortKind::Raster),
+            params: vec![Param::new("datum", "Vertical datum", ParamKind::Enum).default("NAVD88").options(&crate::vertical::DATUMS)] }
+    }
+    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+        let i = &inputs["in"];
+        let out = crate::vertical::define(Path::new(need_raster(i)?), &p.req_str("datum", "Vertical datum")?)?;
+        rout(out, i.crs.clone())
     }
 }

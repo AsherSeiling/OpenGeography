@@ -20,13 +20,13 @@ describe("outsideArea", () => {
 
 describe("describeCrs", () => {
   it("lists name, code, kind, unit, datum and area", () => {
-    const t = describeCrs({ name: "NAD83 / UTM zone 14N", code: "EPSG:26914", geographic: false, unit: "metre", datum: "North American Datum 1983", areaOfUse: [-102, 0, -96, 84] });
+    const t = describeCrs({ name: "NAD83 / UTM zone 14N", code: "EPSG:26914", geographic: false, unit: "metre", datum: "North American Datum 1983", areaOfUse: [-102, 0, -96, 84], unitNote: null });
     expect(t).toContain("EPSG:26914");
     expect(t).toContain("projected");
     expect(t).toContain("North American Datum 1983");
     expect(t).toContain("valid 0.0°–84.0° N");
   });
   it("says so when the area is unknown", () => {
-    expect(describeCrs({ name: "Custom", code: null, geographic: true, unit: "degree", datum: null, areaOfUse: null })).toContain("area of use unknown");
+    expect(describeCrs({ name: "Custom", code: null, geographic: true, unit: "degree", datum: null, areaOfUse: null, unitNote: null })).toContain("area of use unknown");
   });
 });

@@ -113,7 +113,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 44] = [
+const EXCLUDED: [(&str, &str); 45] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("layer_output", "writes the result back; covered by every matrix run"),
     ("add_to_map", "a table sink"),
@@ -149,6 +149,7 @@ const EXCLUDED: [(&str, &str); 44] = [
     ("interpolate", "points to raster in the layer's CRS: raster_nodes.rs (H1)"),
     ("morans_i", "refuses geographic CRSs, otherwise planar in the layer's CRS: spatial_stats.rs (H3)"),
     ("hot_spots", "refuses geographic CRSs, otherwise planar in the layer's CRS: spatial_stats.rs (H3)"),
+    ("define_vertical_datum", "metadata only: the raster, its grid and CRS are copied unchanged: raster_nodes.rs (C1)"),
     ("kriging", "refuses geographic CRSs, otherwise planar in the layer's CRS: kriging.rs (H2)"),
     ("fill_depressions", "raster tool run by WhiteboxTools, CRS restamped from the input: hydrology.rs (H4)"),
     ("flow_direction", "raster tool run by WhiteboxTools, CRS restamped from the input: hydrology.rs (H4)"),

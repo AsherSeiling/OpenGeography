@@ -45,6 +45,7 @@ export type DialogState =
   | { kind: "hazardsSoils" }
   | { kind: "ogc" }
   | { kind: "datumGrids" }
+  | { kind: "responsibleUse" }
   | { kind: "overture" }
   | { kind: "stac" }
   | { kind: "census"; layer: string }

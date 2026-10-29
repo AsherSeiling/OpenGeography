@@ -57,3 +57,22 @@ test("B2 the Datum Grids menu lists the catalog by region, filters it, and offer
   expect(kinds).toBeLessThan(total);
   await dlg.getByRole("button", { name: "Close" }).click();
 });
+
+test("D3/C4 the responsible-use statement opens from the ribbon, and a US-foot layer says which foot it uses", async ({ app }) => {
+  await ribbon(app, "Map", "Limits & Responsible Use");
+  const dlg = app.getByRole("dialog");
+  await expect(dlg).toContainText("Limitations and responsible use");
+  await expect(dlg.getByTestId("responsible-use")).toContainText(/not a survey instrument/i);
+  await expect(dlg.getByTestId("responsible-use")).toContainText(/Define Vertical Datum/);
+  await dlg.getByRole("button", { name: "Close" }).click();
+
+  const layer = await gis(app, async (g) => {
+    const info = await g.api.createFeatures("Oklahoma North ftUS", [{ wkt: "POINT(2000000 500000)" }]);
+    const l = await g.api.defineProjection(info.id, "EPSG:2267", "NAD83 / Oklahoma North (ftUS)");
+    g.useApp.getState().addLayers([l]);
+    return l;
+  }) as any;
+  await gis(app, (g, id) => { const s = g.useApp.getState(); s.setActiveLayer(id); s.setProperties({ kind: "layer", id }); }, layer.id);
+  await app.getByRole("tab", { name: "Coordinate System" }).click();
+  await expect(app.locator(".kv", { hasText: "US survey foot" })).toContainText(/2 parts per million/, { timeout: 10_000 });
+});
