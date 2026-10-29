@@ -408,7 +408,7 @@ pub fn render_extent_styled(info: &RasterInfo, style: &RasterStyle, crs: &str, e
     let target = crate::crs::resolve(crs);
     let src = Dataset::open(&info.path)?;
     let rgb = info.kind == "rgb" && !custom;
-    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", "bilinear", "-dstalpha"].map(String::from).to_vec();
+    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", if style.renderer == Renderer::Paletted { "near" } else { "bilinear" }, "-dstalpha"].map(String::from).to_vec();
     args.extend(["-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(), "-ts".into(), w.to_string(), h.to_string()]);
     if rgb {
         args.extend(["-b", "1", "-b", "2", "-b", "3"].map(String::from));
@@ -421,7 +421,7 @@ pub fn render_extent_styled(info: &RasterInfo, style: &RasterStyle, crs: &str, e
     let mut rgba = vec![0u8; w * h * 4];
     if custom {
         let v: Vec<f32> = tile.rasterband(1)?.read_as::<f32>((0, 0), (w, h), (w, h), None)?.data().to_vec();
-        let range = crate::raster_style::stretch_range(info, style)?;
+        let range = if style.renderer == Renderer::Paletted { (0.0, 1.0) } else { crate::raster_style::stretch_range(info, style)? };
         rgba = crate::raster_style::colorize(&v, &alpha, info, style, range)?;
     } else if rgb {
         let bands: Vec<Vec<f32>> = (1..=3).map(|i| tile.rasterband(i).and_then(|b| b.read_as::<f32>((0, 0), (w, h), (w, h), None)).map(|b| b.data().to_vec())).collect::<Result<_, _>>()?;

@@ -136,6 +136,7 @@ fn main() {
             commands::download_elevation,
             commands::raster_value,
             commands::raster_ramps,
+            commands::raster_unique_values,
             commands::raster_classify,
             commands::raster_histogram,
             commands::measure_feature,

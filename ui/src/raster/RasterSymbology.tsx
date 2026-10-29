@@ -2,11 +2,11 @@
 // The style is `LayerStyle.raster`; the engine draws it (raster_style.rs).
 import { Button, Checkbox, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, OptionGroup, Slider, SpinButton } from "@fluentui/react-components";
 import { useEffect, useRef, useState } from "react";
-import { api, errorText, type RampInfo, type RasterHistogram } from "../ipc/api";
+import { api, errorText, type RampInfo, type RasterHistogram, type RasterUniqueValues } from "../ipc/api";
 import { displayInfo, useApp, type LayerStyle, type RasterStyle } from "../store/store";
 import { barHeights, dragHandle, fmtValue, rampCss, valueToX } from "./histogram";
 
-const RENDERERS = { default: "Default (elevation + hillshade / RGB)", gray: "Singleband gray", pseudocolor: "Singleband pseudocolor" } as const;
+const RENDERERS = { default: "Default (elevation + hillshade / RGB)", gray: "Singleband gray", pseudocolor: "Singleband pseudocolor", paletted: "Paletted / Unique values" } as const;
 const STRETCH = { minmax: "Min – Max", percentile: "Percentile clip", stddev: "Standard deviations", manual: "Manual" } as const;
 const METHODS = { equal: "Equal interval", quantile: "Quantile", jenks: "Natural breaks (Jenks)", stddev: "Standard deviation" } as const;
 const GROUPS = ["Scientific", "Terrain", "Sequential", "Diverging", "Qualitative", "Gray"] as const;
@@ -64,16 +64,28 @@ export function RasterSymbology({ id }: { id: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [method, setMethod] = useState<keyof typeof METHODS>("quantile");
   const [nClasses, setNClasses] = useState(5);
+  const [uniq, setUniq] = useState<RasterUniqueValues | null>(null);
 
   useEffect(() => {
     api.rasterRamps().then(setRamps).catch((e) => setErr(errorText(e)));
   }, []);
   useEffect(() => {
-    if (r.renderer === "default") return;
+    if (r.renderer === "default" || r.renderer === "paletted") return;
     setHist(null);
     api.rasterHistogram(info.id, band, 64).then(setHist).catch((e) => setErr(errorText(e)));
   }, [info.id, info.version, band, r.renderer]);
 
+  const loadClasses = async () => {
+    setErr(null);
+    try {
+      const u = await api.rasterUniqueValues(info.id, band, 200);
+      setUniq(u);
+      const qual = ramps.find((x) => x.name === "Paired")?.colors ?? ["#1f78b4"];
+      set({ entries: u.values.map((v, i) => ({ value: v.value, color: v.color ?? qual[i % qual.length], label: String(v.value), hidden: false })) });
+    } catch (e) {
+      setErr(errorText(e));
+    }
+  };
   const ramp = ramps.find((x) => x.name === (r.ramp ?? "viridis"));
   const sm = r.stretch?.mode ?? "minmax";
   const [lo, hi] = ((): [number, number] => {
@@ -111,7 +123,37 @@ export function RasterSymbology({ id }: { id: string }) {
           ))}
         </Dropdown>
       </Field>
-      {r.renderer !== "default" && (
+      {r.renderer === "paletted" && (
+        <>
+          <div className="class-row">
+            <Button onClick={loadClasses}>{r.entries?.length ? "Reload classes" : "Load classes"}</Button>
+          </div>
+          {uniq?.sampled && (
+            <MessageBar intent="warning">
+              <MessageBarBody>This raster is large, so the classes come from a downsampled read: rare values may be missing. Add them by editing the value list.</MessageBarBody>
+            </MessageBar>
+          )}
+          {uniq?.truncated && (
+            <MessageBar intent="warning">
+              <MessageBarBody>This band has more than 200 distinct values, so only the first 200 are listed. It may be continuous data; use pseudocolor instead.</MessageBarBody>
+            </MessageBar>
+          )}
+          <div className="class-list">
+            {(r.entries ?? []).map((e, i) => {
+              const patch = (p: Partial<NonNullable<RasterStyle["entries"]>[number]>) => set({ entries: r.entries!.map((x, j) => (j === i ? { ...x, ...p } : x)) });
+              return (
+                <div key={i} className="class-row">
+                  <Checkbox checked={!e.hidden} onChange={(_, d) => patch({ hidden: !d.checked })} aria-label={`Show class ${e.value}`} />
+                  <input type="color" value={e.color} onChange={(ev) => patch({ color: ev.target.value })} aria-label={`Colour of ${e.value}`} />
+                  <span style={{ width: 52 }}>{e.value}</span>
+                  <Input size="small" value={e.label ?? ""} onChange={(_, d) => patch({ label: d.value })} aria-label={`Label of ${e.value}`} />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {r.renderer !== "default" && r.renderer !== "paletted" && (
         <>
           {bands > 1 && (
             <Field label="Band">

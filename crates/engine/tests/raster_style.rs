@@ -108,3 +108,27 @@ fn histogram_stats() {
     let h = s.histogram(10);
     assert_eq!(h.iter().sum::<u64>(), 399);
 }
+
+#[test]
+fn unique_values_and_paletted_rendering() {
+    let (_d, info) = setup();
+    let u = raster_style::unique_values(&info, 1, 100).unwrap();
+    assert_eq!(u.values.len(), 20, "columns 0..19 x 10; the NoData cell is not counted");
+    assert!(!u.sampled && !u.truncated);
+    assert_eq!(u.values[0].value, 0.0);
+    assert_eq!(u.values[0].count, 19, "column 0 lost its NoData cell");
+    assert_eq!(u.values[1].count, 20);
+    assert!(u.values[0].color.is_none());
+    assert!(raster_style::unique_values(&info, 1, 5).unwrap().truncated);
+
+    let s = RasterStyle {
+        renderer: Renderer::Paletted,
+        entries: vec![raster_style::PalEntry { value: 50.0, color: "#ff0000".into(), label: "fifty".into(), hidden: false }],
+        ..Default::default()
+    };
+    let b = render(&info, &s);
+    let at = |c: usize| &b[(5 * 20 + c) * 4..(5 * 20 + c) * 4 + 4];
+    assert_eq!(at(5), &[255, 0, 0, 255]);
+    assert_eq!(at(6)[3], 0, "other values transparent");
+    assert_eq!(at(4)[3], 0);
+}

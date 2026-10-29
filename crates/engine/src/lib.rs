@@ -302,6 +302,16 @@ impl Engine {
         }))
     }
 
+    /// Distinct values of a raster band (for the unique-values symbology), with GDAL colour-table colours.
+    pub fn raster_unique_values(&self, id: &str, band: usize, max: usize) -> Result<raster_style::UniqueValues> {
+        let info = self.layer(id)?;
+        let r = info.raster.as_ref().ok_or_else(|| anyhow!("'{}' is not a raster", info.name))?;
+        if band == 0 || band > r.bands {
+            return Err(anyhow!("Band {band} doesn't exist; '{}' has {} band(s)", info.name, r.bands));
+        }
+        raster_style::unique_values(r, band, max.clamp(1, 2000))
+    }
+
     /// Class breaks for a raster band: `method` is equal | quantile | jenks | stddev.
     pub fn raster_classify(&self, id: &str, band: usize, method: &str, classes: usize) -> Result<Vec<f64>> {
         let info = self.layer(id)?;

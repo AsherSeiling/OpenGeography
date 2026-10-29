@@ -24,6 +24,20 @@ pub enum Renderer {
     Default,
     Gray,
     Pseudocolor,
+    /// Unique values: each listed cell value gets its own colour; other values are transparent (QGIS "Paletted/Unique values", ArcGIS "Unique Values"). Drawn with nearest-neighbour resampling.
+    Paletted,
+}
+
+/// One class of a paletted raster.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct PalEntry {
+    pub value: f64,
+    pub color: String,
+    #[serde(default)]
+    pub label: String,
+    /// Hidden classes are transparent.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -92,6 +106,8 @@ pub struct RasterStyle {
     pub mode: ColorMode,
     /// Class upper bounds (ascending, n-1 for n classes). With `mode: "discrete"` and breaks, the ramp is sampled once per class (classified rendering); without, one class per ramp stop.
     pub breaks: Vec<f64>,
+    /// Classes of the paletted renderer.
+    pub entries: Vec<PalEntry>,
     pub opacity: f32,
     /// Cells equal to the raster's NoData value are transparent.
     pub nodata_transparent: bool,
@@ -118,6 +134,7 @@ impl Default for RasterStyle {
             invert: false,
             mode: ColorMode::Linear,
             breaks: Vec::new(),
+            entries: Vec::new(),
             opacity: 1.0,
             nodata_transparent: true,
             transparent_ranges: Vec::new(),
@@ -155,6 +172,15 @@ impl RasterStyle {
         }
         if self.breaks.iter().any(|b| !b.is_finite()) || self.breaks.windows(2).any(|w| w[0] >= w[1]) {
             bail!("Class breaks must be numbers in increasing order");
+        }
+        if self.renderer == Renderer::Paletted {
+            if self.entries.is_empty() {
+                bail!("Add at least one class to the unique-values symbology");
+            }
+            if let Some(e) = self.entries.iter().find(|e| parse_hex(&e.color).is_none()) {
+                bail!("'{}' is not a colour like #aabbcc", e.color);
+            }
+            return Ok(());
         }
         if self.ramp == "custom" && self.stops.len() < 2 {
             bail!("A custom colour ramp needs at least two stops");
@@ -483,6 +509,9 @@ fn adjust(c: [f32; 3], s: &RasterStyle) -> [f32; 3] {
 
 /// RGBA pixels for one band's `values` (`alpha` from the warp: 0 outside the raster).
 pub fn colorize(values: &[f32], alpha: &[f32], info: &RasterInfo, style: &RasterStyle, range: (f64, f64)) -> Result<Vec<u8>> {
+    if style.renderer == Renderer::Paletted {
+        return colorize_paletted(values, alpha, info, style);
+    }
     let gray = style.renderer == Renderer::Gray;
     let classed = style.mode == ColorMode::Discrete && !style.breaks.is_empty();
     let lut = if gray { Vec::new() } else if classed { build_lut(&RasterStyle { mode: ColorMode::Linear, ..style.clone() })? } else { build_lut(style)? };
@@ -518,6 +547,78 @@ pub fn colorize(values: &[f32], alpha: &[f32], info: &RasterInfo, style: &Raster
         out[i * 4 + 3] = (a * style.opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
     }
     Ok(out)
+}
+
+fn colorize_paletted(values: &[f32], alpha: &[f32], info: &RasterInfo, style: &RasterStyle) -> Result<Vec<u8>> {
+    let mut table: HashMap<i64, [f32; 3]> = HashMap::new();
+    for e in style.entries.iter().filter(|e| !e.hidden) {
+        let c = parse_hex(&e.color).ok_or_else(|| anyhow!("'{}' is not a colour like #aabbcc", e.color))?;
+        table.insert(e.value.round() as i64, c);
+    }
+    let nodata = info.nodata.map(|n| n as f32);
+    let mut out = vec![0u8; values.len() * 4];
+    for (i, &v) in values.iter().enumerate() {
+        if alpha[i] < 1.0 || !v.is_finite() || (style.nodata_transparent && nodata.map_or(false, |n| (v - n).abs() < 1e-6)) {
+            continue;
+        }
+        let Some(c) = table.get(&(v.round() as i64)) else { continue };
+        let c = adjust(*c, style);
+        for k in 0..3 {
+            out[i * 4 + k] = c[k].clamp(0.0, 255.0).round() as u8;
+        }
+        out[i * 4 + 3] = (style.opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
+    }
+    Ok(out)
+}
+
+/// Distinct cell values of a band with counts, and the colour-table colour GDAL stores for each (if any).
+/// Reads the whole band up to 16 million cells, otherwise a ≤ 1024×1024 sample (`sampled` = true; counts are then relative).
+#[derive(Serialize, Debug)]
+pub struct UniqueValue {
+    pub value: f64,
+    pub count: u64,
+    pub color: Option<String>,
+}
+
+#[derive(Serialize, Debug)]
+pub struct UniqueValues {
+    pub values: Vec<UniqueValue>,
+    pub sampled: bool,
+    /// More distinct values than `max`: the list was cut (an integer land-cover raster has few, a float DEM thousands).
+    pub truncated: bool,
+}
+
+pub fn unique_values(info: &RasterInfo, band: usize, max: usize) -> Result<UniqueValues> {
+    let ds = gdal::Dataset::open(&info.path).map_err(|e| anyhow!("GDAL could not open {}: {e}", info.path))?;
+    let b = ds.rasterband(band).map_err(|_| anyhow!("Band {band} doesn't exist"))?;
+    let (w, h) = (info.width, info.height);
+    let sampled = w * h > 16_000_000;
+    let (sw, sh) = if sampled {
+        let k = 1024.0 / w.max(h) as f64;
+        (((w as f64 * k) as usize).max(1), ((h as f64 * k) as usize).max(1))
+    } else {
+        (w, h)
+    };
+    let data = b.read_as::<f32>((0, 0), (w, h), (sw, sh), None).map_err(|e| anyhow!("Could not read band {band}: {e}"))?;
+    let nd = b.no_data_value().map(|v| v as f32);
+    let mut counts: std::collections::BTreeMap<i64, u64> = std::collections::BTreeMap::new();
+    for &v in data.data() {
+        if !v.is_finite() || nd.map_or(false, |n| (v - n).abs() < 1e-6) {
+            continue;
+        }
+        *counts.entry(v.round() as i64).or_default() += 1;
+    }
+    let truncated = counts.len() > max;
+    let ct = b.color_table();
+    let values = counts
+        .into_iter()
+        .take(max)
+        .map(|(v, count)| {
+            let color = ct.as_ref().and_then(|t| if v >= 0 { t.entry_as_rgb(v as usize) } else { None }).map(|c| format!("#{:02x}{:02x}{:02x}", c.r, c.g, c.b));
+            UniqueValue { value: v as f64, count, color }
+        })
+        .collect();
+    Ok(UniqueValues { values, sampled, truncated })
 }
 
 /// Legend colour bar: `n` colours across the ramp (hex), with the stretched range, for layouts and the UI.
@@ -693,6 +794,28 @@ mod tests {
         assert!(r.iter().find(|x| x.name == "viridis").unwrap().cb_safe);
         assert!(!r.iter().find(|x| x.name == "RdYlGn").unwrap().cb_safe);
         assert!(CB_SAFE.iter().all(|n| r.iter().any(|x| x.name == *n)));
+    }
+
+    #[test]
+    fn paletted_colours_listed_values_only() {
+        let s = RasterStyle {
+            renderer: Renderer::Paletted,
+            entries: vec![
+                PalEntry { value: 1.0, color: "#ff0000".into(), label: "A".into(), hidden: false },
+                PalEntry { value: 2.0, color: "#00ff00".into(), label: "B".into(), hidden: true },
+                PalEntry { value: 3.0, color: "#0000ff".into(), label: String::new(), hidden: false },
+            ],
+            ..Default::default()
+        };
+        s.validate(&info()).unwrap();
+        let px = colorize(&[1.0, 2.0, 3.0, 4.0, -9999.0], &[255.0; 5], &info(), &s, (0.0, 1.0)).unwrap();
+        assert_eq!(&px[0..4], &[255, 0, 0, 255]);
+        assert_eq!(px[7], 0, "hidden class");
+        assert_eq!(&px[8..12], &[0, 0, 255, 255]);
+        assert_eq!(px[15], 0, "value without a class");
+        assert_eq!(px[19], 0, "NoData");
+        let empty = RasterStyle { renderer: Renderer::Paletted, ..Default::default() };
+        assert!(empty.validate(&info()).unwrap_err().to_string().contains("at least one class"));
     }
 
     #[test]

@@ -560,6 +560,11 @@ pub async fn raster_classify(engine: Eng<'_>, id: String, band: usize, method: S
 }
 
 #[tauri::command]
+pub async fn raster_unique_values(engine: Eng<'_>, id: String, band: usize, max: usize) -> Res<engine::raster_style::UniqueValues> {
+    blocking(&engine, move |e| e.raster_unique_values(&id, band, max)).await
+}
+
+#[tauri::command]
 pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
     blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
 }
