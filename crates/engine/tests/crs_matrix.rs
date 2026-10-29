@@ -113,7 +113,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 41] = [
+const EXCLUDED: [(&str, &str); 43] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("layer_output", "writes the result back; covered by every matrix run"),
     ("add_to_map", "a table sink"),
@@ -155,6 +155,8 @@ const EXCLUDED: [(&str, &str); 41] = [
     ("basins", "raster tool run by WhiteboxTools, CRS restamped from the input: hydrology.rs (H4)"),
     ("extract_streams", "raster tool run by WhiteboxTools, CRS restamped from the input: hydrology.rs (H4)"),
     ("watersheds", "outlets are reprojected into the raster's CRS: hydrology.rs (H4)"),
+    ("spectral_index", "raster tool, grid and CRS carried through: remote_sensing.rs, raster_nodes.rs (H5)"),
+    ("classify_kmeans", "raster tool, grid and CRS carried through: remote_sensing.rs, raster_nodes.rs (H5)"),
 ];
 // zonal_statistics is the 23rd raster tool; the list above is checked by the guard against the registry.
 
