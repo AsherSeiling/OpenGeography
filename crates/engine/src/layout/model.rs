@@ -13,6 +13,15 @@ fn one() -> u32 {
 fn earth() -> String {
     "earth".into()
 }
+fn twenty() -> usize {
+    20
+}
+fn eight() -> usize {
+    8
+}
+fn bar() -> String {
+    "bar".into()
+}
 fn rectangle() -> String {
     "rectangle".into()
 }
@@ -57,6 +66,9 @@ pub struct Layout {
     #[serde(default = "earth")]
     pub body: String,
     pub page: Page,
+    /// Text token `{author}`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub author: String,
     #[serde(default)]
     pub elements: Vec<Element>,
     /// Map series (C3.2): see [`super::series::SeriesSpec`].
@@ -301,6 +313,55 @@ pub enum Element {
         #[serde(default)]
         size: f64,
     },
+    /// Attribute data of a layer as a table.
+    Table {
+        #[serde(flatten)]
+        at: Placement,
+        /// Layer id.
+        #[serde(default)]
+        layer: String,
+        /// Fields to show, in order; empty = the first five.
+        #[serde(default)]
+        fields: Vec<String>,
+        #[serde(default, rename = "sortField")]
+        sort_field: String,
+        #[serde(default)]
+        descending: bool,
+        /// Most rows to show (also limited by the box height).
+        #[serde(default = "twenty", rename = "maxRows")]
+        max_rows: usize,
+        /// Text size, pt; 0 = 7.
+        #[serde(default)]
+        size: f64,
+        #[serde(default = "yes")]
+        zebra: bool,
+    },
+    /// A bar or pie chart of a layer's categories.
+    Chart {
+        #[serde(flatten)]
+        at: Placement,
+        #[serde(default)]
+        layer: String,
+        /// "bar" | "pie".
+        #[serde(default = "bar", rename = "chartType")]
+        chart_type: String,
+        /// Field that makes the categories.
+        #[serde(default)]
+        category: String,
+        /// Numeric field to add up; empty = count features.
+        #[serde(default)]
+        value: String,
+        /// "sum" | "avg" | "count".
+        #[serde(default)]
+        agg: String,
+        /// Largest categories shown (1–12).
+        #[serde(default = "eight", rename = "topN")]
+        top_n: usize,
+        #[serde(default)]
+        title: String,
+        #[serde(default)]
+        size: f64,
+    },
     /// A rectangle, ellipse, triangle, line or arrow.
     Shape {
         #[serde(flatten)]
@@ -348,6 +409,8 @@ impl Element {
             | Element::NorthArrow { at, .. }
             | Element::Sources { at, .. }
             | Element::Shape { at, .. }
+            | Element::Table { at, .. }
+            | Element::Chart { at, .. }
             | Element::Picture { at, .. } => at,
         }
     }
@@ -361,6 +424,8 @@ impl Element {
             Element::NorthArrow { .. } => "north_arrow",
             Element::Sources { .. } => "sources",
             Element::Shape { .. } => "shape",
+            Element::Table { .. } => "table",
+            Element::Chart { .. } => "chart",
             Element::Picture { .. } => "picture",
         }
     }
@@ -397,6 +462,9 @@ impl Layout {
             }
             if ![a.x, a.y, a.w, a.h, a.rotation].iter().all(|v| v.is_finite()) || a.w <= 0.0 || a.h <= 0.0 {
                 bail!("Element '{}' needs a finite position and a positive size", a.id);
+            }
+            if let Element::Chart { chart_type, agg, .. } = e {
+                super::tabular::check_chart(chart_type, agg)?;
             }
             if let Element::Shape { shape, .. } = e {
                 super::shapes::check_shape(shape)?;
@@ -753,6 +821,9 @@ pub struct RenderRequest {
     /// Text token `{date}`; supplied by the caller so renders stay reproducible.
     #[serde(default)]
     pub date: String,
+    /// Text token `{author}`.
+    #[serde(default)]
+    pub author: String,
     /// Resolution of raster layers and base maps drawn into frames, dpi
     /// (default 300, clamped to 72–300: PDF images are capped at 300 dpi).
     #[serde(default)]

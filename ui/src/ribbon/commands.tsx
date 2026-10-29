@@ -49,6 +49,7 @@ import {
   BookInformationRegular,
   ImageRegular,
   CircleRegular,
+  ChartMultipleRegular,
   TriangleRegular,
   LineHorizontal1Regular,
   ArrowRightRegular,
@@ -80,7 +81,7 @@ import { zoomToExtent } from "../map/mapController";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
 import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
-import { addShape, addText, useLayouts } from "../store/layout";
+import { addChart, addShape, addTable, addText, useLayouts } from "../store/layout";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
@@ -184,6 +185,8 @@ const list: Command[] = [
   { id: "layoutLine", label: "Line", icon: <LineHorizontal1Regular />, run: () => void addShape("line"), enabled: inLayout, tip: "Insert a line (rotate it for other directions; solid, dashed or dotted)" },
   { id: "layoutArrow", label: "Arrow", icon: <ArrowRightRegular />, run: () => void addShape("arrow"), enabled: inLayout, tip: "Insert an arrow" },
   { id: "layoutPicture", label: "Picture", icon: <ImageAddRegular />, run: () => void insertPicture(), enabled: inLayout, tip: "Insert a picture or logo (PNG, JPEG or SVG) embedded in the layout" },
+  { id: "layoutTable", label: "Table", icon: <TableRegular />, run: () => void addTable(useApp.getState().activeLayer ?? ""), enabled: inLayout, tip: "Insert a table of the active layer's attributes (choose fields and sorting in Properties)" },
+  { id: "layoutChart", label: "Chart", icon: <ChartMultipleRegular />, run: () => void addChart(useApp.getState().activeLayer ?? ""), enabled: inLayout, tip: "Insert a bar or pie chart of a layer's categories" },
   { id: "layoutLegend", label: "Legend", icon: <TextBulletListRegular />, run: () => insertSurround("legend"), enabled: hasFrame, tip: "Insert a legend listing the frame's visible layers and their classes" },
   { id: "layoutScaleBar", label: "Scale Bar", icon: <RulerRegular />, run: () => insertSurround("scale_bar"), enabled: hasFrame, tip: "Insert a scale bar that is true to ground distance at the frame centre" },
   { id: "layoutNorthArrow", label: "North Arrow", icon: <NavigationRegular />, run: () => insertSurround("north_arrow"), enabled: hasFrame, tip: "Insert a north arrow pointing to true north (follows meridian convergence and frame rotation)" },

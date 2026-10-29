@@ -56,6 +56,7 @@ Order: RS 1→2→3 first (everything else in RS builds on them), then CG 1, 2, 
 - [x] RS7 rs-legend-io (2026-10-29): raster legends in layouts (colour bar, classes, unique values), style save/load files. Project-level presets = the per-layer style saved in the project plus "apply symbology" on multi-selected layers; a named preset library is not built.
 
 CG tasks:
+- [x] CG5 cg-text-table-chart (2026-10-29): table and chart elements (Okabe–Ito colours), rich text (bold/italic), tokens author/layer_count/layer_names. Deferred: spatially filtered tables, paging, text auto-wrap.
 - [x] CG4 cg-overview (2026-10-29): overview/inset frame with extent indicator (outline, optional fill), any projection. The indicator shows the other frame's window; rotated target frames are drawn axis-aligned in their own CRS (the whole frame rotates with its content).
 - [x] CG3 cg-legend (2026-10-29): editable legend entries (rename, hide, extra entries), patch shapes, text size; frame/title styling via the CG1 decoration. Grouping beyond the per-layer blocks, and dragging entries into a new order, are deferred (entry order follows the map order).
 - [x] CG2 cg-northarrow-scalebar (2026-10-29): 8 north-arrow styles (own geometry, no third-party artwork) incl. custom picture and grid north; 5 scale-bar styles, second-unit bar, verbal scale. Declination diagram deferred to C4 (needs the WMM drawing).
