@@ -25,6 +25,7 @@ import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
 import { QueryEditor } from "../query/QueryEditor";
 import { moveClass, reverseClasses } from "../map/categoryOrder";
+import { RasterSymbology } from "../raster/RasterSymbology";
 import { LabelSettings } from "./LabelSettings";
 import { fieldsForPort, useModel, useRun } from "../store/model";
 import { displayInfo, useApp, type LayerStyle } from "../store/store";
@@ -162,6 +163,7 @@ export function Symbology({ id }: { id: string }) {
   const [err, setErr] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   if (!style) return null;
+  if (info.geomType === "Raster") return <RasterSymbology id={id} />;
   const numericFields = info.fields.filter((f) => /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/i.test(f.type));
   const fields = style.kind === "graduated" ? numericFields : info.fields;
 

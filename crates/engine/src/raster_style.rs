@@ -169,6 +169,7 @@ impl RasterStyle {
 // ---------------------------------------------------------------- ramps
 
 #[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct RampInfo {
     pub name: &'static str,
     /// "Scientific" | "Terrain" | "Sequential" | "Diverging" | "Qualitative" | "Gray".
