@@ -237,3 +237,9 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - Reference lines are ordinary WGS 84 line layers with `kind` (meridian, parallel, equator, tropic, central meridian, standard parallel, outline); the world-mode table draws them, so there is one drawing path.
 - The 110m land file (138 kB) is bundled, imported on demand and cited in Sources. The projection builder only produces PROJ strings; the CRS key of a built string is the engine's `crs::key`.
 - Deferred: distortion colouring (R-W10, optional), the 1 M-point performance run (R-W11), and a cs2cs check of graticule intersections.
+
+### D1 — ArcGIS REST catalog
+- One download engine: `tnm_vector::fetch_sources` (paging, Esri JSON → GeoJSON, retries, cache); the National Map datasets and the new catalog both call it. A layer is named by its name or "#number".
+- The catalog is JSON (`assets/arcgis_catalog.json`), each entry with its own citation; all five endpoints were checked against the live services on 2026-10-28 (PAD-US 3.0 manager name, FEMA NFHL zones and boundaries, NWI wetlands, NIFC current perimeters). Entries that need more than one layer per dataset merge them with CATEGORY. Adding a dataset is adding a JSON object.
+- A pasted address gets a citation stub (`complete: false`) the user finishes in Sources; the service host appears in every error.
+- Not in D1: state portals, per-entry field pickers, clipping to a polygon (the National Map dialog does that).

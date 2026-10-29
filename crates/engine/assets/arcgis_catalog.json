@@ -1,0 +1,52 @@
+[
+  {
+    "id": "padus", "group": "Boundaries", "label": "Protected areas and land managers (PAD-US)",
+    "service": "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Name/FeatureServer",
+    "layers": ["#0"],
+    "author": "U.S. Geological Survey, Gap Analysis Project", "year": "2022", "title": "Protected Areas Database of the United States (PAD-US) 3.0",
+    "version": "FeatureServer, manager name", "publisher": "U.S. Geological Survey",
+    "url": "https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview",
+    "license": "Public domain (U.S. Government work); USGS asks that it be credited.",
+    "annotation": "Public lands and other protected areas of the United States with owner, manager, designation and GAP status. Used for protected-area polygons."
+  },
+  {
+    "id": "nfhl_zones", "group": "Hazards", "label": "Flood hazard zones (FEMA National Flood Hazard Layer)",
+    "service": "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer",
+    "layers": ["Flood Hazard Zones"],
+    "author": "Federal Emergency Management Agency", "year": "n.d.", "title": "National Flood Hazard Layer (NFHL) — flood hazard zones",
+    "version": "NFHL MapServer, layer 28", "publisher": "FEMA Flood Map Service Center",
+    "url": "https://www.fema.gov/flood-maps/national-flood-hazard-layer",
+    "license": "Public domain (U.S. Government work). Not a substitute for an official flood determination.",
+    "annotation": "Special flood hazard areas and other flood zones from effective Flood Insurance Rate Maps. Used for flood-zone polygons."
+  },
+  {
+    "id": "nfhl_boundaries", "group": "Hazards", "label": "Flood hazard boundaries (FEMA NFHL)",
+    "service": "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer",
+    "layers": ["Flood Hazard Boundaries"],
+    "author": "Federal Emergency Management Agency", "year": "n.d.", "title": "National Flood Hazard Layer (NFHL) — flood hazard boundaries",
+    "version": "NFHL MapServer, layer 27", "publisher": "FEMA Flood Map Service Center",
+    "url": "https://www.fema.gov/flood-maps/national-flood-hazard-layer",
+    "license": "Public domain (U.S. Government work).",
+    "annotation": "Lines that separate flood zones on the effective Flood Insurance Rate Maps."
+  },
+  {
+    "id": "nwi", "group": "Hydrography", "label": "Wetlands (National Wetlands Inventory)",
+    "service": "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer",
+    "layers": ["Wetlands"],
+    "author": "U.S. Fish and Wildlife Service", "year": "n.d.", "title": "National Wetlands Inventory — Wetlands",
+    "version": "Wetlands MapServer", "publisher": "U.S. Fish and Wildlife Service, National Wetlands Inventory",
+    "url": "https://www.fws.gov/program/national-wetlands-inventory",
+    "license": "Public domain (U.S. Government work). Shown only at scales of 1:250,000 and larger by the service.",
+    "annotation": "Wetland and deepwater habitat polygons with Cowardin classification. Used for wetland polygons."
+  },
+  {
+    "id": "wfigs_perimeters", "group": "Hazards", "label": "Current wildfire perimeters (NIFC WFIGS)",
+    "service": "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer",
+    "layers": ["Perimeters"],
+    "author": "National Interagency Fire Center", "year": "n.d.", "title": "WFIGS Interagency Fire Perimeters — current",
+    "version": "FeatureServer", "publisher": "National Interagency Fire Center",
+    "url": "https://data-nifc.opendata.arcgis.com/",
+    "license": "Public domain (U.S. Government work).",
+    "annotation": "Perimeters of wildfires reported this year by the interagency Wildland Fire Interagency Geospatial Services group."
+  }
+]

@@ -36,6 +36,7 @@ export type DialogState =
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
   | { kind: "nationalMap" }
+  | { kind: "arcgis" }
   | { kind: "projectionBuilder" }
   | { kind: "nodeShortcuts" };
 
