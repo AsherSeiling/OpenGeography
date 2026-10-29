@@ -523,3 +523,90 @@ pub fn rasterize(gpkg: &Path, field: Option<&str>, cell: f64) -> Result<PathBuf>
     build_overviews(&out)?;
     Ok(out)
 }
+
+/// Interpolation methods of GDAL's grid algorithms (`gdal_grid`, MIT/X): inverse distance, linear (TIN), nearest, moving average.
+pub fn interpolation_algorithm(method: &str, power: f64, radius: f64) -> Result<String> {
+    let nd = OUT_NODATA;
+    let radius_opt = if radius > 0.0 { format!(":radius1={radius}:radius2={radius}") } else { String::new() };
+    Ok(match method {
+        "idw" => {
+            if !(power.is_finite() && power > 0.0) {
+                bail!("The power must be a number greater than 0 (2 is usual)");
+            }
+            format!("invdist:power={power}:smoothing=0{radius_opt}:nodata={nd}")
+        }
+        "linear" => format!("linear:radius=-1:nodata={nd}"),
+        "nearest" => format!("nearest{radius_opt}:nodata={nd}"),
+        "average" => {
+            if radius <= 0.0 {
+                bail!("Moving average needs a search radius greater than 0");
+            }
+            format!("average{radius_opt}:nodata={nd}")
+        }
+        other => bail!("Unknown interpolation method \"{other}\""),
+    })
+}
+
+/// Interpolate a surface from points. `gpkg` holds point features with a numeric field `v` in the CRS being used; `cell` and `radius` are in that CRS's units.
+/// IDW and nearest cover the whole extent (a radius limits them); linear is no data outside the points' convex hull.
+pub fn interpolate(gpkg: &Path, method: &str, cell: f64, power: f64, radius: f64) -> Result<PathBuf> {
+    if !(cell.is_finite() && cell > 0.0) {
+        bail!("The cell size must be a number greater than 0");
+    }
+    if !radius.is_finite() || radius < 0.0 {
+        bail!("The search radius must be 0 (no limit) or greater");
+    }
+    let algo = interpolation_algorithm(method, power, radius)?;
+    let src = Dataset::open(gpkg).map_err(|e| anyhow!("Could not read the points: {e}"))?;
+    let layer = src.layer(0)?;
+    let n = layer.feature_count();
+    if n == 0 {
+        bail!("There are no points with a number in the value field to interpolate from");
+    }
+    if method == "linear" && n < 3 {
+        bail!("Linear interpolation needs at least 3 points ({n} given)");
+    }
+    let ext = layer.try_get_extent().ok().flatten().ok_or_else(|| anyhow!("The points have no extent"))?;
+    drop(layer);
+    // The grid starts on a multiple of the cell size, so the same data and cell size always give the same cells.
+    let (x0, y0) = ((ext.MinX / cell).floor() * cell, (ext.MinY / cell).floor() * cell);
+    let cols = (((ext.MaxX - x0) / cell).ceil()).max(1.0);
+    let rows = (((ext.MaxY - y0) / cell).ceil()).max(1.0);
+    check_cells(cols, rows)?;
+    let (x1, y1) = (x0 + cols * cell, y0 + rows * cell);
+    let out = new_store_path("interpolate", "tif");
+    let args: Vec<String> = ["-of", "GTiff", "-co", "COMPRESS=DEFLATE", "-co", "TILED=YES", "-ot", "Float32", "-zfield", "v", "-txe"]
+        .iter().map(|s| s.to_string())
+        .chain([x0.to_string(), x1.to_string(), "-tye".into(), y0.to_string(), y1.to_string(), "-outsize".into(), (cols as u64).to_string(), (rows as u64).to_string(), "-a".into(), algo])
+        .collect();
+    let list = crate::raster::argv_pub(&args)?;
+    let dest = std::ffi::CString::new(out.to_str().unwrap())?;
+    // SAFETY: `src` outlives the call; the options are freed after it.
+    let ok = unsafe {
+        let opts = gdal_sys::GDALGridOptionsNew(list.as_ptr() as *mut *mut _, std::ptr::null_mut());
+        if opts.is_null() {
+            bail!("Interpolation options were not accepted");
+        }
+        gdal_sys::GDALGridOptionsSetProgress(opts, Some(crate::raster::gdal_progress), crate::progress::cancel_arg());
+        let mut usage = 0;
+        let h = gdal_sys::GDALGrid(dest.as_ptr(), src.c_dataset(), opts, &mut usage);
+        gdal_sys::GDALGridOptionsFree(opts);
+        if h.is_null() {
+            false
+        } else {
+            gdal_sys::GDALClose(h);
+            true
+        }
+    };
+    if !ok {
+        let _ = std::fs::remove_file(&out);
+        bail!("Interpolation failed or was cancelled. Check the value field holds numbers.");
+    }
+    // gdal_grid names no-data in the algorithm only; record it on the band so every tool treats those cells as no data.
+    {
+        let ds = Dataset::open_ex(&out, gdal::DatasetOptions { open_flags: gdal::GdalOpenFlags::GDAL_OF_UPDATE | gdal::GdalOpenFlags::GDAL_OF_RASTER, ..Default::default() })?;
+        ds.rasterband(1)?.set_no_data_value(Some(OUT_NODATA))?;
+    }
+    build_overviews(&out)?;
+    Ok(out)
+}

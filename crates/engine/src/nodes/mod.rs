@@ -535,6 +535,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(raster_ops_tools::AlignRaster),
         Box::new(raster_ops_tools::MosaicRasters),
         Box::new(raster_ops_tools::Rasterize),
+        Box::new(raster_ops_tools::Interpolate),
         Box::new(qgis_raster::SampleRaster),
         Box::new(qgis_raster::ZonalStatistics),
         Box::new(layer_output::LayerOutput),

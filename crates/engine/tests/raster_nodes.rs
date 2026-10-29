@@ -144,3 +144,50 @@ fn e2_rasterize_node_burns_a_field_in_the_layers_crs() {
     let ones = ok(&e, "rasterize", json!({"cell": 50}), &[&id]);
     assert_eq!(pixel(ones.output.as_ref().unwrap(), 0, 0), 1.0);
 }
+
+fn points_layer(e: &Engine, dir: &Path, rows: &[(f64, f64, f64)]) -> String {
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    let gpkg = dir.join("pts.gpkg");
+    let values: Vec<String> = rows.iter().map(|(x, y, v)| format!("({v}, ST_GeomFromText('POINT({x} {y})'))")).collect();
+    c.execute_batch(&format!("COPY (SELECT * FROM (VALUES {}) t(val, geom)) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'p', SRS 'EPSG:32614', USE_TMP_FILE false)", values.join(","), gpkg.display())).unwrap();
+    import(e, &gpkg)
+}
+
+#[test]
+fn h1_interpolate_recovers_a_plane_and_keeps_the_crs() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    // z = x/100 + 2*y/100 on a 5 x 5 lattice of points 100 m apart.
+    let mut rows = vec![];
+    for i in 0..5 {
+        for j in 0..5 {
+            let (x, y) = (600_000.0 + i as f64 * 100.0, 3_900_000.0 + j as f64 * 100.0);
+            rows.push((x, y, (x - 600_000.0) / 100.0 + 2.0 * (y - 3_900_000.0) / 100.0));
+        }
+    }
+    let id = points_layer(&e, dir.path(), &rows);
+    let r = ok(&e, "interpolate", json!({"field": "val", "method": "linear", "cell": 20}), &[&id]);
+    assert_eq!(r.crs.as_deref(), Some("EPSG:32614"));
+    let out = r.output.as_ref().unwrap();
+    let (cols, rws) = size(out);
+    assert_eq!((cols, rws), (20, 20));
+    // Cell (10, 10) from the top: centre x = 600_210, y = 3_900_190 → z = 2.1 + 3.8 = 5.9 (a plane is exact for a TIN).
+    assert!((pixel(out, 10, 10) - 5.9).abs() < 1e-3, "{}", pixel(out, 10, 10));
+    let idw = ok(&e, "interpolate", json!({"field": "val", "method": "idw", "cell": 50, "power": 2}), &[&id]);
+    let o = idw.output.as_ref().unwrap();
+    assert!(pixel(o, 0, 0).is_finite() && pixel(o, 0, 0) > -1e30);
+}
+
+#[test]
+fn h1_interpolate_reports_readable_errors() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let id = points_layer(&e, dir.path(), &[(600_000.0, 3_900_000.0, 1.0), (600_100.0, 3_900_000.0, 2.0)]);
+    let r = run(&e, "interpolate", json!({"field": "val", "method": "linear", "cell": 10}), &[&id]);
+    assert!(r.error.as_deref().unwrap_or("").contains("at least 3 points"), "{:?}", r.error);
+    let r = run(&e, "interpolate", json!({"field": "val", "method": "average", "cell": 10, "radius": 0}), &[&id]);
+    assert!(r.error.as_deref().unwrap_or("").contains("search radius"), "{:?}", r.error);
+    let r = run(&e, "interpolate", json!({"field": "val", "method": "idw", "cell": 0}), &[&id]);
+    assert!(r.error.as_deref().unwrap_or("").contains("cell size"), "{:?}", r.error);
+}

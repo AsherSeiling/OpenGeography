@@ -279,4 +279,9 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 ## H0 — Phase H design: reuse permissive libraries (2026-10-29)
 - User approved reusing MIT/Apache/BSD libraries directly (estimated 40–60% usage saving). GPL-only sources (QGIS, GRASS, SAGA) stay reimplemented. CLAUDE.md rule updated.
 - Plan and source order in `docs/ANALYSIS_PLAN.md`: GDAL grid for interpolation, DuckDB for zonal statistics, WhiteboxTools (MIT, not on crates.io) for hydrology, hand-written textbook formulas for kriging and spatial statistics.
-- Open: how to ship WhiteboxTools (sidecar executable / git dependency / port six algorithms). Recommendation: sidecar for hydrology only.
+- WhiteboxTools ships as a bundled sidecar executable for hydrology only (user chose A, 2026-10-29).
+
+## H1 — Interpolation (2026-10-29)
+- One node, "Interpolate Points to Raster", over GDAL's grid algorithms (IDW, linear/TIN, nearest, moving average); cites QGIS `qgis:idwinterpolation` / `qgis:tininterpolation`, no QGIS code.
+- The grid starts on a multiple of the cell size (same rule as Rasterize); cell size and radius are in the layer's units; the layer's CRS is carried through. Linear is no data outside the points' hull. Non-point geometries and rows without a number are ignored.
+- `raster::new_store_path` now appends a counter: the clock repeated on two threads and gave the same file name (found by the new tests).
