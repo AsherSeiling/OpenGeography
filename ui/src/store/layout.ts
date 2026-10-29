@@ -276,7 +276,9 @@ export function printBasemap(b: Basemap): MapFrame["basemap"] {
   return b === "usgsTopo" || b === "usgsImagery" || b === "usgsRelief" ? b : "none";
 }
 
-export function addMapFrame(): string | null {
+/** `over` overrides the new frame's fields (an inset/overview); `sources: false` skips its Sources line. */
+export function addMapFrame(over: Partial<MapFrame> & { sources?: boolean } = {}): string | null {
+  const { sources = true, ...fields } = over;
   const s = useLayouts.getState();
   const crs = useApp.getState().mapCrs;
   if (!s.doc) return null;
@@ -305,10 +307,11 @@ export function addMapFrame(): string | null {
     graticule: null,
     grid: null,
     border: { width: 0.35, color: "#000000" },
+    ...fields,
   };
   s.addElement(frame);
   // L6: a new frame comes with its Sources line under it.
-  addSurround("sources", frame.id);
+  if (sources) addSurround("sources", frame.id);
   s.select([frame.id]);
   return frame.id;
 }

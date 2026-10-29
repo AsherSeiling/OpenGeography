@@ -8,7 +8,7 @@ use super::model::{FrameLayers, GridSpec, LayerStyle, Placement, RenderRequest, 
 use super::svg::{self, cmd, esc, mm, opacity};
 use crate::db::{ident, lit};
 use crate::layers::LayerInfo;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use duckdb::Connection;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -35,6 +35,20 @@ pub struct FrameInput<'a> {
     pub open_basemap: &'a dyn Fn(&str) -> Result<gdal::Dataset>,
     /// Label edits of this layout, by layer id (L3).
     pub label_overrides: &'a std::collections::BTreeMap<String, super::model::LabelOverrides>,
+    /// Overview map: outline another frame's extent.
+    pub indicator: Option<IndicatorInput<'a>>,
+}
+
+/// The frame whose extent an overview frame outlines.
+pub struct IndicatorInput<'a> {
+    pub crs: &'a str,
+    pub center: [f64; 2],
+    pub scale: f64,
+    pub w: f64,
+    pub h: f64,
+    pub color: &'a str,
+    pub width: f64,
+    pub fill_opacity: f64,
 }
 
 pub struct FrameOutput {
@@ -346,6 +360,25 @@ fn image_tag(at: &Placement, png: &[u8], opacity_v: f64) -> String {
     )
 }
 
+/// Outline of another frame's extent in this frame's page coordinates: its rectangle (densified, so it curves correctly in a different projection) carried through lon/lat.
+fn indicator_path(body: &Body, crs: &FrameCrs, ind: &IndicatorInput, to_page: &dyn Fn(f64, f64) -> (f64, f64)) -> Result<String> {
+    let other = FrameCrs::new(ind.crs, body)?;
+    let e = geo::frame_extent(body, &other, ind.center, ind.scale, ind.w, ind.h)?;
+    let ring = densified(e);
+    let mut d = String::new();
+    for (i, (x, y)) in ring.iter().enumerate() {
+        let (lon, lat) = other.to_lonlat(*x, *y)?;
+        let (tx, ty) = crs.from_lonlat(lon, lat)?;
+        if !(tx.is_finite() && ty.is_finite()) {
+            bail!("the other frame is outside this frame's coordinate system");
+        }
+        let (px, py) = to_page(tx, ty);
+        cmd(&mut d, if i == 0 { 'M' } else { 'L' }, px, py);
+    }
+    d.push('Z');
+    Ok(d)
+}
+
 pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, check: &dyn Fn() -> Result<()>) -> Result<FrameOutput> {
     let at = f.at;
     if f.crs.trim().is_empty() {
@@ -482,6 +515,23 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
             let _ = write!(body_svg, "<g id=\"graticule-{}\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.15\" stroke-dasharray=\"1.2 0.8\">{}</g>", esc(&at.id), g.lines);
         }
         labels.push_str(&g.labels);
+    }
+
+    if let Some(ind) = &f.indicator {
+        match indicator_path(body, &crs, ind, &to_page) {
+            Ok(path) => {
+                let _ = write!(
+                    body_svg,
+                    "<path id=\"extent-{}\" d=\"{path}\" fill=\"{}\" fill-opacity=\"{}\" stroke=\"{}\" stroke-width=\"{}\" stroke-linejoin=\"round\"/>",
+                    esc(&at.id),
+                    if ind.fill_opacity > 0.0 { svg::color(ind.color, "#d95f02") } else { "none".into() },
+                    opacity(ind.fill_opacity),
+                    svg::color(ind.color, "#d95f02"),
+                    mm(ind.width.max(0.05))
+                );
+            }
+            Err(e) => warnings.push(format!("Frame '{}': the overview rectangle could not be drawn ({e})", at.id)),
+        }
     }
 
     let id = esc(&at.id);

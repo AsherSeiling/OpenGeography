@@ -86,3 +86,22 @@ test("CG3 legend entries: rename, hide, add an extra entry", async ({ app }) => 
   const lg2 = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "legend")) as any;
   expect(lg2.overrides[layer.id]).toEqual({ label: "Parcels", hidden: true });
 });
+
+test("CG4 overview map outlines the main frame's extent", async ({ app }) => {
+  await gis(app, (g) => g.useApp.setState({ mapCrs: { id: "EPSG:26915", name: "NAD83 / UTM zone 15N" } }));
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { center: [500000, 4649776], scale: 24000, basemap: "none" }); });
+  await ribbon(app, "Layout", /^Overview Map$/);
+  const fr = await gis(app, (g) => g.useLayouts.getState().doc.elements.filter((e: any) => e.kind === "map_frame")) as any[];
+  expect(fr).toHaveLength(2);
+  expect(fr[1].indicator).toEqual({ frame: fr[0].id });
+  expect(fr[1].scale).toBeGreaterThan(fr[0].scale * 5);
+  // Properties offers the choice and the engine draws it without complaint.
+  await expect(app.getByText(/Overview map \(show another frame/)).toBeVisible();
+  const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
+  expect(out.warnings.filter((w: string) => /overview rectangle/.test(w))).toEqual([]);
+});

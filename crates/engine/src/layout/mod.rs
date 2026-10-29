@@ -130,10 +130,16 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     // Frames first: legends, scale bars and arrows read what each one drew.
     let mut frames: HashMap<&str, (String, surround::FrameCtx)> = HashMap::new();
     for e in layout.elements.iter().filter(|e| e.at().visible) {
-        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border, label_overrides, .. } = e {
+        if let Element::MapFrame { at, crs, center, scale, layers, basemap, graticule, grid, border, label_overrides, indicator, .. } = e {
             check()?;
             let (graticule, grid) = (graticule.as_ref().map(|g| GridSpec::parse(g, "graticule")).transpose()?, grid.as_ref().map(|g| GridSpec::parse(g, "grid")).transpose()?);
-            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref(), graticule: graticule.as_ref(), grid: grid.as_ref(), basemap, open_basemap, label_overrides };
+            let target = indicator.as_ref().and_then(|ind| {
+                layout.elements.iter().find_map(|t| match t {
+                    Element::MapFrame { at: ta, crs: tc, center: tcen, scale: ts, .. } if ta.id == ind.frame => Some(frame::IndicatorInput { crs: tc, center: *tcen, scale: *ts, w: ta.w, h: ta.h, color: &ind.color, width: ind.width, fill_opacity: ind.fill_opacity }),
+                    _ => None,
+                })
+            });
+            let f = frame::FrameInput { at, crs, center: *center, scale: *scale, layers, border: border.as_ref(), graticule: graticule.as_ref(), grid: grid.as_ref(), basemap, open_basemap, label_overrides, indicator: target };
             let out = frame::render_frame(conn, &body, &f, req, lookup, check)?;
             warnings.extend(out.warnings);
             placed_labels.extend(out.labels);

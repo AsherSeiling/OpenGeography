@@ -174,3 +174,45 @@ fn cg2_verbal_scale_wording() {
     assert_eq!(verbal_scale(2_000.0, "mi"), "1 cm on the map = 65.62 ft");
     assert_eq!(verbal_scale(24_000.0, "mi"), "1 cm on the map = 787.4 ft");
 }
+
+// ---------------------------------------------------------------- CG4
+
+fn overview_req(overview_crs: &str, indicator: serde_json::Value) -> RenderRequest {
+    req(json!([
+        { "kind": "map_frame", "id": "main", "x": 10.0, "y": 10.0, "w": 100.0, "h": 80.0, "crs": "EPSG:26915", "center": [500000.0, 4649776.0], "scale": 24000, "layers": "map" },
+        { "kind": "map_frame", "id": "ov", "x": 120.0, "y": 10.0, "w": 60.0, "h": 60.0, "crs": overview_crs, "center": if overview_crs == "EPSG:26915" { json!([500000.0, 4649776.0]) } else { json!([-93.0, 42.0]) }, "scale": 2000000, "layers": "map", "indicator": indicator }
+    ]))
+}
+
+fn path_bbox(svg: &str) -> [f64; 4] {
+    let start = svg.find("<path id=\"extent-ov\" d=\"").unwrap() + 24;
+    let d = &svg[start..start + svg[start..].find('"').unwrap()];
+    let nums: Vec<f64> = d.split(|c: char| c.is_alphabetic()).flat_map(|t| t.split_whitespace().map(|n| n.parse::<f64>().unwrap()).collect::<Vec<_>>()).collect();
+    let xs: Vec<f64> = nums.iter().step_by(2).copied().collect();
+    let ys: Vec<f64> = nums.iter().skip(1).step_by(2).copied().collect();
+    let f = |v: &[f64], m: fn(f64, f64) -> f64, i: f64| v.iter().fold(i, |a, b| m(a, *b));
+    [f(&xs, f64::min, 1e9), f(&ys, f64::min, 1e9), f(&xs, f64::max, -1e9), f(&ys, f64::max, -1e9)]
+}
+
+#[test]
+fn cg4_overview_outlines_the_other_frames_extent_at_the_right_size() {
+    let e = Engine::new().unwrap();
+    // Same CRS: 100 mm × 80 mm at 1:24,000 = 2400 × 1920 m = 1.2 × 0.96 mm at 1:2,000,000, centred in the overview.
+    let out = render(&e, &overview_req("EPSG:26915", json!({ "frame": "main", "fillOpacity": 0.2 }))).unwrap();
+    let b = path_bbox(&out.svg);
+    assert!((b[2] - b[0] - 1.2).abs() < 0.01 && (b[3] - b[1] - 0.96).abs() < 0.01, "{b:?}");
+    assert!(((b[0] + b[2]) / 2.0 - 150.0).abs() < 0.01 && ((b[1] + b[3]) / 2.0 - 40.0).abs() < 0.01, "centred: {b:?}");
+    assert!(out.svg.contains("fill-opacity=\"0.2\"") && out.svg.contains("#d95f02"));
+    // Another projection (geographic overview of lon/lat): same ground, so about the same size on the page (within projection distortion).
+    let out = render(&e, &overview_req("EPSG:5070", json!({ "frame": "main", "color": "#003366" }))).unwrap();
+    let b = path_bbox(&out.svg);
+    assert!((b[2] - b[0]).abs() > 0.5 && (b[2] - b[0]) < 2.0 && out.svg.contains("#003366"), "{b:?}");
+    // Without an indicator there is no path.
+    let none = render(&e, &overview_req("EPSG:26915", json!(null))).unwrap();
+    assert!(!none.svg.contains("id=\"extent-ov\""));
+    // Pointing at itself or at nothing is refused with a clear message.
+    let err = render(&e, &overview_req("EPSG:26915", json!({ "frame": "ov" }))).unwrap_err();
+    assert!(err.to_string().contains("cannot show its own extent"), "{err}");
+    let err = render(&e, &overview_req("EPSG:26915", json!({ "frame": "zzz" }))).unwrap_err();
+    assert!(err.to_string().contains("not a map frame"), "{err}");
+}

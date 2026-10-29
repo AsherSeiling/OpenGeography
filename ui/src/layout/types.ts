@@ -67,6 +67,18 @@ export interface MapFrame extends Placement {
   labelOverrides?: Record<string, LabelOverrides>;
   /** The layout's map series moves this frame to each index feature (C3.2). */
   followsSeries?: boolean;
+  /** Overview/inset: outline the extent of another map frame on this one. */
+  indicator?: ExtentIndicator | null;
+}
+
+export interface ExtentIndicator {
+  /** Id of the map frame whose extent is drawn. */
+  frame: string;
+  color?: string;
+  /** mm */
+  width?: number;
+  /** 0–1; 0 = outline only. */
+  fillOpacity?: number;
 }
 
 /** This layout's label style for one layer: unset fields fall back to the map's `LayerStyle.label`. */
