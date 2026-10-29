@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 import { parseScale, withLabel } from "../panes/LabelSettings";
 import { defaultLabel, defaultStyle } from "../store/store";
 import type { LayerInfo } from "../ipc/api";
-import { ANCHORS_FIELD, labelExtraFields, labelFont, positionAnchor, wrapText, labelStyleFunction, labelText, labelTileFields, labelVisibleAt } from "./labels";
+import { ANCHORS_FIELD, contourText, labelExtraFields, labelFont, positionAnchor, wrapText, labelStyleFunction, labelText, labelTileFields, labelVisibleAt } from "./labels";
 import { labelField } from "./style";
+import { styleFromSymbologyNode } from "../layers/nodeStyle";
 
 const poly = { geomType: "Polygon" } as LayerInfo;
 const drawAll = (fn: ReturnType<typeof labelStyleFunction>, props: Record<string, unknown>) => fn(new Feature(props), 10) as Style[] | undefined;
@@ -128,5 +129,32 @@ describe("label placement and rendering options (LB2)", () => {
     expect(main.getBackgroundFill()!.getColor()).toBe("#ffffcc");
     expect(main.getPadding()).toEqual([3, 3, 3, 3]);
     expect(all[0].getText()!.getOffsetX()).toBe(8 + 1);
+  });
+});
+
+describe("contour labels (LB3)", () => {
+  it("formats elevations with decimals and unit, keeps other text", () => {
+    expect(contourText("120.0", { decimals: 0, unit: " m" })).toBe("120 m");
+    expect(contourText("1250.56", { decimals: 1 })).toBe("1250.6");
+    expect(contourText("1250.50", {})).toBe("1250.5");
+    expect(contourText("Index", { unit: " m" })).toBe("Index m");
+  });
+  it("a line layer's contour style repeats along the line, upright, in the line or above it", () => {
+    const f = (inLine: boolean) => labelStyleFunction("Line", { ...defaultLabel("ELEV"), haloColor: "#eeeeee", contour: { spacing: 200, inLine, decimals: 0, unit: " ft" } }, () => null);
+    const t = draw(f(true), { ELEV: 1200 })!.getText()!;
+    expect(t.getText()).toBe("1200 ft");
+    expect(t.getPlacement()).toBe("line");
+    expect(t.getRepeat()).toBe(200);
+    expect(t.getTextBaseline()).toBe("middle");
+    expect(t.getStroke()!.getColor()).toBe("#eeeeee");
+    expect(t.getStroke()!.getWidth()).toBeGreaterThanOrEqual(6);
+    expect(draw(f(false), { ELEV: 1200 })!.getText()!.getTextBaseline()).toBe("bottom");
+    expect(draw(labelStyleFunction("Line", { ...defaultLabel("ELEV"), contour: { spacing: 10, inLine: false } }, () => null), { ELEV: 5 })!.getText()!.getRepeat()).toBe(40);
+  });
+  it("the Symbology node turns its contour settings into the label's contour style", () => {
+    const base = { kind: "single" as const, fill: "#111111", stroke: "#222222", strokeWidth: 1, opacity: 1, radius: 3 };
+    const s = styleFromSymbologyNode({ label: true, label_field: "ELEV", contour_spacing: 300, contour_break: false, contour_decimals: 1, contour_unit: " m" }, base);
+    expect(s.label?.contour).toEqual({ spacing: 300, inLine: false, decimals: 1, unit: " m" });
+    expect(styleFromSymbologyNode({ label: true, label_field: "ELEV" }, base).label?.contour).toBeUndefined();
   });
 });

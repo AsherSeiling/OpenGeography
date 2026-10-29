@@ -901,3 +901,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LB2-4 | Wrap at N characters (spaces, long words kept, newlines kept) in the engine and the map | | auto: layout.rs lb2_wrap_*, vitest labels.test.ts |
 | LB2-5 | Map: positions, line above/on/below (text baseline), rotation/size/colour fields, priority as zIndex, shadow as a second text style, background fill/stroke/padding, allow overlap = no declutter | | auto: vitest labels.test.ts; e2e/label-placement.spec.ts |
 | LB2-6 | Not built: polygon outline/inside placement, curved text on a line ("curved" is the map's line placement; layouts draw straight text along the line), automatic around-point placement trying several positions | decision D-LB2 | — |
+| LB3-1 | Contour text: value with decimals and unit (`120 m`), non-numbers kept; LINESTRING WKT parsed | | auto: layout.rs lb3_contour_text_* |
+| LB3-2 | Placement along a line: first at half a spacing, then every spacing; none where the line bends sharply under the text or the line is shorter than 1.2 × the text; always upright (|angle| ≤ 90°) | | auto: layout.rs lb3_contour_text_* |
+| LB3-3 | Layout: several labels per contour line, in-line = background box breaks the line (no halo), above = text offset above with halo; PDF export works | | auto: layout.rs lb3_contour_labels_repeat_* |
+| LB3-4 | Index contours only: with `indexOnly`, only INDEX = 1 lines are labelled, with their ELEV | | auto: layout.rs lb3_index_contours_only_* |
+| LB3-5 | Map: contour style = OpenLayers line placement with `repeat` = spacing (≥ 40 px), curved and upright, in-line break = thick halo in the halo colour; Symbology and Labels node params produce it | | auto: vitest labels.test.ts; e2e/symbology-node.spec.ts |
+| LB3-6 | Not built: curved text in layouts (labels only where the line is nearly straight), contour labels that follow tight bends, label masks | decision D-LB3 | — |

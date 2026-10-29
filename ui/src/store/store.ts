@@ -50,7 +50,23 @@ export interface LabelStyle {
   rotationField?: string;
   sizeField?: string;
   colorField?: string;
+  /** Contour labels on a line layer: repeated along each line, upright, formatted. */
+  contour?: ContourLabels;
 }
+
+/** Labels repeated along contour lines (the Contour node's ELEV field). */
+export interface ContourLabels {
+  /** Distance between labels along a line, px. */
+  spacing: number;
+  /** Break the line under the text (the label sits in the line) instead of above it. */
+  inLine: boolean;
+  /** Decimals of the elevation; unset = as stored. */
+  decimals?: number;
+  /** Text after the value, e.g. " m". */
+  unit?: string;
+}
+
+export const defaultContourLabels = (): ContourLabels => ({ spacing: 250, inLine: true, decimals: 0, unit: "" });
 
 export type LabelPosition = "right" | "left" | "above" | "below" | "center" | "aboveRight" | "aboveLeft" | "belowRight" | "belowLeft";
 

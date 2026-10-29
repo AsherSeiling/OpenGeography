@@ -1298,3 +1298,84 @@ fn lb2_line_labels_sit_above_or_below_the_line() {
     let (on, above, below) = (at(None), at(Some("above")), at(Some("below")));
     assert!(above < on && on < below, "{above} {on} {below}");
 }
+
+// ---------- LB3: contour labels ----------
+
+#[test]
+fn lb3_contour_text_parse_and_placement_along_a_line() {
+    use engine::layout::labels::{along_line, contour_text, parse_linestring};
+    use engine::layout::model::ContourLabels;
+    let c = ContourLabels { spacing: 100.0, in_line: true, decimals: Some(0), unit: Some(" m".into()) };
+    assert_eq!(contour_text("120.0", &c), "120 m");
+    assert_eq!(contour_text("1250.5", &ContourLabels { decimals: Some(1), ..Default::default() }), "1250.5");
+    assert_eq!(contour_text("Index", &c), "Index m");
+    assert_eq!(parse_linestring("LINESTRING (0 0, 10 0, 10 5.5)"), vec![(0.0, 0.0), (10.0, 0.0), (10.0, 5.5)]);
+    assert!(parse_linestring("POINT (1 2)").is_empty());
+
+    // A straight 100 mm line, labels 8 mm wide every 30 mm: first at 15, then 45, 75 (the next, 105, would run off the end).
+    let line: Vec<(f64, f64)> = vec![(0.0, 0.0), (100.0, 0.0)];
+    let p = along_line(&line, 8.0, 3.0, 30.0);
+    assert_eq!(p.iter().map(|x| x.0.round() as i64).collect::<Vec<_>>(), vec![15, 45, 75]);
+    assert!(p.iter().all(|x| x.2 == 0.0));
+    // Right-to-left lines still read left to right (upright), and a too-short line gets no label.
+    let back: Vec<(f64, f64)> = vec![(100.0, 0.0), (0.0, 0.0)];
+    assert!(along_line(&back, 8.0, 3.0, 30.0).iter().all(|x| x.2.abs() <= 90.0 && x.2 == 0.0));
+    let steep: Vec<(f64, f64)> = vec![(0.0, 0.0), (0.0, 100.0)];
+    assert!(along_line(&steep, 8.0, 3.0, 30.0).iter().all(|x| (x.2 - 90.0).abs() < 1e-9 || (x.2 + 90.0).abs() < 1e-9));
+    assert!(along_line(&[(0.0, 0.0), (5.0, 0.0)], 8.0, 3.0, 30.0).is_empty());
+    // A sharp bend under the text means no label there.
+    let bent: Vec<(f64, f64)> = vec![(0.0, 0.0), (20.0, 0.0), (20.0, 20.0)];
+    assert!(along_line(&bent, 30.0, 3.0, 40.0).is_empty());
+}
+
+#[test]
+fn lb3_contour_labels_repeat_along_lines_upright_with_unit_and_break_or_sit_above() {
+    use engine::layout::model::ContourLabels;
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let run = |in_line: bool| {
+        let mut req = request(&ids, categorized());
+        let mut l = label("id");
+        l.contour = Some(ContourLabels { spacing: 150.0, in_line, decimals: Some(0), unit: Some(" m".into()) });
+        req.styles.get_mut(&ids[1]).unwrap().label = Some(l);
+        render(&e, &req).svg
+    };
+    let broken = run(true);
+    let labels = broken.matches(">1 m</text>").count();
+    assert!(labels >= 3, "several labels along one line: {labels}");
+    assert!(broken.contains("fill=\"#ffffff\"") && broken.contains("<rect"), "the line is broken under each label by a background box");
+    for t in broken.split("rotate(").skip(1) {
+        let deg: f64 = t.split(' ').next().unwrap().parse().unwrap();
+        assert!(deg.abs() <= 90.0, "upright: {deg}");
+    }
+    let above = run(false);
+    assert_eq!(above.matches(">1 m</text>").count(), labels * 2, "the same labels, each a halo and a fill text (the broken-line variant has no halo)");
+    assert!(above.matches("<rect").count() < broken.matches("<rect").count(), "no break boxes when the text sits above the line");
+    assert!(export::svg_to_pdf(&broken).unwrap().starts_with(b"%PDF-"));
+}
+
+#[test]
+fn lb3_index_contours_only_are_labelled_with_elevation_like_the_contour_nodes_output() {
+    use engine::layout::model::ContourLabels;
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    // Three parallel contours 20 m apart; only the 300 m line is an index contour (the Contour node writes ELEV and INDEX).
+    let contours = dir.path().join("contours.gpkg");
+    write_fixture(
+        &contours,
+        &format!("SELECT x AS id, CAST(260 + 20 * x AS DOUBLE) AS \"ELEV\", CASE WHEN x = 2 THEN 1 ELSE 0 END AS \"INDEX\", ST_GeomFromText('LINESTRING(' || {a} || ' ' || ({y} + 300 * x) || ', ' || {b} || ' ' || ({y} + 300 * x) || ')') AS geom FROM range(3) t(x)", a = CENTER[0] - 3000.0, b = CENTER[0] + 3000.0, y = CENTER[1] - 300.0),
+        Some("EPSG:26915"),
+    );
+    let cid = e.import(&contours).unwrap()[0].id.clone();
+    let mut req = request(&ids, categorized());
+    req.order.insert(0, cid.clone());
+    let mut st = LayerStyle::default();
+    let mut l = label("ELEV");
+    l.index_only = true;
+    l.contour = Some(ContourLabels { spacing: 200.0, in_line: true, decimals: Some(0), unit: Some(" m".into()) });
+    st.label = Some(l);
+    req.styles.insert(cid.clone(), st);
+    let svg = render(&e, &req).svg;
+    assert!(svg.matches(">300 m</text>").count() >= 2, "the index contour is labelled more than once");
+    assert_eq!(svg.matches(">260 m</text>").count() + svg.matches(">280 m</text>").count(), 0, "other contours are not labelled");
+}
