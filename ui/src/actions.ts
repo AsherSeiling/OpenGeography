@@ -43,6 +43,7 @@ export type DialogState =
   | { kind: "arcgis" }
   | { kind: "hazardsSoils" }
   | { kind: "ogc" }
+  | { kind: "datumGrids" }
   | { kind: "overture" }
   | { kind: "stac" }
   | { kind: "census"; layer: string }

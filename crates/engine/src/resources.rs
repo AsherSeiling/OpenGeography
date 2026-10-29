@@ -47,6 +47,60 @@ pub fn tile_cache_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// Per-user app-data folder (not created). `GIS_STUDIO_DATA` overrides it (tests, portable installs).
+pub fn data_dir() -> Option<PathBuf> {
+    Some(if let Some(d) = std::env::var_os("GIS_STUDIO_DATA") {
+        PathBuf::from(d)
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support/GIS Studio")
+    } else if cfg!(windows) {
+        PathBuf::from(std::env::var_os("APPDATA").or_else(|| std::env::var_os("LOCALAPPDATA"))?).join("GIS Studio")
+    } else {
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))?.join("gis-studio")
+    })
+}
+
+/// Per-user folder for datum grids the user downloaded (Datum Grids menu). PROJ is told to search it (`PROJ_USER_WRITABLE_DIRECTORY`).
+pub fn grid_dir() -> Option<PathBuf> {
+    data_dir().map(|d| d.join("proj-grids"))
+}
+
+/// Tell PROJ (GDAL's and DuckDB's copies alike) to look for datum grids in the user's download folder. Call before PROJ starts.
+pub fn use_user_grid_dir() {
+    if std::env::var_os("PROJ_USER_WRITABLE_DIRECTORY").is_none() {
+        if let Some(d) = grid_dir() {
+            let _ = std::fs::create_dir_all(&d);
+            std::env::set_var("PROJ_USER_WRITABLE_DIRECTORY", d);
+        }
+    }
+}
+
+/// Make GDAL's PROJ search `PROJ_DATA`/`PROJ_LIB` and then the user's grid folder (its own copy of PROJ ignores
+/// `PROJ_USER_WRITABLE_DIRECTORY`; DuckDB's copy honours the variable).
+pub fn apply_proj_search_paths() {
+    let mut dirs: Vec<PathBuf> = vec![];
+    for var in ["PROJ_DATA", "PROJ_LIB"] {
+        if let Some(p) = std::env::var_os(var) {
+            for d in std::env::split_paths(&p) {
+                if !dirs.contains(&d) {
+                    dirs.push(d);
+                }
+            }
+        }
+    }
+    if dirs.is_empty() {
+        return; // PROJ's own defaults stay
+    }
+    if let Some(g) = grid_dir() {
+        dirs.push(g);
+    }
+    let c: Vec<std::ffi::CString> = dirs.iter().filter_map(|d| std::ffi::CString::new(d.to_string_lossy().as_bytes()).ok()).collect();
+    let mut ptrs: Vec<*const std::ffi::c_char> = c.iter().map(|s| s.as_ptr()).collect();
+    ptrs.push(std::ptr::null());
+    // SAFETY: the strings outlive the call, which copies them.
+    unsafe { gdal_sys::OSRSetPROJSearchPaths(ptrs.as_ptr()) };
+}
+
 /// Per-user folder for the user's layout templates, created on first use. `GIS_STUDIO_DATA` overrides the base folder
 /// (tests, portable installs).
 pub fn templates_dir() -> Option<PathBuf> {
@@ -112,7 +166,9 @@ pub fn ensure_proj_data() {
     use std::sync::Once;
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
+        use_user_grid_dir();
         if std::env::var_os("PROJ_DATA").is_some() || std::env::var_os("PROJ_LIB").is_some() {
+            apply_proj_search_paths();
             return;
         }
         let mut dirs: Vec<PathBuf> = Vec::new();
@@ -135,6 +191,7 @@ pub fn ensure_proj_data() {
             std::env::set_var("PROJ_DATA", &d);
             std::env::set_var("PROJ_LIB", &d);
         }
+        apply_proj_search_paths();
     });
 }
 
@@ -163,9 +220,12 @@ pub fn init() {
     set("GDAL_DATA", &dir.join("gdal"));
     set("PROJ_DATA", &dir.join("proj"));
     set("PROJ_LIB", &dir.join("proj"));
+    // PROJ fetches nothing on its own: datum grids come from the installer or from the Datum Grids menu, on the user's click.
     if std::env::var_os("PROJ_NETWORK").is_none() {
-        std::env::set_var("PROJ_NETWORK", "ON");
+        std::env::set_var("PROJ_NETWORK", "OFF");
     }
+    use_user_grid_dir();
+    apply_proj_search_paths();
     // Don't pick up GDAL plugins from a system install.
     if !keep || std::env::var_os("GDAL_DRIVER_PATH").is_none() {
         std::env::set_var("GDAL_DRIVER_PATH", dir.join("gdalplugins"));

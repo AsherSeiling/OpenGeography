@@ -147,6 +147,7 @@ const list: Command[] = [
   { id: "worldOutline", label: "World Outline", icon: <GlobeRegular />, run: addWorldOutline, tip: "Add the bundled Natural Earth land outline (public domain, works offline)" },
   { id: "projectionBuilder", label: "Projection Builder", icon: <SettingsRegular />, run: () => useDialog.getState().show({ kind: "projectionBuilder" }), tip: "Build a conic, cylindrical, azimuthal or world projection from its parameters" },
   { id: "tissot", label: "Tissot Circles", icon: <GlobeRegular />, run: addTissotCircles, tip: "Add circles that are round on the ground; their shape in the map's coordinate system shows its distortion" },
+  { id: "datumGrids", label: "Datum Grids", icon: <GlobeDesktopRegular />, run: () => useDialog.getState().show({ kind: "datumGrids" }), tip: "See which datum-shift grids are installed (they make coordinate conversions between datums accurate), and download more" },
   { id: "mapCrs", label: "Coordinate System", icon: <GlobeRegular />, run: pickMapCrs, tip: "Set the map's coordinate system (used for coordinates, measurements and layouts)" },
 
   // Data tab

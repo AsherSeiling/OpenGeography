@@ -140,6 +140,21 @@ pub async fn set_datum_policy(engine: Eng<'_>, strict: bool) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn list_datum_grids(engine: Eng<'_>) -> Res<Vec<engine::grids::GridEntry>> {
+    blocking(&engine, move |e| Ok(e.list_datum_grids())).await
+}
+
+#[tauri::command]
+pub async fn download_datum_grid(engine: Eng<'_>, name: String, confirmed: bool) -> Res<engine::grids::GridEntry> {
+    blocking(&engine, move |e| e.download_datum_grid(&name, confirmed)).await
+}
+
+#[tauri::command]
+pub async fn remove_datum_grid(engine: Eng<'_>, name: String) -> Res<()> {
+    blocking(&engine, move |e| e.remove_datum_grid(&name)).await
+}
+
+#[tauri::command]
 pub async fn datum_coverage(engine: Eng<'_>) -> Res<Vec<(String, engine::transform_report::TransformReport)>> {
     blocking(&engine, move |e| Ok(e.datum_coverage())).await
 }

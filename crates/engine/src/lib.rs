@@ -12,6 +12,7 @@ pub mod spatial_stats;
 pub mod kriging;
 pub mod whitebox;
 pub mod transform_report;
+pub mod grids;
 pub mod remote_sensing;
 pub mod jsonapis;
 pub mod ogcapi;
@@ -848,6 +849,21 @@ impl Engine {
 
     pub fn set_datum_policy(&self, strict: bool) {
         transform_report::set_strict(strict)
+    }
+
+    /// Every datum grid PROJ-data offers, sorted by continent, country and purpose, with where each is installed.
+    pub fn list_datum_grids(&self) -> Vec<grids::GridEntry> {
+        grids::list()
+    }
+
+    /// Download one datum grid to the user's grid folder (checksum-verified, cancellable). Grids above 50 MB need `confirmed`.
+    pub fn download_datum_grid(&self, name: &str, confirmed: bool) -> Result<grids::GridEntry> {
+        grids::download(name, confirmed)
+    }
+
+    /// Remove a datum grid the user downloaded (shipped grids are never removed).
+    pub fn remove_datum_grid(&self, name: &str) -> Result<()> {
+        grids::remove(name)
     }
 
     /// How well this installation moves coordinates in each checked region.

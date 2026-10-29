@@ -42,8 +42,8 @@ Each step: one branch `claude/<id>`, acceptance criteria, focused tests, merge `
 
 | ID | What | Done when |
 |---|---|---|
-| B1 | Ship small, high-value grids: Canada NTv2 (NRCan), Mexico, GDA94→GDA2020, ETRS89-related national grids where small (each licence checked: most are CC-BY or open-government licences needing attribution). Budget to agree with the user (suggest ≤ 50 MB) | reference points in each region match `cs2cs` with full proj-data to 5 cm |
-| B2 | Datum Grids manager (Settings pane): lists regions, shows installed/missing grids and sizes, and downloads chosen grids from the PROJ-data CDN on the user's click, verified by SHA-256, into the per-user data folder; PROJ search path extended so DuckDB's PROJ and GDAL's PROJ both find them. This is an outward-facing download the user triggers | works offline after install; checksum failure is refused with a sentence |
+| B1 (**done 2026-10-29**: 41 grids, 46 MB) | Ship small, high-value grids: Canada NTv2 (NRCan), Mexico, GDA94→GDA2020, ETRS89-related national grids where small (each licence checked: most are CC-BY or open-government licences needing attribution). Budget to agree with the user (suggest ≤ 50 MB) | reference points in each region match `cs2cs` with full proj-data to 5 cm |
+| B2 (**done 2026-10-29**) | Datum Grids manager (Settings pane): lists regions, shows installed/missing grids and sizes, and downloads chosen grids from the PROJ-data CDN on the user's click, verified by SHA-256, into the per-user data folder; PROJ search path extended so DuckDB's PROJ and GDAL's PROJ both find them. This is an outward-facing download the user triggers | works offline after install; checksum failure is refused with a sentence |
 | B3 | Honour the grids in headless/model runs and the Python CLI (G phase) the same way | node run reports the same operation text |
 
 ### Tier 2: vertical datums and tools (2–3 sessions)
