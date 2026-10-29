@@ -17,7 +17,7 @@ test("E1/E2 the raster foundation tools are in the tool catalog with their ports
   for (const [id, ports, params] of want) {
     const s = by(id);
     expect(s, id).toBeTruthy();
-    expect(s.category).toBe("Raster");
+    expect(s.category).toMatch(/^Raster › /);
     expect(s.inputs.length, id).toBe(ports);
     expect(s.params.map((p: any) => p.id), id).toEqual(params);
   }

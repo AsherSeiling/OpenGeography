@@ -8,7 +8,7 @@ impl Tool for SummarizeWithin {
         ToolSpec {
             id: "summarize_within",
             name: "Summarize Within",
-            category: "Analysis",
+            category: "Analysis › Summaries",
             role: Role::Tool,
             description: "For each polygon, count the features inside it and optionally sum/average one of their fields.",
             inputs: vec![

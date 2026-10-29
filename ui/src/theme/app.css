@@ -215,6 +215,10 @@ body { font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", s
 .tools { height: 100%; display: flex; flex-direction: column; background: var(--pane); padding: 6px; box-sizing: border-box; gap: 6px; }
 .tools-list { flex: 1; overflow: auto; }
 .tools-cat { font-weight: 600; padding: 6px 4px 2px; color: var(--muted); }
+.tools-fold { display: flex; align-items: center; gap: 4px; width: 100%; background: none; border: 0; cursor: pointer; text-align: left; font: inherit; font-weight: 600; color: var(--muted); }
+.tools-subcat { padding: 3px 4px 2px 14px; color: var(--muted); font-weight: 500; }
+.tools-sub .tool-item { padding-left: 22px; }
+.tools-count { margin-left: auto; font-weight: 400; opacity: 0.7; }
 .tool-item { display: flex; gap: 8px; padding: 4px 6px; cursor: default; align-items: flex-start; }
 .tool-item:hover { background: var(--accent-hover); }
 .tool-item svg { font-size: 16px; color: var(--accent); flex: none; margin-top: 1px; }

@@ -9,7 +9,7 @@ impl Tool for SymmetricalDifference {
         ToolSpec {
             id: "symmetrical_difference",
             name: "Symmetrical Difference",
-            category: "Overlay",
+            category: "Vector › Overlay",
             role: Role::Tool,
             description: "The parts of either layer that the other does not cover (the overlap is dropped). QGIS: Symmetrical difference, native:symmetricaldifference.",
             inputs: vec![

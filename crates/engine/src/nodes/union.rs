@@ -38,7 +38,7 @@ impl Tool for Union {
         ToolSpec {
             id: "union",
             name: "Union",
-            category: "Overlay",
+            category: "Vector › Overlay",
             role: Role::Tool,
             description: "Overlay two layers, keeping every part of both: where they overlap (attributes from both) and where only one covers (the other's fields are empty). QGIS: Union, native:union.",
             inputs: vec![

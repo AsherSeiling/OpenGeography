@@ -7,7 +7,7 @@ impl Tool for Repair {
         ToolSpec {
             id: "repair",
             name: "Repair Geometry",
-            category: "General",
+            category: "Vector › Select and Clean",
             role: Role::Tool,
             description: "Fix invalid shapes (self-crossing polygons, etc.) and drop empty ones.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

@@ -45,7 +45,7 @@ fn neighbours_param(p: &Params) -> Result<usize> {
 pub struct MoransI;
 impl Tool for MoransI {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "morans_i", name: "Spatial Autocorrelation (Moran's I)", category: "Analysis", role: Role::Tool,
+        ToolSpec { id: "morans_i", name: "Spatial Autocorrelation (Moran's I)", category: "Analysis › Spatial Statistics", role: Role::Tool,
             description: "Do similar values cluster? Moran's I is near +1 when high values sit near high and low near low, near 0 for a random pattern, near -1 for a checkerboard. Neighbours are each feature's k nearest (by centroid); the layer must be in a projected coordinate system. Outputs a one-row table with I, the expected value, z-score and p-value (randomisation). Features without a number are left out and counted.",
             inputs: vec![Port { id: "in", label: "Features", kind: PortKind::Vector }], output: Some(PortKind::Table),
             params: vec![
@@ -78,7 +78,7 @@ impl Tool for MoransI {
 pub struct HotSpots;
 impl Tool for HotSpots {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "hot_spots", name: "Hot Spot Analysis (Getis-Ord Gi*)", category: "Analysis", role: Role::Tool,
+        ToolSpec { id: "hot_spots", name: "Hot Spot Analysis (Getis-Ord Gi*)", category: "Analysis › Spatial Statistics", role: Role::Tool,
             description: "Find statistically significant clusters of high values (hot spots) and low values (cold spots). Each feature is compared with itself and its k nearest neighbours. Adds gi_z (z-score), gi_p (p-value) and hotspot (3, 2, 1 = hot at 99 %, 95 %, 90 %; -1, -2, -3 = cold; 0 = not significant). The layer must be in a projected coordinate system. Features without a number get empty results.",
             inputs: vec![Port { id: "in", label: "Features", kind: PortKind::Vector }], output: Some(PortKind::Vector),
             params: vec![
@@ -110,7 +110,7 @@ impl Tool for HotSpots {
 pub struct Kriging;
 impl Tool for Kriging {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "kriging", name: "Kriging (Ordinary)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "kriging", name: "Kriging (Ordinary)", category: "Raster › Interpolation", role: Role::Tool,
             description: "Make a surface from points with a number field, plus how uncertain it is. The spatial pattern of the values is measured (a variogram) and fitted with a spherical, exponential or Gaussian model, or all three with the best kept (Auto); leave nugget, sill and range empty to fit them, or fill all three to use your own. Band 1 is the prediction, band 2 the kriging variance (higher = less certain). The layer must be in a projected coordinate system; cell size and range are in its units. The fitted model is stored in the raster's VARIOGRAM metadata. Points at the same place are averaged.",
             inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Raster),
             params: vec![

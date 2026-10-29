@@ -7,7 +7,7 @@ impl Tool for Merge {
         ToolSpec {
             id: "merge",
             name: "Merge",
-            category: "General",
+            category: "Vector › Select and Clean",
             role: Role::Tool,
             description: "Combine the rows of two layers into one. Fields are matched by name; missing values are left empty.",
             inputs: vec![

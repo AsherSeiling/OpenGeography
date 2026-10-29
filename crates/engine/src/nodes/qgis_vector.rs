@@ -26,7 +26,7 @@ tool!(PolygonsToLines);
 /// QGIS: Polygons to lines (native:polygonstolines) — vectorgeometry.html#polygons-to-lines
 impl Tool for PolygonsToLines {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "polygons_to_lines", name: "Polygons to Lines", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "polygons_to_lines", name: "Polygons to Lines", category: "Vector › Geometry", role: Role::Tool,
             description: "Outlines of polygons as lines (QGIS: Polygons to lines).", inputs: vin(), output: Some(PortKind::Vector), params: vec![] }
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
@@ -39,7 +39,7 @@ tool!(LinesToPolygons);
 /// QGIS: Lines to polygons (native:linestopolygons) — vectorgeometry.html#lines-to-polygons
 impl Tool for LinesToPolygons {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "lines_to_polygons", name: "Lines to Polygons", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "lines_to_polygons", name: "Lines to Polygons", category: "Vector › Geometry", role: Role::Tool,
             description: "Polygons from closed lines (rings); open lines are skipped (QGIS: Lines to polygons).", inputs: vin(), output: Some(PortKind::Vector), params: vec![] }
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
@@ -52,7 +52,7 @@ tool!(ExtractVertices);
 /// QGIS: Extract vertices (native:extractvertices) — vectorgeometry.html#extract-vertices
 impl Tool for ExtractVertices {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "extract_vertices", name: "Extract Vertices", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "extract_vertices", name: "Extract Vertices", category: "Vector › Geometry", role: Role::Tool,
             description: "One point per vertex, with VERTEX_INDEX (QGIS: Extract vertices).", inputs: vin(), output: Some(PortKind::Vector), params: vec![] }
     }
     fn output_fields(&self) -> OutFields {
@@ -73,7 +73,7 @@ tool!(DeleteDuplicates);
 /// QGIS: Delete duplicate geometries (native:deleteduplicategeometries) — vectorgeneral.html#delete-duplicate-geometries
 impl Tool for DeleteDuplicates {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "delete_duplicates", name: "Delete Duplicate Geometries", category: "General", role: Role::Tool,
+        ToolSpec { id: "delete_duplicates", name: "Delete Duplicate Geometries", category: "Vector › Select and Clean", role: Role::Tool,
             description: "Keep one feature per identical shape (QGIS: Delete duplicate geometries).", inputs: vin(), output: Some(PortKind::Vector), params: vec![] }
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
@@ -86,7 +86,7 @@ tool!(RemoveNull);
 /// QGIS: Remove null geometries (native:removenullgeometries) — vectorselection.html#remove-null-geometries
 impl Tool for RemoveNull {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "remove_null", name: "Remove Null Geometries", category: "General", role: Role::Tool,
+        ToolSpec { id: "remove_null", name: "Remove Null Geometries", category: "Vector › Select and Clean", role: Role::Tool,
             description: "Drop features with no shape or an empty shape (QGIS: Remove null geometries).", inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Table }], output: Some(PortKind::Vector), params: vec![] }
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
@@ -99,7 +99,7 @@ tool!(LineIntersections);
 /// QGIS: Line intersections (native:lineintersections) — vectoroverlay.html#line-intersections
 impl Tool for LineIntersections {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "line_intersections", name: "Line Intersections", category: "Overlay", role: Role::Tool,
+        ToolSpec { id: "line_intersections", name: "Line Intersections", category: "Vector › Overlay", role: Role::Tool,
             description: "Points where lines from two layers cross, with attributes from both (QGIS: Line intersections).",
             inputs: vec![Port { id: "a", label: "Input lines", kind: PortKind::Vector }, Port { id: "b", label: "Intersect lines", kind: PortKind::Vector }],
             output: Some(PortKind::Vector), params: vec![] }
@@ -130,7 +130,7 @@ tool!(RandomPointsInPolygons);
 /// bounding box, keeping the first N that fall inside.
 impl Tool for RandomPointsInPolygons {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "random_points", name: "Random Points in Polygons", category: "Sampling", role: Role::Tool,
+        ToolSpec { id: "random_points", name: "Random Points in Polygons", category: "Vector › Sampling", role: Role::Tool,
             description: "A number of random points inside each polygon, keeping its attributes (QGIS: Random points in polygons).", inputs: vin(), output: Some(PortKind::Vector),
             params: vec![Param::new("count", "Points per polygon", ParamKind::Number).default(10)] }
     }
@@ -155,7 +155,7 @@ tool!(Voronoi);
 /// QGIS: Voronoi polygons (native:voronoipolygons) — vectorgeometry.html#voronoi-polygons
 impl Tool for Voronoi {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "voronoi", name: "Voronoi Polygons", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "voronoi", name: "Voronoi Polygons", category: "Vector › Geometry", role: Role::Tool,
             description: "The area closest to each point, carrying that point's attributes (QGIS: Voronoi polygons).", inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Vector),
             params: vec![Param::new("buffer", "Buffer region (% of extent)", ParamKind::Number).default(10)] }
     }
@@ -181,7 +181,7 @@ tool!(ConcaveHull);
 /// QGIS: Concave hull (native:concavehull) — vectorgeometry.html#concave-hull
 impl Tool for ConcaveHull {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "concave_hull", name: "Concave Hull", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "concave_hull", name: "Concave Hull", category: "Vector › Geometry", role: Role::Tool,
             description: "A tighter-fitting outline around all features than a convex hull (QGIS: Concave hull).", inputs: vin(), output: Some(PortKind::Vector),
             params: vec![
                 Param::new("ratio", "Threshold (0–1)", ParamKind::Number).default(0.3).help("0 = tightest, 1 = convex hull"),
@@ -207,7 +207,7 @@ tool!(JoinByNearest);
 /// QGIS: Join attributes by nearest (native:joinbynearest) — vectorgeneral.html#join-attributes-by-nearest
 impl Tool for JoinByNearest {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "join_nearest", name: "Join Attributes by Nearest", category: "Proximity", role: Role::Tool,
+        ToolSpec { id: "join_nearest", name: "Join Attributes by Nearest", category: "Vector › Proximity", role: Role::Tool,
             description: "Attach the attributes of the closest feature from another layer, plus the geodesic distance (QGIS: Join attributes by nearest).",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }, Port { id: "near", label: "Join features", kind: PortKind::Vector }],
             output: Some(PortKind::Vector),
@@ -255,7 +255,7 @@ tool!(PointsToPath);
 /// QGIS: Points to path (native:pointstopath) — vectorcreation.html#points-to-path
 impl Tool for PointsToPath {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "points_to_path", name: "Points to Path", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "points_to_path", name: "Points to Path", category: "Vector › Geometry", role: Role::Tool,
             description: "Connect points into lines in the order of a field, optionally one line per group (QGIS: Points to path).",
             inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Vector),
             params: vec![
@@ -279,7 +279,7 @@ tool!(PointsAlongLines);
 /// QGIS: Points along geometry (native:pointsalonglines) — vectorgeometry.html#points-along-geometry
 impl Tool for PointsAlongLines {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "points_along_lines", name: "Points Along Lines", category: "Geometry", role: Role::Tool,
+        ToolSpec { id: "points_along_lines", name: "Points Along Lines", category: "Vector › Geometry", role: Role::Tool,
             description: "Points every set distance along lines or polygon outlines (QGIS: Points along geometry).", inputs: vec![Port { id: "in", label: "Lines or polygons", kind: PortKind::Vector }], output: Some(PortKind::Vector),
             params: vec![
                 Param::new("distance", "Distance", ParamKind::Number).default(100),

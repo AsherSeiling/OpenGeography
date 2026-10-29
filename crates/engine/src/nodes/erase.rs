@@ -7,7 +7,7 @@ impl Tool for Erase {
         ToolSpec {
             id: "erase",
             name: "Erase",
-            category: "Overlay",
+            category: "Vector › Overlay",
             role: Role::Tool,
             description: "Remove the parts of input features that fall inside the erase polygons.",
             inputs: vec![

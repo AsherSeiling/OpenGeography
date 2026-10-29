@@ -8,7 +8,7 @@ impl Tool for Intersect {
         ToolSpec {
             id: "intersect",
             name: "Intersect",
-            category: "Overlay",
+            category: "Vector › Overlay",
             role: Role::Tool,
             description: "Geometric intersection of two layers. Output keeps attributes from both.",
             inputs: vec![

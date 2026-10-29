@@ -7,7 +7,7 @@ impl Tool for SelectByLocation {
         ToolSpec {
             id: "select_by_location",
             name: "Select by Location",
-            category: "Extract",
+            category: "Vector › Select and Clean",
             role: Role::Tool,
             description: "Keep input features based on where they are relative to another layer (shapes are not cut).",
             inputs: vec![

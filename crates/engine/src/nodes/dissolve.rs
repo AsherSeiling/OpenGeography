@@ -12,7 +12,7 @@ impl Tool for Dissolve {
         ToolSpec {
             id: "dissolve",
             name: "Dissolve",
-            category: "Generalize",
+            category: "Vector › Generalize",
             role: Role::Tool,
             description: "Merge features, optionally grouped by a field. Adds a COUNT field.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

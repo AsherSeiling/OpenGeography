@@ -7,7 +7,7 @@ impl Tool for FeatureToPoint {
         ToolSpec {
             id: "feature_to_point",
             name: "Feature To Point",
-            category: "Generalize",
+            category: "Vector › Geometry",
             role: Role::Tool,
             description: "One point per feature: its centroid, or a point guaranteed to be inside the shape.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

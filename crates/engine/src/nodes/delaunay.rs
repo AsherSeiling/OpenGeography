@@ -12,7 +12,7 @@ impl Tool for Delaunay {
         ToolSpec {
             id: "delaunay",
             name: "Delaunay Triangulation",
-            category: "Generalize",
+            category: "Vector › Geometry",
             role: Role::Tool,
             description: "Triangles joining the vertices of all input features so no vertex lies inside another triangle's circumcircle (QGIS: Delaunay triangulation, native:delaunaytriangulation). Triangulated in the layer's coordinates, so use a projected CRS for well-shaped triangles.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

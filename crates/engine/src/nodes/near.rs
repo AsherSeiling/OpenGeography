@@ -7,7 +7,7 @@ impl Tool for Near {
         ToolSpec {
             id: "near",
             name: "Near",
-            category: "Proximity",
+            category: "Vector › Proximity",
             role: Role::Tool,
             description: "Geodesic distance from each input feature to the closest near feature (NEAR_DIST), plus that feature's row (NEAR_ROW) (QGIS: Distance to nearest hub).",
             inputs: vec![
