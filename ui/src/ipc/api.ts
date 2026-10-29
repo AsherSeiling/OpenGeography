@@ -403,6 +403,9 @@ export const api = {
   crsInfo: (crs: string) => invoke<CrsInfo>("crs_info", { crs }),
   /** [k, convergence in degrees] of `crs` at (x, y) in that CRS. */
   mapFactors: (crs: string, x: number, y: number) => invoke<[number, number]>("map_factors", { crs, x, y }),
+  /** Tissot circles for `crs` as a WGS 84 layer; [layer, grid points the CRS cannot represent]. */
+  tissotLayer: (crs: string, spacingDeg: number, radiusKm: number) => invoke<[LayerInfo, number]>("tissot_layer", { crs, spacingDeg, radiusKm }),
+  sameCrs: (a: string, b: string) => invoke<boolean>("same_crs", { a, b }),
   validateCrs: (crs: string) => invoke<void>("validate_crs", { crs }),
   transformPoint: (x: number, y: number, from: string, to: string) =>
     invoke<[number, number]>("transform_point", { x, y, from, to }),

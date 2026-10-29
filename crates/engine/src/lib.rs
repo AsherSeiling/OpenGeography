@@ -4,6 +4,7 @@
 pub mod attrs;
 pub mod catalog;
 pub mod crs;
+pub mod tissot;
 pub mod db;
 pub mod display;
 pub mod graph;
@@ -693,6 +694,11 @@ impl Engine {
         let fc = layout::geo::FrameCrs::new(crs, &body)?;
         let f = layout::geo::factors(&body, &fc, x, y)?;
         Ok((f.k, f.convergence_deg))
+    }
+
+    /// True when two definitions mean the same CRS (by meaning, not spelling).
+    pub fn same_crs(&self, a: &str, b: &str) -> bool {
+        crs::same(a, b)
     }
 
     pub fn validate_crs(&self, crs: &str) -> Result<()> {

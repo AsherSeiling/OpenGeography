@@ -227,4 +227,4 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 ### R6 — CRS UI core
 - `crs_info` is a pure function of the definition (GDAL/PROJJSON; no DuckDB) so the picker can preview while typing; `map_factors` reuses the layout engine's `factors`, so the status bar, scale bar and north arrow show the same k and γ.
 - The status bar asks for k/γ only in projected map CRSs, 120 ms after the pointer stops; the "outside area of use" notice uses the area already in `crs_display_info`.
-- Tissot layer, layer source panel, layout `{datum}`/`{units}` tokens and picker recents are deferred (rows stay "planned" in TEST_PLAN).
+- R6b built those: Tissot layer (`tissot_layer`, WGS 84 circles carrying k_east, k_north, area_ratio, convergence; grid points that do not round-trip through the CRS are left out and counted), Coordinate System tab details + `same_crs`, layout tokens `{crs}` (name + code, "Custom CRS" for bare PROJ strings), `{datum}`, `{units}`, picker recents (localStorage, remembered on OK). `area_ratio` is measured from the projected polygon because k along grid east/north is not a principal scale away from the central meridian.

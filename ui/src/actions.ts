@@ -159,6 +159,20 @@ export function pickMapCrs() {
   });
 }
 
+/** Add a layer of Tissot circles (R-H11) for the map CRS: each circle is round on the ground, so its shape on the map is the distortion. */
+export async function addTissotCircles() {
+  const crs = useApp.getState().mapCrs;
+  if (!crs) {
+    status("Choose a map coordinate system first");
+    return;
+  }
+  const r = await busy("Computing Tissot circles", () => api.tissotLayer(crs.id, 15, 500));
+  if (!r) return;
+  const [info, skipped] = r;
+  useApp.getState().addLayers([info]);
+  status(`Tissot circles for ${crs.name}: ${info.featureCount} drawn${skipped ? `, ${skipped} grid points left out (outside what this coordinate system can show)` : ""}`);
+}
+
 /** Open the Split by Attribute dialog (B6). */
 export function splitByAttribute(owner: string) {
   const info = shown(owner);

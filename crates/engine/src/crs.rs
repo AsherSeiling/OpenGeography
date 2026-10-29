@@ -366,3 +366,32 @@ pub fn info(crs: &str) -> Result<CrsInfo> {
         .map(|a| [a.west_lon_degree, a.south_lat_degree, a.east_lon_degree, a.north_lat_degree]);
     Ok(CrsInfo { name, code, geographic, unit, datum: datum_of(crs), area_of_use })
 }
+
+/// The CRS as text for a map: `crs` ("NAD83 / UTM zone 14N (EPSG:26914)"), `datum` and `units`; "Custom CRS" for a bare
+/// PROJ string (R-I5). Empty strings when `def` is empty or unreadable, so a token never shows an error.
+pub struct Statement {
+    pub crs: String,
+    pub datum: String,
+    pub units: String,
+}
+
+pub fn statement(def: &str) -> Statement {
+    if def.trim().is_empty() {
+        return Statement { crs: String::new(), datum: String::new(), units: String::new() };
+    }
+    match info(def) {
+        Ok(i) => {
+            let bare_proj = def.trim_start().starts_with('+') && i.code.is_none();
+            let crs = if bare_proj {
+                "Custom CRS".to_string()
+            } else {
+                match &i.code {
+                    Some(c) => format!("{} ({c})", i.name),
+                    None => i.name.clone(),
+                }
+            };
+            Statement { crs, datum: i.datum.unwrap_or_default(), units: i.unit }
+        }
+        Err(_) => Statement { crs: def.trim().to_string(), datum: String::new(), units: String::new() },
+    }
+}

@@ -232,7 +232,7 @@ function TextFields({ el, set }: { el: TextElement; set: Set }) {
   const aligns: TextElement["align"][] = ["left", "center", "right"];
   return (
     <>
-      <Field label="Text (tokens: {layout_name} {project} {date} {scale} {crs})" size="small">
+      <Field label="Text (tokens: {layout_name} {project} {date} {scale} {crs} {datum} {units})" size="small">
         <Textarea size="small" value={el.text} rows={3} onChange={(_, d) => set({ text: d.value }, "text")} />
       </Field>
       <Field label="Font" size="small">
