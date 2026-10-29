@@ -127,3 +127,8 @@ Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e te
 | G11 | High | **Fixed (R5)** — terrain on a geographic DEM used one metres-per-degree scale for both axes, so a slope running east–west at 45° N read about 8° too gentle. Hillshade, slope and aspect now run on a metre-sized view of the pixels at the raster's centre latitude and keep the degrees georeferencing. | `crs_raster.rs` r_g5 |
 | G4 | High | **Fixed (R5, P18)** — identify and rectangle select went through the layer's Web Mercator copy, which cannot hold a pole. With a display table built for the map CRS they query it directly in map coordinates. | `crs_raster.rs` p18 |
 
+
+## P-1 — Packaged macOS app had no NAD27 datum grids (found by the R3 start-up check, 2026-10-28)
+- Symptom: `GIS Studio.app --self-test` failed ("NAD27 → NAD83 is off by 2.0 m … PROJ datum files are missing"). DuckDB's embedded PROJ cannot fetch grids from cdn.proj.org, and the bundle held only `proj.db`.
+- Fix: the seven NOAA NADCON grids (≈ 0.95 MB, public domain) live in `crates/engine/assets/proj-grids/` and `scripts/stage-resources.sh` copies them next to `proj.db`. Self-test passes. Canada's NTv2 grid (7.8 MB) is not bundled; the check names missing shifts.
+- Windows/Linux packaging uses the same script; verify on the CI run (R7).
