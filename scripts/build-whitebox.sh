@@ -14,11 +14,14 @@ EXE="whitebox_tools"; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) EXE="whitebox_
 export_env() { if [ -n "${GITHUB_ENV:-}" ]; then P="$OUT/$EXE"; command -v cygpath >/dev/null && P="$(cygpath -w "$P")"; echo "GIS_STUDIO_WHITEBOX=$P" >> "$GITHUB_ENV"; fi; }
 if [ -x "$OUT/$EXE" ] && [ -z "${WHITEBOX_REBUILD:-}" ]; then echo "WhiteboxTools already staged ($OUT/$EXE)"; export_env; exit 0; fi
 SRC="${WHITEBOX_SRC:-$ROOT/target/whitebox-src}"
-if [ ! -d "$SRC/.git" ]; then
+# A folder restored from a build cache can hold a stripped .git: git then reads the parent repository instead. Trust only a checkout
+# whose own HEAD is the pinned commit; otherwise (and unless the caller gave one) clone it again.
+HAVE="$(git -C "$SRC" rev-parse HEAD 2>/dev/null || true)"
+if [ "$HAVE" != "$COMMIT" ] && [ -z "${WHITEBOX_SRC:-}" ]; then
   rm -rf "$SRC"
   git clone -q --depth 1 --branch "$TAG" https://github.com/jblindsay/whitebox-tools.git "$SRC"
+  HAVE="$(git -C "$SRC" rev-parse HEAD)"
 fi
-HAVE="$(git -C "$SRC" rev-parse HEAD)"
 [ "$HAVE" = "$COMMIT" ] || { echo "WhiteboxTools checkout is $HAVE, expected $COMMIT ($TAG)"; exit 1; }
 cd "$SRC"
 # The release's Cargo.lock holds a stale checksum for tsp-rs (the crate was republished); drop it so cargo refills it.
