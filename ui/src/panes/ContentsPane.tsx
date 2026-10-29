@@ -227,6 +227,37 @@ function LayoutsSection() {
           </span>
         </div>
       ))}
+      {active && <LayoutOutline />}
+    </div>
+  );
+}
+
+const KIND_NAME: Record<string, string> = { map_frame: "Map frame", text: "Text", legend: "Legend", scale_bar: "Scale bar", north_arrow: "North arrow", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart" };
+
+/** The open layout's elements, top of the stacking order first: select, show/hide, lock, move forward/back (CG6). */
+function LayoutOutline() {
+  const doc = useLayouts((s) => s.doc);
+  const selected = useLayouts((s) => s.selected);
+  if (!doc || !doc.elements.length) return null;
+  const s = useLayouts.getState();
+  const rows = [...doc.elements].reverse();
+  return (
+    <div className="layout-outline" aria-label="Layout elements">
+      <div className="layouts-head"><span>Elements of {doc.name}</span></div>
+      {rows.map((el) => {
+        const on = selected.includes(el.id);
+        const label = el.kind === "text" ? el.text.slice(0, 24) : `${KIND_NAME[el.kind] ?? el.kind} ${el.id}`;
+        const pick = () => s.select([el.id]);
+        return (
+          <div key={el.id} className={`row ${on ? "on" : ""}`} data-element={el.id} onClick={pick}>
+            <input type="checkbox" checked={el.visible} title="Show or hide" aria-label={`Show ${KIND_NAME[el.kind] ?? el.kind} ${el.id}`} onClick={(e) => e.stopPropagation()} onChange={(e) => s.update(el.id, { visible: e.target.checked })} />
+            <span className="grow" title={el.group ? `${label} (grouped)` : label}>{label}{el.group ? " ⛓" : ""}{el.locked ? " 🔒" : ""}</span>
+            <button className="linkbtn" title={el.locked ? "Unlock" : "Lock"} aria-label={`${el.locked ? "Unlock" : "Lock"} ${el.id}`} onClick={(e) => { e.stopPropagation(); s.update(el.id, { locked: !el.locked }); }}>{el.locked ? "Unlock" : "Lock"}</button>
+            <button className="linkbtn" title="Bring forward" aria-label={`Bring ${el.id} forward`} onClick={(e) => { e.stopPropagation(); s.select([el.id]); s.arrange("forward"); }}>▲</button>
+            <button className="linkbtn" title="Send backward" aria-label={`Send ${el.id} backward`} onClick={(e) => { e.stopPropagation(); s.select([el.id]); s.arrange("backward"); }}>▼</button>
+          </div>
+        );
+      })}
     </div>
   );
 }

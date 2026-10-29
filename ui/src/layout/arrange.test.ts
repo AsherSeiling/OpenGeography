@@ -1,3 +1,4 @@
+import { distributePatches, sizePatches, withGroupMates } from "./arrange";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../ipc/api", () => ({
@@ -107,5 +108,30 @@ describe("Export resolution box (C3.0)", () => {
     expect(parseDpi("abc")).toBeNull();
     expect(parseDpi("30x")).toBeNull();
     expect(DPI_DEFAULT).toBe(300);
+  });
+});
+
+describe("distribute, match size, groups", () => {
+  const el = (id: string, x: number, y: number, w: number, h: number, extra: Record<string, unknown> = {}) => ({ kind: "text", id, x, y, w, h, rotation: 0, locked: false, visible: true, text: "", font: "sans", size: 10, align: "left", color: "#000", ...extra }) as unknown as LayoutElement;
+  it("spreads three elements with equal gaps and keeps the outer two", () => {
+    const els = [el("a", 0, 0, 10, 10), el("b", 12, 0, 20, 10), el("c", 90, 0, 10, 10)];
+    const p = distributePatches(els, ["a", "b", "c"], "horizontal");
+    expect(p).toEqual({ b: { x: 40 } });
+    expect(distributePatches(els, ["a", "b"], "horizontal")).toEqual({});
+    expect(distributePatches([el("a", 0, 0, 10, 10), el("b", 0, 12, 10, 20), el("c", 0, 90, 10, 10)], ["a", "b", "c"], "vertical")).toEqual({ b: { y: 40 } });
+    // A locked element is left out, which can leave fewer than three.
+    expect(distributePatches([el("a", 0, 0, 10, 10), el("b", 0, 12, 10, 20), el("c", 0, 90, 10, 10, { locked: true })], ["a", "b", "c"], "vertical")).toEqual({});
+  });
+  it("matches width or height to the first selected", () => {
+    const els = [el("a", 0, 0, 40, 10), el("b", 0, 20, 10, 30), el("c", 0, 60, 5, 5, { locked: true })];
+    expect(sizePatches(els, ["a", "b", "c"], "w")).toEqual({ b: { w: 40 } });
+    expect(sizePatches(els, ["b", "a"], "h")).toEqual({ a: { h: 30 } });
+    expect(sizePatches(els, ["a"], "w")).toEqual({});
+  });
+  it("selecting one member selects the whole group", () => {
+    const els = [el("a", 0, 0, 1, 1, { group: "g" }), el("b", 5, 0, 1, 1, { group: "g" }), el("c", 9, 0, 1, 1)];
+    expect(withGroupMates(els, ["a"])).toEqual(["a", "b"]);
+    expect(withGroupMates(els, ["c"])).toEqual(["c"]);
+    expect(withGroupMates(els, ["a", "c"])).toEqual(["a", "b", "c"]);
   });
 });

@@ -40,6 +40,7 @@ import { NationalMapDialog } from "./NationalMapDialog";
 import { ExportDialog } from "./ExportDialog";
 import { ExportLayersDialog } from "./ExportLayersDialog";
 import { ExportTableDialog } from "./ExportTableDialog";
+import { PageSetupDialog } from "./PageSetupDialog";
 import { SeriesDialog } from "./SeriesDialog";
 import { SplitDialog } from "./SplitDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
@@ -96,6 +97,8 @@ export function Dialogs() {
       return <TigerDialog onClose={close} />;
     case "export":
       return <ExportDialog owner={dialog.owner} onClose={close} />;
+    case "layoutPage":
+      return <PageSetupDialog onClose={close} />;
     case "layoutSeries":
       return <SeriesDialog onClose={close} />;
     case "exportLayers":

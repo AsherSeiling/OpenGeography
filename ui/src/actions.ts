@@ -37,6 +37,7 @@ export type DialogState =
   | { kind: "exportTable"; owner: string }
   | { kind: "exportLayers"; ids: string[] }
   | { kind: "layoutSeries" }
+  | { kind: "layoutPage" }
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
   | { kind: "nationalMap" }

@@ -5,7 +5,8 @@ import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
-import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
+import { distributePatches, sizePatches, withGroupMates, type DistributeAxis } from "../layout/arrange";
+import { cleanPatch, nextId, normalizeLayout, type Guide, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
 import { reportError } from "../errors/store";
 import { useApp, type Basemap } from "./store";
 
@@ -38,6 +39,14 @@ interface LayoutState {
   arrange: (op: OrderOp) => void;
   /** Line up the selected elements (to each other, or to the page for one), one undo step. */
   align: (op: AlignOp) => void;
+  /** Equal gaps between three or more selected elements, or the same width/height as the first selected; one undo step. */
+  distribute: (axis: DistributeAxis) => void;
+  matchSize: (dim: "w" | "h") => void;
+  /** Move the selected elements together from now on / apart again. */
+  group: () => void;
+  ungroup: () => void;
+  /** Layout-wide settings kept beside the page: author and editor guides. One undo step. */
+  setMeta: (patch: { author?: string; guides?: Guide[] }) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -149,7 +158,7 @@ export const useLayouts = create<LayoutState>()(
         get().add(copy);
         return copy;
       },
-      select: (selected) => set({ selected }),
+      select: (selected) => set({ selected: get().doc ? withGroupMates(get().doc!.elements, selected) : selected }),
       setPage: (page) => {
         if (Number.isFinite(page.width) && Number.isFinite(page.height) && page.width > 0 && page.height > 0) edit((d) => ({ ...d, page }));
       },
@@ -188,6 +197,43 @@ export const useLayouts = create<LayoutState>()(
         const end = beginStep();
         for (const [id, p] of Object.entries(patches)) get().update(id, p);
         end();
+      },
+      distribute: (axis) => {
+        flushBurst();
+        const s = get();
+        if (!s.doc) return;
+        const patches = distributePatches(s.doc.elements, s.selected, axis);
+        if (!Object.keys(patches).length) return;
+        const end = beginStep();
+        for (const [id, p] of Object.entries(patches)) get().update(id, p);
+        end();
+      },
+      matchSize: (dim) => {
+        flushBurst();
+        const s = get();
+        if (!s.doc) return;
+        const patches = sizePatches(s.doc.elements, s.selected, dim);
+        if (!Object.keys(patches).length) return;
+        const end = beginStep();
+        for (const [id, p] of Object.entries(patches)) get().update(id, p);
+        end();
+      },
+      group: () => {
+        flushBurst();
+        const s = get();
+        if (!s.doc || s.selected.length < 2) return;
+        const gid = `g${Date.now().toString(36)}`;
+        edit((d) => ({ ...d, elements: d.elements.map((e) => (s.selected.includes(e.id) ? { ...e, group: gid } : e)) }));
+      },
+      ungroup: () => {
+        flushBurst();
+        const s = get();
+        if (!s.doc) return;
+        edit((d) => ({ ...d, elements: d.elements.map((e) => (s.selected.includes(e.id) && e.group ? ({ ...e, group: undefined } as LayoutElement) : e)) }));
+      },
+      setMeta: (patch) => {
+        flushBurst();
+        edit((d) => ({ ...d, ...patch }));
       },
       undo: () => {
         flushBurst();

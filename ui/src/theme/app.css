@@ -627,3 +627,12 @@ select.qe-val { width: 160px; }
 
 /* A datum shift that is only approximate (CRS accuracy plan): colour from the theme so it reads in light and dark. */
 .warn-text { color: var(--colorPaletteDarkOrangeForeground1); font-weight: 600; }
+
+/* Layout guides (CG6): a 1px line with a wider grab area. */
+.layout-guide { position: absolute; z-index: 3; pointer-events: auto; }
+.layout-guide.x { top: 0; bottom: 0; width: 7px; margin-left: -3px; cursor: col-resize; background: linear-gradient(#00b7c3, #00b7c3) center / 1px 100% no-repeat; }
+.layout-guide.y { left: 0; right: 0; height: 7px; margin-top: -3px; cursor: row-resize; background: linear-gradient(#00b7c3, #00b7c3) center / 100% 1px no-repeat; }
+.layout-outline { display: flex; flex-direction: column; gap: 1px; }
+.layout-outline .row { display: flex; align-items: center; gap: 4px; padding: 1px 4px; cursor: default; }
+.layout-outline .row.on { background: var(--selection, rgba(43, 87, 154, 0.25)); }
+.layout-outline .row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

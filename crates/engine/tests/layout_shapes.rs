@@ -216,3 +216,43 @@ fn cg4_overview_outlines_the_other_frames_extent_at_the_right_size() {
     let err = render(&e, &overview_req("EPSG:26915", json!({ "frame": "zzz" }))).unwrap_err();
     assert!(err.to_string().contains("not a map frame"), "{err}");
 }
+
+// ---------------------------------------------------------------- CG6
+
+#[test]
+fn cg6_bleed_and_crop_marks_grow_the_page_without_moving_the_content() {
+    let e = Engine::new().unwrap();
+    let mut r = req(json!([{ "kind": "shape", "id": "a", "shape": "rectangle", "x": 10.0, "y": 10.0, "w": 20.0, "h": 10.0 }]));
+    let plain = render(&e, &r).unwrap().svg;
+    assert!(plain.contains("width=\"200mm\" height=\"120mm\" viewBox=\"0 0 200 120\"") && !plain.contains("crop-marks"));
+    r.layout.page.bleed = 3.0;
+    let bleed = render(&e, &r).unwrap().svg;
+    assert!(bleed.contains("width=\"206mm\" height=\"126mm\" viewBox=\"-3 -3 206 126\"") && bleed.contains("<rect x=\"-3\" y=\"-3\" width=\"206\" height=\"126\""), "{}", &bleed[..300]);
+    assert!(!bleed.contains("crop-marks"));
+    r.layout.page.crop_marks = true;
+    let marks = render(&e, &r).unwrap().svg;
+    assert!(marks.contains("viewBox=\"-13 -13 226 146\"") && marks.contains("id=\"crop-marks\""), "{}", &marks[..400]);
+    assert!(marks.contains("M-4.5 0L-9.5 0"), "mark starts 1.5 mm outside the 3 mm bleed: {}", &marks[marks.find("crop-marks").unwrap()..][..200]);
+    // The element is where it was; PNG and PDF export of a bleed page work.
+    assert!(marks.contains("x=\"10\" y=\"10\" width=\"20\" height=\"10\""));
+    assert!(e.render_layout_preview(&r, 96.0).is_ok());
+    assert!(export::svg_to_pdf(&marks).unwrap().starts_with(b"%PDF"));
+    r.layout.page.bleed = 12.0;
+    assert!(render(&e, &r).unwrap_err().to_string().contains("Bleed must be between 0 and 10 mm"));
+}
+
+#[test]
+fn cg6_guides_and_groups_survive_the_round_trip() {
+    let e = Engine::new().unwrap();
+    let r: RenderRequest = serde_json::from_value(json!({
+        "layout": { "id": "L1", "name": "G", "version": 1, "page": { "width": 100.0, "height": 100.0 }, "guides": [{ "axis": "x", "pos": 25.0 }],
+                    "elements": [{ "kind": "shape", "id": "a", "x": 1.0, "y": 1.0, "w": 5.0, "h": 5.0, "group": "g1" }] },
+        "order": [], "project": "p", "date": "d"
+    }))
+    .unwrap();
+    let back = serde_json::to_value(&r.layout).unwrap();
+    assert_eq!(back["guides"][0]["pos"], 25.0);
+    assert_eq!(back["elements"][0]["group"], "g1");
+    let svg = render(&e, &r).unwrap().svg;
+    assert!(!svg.contains("guide"), "guides are editor-only");
+}

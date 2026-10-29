@@ -28,11 +28,25 @@ export const RULER_PX = 18;
  * One ruler. `origin` is where the page's 0 sits along the ruler, in px from the ruler's start; `length` is the visible
  * length in px.
  */
-export function Ruler({ vertical, length, origin, zoom }: { vertical: boolean; length: number; origin: number; zoom: number }) {
+export function Ruler({ vertical, length, origin, zoom, onGuide }: { vertical: boolean; length: number; origin: number; zoom: number; onGuide?: (clientX: number, clientY: number) => void }) {
   const ticks = rulerTicks(-origin / zoom, (length - origin) / zoom, zoom);
   const at = (mm: number) => origin + mm * zoom;
   return (
-    <svg className={`ruler ${vertical ? "v" : "h"}`} width={vertical ? RULER_PX : length} height={vertical ? length : RULER_PX} aria-hidden>
+    <svg
+      className={`ruler ${vertical ? "v" : "h"}`}
+      width={vertical ? RULER_PX : length}
+      height={vertical ? length : RULER_PX}
+      style={onGuide ? { cursor: vertical ? "col-resize" : "row-resize" } : undefined}
+      aria-label={onGuide ? "Drag onto the page to make a guide" : undefined}
+      onPointerDown={(e) => {
+        if (!onGuide || e.button !== 0) return;
+        const up = (m: PointerEvent) => {
+          window.removeEventListener("pointerup", up);
+          onGuide(m.clientX, m.clientY);
+        };
+        window.addEventListener("pointerup", up);
+      }}
+    >
       {ticks.map((t) => {
         const p = at(t.mm);
         const len = t.major ? RULER_PX * 0.7 : RULER_PX * 0.35;

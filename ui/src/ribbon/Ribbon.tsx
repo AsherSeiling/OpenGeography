@@ -296,9 +296,10 @@ function TemplateGroup() {
 
 /** Layout → Page: size and orientation of the open layout's page. */
 function PageMenu() {
+  const setup = () => useDialog.getState().show({ kind: "layoutPage" });
   const page = useLayouts((s) => s.doc?.page);
   const cur = page ? describePage(page) : null;
-  const set = (size: string, o: Orientation) => useLayouts.getState().setPage({ ...pageFor(size, o, page?.margin), background: page?.background ?? "#ffffff" });
+  const set = (size: string, o: Orientation) => useLayouts.getState().setPage({ ...pageFor(size, o, page?.margin), background: page?.background ?? "#ffffff", bleed: page?.bleed, cropMarks: page?.cropMarks });
   return (
     <div className="rcol">
       <Menu>
@@ -331,6 +332,10 @@ function PageMenu() {
           </MenuList>
         </MenuPopover>
       </Menu>
+      <button className="rbtn small" disabled={!page} title="Size, margin, bleed and crop marks, background, author and guides" onClick={setup}>
+        <span className="rbtn-icon"><DocumentRegular /></span>
+        <span className="rbtn-label">Page Setup…</span>
+      </button>
     </div>
   );
 }
@@ -397,10 +402,21 @@ function ArrangeMenu() {
       </MenuPopover>
     </Menu>
   );
+  const more: [string, string][] = [["distH", "Distribute Horizontally"], ["distV", "Distribute Vertically"], ["sameW", "Same Width as First"], ["sameH", "Same Height as First"], ["group", "Group"], ["ungroup", "Ungroup"]];
+  const runMore = (op: string) => {
+    const s = useLayouts.getState();
+    if (op === "distH") s.distribute("horizontal");
+    else if (op === "distV") s.distribute("vertical");
+    else if (op === "sameW") s.matchSize("w");
+    else if (op === "sameH") s.matchSize("h");
+    else if (op === "group") s.group();
+    else s.ungroup();
+  };
   return (
     <div className="rcol">
       {menu("Order", order, (op) => useLayouts.getState().arrange(op as OrderOp), "Change which selected elements are in front")}
       {menu("Align", align, (op) => useLayouts.getState().align(op as AlignOp), "Line up the selected elements (one element aligns to the page margins)")}
+      {menu("Spread", more, runMore, "Equal gaps (3 or more), same size, group so they move together")}
     </div>
   );
 }
