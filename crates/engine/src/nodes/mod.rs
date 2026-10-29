@@ -39,6 +39,7 @@ mod explode;
 mod symmetrical_difference;
 mod union;
 mod repair;
+mod symbology;
 mod summarize_within;
 mod near;
 mod fishnet;
@@ -86,6 +87,8 @@ pub enum ParamKind {
     Layer,
     Crs,
     Bool,
+    /// A colour, "#rrggbb".
+    Color,
     SavePath,
     /// A filter expression, edited with the query builder (Builder/Python/SQL).
     Query,
@@ -505,6 +508,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(simplify::Simplify),
         Box::new(explode::Explode),
         Box::new(repair::Repair),
+        Box::new(symbology::Symbology),
         Box::new(summarize_within::SummarizeWithin),
         Box::new(near::Near),
         Box::new(fishnet::Fishnet),

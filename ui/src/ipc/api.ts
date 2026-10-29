@@ -364,7 +364,7 @@ export interface LayerInfo {
 }
 
 export type PortKind = "vector" | "table" | "raster" | "any";
-export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "savePath" | "query";
+export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "color" | "savePath" | "query";
 
 export interface ToolParam {
   id: string;

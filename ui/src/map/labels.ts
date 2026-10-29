@@ -10,6 +10,9 @@ import type { LabelStyle } from "../store/store";
 /** Pseudo tile field: the engine returns one label anchor point per feature (`tiles::ANCHORS`). */
 export const ANCHORS_FIELD = "__anchors";
 
+/** Contour index flag written by the Contour node: 1 on every nth line. */
+export const INDEX_FIELD = "INDEX";
+
 const PT_TO_PX = 96 / 72;
 
 /** Text of a feature's label, or null when the field is empty. Numbers drop float noise. */
@@ -28,8 +31,9 @@ export function labelVisibleAt(label: Pick<LabelStyle, "minScale" | "maxScale">,
 }
 
 /** Which tile source a layer's labels read: polygons use anchor points, points and lines their own geometry. */
-export function labelTileFields(geom: GeomType, field: string): string[] {
-  return geom === "Polygon" ? [field, ANCHORS_FIELD] : [field];
+export function labelTileFields(geom: GeomType, field: string, indexOnly = false): string[] {
+  const f = geom === "Polygon" ? [field, ANCHORS_FIELD] : [field];
+  return indexOnly ? [...f, INDEX_FIELD] : f;
 }
 
 /**
@@ -55,6 +59,7 @@ export function labelStyleFunction(geom: GeomType, label: LabelStyle, scale: () 
     });
   return (feature: FeatureLike) => {
     if (!labelVisibleAt(label, scale())) return undefined;
+    if (label.indexOnly && Number(feature.get(INDEX_FIELD)) !== 1) return undefined;
     const text = labelText(feature.get(label.field));
     if (text === null) return undefined;
     let st = cache.get(text);

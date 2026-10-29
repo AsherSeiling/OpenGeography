@@ -2,7 +2,7 @@
 export const SEP = " › ";
 
 /** Order of the top-level groups; unknown groups go after these, alphabetically. */
-export const GROUP_ORDER = ["Input", "Vector", "Tables", "Coordinate Systems", "Raster", "Hydrology", "Analysis", "Save to File", "Output"];
+export const GROUP_ORDER = ["Input", "Vector", "Tables", "Coordinate Systems", "Raster", "Hydrology", "Analysis", "Styling", "Save to File", "Output"];
 
 export const splitCategory = (c: string): [string, string | null] => {
   const i = c.indexOf(SEP);

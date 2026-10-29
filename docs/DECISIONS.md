@@ -319,3 +319,8 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 
 ## TC — Tool categories as dropdowns (2026-10-29)
 - `ToolSpec.category` is now "Group" or "Group › Sub-group" (still the one catalog): Vector (Overlay, Geometry, Generalize, Proximity, Select and Clean, Sampling), Tables, Coordinate Systems, Raster (Terrain and Contours, Map Algebra, Management, Conversion, Interpolation, Remote Sensing), Hydrology, Analysis (Summaries, Spatial Statistics), Output. The Geoprocessing pane shows them as nested dropdowns with counts (state remembered in localStorage; a search opens matches); the Shift+A menu lists the same strings in the same order (`ui/src/nodes/categories.ts`).
+
+## SY — Symbology and Labels node (2026-10-29, user request)
+- Style is a property of the **layer**, not of a node, so the new `symbology` tool (category "Styling") passes its input through and, after a run, the UI applies its settings to the layer the tree belongs to (`layers/nodeStyle.ts`; last such node in the tree wins). Settings: fill/line colour, outline, width, opacity, index-line colour (features with `INDEX = 1`, the Contour node's `index_every`), labels (field, size, colour, halo, index-only). Index colour is a two-class style on `INDEX` (class styles carry colour only, so a thicker index line is not possible yet).
+- New `ParamKind::Color` ("#rrggbb"). New optional `LabelStyle.indexOnly` (TS and Rust, map and layouts).
+- Raster colour-ramp symbology (stretch, ramps, hillshade blend) is not built: rasters draw with a fixed ramp. The user's alternative ("a symbology node for rasters that have contours") is covered by styling the contour *lines* this way. Say if you want a real raster ramp editor; it is a separate feature.

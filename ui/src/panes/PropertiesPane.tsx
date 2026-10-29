@@ -415,6 +415,12 @@ function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolPa
       );
     case "bool":
       return <Checkbox label={p.label} checked={!!value} onChange={(_, d) => set(!!d.checked)} />;
+    case "color":
+      return (
+        <Field label={label} hint={p.help || undefined}>
+          <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(String(value ?? "")) ? String(value) : "#000000"} onChange={(e) => set(e.target.value)} />
+        </Field>
+      );
     case "enum":
       return (
         <Field label={label}>

@@ -24,6 +24,8 @@ export interface LabelStyle {
   minScale?: number;
   /** Zoomed-out limit: labels hide when the map is smaller than 1:maxScale. Unset = no limit. */
   maxScale?: number;
+  /** Only features with INDEX = 1 (index contours) are labelled. */
+  indexOnly?: boolean;
 }
 
 export function defaultLabel(field: string): LabelStyle {

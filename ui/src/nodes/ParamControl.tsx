@@ -36,6 +36,13 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
           <span>{p.label}</span>
         </label>
       );
+    case "color":
+      return row(
+        <span className="bpath">
+          <input type="color" className="bctl" value={/^#[0-9a-fA-F]{6}$/.test(str) ? str : "#000000"} style={{ opacity: str || !p.optional ? 1 : 0.35 }} onChange={(e) => set(e.target.value)} />
+          {p.optional && <button className="bctl bbtn" disabled={!str} title="No colour" onClick={(e) => { e.preventDefault(); set(null); }}>×</button>}
+        </span>,
+      );
     case "enum":
       return row(
         <select className="bctl" value={str} onChange={(e) => set(e.target.value)}>
