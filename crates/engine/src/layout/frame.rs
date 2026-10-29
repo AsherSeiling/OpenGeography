@@ -403,7 +403,8 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
                 continue;
             }
             let (w_px, h_px) = image_px(at, dpi);
-            let png = crate::raster::render_extent(r, f.crs, extent, w_px, h_px).map_err(|e| anyhow!("Layer {} could not be drawn: {e}", info.name))?;
+            let rstyle = req.styles.get(id).and_then(|s| s.raster.clone()).unwrap_or_default();
+            let png = crate::raster::render_extent_styled(r, &rstyle, f.crs, extent, w_px, h_px).map_err(|e| anyhow!("Layer {} could not be drawn: {e}", info.name))?;
             let op = req.styles.get(id).map_or(1.0, |s| s.opacity);
             let _ = write!(body_svg, "<g id=\"layer-{}\">{}</g>", esc(id), image_tag(at, &png, op));
             drawn.push(id.clone());

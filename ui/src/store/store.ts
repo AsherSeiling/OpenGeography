@@ -74,6 +74,27 @@ export function defaultLabel(field: string): LabelStyle {
   return { enabled: true, field, size: 9, color: "#222222", haloColor: "#ffffff", haloWidth: 1.5 };
 }
 
+/** Raster symbology (`raster_style.rs`). Every field is optional; the engine fills defaults. "default" = elevation ramp + hillshade / RGB as before. */
+export interface RasterStyle {
+  renderer: "default" | "gray" | "pseudocolor";
+  /** 1-based band for gray and pseudocolour. */
+  band?: number;
+  stretch?: { mode: "minmax" | "percentile" | "stddev" | "manual"; pctLow?: number; pctHigh?: number; sigma?: number; min?: number; max?: number };
+  /** A name from `api.rasterRamps()`, or "custom" to use `stops`. */
+  ramp?: string;
+  stops?: { pos: number; color: string; alpha?: number }[];
+  invert?: boolean;
+  mode?: "linear" | "discrete";
+  /** 0–1, on top of the layer opacity. */
+  opacity?: number;
+  nodataTransparent?: boolean;
+  transparentRanges?: [number, number][];
+  brightness?: number;
+  contrast?: number;
+  gamma?: number;
+  saturation?: number;
+}
+
 export interface LayerStyle {
   kind: "single" | "categorized" | "graduated";
   fill: string;
@@ -89,6 +110,8 @@ export interface LayerStyle {
   colors?: string[];
   /** Feature labels; projects saved before L1 have none (off). */
   label?: LabelStyle;
+  /** Raster layers only; projects saved before raster symbology have none (the default look). */
+  raster?: RasterStyle;
 }
 
 export type MapTool = "pan" | "identify" | "select" | "selectBox" | "measure";

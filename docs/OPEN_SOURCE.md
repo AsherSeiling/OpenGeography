@@ -50,6 +50,8 @@ Build and test tooling (not shipped): Vite (MIT), Vitest (MIT), TypeScript (Apac
 | EPSG dataset inside `proj.db`; extra CRS definitions | EPSG terms of use, © IOGP; PROJ | `crates/engine/assets/extra_crs.json` |
 | World Magnetic Model coefficients | Public domain (NOAA NCEI / BGS) | through `geomagnetism` |
 | Noto Sans Regular, Bold, Italic | SIL OFL 1.1 | `crates/engine/assets/fonts/` |
+| Viridis, magma, inferno, plasma colour maps (matplotlib; cividis: Nuñez et al.) | CC0 (public domain) | `raster_style.rs` ramp library (hex stops typed in) |
+| ColorBrewer 2.0 sequential, diverging and qualitative palettes (C. Brewer, M. Harrower) | Apache-2.0 | `raster_style.rs` ramp library (hex stops typed in) |
 | Catalogs of public services (ArcGIS, STAC, OGC API) | facts about public endpoints | `crates/engine/assets/*_catalog.json` |
 
 ## 4. Public data the user can download (recorded in Sources on import)
@@ -60,6 +62,7 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 
 | Method | Reference | Where |
 |---|---|---|
+| Raster renderers and stretches (Singleband gray, Singleband pseudocolor; ArcGIS Pro Stretch/Classify): names and settings only | QGIS (GPL) and ArcGIS Pro documentation, ideas only; no code or assets | `raster_style.rs` |
 | Moran's I, randomisation variance | Moran 1950; Cliff & Ord 1981 | `spatial_stats.rs` |
 | Getis-Ord Gi* | Ord & Getis 1995 | `spatial_stats.rs` |
 | Ordinary kriging and variogram models | Matheron 1963; Isaaks & Srivastava 1989 | `kriging.rs` |

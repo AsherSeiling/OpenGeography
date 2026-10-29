@@ -21,7 +21,16 @@ export interface LayerSpecification {
 const selected: ExpressionSpecification = ["boolean", ["feature-state", "selected"], false];
 
 /** Attribute fields a style needs inside the vector tiles. */
+/** Raster style → the one URL "field" the engine reads (`RasterStyle::from_token`: base64url of the JSON). */
+export function rasterToken(r: NonNullable<LayerStyle["raster"]>): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(r));
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 export function styleFields(style: LayerStyle): string[] {
+  if (style.raster && style.raster.renderer !== "default") return [rasterToken(style.raster)];
   return style.kind !== "single" && style.field ? [style.field] : [];
 }
 

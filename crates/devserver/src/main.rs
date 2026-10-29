@@ -259,6 +259,8 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
                 .collect();
             json!(e.create_features(&s(a, "name")?, &list)?)
         }
+        "raster_ramps" => json!(e.raster_ramps()),
+        "raster_histogram" => e.raster_histogram(&s(a, "id")?, f(a, "band")? as usize, f(a, "bins")? as usize)?,
         "raster_value" => json!(e.raster_value(&s(a, "id")?, f(a, "lon")?, f(a, "lat")?)?),
         "copy_layer" => {
             let fids: Option<Vec<i64>> = de(a, "fids")?;

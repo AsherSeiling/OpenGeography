@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LayerStyle } from "../store/store";
-import { buildLayers, parseScale, rampColors, styleFields } from "./style";
+import { buildLayers, parseScale, rampColors, rasterToken, styleFields } from "./style";
 
 const base: LayerStyle = { kind: "single", fill: "#ff0000", stroke: "#000000", strokeWidth: 1, opacity: 0.8, radius: 3 };
 
@@ -42,5 +42,17 @@ describe("scale", () => {
 
   it("interpolates color ramps", () => {
     expect(rampColors(["#000000", "#ffffff"], 3)).toEqual(["#000000", "#808080", "#ffffff"]);
+  });
+});
+
+describe("raster style token", () => {
+  it("is base64url JSON the engine can read, only for non-default renderers", () => {
+    const raster = { renderer: "pseudocolor" as const, ramp: "viridis", invert: true };
+    const tok = rasterToken(raster);
+    expect(tok).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(JSON.parse(atob(tok.replace(/-/g, "+").replace(/_/g, "/")))).toEqual(raster);
+    expect(styleFields({ ...base, raster })).toEqual([tok]);
+    expect(styleFields({ ...base, raster: { renderer: "default" } })).toEqual([]);
+    expect(styleFields(base)).toEqual([]);
   });
 });

@@ -545,6 +545,16 @@ pub async fn download_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64
 }
 
 #[tauri::command]
+pub async fn raster_ramps(engine: Eng<'_>) -> Res<Vec<engine::raster_style::RampInfo>> {
+    Ok(engine.raster_ramps())
+}
+
+#[tauri::command]
+pub async fn raster_histogram(engine: Eng<'_>, id: String, band: usize, bins: usize) -> Res<serde_json::Value> {
+    blocking(&engine, move |e| e.raster_histogram(&id, band, bins)).await
+}
+
+#[tauri::command]
 pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
     blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
 }

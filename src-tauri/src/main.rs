@@ -135,6 +135,8 @@ fn main() {
             commands::arcgis_import,
             commands::download_elevation,
             commands::raster_value,
+            commands::raster_ramps,
+            commands::raster_histogram,
             commands::measure_feature,
             commands::create_features,
         ])

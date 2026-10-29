@@ -8,6 +8,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use gdal::cpl::CslStringList;
 use gdal::Dataset;
+use crate::raster_style::{RasterStyle, Renderer};
 use serde::{Deserialize, Serialize};
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
@@ -378,11 +379,11 @@ pub(crate) fn ramp(t: f32) -> [f32; 3] {
 }
 
 /// One 256×256 Web Mercator PNG tile of a raster.
-pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32) -> Result<Vec<u8>> {
+pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32, style: &RasterStyle) -> Result<Vec<u8>> {
     let world = 20037508.342789244;
     let size = 2.0 * world / 2f64.powi(z as i32);
     let (x0, y1) = (-world + x as f64 * size, world - y as f64 * size);
-    render_extent(info, crate::crs::WEB_MERCATOR, [x0, y1 - size, x0 + size, y1], 256, 256)
+    render_extent_styled(info, style, crate::crs::WEB_MERCATOR, [x0, y1 - size, x0 + size, y1], 256, 256)
 }
 
 /// A PNG of `extent` (`[xmin, ymin, xmax, ymax]` in `crs`) at `w_px` × `h_px`:
@@ -390,6 +391,15 @@ pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32) -> Result<Vec<u8>>
 /// with hillshade, or RGB). Pixels with no data are transparent. Map tiles
 /// (`render_tile`), layouts and the projected map view all draw through this.
 pub fn render_extent(info: &RasterInfo, crs: &str, extent: [f64; 4], w_px: u32, h_px: u32) -> Result<Vec<u8>> {
+    render_extent_styled(info, &RasterStyle::default(), crs, extent, w_px, h_px)
+}
+
+/// [`render_extent`] with a raster style (`LayerStyle.raster`); the default style draws as before.
+pub fn render_extent_styled(info: &RasterInfo, style: &RasterStyle, crs: &str, extent: [f64; 4], w_px: u32, h_px: u32) -> Result<Vec<u8>> {
+    let custom = style.renderer != Renderer::Default;
+    if custom {
+        style.validate(info)?;
+    }
     let (w, h) = (w_px as usize, h_px as usize);
     if w == 0 || h == 0 || w.saturating_mul(h) > 100_000_000 {
         bail!("Raster image size {w_px}×{h_px} px is not supported");
@@ -397,19 +407,23 @@ pub fn render_extent(info: &RasterInfo, crs: &str, extent: [f64; 4], w_px: u32, 
     let [x0, y0, x1, y1] = extent;
     let target = crate::crs::resolve(crs);
     let src = Dataset::open(&info.path)?;
-    let rgb = info.kind == "rgb";
+    let rgb = info.kind == "rgb" && !custom;
     let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", "bilinear", "-dstalpha"].map(String::from).to_vec();
     args.extend(["-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(), "-ts".into(), w.to_string(), h.to_string()]);
     if rgb {
         args.extend(["-b", "1", "-b", "2", "-b", "3"].map(String::from));
     } else {
-        args.extend(["-b", "1", "-ot", "Float32"].map(String::from));
+        args.extend(["-b".to_string(), if custom { style.band.to_string() } else { "1".into() }, "-ot".into(), "Float32".into()]);
     }
     let tile = warp(&src, "", &args)?;
     let nb = tile.raster_count();
     let alpha: Vec<f32> = tile.rasterband(nb)?.read_as::<f32>((0, 0), (w, h), (w, h), None)?.data().to_vec();
     let mut rgba = vec![0u8; w * h * 4];
-    if rgb {
+    if custom {
+        let v: Vec<f32> = tile.rasterband(1)?.read_as::<f32>((0, 0), (w, h), (w, h), None)?.data().to_vec();
+        let range = crate::raster_style::stretch_range(info, style)?;
+        rgba = crate::raster_style::colorize(&v, &alpha, info, style, range)?;
+    } else if rgb {
         let bands: Vec<Vec<f32>> = (1..=3).map(|i| tile.rasterband(i).and_then(|b| b.read_as::<f32>((0, 0), (w, h), (w, h), None)).map(|b| b.data().to_vec())).collect::<Result<_, _>>()?;
         for i in 0..w * h {
             for c in 0..3 {

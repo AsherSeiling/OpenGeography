@@ -29,6 +29,7 @@ pub mod measure;
 pub mod nodes;
 pub mod progress;
 pub mod raster;
+pub mod raster_style;
 pub mod sources;
 pub mod resources;
 pub mod table;
@@ -279,6 +280,26 @@ impl Engine {
             sources::record(c, &sources::for_3dep(), &info.id, &info.name)
         })?;
         Ok(info)
+    }
+
+    /// Colour-ramp library for raster symbology.
+    pub fn raster_ramps(&self) -> Vec<raster_style::RampInfo> {
+        raster_style::ramps()
+    }
+
+    /// Statistics, percentiles and a histogram of one raster band (for stretches and the histogram widget).
+    pub fn raster_histogram(&self, id: &str, band: usize, bins: usize) -> Result<serde_json::Value> {
+        let info = self.layer(id)?;
+        let r = info.raster.as_ref().ok_or_else(|| anyhow!("'{}' is not a raster", info.name))?;
+        if band == 0 || band > r.bands {
+            return Err(anyhow!("Band {band} doesn't exist; '{}' has {} band(s)", info.name, r.bands));
+        }
+        let s = raster_style::band_stats(r, band)?;
+        Ok(serde_json::json!({
+            "min": s.min, "max": s.max, "mean": s.mean, "std": s.std,
+            "p2": s.percentile(2.0), "p98": s.percentile(98.0),
+            "counts": s.histogram(bins.clamp(2, 1024)),
+        }))
     }
 
     /// Raster value at a lon/lat (identify on rasters).
@@ -801,7 +822,7 @@ impl Engine {
             return Ok(t.clone());
         }
         let t = if let Some(r) = &info.raster {
-            Arc::new(if info.crs.is_some() { raster::render_tile(r, z, x, y)? } else { Vec::new() })
+            Arc::new(if info.crs.is_some() { raster::render_tile(r, z, x, y, &raster_style::RasterStyle::from_token(fields.first().map_or("", |f| f.as_str()))?)? } else { Vec::new() })
         } else {
             let pool = self.pool.read();
             let conn = pool.get()?;
