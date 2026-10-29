@@ -260,6 +260,12 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             json!(e.create_features(&s(a, "name")?, &list)?)
         }
         "raster_classify" => json!(e.raster_classify(&s(a, "id")?, f(a, "band")? as usize, &s(a, "method")?, f(a, "classes")? as usize)?),
+        "raster_unique_values" => json!(e.raster_unique_values(&s(a, "id")?, f(a, "band")? as usize, f(a, "max")? as usize)?),
+        "save_raster_style" => {
+            e.save_raster_style(std::path::Path::new(&s(a, "path")?), &de(a, "style")?)?;
+            json!(null)
+        }
+        "load_raster_style" => json!(e.load_raster_style(std::path::Path::new(&s(a, "path")?))?),
         "raster_ramps" => json!(e.raster_ramps()),
         "raster_histogram" => e.raster_histogram(&s(a, "id")?, f(a, "band")? as usize, f(a, "bins")? as usize)?,
         "raster_value" => json!(e.raster_value(&s(a, "id")?, f(a, "lon")?, f(a, "lat")?)?),

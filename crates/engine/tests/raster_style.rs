@@ -108,3 +108,57 @@ fn histogram_stats() {
     let h = s.histogram(10);
     assert_eq!(h.iter().sum::<u64>(), 399);
 }
+
+#[test]
+fn unique_values_and_paletted_rendering() {
+    let (_d, info) = setup();
+    let u = raster_style::unique_values(&info, 1, 100).unwrap();
+    assert_eq!(u.values.len(), 20, "columns 0..19 x 10; the NoData cell is not counted");
+    assert!(!u.sampled && !u.truncated);
+    assert_eq!(u.values[0].value, 0.0);
+    assert_eq!(u.values[0].count, 19, "column 0 lost its NoData cell");
+    assert_eq!(u.values[1].count, 20);
+    assert!(u.values[0].color.is_none());
+    assert!(raster_style::unique_values(&info, 1, 5).unwrap().truncated);
+
+    let s = RasterStyle {
+        renderer: Renderer::Paletted,
+        entries: vec![raster_style::PalEntry { value: 50.0, color: "#ff0000".into(), label: "fifty".into(), hidden: false }],
+        ..Default::default()
+    };
+    let b = render(&info, &s);
+    let at = |c: usize| &b[(5 * 20 + c) * 4..(5 * 20 + c) * 4 + 4];
+    assert_eq!(at(5), &[255, 0, 0, 255]);
+    assert_eq!(at(6)[3], 0, "other values transparent");
+    assert_eq!(at(4)[3], 0);
+}
+
+#[test]
+fn multiband_composite_uses_chosen_bands() {
+    let (_d, info) = setup();
+    // Bands 1 and 2 are opposites: R = band 2, G = band 1, B = band 1.
+    let s = RasterStyle { renderer: Renderer::Multiband, rgb_bands: [2, 1, 1], ..Default::default() };
+    let b = render(&info, &s);
+    let px = &b[(5 * 20) * 4..(5 * 20) * 4 + 4];
+    assert_eq!(px[3], 255);
+    assert!(px[0] > 200 && px[1] < 5, "column 0: band 2 high, band 1 low: {px:?}");
+    let px = &b[(5 * 20 + 19) * 4..(5 * 20 + 19) * 4 + 4];
+    assert!(px[0] < 5 && px[1] > 250);
+    let err = raster::render_extent_styled(&info, &RasterStyle { renderer: Renderer::Multiband, rgb_bands: [1, 2, 3], ..Default::default() }, "EPSG:32614", EXTENT, 20, 20).unwrap_err();
+    assert!(err.to_string().contains("Band 3"), "{err}");
+}
+
+#[test]
+fn shading_and_resampling_change_the_picture() {
+    let (_d, info) = setup();
+    let plain = RasterStyle { renderer: Renderer::Pseudocolor, ..Default::default() };
+    let shaded = RasterStyle { shading: Some(Default::default()), ..plain.clone() };
+    let (a, b) = (render(&info, &plain), render(&info, &shaded));
+    assert_ne!(a, b);
+    // Alpha is untouched by shading.
+    assert!((0..400).all(|i| a[i * 4 + 3] == b[i * 4 + 3]));
+    let near = render(&info, &RasterStyle { resampling: "nearest".into(), ..plain.clone() });
+    let png = raster::render_extent_styled(&info, &RasterStyle { resampling: "cubic".into(), ..plain }, "EPSG:32614", [600_000.0, 3_899_400.0, 600_300.0, 3_899_700.0], 40, 40).unwrap();
+    assert!(!png.is_empty());
+    assert_eq!(near.len(), a.len());
+}

@@ -719,6 +719,40 @@ mod c24 {
         assert!(svg_lo.len() < out.svg.len() / 3, "{} vs {}", svg_lo.len(), out.svg.len());
     }
 
+    #[test]
+    fn rs7_raster_legend_shows_bar_classes_or_unique_values() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("dem.tif");
+        dem(&p);
+        let e = Engine::new().unwrap();
+        let id = e.import(&p).unwrap()[0].id.clone();
+        let mut req = frame_req("EPSG:26915", CENTER, 24_000.0, 100.0, 80.0, json!({}));
+        req.order = vec![id.clone()];
+        req.layout.elements.push(serde_json::from_value(json!({ "kind": "legend", "id": "lg", "frame": "f1", "x": 120.0, "y": 30.0, "w": 60.0, "h": 40.0, "title": "Legend" })).unwrap());
+        let legend = |req: &RenderRequest| {
+            let svg = render(&e, req).svg;
+            let start = svg.find("<g id=\"legend-lg\"").unwrap();
+            svg[start..start + svg[start..].find("</g>").unwrap()].to_string()
+        };
+        fn set(req: &mut RenderRequest, id: &str, raster: serde_json::Value) {
+            let mut s = LayerStyle::default();
+            s.raster = Some(serde_json::from_value(raster).unwrap());
+            req.styles.insert(id.to_string(), s);
+        }
+        // Colour bar: 32 stops between the stretch ends, printed under it.
+        set(&mut req, &id, json!({ "renderer": "pseudocolor", "ramp": "viridis", "stretch": { "mode": "manual", "min": 300.0, "max": 500.0 } }));
+        let g = legend(&req);
+        assert_eq!(g.matches("height=\"3.5\" fill=\"#").count(), 32, "{g}");
+        assert!(texts(&g).contains(&"300".to_string()) && texts(&g).contains(&"500".to_string()), "{:?}", texts(&g));
+        // Classes.
+        set(&mut req, &id, json!({ "renderer": "pseudocolor", "mode": "discrete", "breaks": [350.0, 450.0], "stretch": { "mode": "manual", "min": 300.0, "max": 500.0 } }));
+        assert_eq!(texts(&legend(&req))[2..], ["&lt; 350", "350 – 450", "≥ 450"]);
+        // Unique values: only visible classes, with their labels.
+        set(&mut req, &id, json!({ "renderer": "paletted", "entries": [{ "value": 1.0, "color": "#ff0000", "label": "Forest" }, { "value": 2.0, "color": "#00ff00", "label": "Water", "hidden": true }] }));
+        let t = texts(&legend(&req));
+        assert!(t.contains(&"Forest".to_string()) && !t.contains(&"Water".to_string()), "{t:?}");
+    }
+
     /// A stand-in tile service: an RGB raster in Web Mercator covering ±50 km around the frame centre.
     fn fake_basemap(_: &str) -> anyhow::Result<gdal::Dataset> {
         use gdal::raster::Buffer;

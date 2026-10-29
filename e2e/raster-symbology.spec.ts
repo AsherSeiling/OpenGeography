@@ -48,4 +48,37 @@ test("RS3 raster symbology pane: render type, ramp library, histogram handles, c
   await app.getByRole("option", { name: "Classified" }).click();
   await expect.poll(async () => (await style()).breaks?.length).toBe(4);
   expect((await style()).mode).toBe("discrete");
+
+  // Unique values: classes come from the band's distinct values.
+  await app.getByRole("combobox", { name: "Render type" }).click();
+  await app.getByRole("option", { name: "Paletted / Unique values" }).click();
+  await app.getByRole("button", { name: "Load classes" }).click();
+  await expect.poll(async () => (await style()).entries?.length).toBe(200);
+  await expect(app.getByText(/more than 200 distinct values/)).toBeVisible();
+  await app.getByRole("checkbox", { name: "Show class 0" }).uncheck();
+  expect((await style()).entries[0].hidden).toBe(true);
+
+  // Multiband: a one-band file offers no presets but the channel pickers exist.
+  await app.getByRole("combobox", { name: "Render type" }).click();
+  await app.getByRole("option", { name: "Multiband colour" }).click();
+  expect((await style()).renderer).toBe("multiband");
+  await expect(app.getByRole("combobox", { name: "Red" })).toBeVisible();
+
+  // Relief shading and resampling on a gray render.
+  await app.getByRole("combobox", { name: "Render type" }).click();
+  await app.getByRole("option", { name: "Singleband gray" }).click();
+  await app.getByRole("checkbox", { name: /Relief shading/ }).check();
+  expect((await style()).shading.mode).toBe("hillshade");
+  await app.getByRole("combobox", { name: "Resampling when zoomed" }).click();
+  await app.getByRole("option", { name: "cubic" }).click();
+  expect((await style()).resampling).toBe("cubic");
+
+  // Style files round-trip through the engine; other JSON is refused with a readable message.
+  const file2 = path.join(dir, "style.json");
+  const loaded = await gis(app, async (g, a: any) => { await g.api.saveRasterStyle(a.f, { renderer: "pseudocolor", ramp: "cividis", invert: true }); return g.api.loadRasterStyle(a.f); }, { f: file2 }) as any;
+  expect(loaded.ramp).toBe("cividis");
+  expect(loaded.invert).toBe(true);
+  fs.writeFileSync(file2, "{}");
+  const msg = await gis(app, async (g, a: any) => { try { await g.api.loadRasterStyle(a.f); return ""; } catch (e) { return String(e); } }, { f: file2 }) as string;
+  expect(msg).toContain("not a GIS Studio raster style");
 });
