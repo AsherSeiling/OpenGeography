@@ -534,6 +534,7 @@ export const api = {
   planElevation: (bbox: Extent, resolution: number) => invoke<ElevationPlan>("plan_elevation", { bbox, resolution }),
   downloadElevation: (bbox: Extent, resolution: number, label: string, confirmed = false) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label, confirmed })),
   rasterRamps: () => invoke<RampInfo[]>("raster_ramps"),
+  rasterClassify: (id: string, band: number, method: "equal" | "quantile" | "jenks" | "stddev", classes: number) => invoke<number[]>("raster_classify", { id, band, method, classes }),
   rasterHistogram: (id: string, band: number, bins: number) => invoke<RasterHistogram>("raster_histogram", { id, band, bins }),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
@@ -634,6 +635,8 @@ export interface RampInfo {
   group: "Scientific" | "Terrain" | "Sequential" | "Diverging" | "Qualitative" | "Gray";
   colors: string[];
   discrete: boolean;
+  /** Readable with red–green colour blindness. */
+  cbSafe: boolean;
 }
 
 export interface RasterHistogram {

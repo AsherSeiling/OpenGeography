@@ -48,4 +48,5 @@ Order: RS 1→2→3 first (everything else in RS builds on them), then CG 1, 2, 
 
 ## Status
 - [x] RS1 rs-core (2026-10-29): engine `raster_style.rs`, tile/layout wiring, `raster_ramps`/`raster_histogram`, TS types. UI comes in RS3.
-- [ ] RS2 …
+- [x] RS2 rs-classify (2026-10-29): equal/quantile/Jenks/std-dev breaks, classed rendering (`breaks`), `raster_classify`, colour-blind-safe flag on ramps.
+- [ ] RS3 …

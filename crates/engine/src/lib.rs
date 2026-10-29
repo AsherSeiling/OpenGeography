@@ -302,6 +302,17 @@ impl Engine {
         }))
     }
 
+    /// Class breaks for a raster band: `method` is equal | quantile | jenks | stddev.
+    pub fn raster_classify(&self, id: &str, band: usize, method: &str, classes: usize) -> Result<Vec<f64>> {
+        let info = self.layer(id)?;
+        let r = info.raster.as_ref().ok_or_else(|| anyhow!("'{}' is not a raster", info.name))?;
+        if band == 0 || band > r.bands {
+            return Err(anyhow!("Band {band} doesn't exist; '{}' has {} band(s)", info.name, r.bands));
+        }
+        let m: raster_style::ClassMethod = serde_json::from_value(serde_json::json!(method)).map_err(|_| anyhow!("Unknown classification '{method}' (equal, quantile, jenks or stddev)"))?;
+        raster_style::classify(&*raster_style::band_stats(r, band)?, m, classes)
+    }
+
     /// Raster value at a lon/lat (identify on rasters).
     pub fn raster_value(&self, id: &str, lon: f64, lat: f64) -> Result<Option<f64>> {
         let info = self.layer(id)?;
