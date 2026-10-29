@@ -273,6 +273,8 @@ export interface CrsInfo {
   datum: string | null;
   /** [west, south, east, north] degrees, null when PROJ has no area of use. */
   areaOfUse: [number, number, number, number] | null;
+  /** A sentence about the unit when it is easy to confuse (the two kinds of foot). */
+  unitNote: string | null;
 }
 
 /** How accurate moving coordinates between two coordinate systems is (CRS accuracy plan). */

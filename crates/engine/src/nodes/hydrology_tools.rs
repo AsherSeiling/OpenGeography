@@ -60,7 +60,9 @@ impl Tool for FillDepressions {
         if p.bool("fix_flats") {
             extra.push(("fix_flats", "true".to_string()));
         }
-        rout(wbt_raster("FillDepressions", i, "dem", &extra, "fill")?, i)
+        let out = wbt_raster("FillDepressions", i, "dem", &extra, "fill")?;
+        crate::vertical::inherit(&out, &[Path::new(need_raster(i)?)]); // a filled DEM keeps its heights
+        rout(out, i)
     }
 }
 

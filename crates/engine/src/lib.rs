@@ -13,6 +13,8 @@ pub mod kriging;
 pub mod whitebox;
 pub mod transform_report;
 pub mod grids;
+pub mod crs_warnings;
+pub mod vertical;
 pub mod remote_sensing;
 pub mod jsonapis;
 pub mod ogcapi;
@@ -275,6 +277,8 @@ impl Engine {
         let id = self.alloc_id();
         let cells = if plan.geographic { format!("~{:.0} m", plan.used_res) } else { format!("{:.0} m", plan.used_res) };
         let name = format!("Elevation (3DEP {cells}) — {area_label}");
+        // 3DEP heights are on NAVD88 in the United States (the service documents it): recorded so mixing can be flagged.
+        let _ = vertical::set(&path, "NAVD88");
         let info = layers::raster_layer(&id, &name, &path, Some("USGS 3DEP elevation (The National Map)".into()))?;
         self.with_conn(|c| {
             self.save_meta(c, &info)?;
@@ -466,6 +470,10 @@ impl Engine {
         task.set(0.8, Some("Building overviews…".to_string()));
         let stored = raster::import(&clipped)?;
         let _ = std::fs::remove_file(&clipped);
+        // Copernicus DEM heights are above the EGM2008 geoid.
+        if spec.collection == "cop-dem-glo-30" || spec.collection == "cop-dem-glo-90" {
+            let _ = vertical::set(&stored, "EGM2008");
+        }
         let id = self.alloc_id();
         let info = layers::raster_layer(&id, &spec.label, &stored, Some(spec.href.clone()))?;
         self.with_conn(|c| {

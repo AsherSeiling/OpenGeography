@@ -34,6 +34,7 @@ import { StacDialog } from "./StacDialog";
 import { HazardsSoilsDialog } from "./HazardsSoilsDialog";
 import { OgcDialog } from "./OgcDialog";
 import { DatumGridsDialog } from "./DatumGridsDialog";
+import { ResponsibleUseDialog } from "./ResponsibleUseDialog";
 import { OvertureDialog } from "./OvertureDialog";
 import { CensusDialog } from "./CensusDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
@@ -65,6 +66,8 @@ export function Dialogs() {
       return <OgcDialog onClose={close} />;
     case "datumGrids":
       return <DatumGridsDialog onClose={close} />;
+    case "responsibleUse":
+      return <ResponsibleUseDialog onClose={close} />;
     case "hazardsSoils":
       return <HazardsSoilsDialog onClose={close} />;
     case "stac":

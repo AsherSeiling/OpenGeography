@@ -5,7 +5,7 @@ use super::*;
 use crate::spatial_stats as ss;
 
 /// Rows with a geometry and a number in `field`: (row number, value, x, y) from the feature's centroid. The row number is DuckDB's scan order, which is the table's insertion order (the same in `HotSpots` when it joins the results back).
-pub(super) fn read_points(ctx: &Ctx, i: &Rel, field: &str) -> Result<Vec<(i64, f64, f64, f64)>> {
+pub(super) fn read_points(ctx: &Ctx, i: &Rel, field: &str, tool: &str) -> Result<Vec<(i64, f64, f64, f64)>> {
     let crs = need_crs(i)?;
     if crate::crs::is_geographic(crs) {
         bail!("Spatial statistics measure distances between features, so the layer must be in a projected coordinate system (metres or feet), not degrees. Add a Project step first.");
@@ -26,6 +26,12 @@ pub(super) fn read_points(ctx: &Ctx, i: &Rel, field: &str) -> Result<Vec<(i64, f
             if x.is_finite() && y.is_finite() {
                 out.push((id, v, x, y));
             }
+        }
+    }
+    // These tools measure in map units: say so when the projection stretches lengths over this extent (CRS accuracy plan C3).
+    if let Some(ext) = out.iter().fold(None, |e: Option<[f64; 4]>, p| Some(e.map_or([p.2, p.3, p.2, p.3], |e| [e[0].min(p.2), e[1].min(p.3), e[2].max(p.2), e[3].max(p.3)]))) {
+        if let Some(n) = crate::crs_warnings::planar_note(tool, crs, ext) {
+            ctx.add_note(n);
         }
     }
     if out.len() > ss::MAX_FEATURES {
@@ -57,7 +63,7 @@ impl Tool for MoransI {
         let i = &inputs["in"];
         let field = p.req_str("field", "Value field")?;
         let k = neighbours_param(p)?;
-        let pts = read_points(ctx, i, &field)?;
+        let pts = read_points(ctx, i, &field, "Moran's I")?;
         let total: i64 = ctx.conn.query_row(&format!("SELECT count(*) FROM {}", ident(&i.table)), [], |r| r.get(0))?;
         let xy: Vec<(f64, f64)> = pts.iter().map(|p| (p.2, p.3)).collect();
         let vals: Vec<f64> = pts.iter().map(|p| p.1).collect();
@@ -90,7 +96,7 @@ impl Tool for HotSpots {
         let i = &inputs["in"];
         let field = p.req_str("field", "Value field")?;
         let k = neighbours_param(p)?;
-        let pts = read_points(ctx, i, &field)?;
+        let pts = read_points(ctx, i, &field, "Hot Spot Analysis")?;
         let xy: Vec<(f64, f64)> = pts.iter().map(|p| (p.2, p.3)).collect();
         let vals: Vec<f64> = pts.iter().map(|p| p.1).collect();
         let nb = ss::knn(&xy, k.min(pts.len().saturating_sub(1)).max(1), &|| crate::progress::run_cancelled())?;
@@ -126,7 +132,7 @@ impl Tool for Kriging {
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let field = p.req_str("field", "Value field")?;
-        let pts: Vec<(f64, f64, f64)> = read_points(ctx, i, &field)?.into_iter().map(|r| (r.2, r.3, r.1)).collect();
+        let pts: Vec<(f64, f64, f64)> = read_points(ctx, i, &field, "Kriging")?.into_iter().map(|r| (r.2, r.3, r.1)).collect();
         let model = crate::kriging::Model::parse(p.str("model").as_deref().unwrap_or("auto"))?;
         let fixed = match (p.f64("nugget"), p.f64("sill"), p.f64("range")) {
             (None, None, None) => None,

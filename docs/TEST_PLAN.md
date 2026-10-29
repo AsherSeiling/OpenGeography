@@ -943,7 +943,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | CA-9 | A downloaded grid works at once | with no grids installed the US shift is flagged missing; after a grid is copied into the user folder both DuckDB's and GDAL's PROJ use it, with no restart | auto: tests/grid_folder.rs |
 | CA-10 | Datum Grids menu | opens from Map → Coordinate System; regions in order (North America before Europe), search and purpose filter work, a row offers Download / Installed / Included | auto: e2e/datum.spec.ts; list sorting and filters: ui/src/dialogs/datumGrids.test.ts |
 | CA-11 | Packaged app | `proj/` holds the 58 repository grids plus the 41 fetched ones; `--self-test` passes; a real download from the menu works | manual M-33 on the Mac app (needs the network) |
-| CA-12 | Not yet | vertical datums (C1/C2), planar-tool warnings (C3), foot units (C4), responsible-use page (D3), Strict mode for rasters | planned |
+| CA-12 | Vertical datums | 3DEP is tagged NAVD88 and Copernicus DEM EGM2008; Define Vertical Datum copies a raster with the label; Calculator, Align and Mosaic warn ("Warning, …different vertical datums") or, in Strict mode, stop; one datum among the inputs is inherited, two different ones are not | auto: vertical::datums_are_recorded…, raster_nodes::c1_c2_… |
+| CA-13 | Distortion warnings | Moran's I, Hot Spots, Kriging and Interpolate add "Warning, … measures in the map units of …, lengths off by up to X %" when the projection stretches lengths by more than 0.1 % over the data (Web Mercator at 45° N, far from a UTM central meridian); none inside a UTM zone | auto: crs_warnings tests, spatial_stats::c3_… |
+| CA-14 | Foot units | the Coordinate System tab says "US survey foot … 2 parts per million" (or international foot) for foot-based CRSs | auto: crs_warnings::feet_are_told_apart, e2e/datum.spec.ts |
+| CA-15 | Responsible-use page | opens from Map ▸ Coordinate System ▸ Limits & Responsible Use; the text equals docs/RESPONSIBLE_USE.md | auto: ui/src/help/responsibleUse.test.ts, e2e/datum.spec.ts |
+| CA-16 | Real grid download | the smallest catalog grid downloads from the PROJ-data server, verifies, installs, is listed as downloaded and is removed | auto, network: tests/grid_download_net.rs (`--ignored`); run 2026-10-29 |
+| CA-17 | Not yet | conversion between vertical datums (needs geoid grids), Strict mode for raster warps and display reprojection | planned |
 
 ## CG — Cartography suite (2026-10-29, `docs/CARTOGRAPHY_PLAN.md`)
 | ID | What | Expect | Status |

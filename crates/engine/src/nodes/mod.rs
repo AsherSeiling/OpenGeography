@@ -550,6 +550,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(raster_ops_tools::MosaicRasters),
         Box::new(raster_ops_tools::Rasterize),
         Box::new(raster_ops_tools::Interpolate),
+        Box::new(raster_ops_tools::DefineVerticalDatum),
         Box::new(stats_tools::MoransI),
         Box::new(stats_tools::HotSpots),
         Box::new(stats_tools::Kriging),

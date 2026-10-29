@@ -224,3 +224,43 @@ fn h5_spectral_index_and_classification_nodes_keep_grid_and_crs() {
     let bad = run(&e, "classify_kmeans", json!({"classes": 1}), &[&id]);
     assert!(bad.error.as_deref().unwrap_or("").contains("between 2 and 20"), "{:?}", bad.error);
 }
+
+#[test]
+fn c1_c2_vertical_datums_are_recorded_inherited_and_mixing_is_flagged() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let (a, b) = (dir.path().join("a.tif"), dir.path().join("b.tif"));
+    dem(&a, 10, X0, 30.0, 32614, None, |r, c| (r + c) as f32);
+    dem(&b, 10, X0, 30.0, 32614, None, |r, c| (r * c) as f32);
+    let (ia, ib) = (import(&e, &a), import(&e, &b));
+
+    // Define: a copy that carries the datum; the values and the grid are unchanged.
+    let da = ok(&e, "define_vertical_datum", json!({"datum": "NAVD88"}), &[&ia]);
+    let out_a = da.output.as_ref().unwrap();
+    assert_eq!(engine::vertical::get(Path::new(out_a)).as_deref(), Some("NAVD88"));
+    assert_eq!((pixel(out_a, 3, 4), size(out_a)), (7.0, (10, 10)));
+    assert_eq!(da.crs.as_deref(), Some("EPSG:32614"));
+
+    // Combining NAVD88 (defined above) with EGM2008 (recorded in the second file) warns, and the result carries no datum.
+    engine::vertical::set(Path::new(&b.display().to_string()), "EGM2008").unwrap();
+    let imported_b = import(&e, &b);
+    // Two layers are needed on the graph: NAVD88 copy and EGM2008 file.
+    let g: engine::graph::Graph = serde_json::from_value(json!({
+        "nodes": [
+            {"id": "i1", "tool": "input_layer", "params": {"layer": ia}},
+            {"id": "d1", "tool": "define_vertical_datum", "params": {"datum": "NAVD88"}},
+            {"id": "i2", "tool": "input_layer", "params": {"layer": imported_b}},
+            {"id": "c", "tool": "raster_calc2", "params": {"expr": "A - B"}}
+        ],
+        "edges": [
+            {"source": "i1", "target": "d1", "targetHandle": "in"},
+            {"source": "d1", "target": "c", "targetHandle": "a"},
+            {"source": "i2", "target": "c", "targetHandle": "b"}
+        ]
+    })).unwrap();
+    let r = e.run_graph(&g, Some("c"), &mut |_| {}).unwrap().into_iter().find(|r| r.id == "c").unwrap();
+    assert!(matches!(r.status, engine::graph::Status::Done | engine::graph::Status::Cached), "{:?}", r.error);
+    let msg = r.message.unwrap_or_default();
+    assert!(msg.contains("Warning, the Raster Calculator: the rasters use different vertical datums (EGM2008 and NAVD88)"), "{msg}");
+    assert_eq!(engine::vertical::get(Path::new(r.output.as_ref().unwrap())), None, "different datums are not inherited");
+}

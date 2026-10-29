@@ -125,6 +125,7 @@ export function CrsInfo({ id }: { id: string }) {
               {detail.code && (<><dt>Code</dt><dd>{detail.code}</dd></>)}
               <dt>Kind</dt>
               <dd>{detail.geographic ? "Geographic" : "Projected"}, unit {detail.unit}</dd>
+              {detail.unitNote && (<><dt>Unit</dt><dd>{detail.unitNote}</dd></>)}
               {detail.datum && (<><dt>Datum</dt><dd>{detail.datum}</dd></>)}
               {detail.areaOfUse && (<><dt>Valid in</dt><dd>{`${detail.areaOfUse[1].toFixed(1)}° to ${detail.areaOfUse[3].toFixed(1)}° N, ${detail.areaOfUse[0].toFixed(1)}° to ${detail.areaOfUse[2].toFixed(1)}° E`}</dd></>)}
             </>
