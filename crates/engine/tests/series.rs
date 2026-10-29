@@ -220,21 +220,27 @@ fn png_export_writes_one_file_per_page_and_nothing_else() {
     assert!(e.export_series(&req, ExportFormat::Svg, 72.0, &out).unwrap_err().to_string().contains("PDF or as PNG"));
 }
 
-/// Cancel the series task named after the layout as soon as it reports page `after`; true when it was seen running.
-fn cancel_at_page(label: &str, after: usize) -> std::thread::JoinHandle<bool> {
+/// Cancel the series task named after the layout as soon as it reports page `after` or a later one (a poll can miss a page on a busy
+/// runner); true when it was seen running. On failure the message says what the watcher last saw.
+fn cancel_at_page(label: &str, after: usize) -> std::thread::JoinHandle<Result<(), String>> {
     let label = label.to_string();
     std::thread::spawn(move || {
+        let mut last = String::from("no task with that name was ever listed");
         for _ in 0..20_000 {
             std::thread::sleep(std::time::Duration::from_millis(1));
             if let Some(t) = engine::progress::snapshot().into_iter().find(|t| t.label.contains(&label)) {
-                if t.detail.starts_with(&format!("Page {after} of")) {
-                    assert!(t.cancellable);
+                last = format!("{} / {}", t.label, t.detail);
+                let page: Option<usize> = t.detail.strip_prefix("Page ").and_then(|r| r.split_whitespace().next()).and_then(|n| n.parse().ok());
+                if page.is_some_and(|p| p >= after) {
+                    if !t.cancellable {
+                        return Err(format!("task {last} is not cancellable"));
+                    }
                     engine::progress::cancel(t.id);
-                    return true;
+                    return Ok(());
                 }
             }
         }
-        false
+        Err(format!("never reached page {after}; last seen: {last}"))
     })
 }
 
@@ -253,7 +259,7 @@ fn p22_cancel_after_page_three_leaves_no_partial_file() {
     let pdf = dir.path().join("cancelled.pdf");
     let watcher = cancel_at_page("CancelPdf", 3);
     let err = e.export_series(&req, ExportFormat::Pdf, 72.0, &pdf).unwrap_err().to_string();
-    assert!(watcher.join().unwrap(), "the task was seen on page 3");
+    watcher.join().unwrap().expect("the watcher cancelled the task");
     assert!(err.to_lowercase().contains("cancel"), "{err}");
     let left: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|f| f.unwrap().file_name().to_string_lossy().to_string()).filter(|n| n.contains("cancelled")).collect();
     assert!(left.is_empty(), "no PDF and no .part file: {left:?}");
@@ -264,7 +270,7 @@ fn p22_cancel_after_page_three_leaves_no_partial_file() {
     let out = dir.path().join("pngs");
     let watcher = cancel_at_page("CancelPng", 3);
     assert!(e.export_series(&request(&l, &id), ExportFormat::Png, 72.0, &out).is_err());
-    assert!(watcher.join().unwrap());
+    watcher.join().unwrap().expect("the watcher cancelled the task");
     assert_eq!(std::fs::read_dir(&out).map(|d| d.count()).unwrap_or(0), 0, "an empty folder");
     assert!(engine::progress::snapshot().iter().all(|t| !t.label.contains("CancelP")), "task removed");
 
