@@ -7,7 +7,7 @@ impl Tool for Filter {
         ToolSpec {
             id: "filter",
             name: "Definition Query",
-            category: "Extract",
+            category: "Vector › Select and Clean",
             role: Role::Tool,
             description: "Keep only features matching a query (build it point-and-click, in Python, or SQL).",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Table }],

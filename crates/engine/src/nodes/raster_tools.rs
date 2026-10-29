@@ -16,7 +16,7 @@ impl Tool for Contours {
         ToolSpec {
             id: "contours",
             name: "Contour",
-            category: "Raster",
+            category: "Raster › Terrain and Contours",
             role: Role::Tool,
             description: "Contour lines from an elevation raster, with an ELEV field (in the raster's units, e.g. meters).",
             inputs: vec![Port { id: "in", label: "Elevation raster", kind: PortKind::Raster }],
@@ -69,7 +69,7 @@ impl Tool for Hillshade {
         ToolSpec {
             id: "hillshade",
             name: "Hillshade",
-            category: "Raster",
+            category: "Raster › Terrain and Contours",
             role: Role::Tool,
             description: "Shaded relief from an elevation raster.",
             inputs: vec![Port { id: "in", label: "Elevation raster", kind: PortKind::Raster }],
@@ -100,7 +100,7 @@ impl Tool for Slope {
         ToolSpec {
             id: "slope",
             name: "Slope",
-            category: "Raster",
+            category: "Raster › Terrain and Contours",
             role: Role::Tool,
             description: "Steepness of an elevation raster, in degrees or percent.",
             inputs: vec![Port { id: "in", label: "Elevation raster", kind: PortKind::Raster }],
@@ -126,7 +126,7 @@ impl Tool for ClipRaster {
         ToolSpec {
             id: "clip_raster",
             name: "Clip Raster by Extent",
-            category: "Raster",
+            category: "Raster › Management",
             role: Role::Tool,
             description: "Crop a raster to the bounding box of other features.",
             inputs: vec![

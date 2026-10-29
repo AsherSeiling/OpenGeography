@@ -26,7 +26,7 @@ pub struct Aspect;
 /// QGIS: Aspect (gdal:aspect) — gdal/rasteranalysis.html#aspect
 impl Tool for Aspect {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "aspect", name: "Aspect", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "aspect", name: "Aspect", category: "Raster › Terrain and Contours", role: Role::Tool,
             description: "Direction each slope faces, in degrees from north (QGIS: Aspect).", inputs: rin(), output: Some(PortKind::Raster), params: vec![] }
     }
     fn build(&self, _c: &Ctx, inputs: &Inputs, _p: &Params) -> Result<Output> {
@@ -39,7 +39,7 @@ pub struct Ruggedness;
 /// QGIS: Terrain Ruggedness Index (gdal:triterrainruggednessindex), Topographic Position Index (gdal:tpitopographicpositionindex), Roughness (gdal:roughness) — gdal/rasteranalysis.html
 impl Tool for Ruggedness {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "ruggedness", name: "Terrain Ruggedness", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "ruggedness", name: "Terrain Ruggedness", category: "Raster › Terrain and Contours", role: Role::Tool,
             description: "Terrain Ruggedness Index, Topographic Position Index, or Roughness from an elevation raster (QGIS: TRI / TPI / Roughness).", inputs: rin(), output: Some(PortKind::Raster),
             params: vec![Param::new("mode", "Index", ParamKind::Enum).default("TRI").options(&[("TRI", "Terrain Ruggedness Index (TRI)"), ("TPI", "Topographic Position Index (TPI)"), ("roughness", "Roughness")])] }
     }
@@ -54,7 +54,7 @@ pub struct Warp;
 /// QGIS: Warp (reproject) (gdal:warpreproject) — gdal/rasterprojections.html#warp-reproject
 impl Tool for Warp {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "warp", name: "Warp (Reproject Raster)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "warp", name: "Warp (Reproject Raster)", category: "Raster › Management", role: Role::Tool,
             description: "Reproject a raster to another coordinate system (QGIS: Warp (reproject)).", inputs: rin(), output: Some(PortKind::Raster),
             params: vec![
                 Param::new("crs", "Target coordinate system", ParamKind::Crs),
@@ -75,7 +75,7 @@ pub struct Polygonize;
 /// QGIS: Polygonize (raster to vector) (gdal:polygonize) — gdal/rasterconversion.html#polygonize-raster-to-vector
 impl Tool for Polygonize {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "polygonize", name: "Polygonize (Raster to Vector)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "polygonize", name: "Polygonize (Raster to Vector)", category: "Raster › Conversion", role: Role::Tool,
             description: "Polygons around connected cells that share a value, with that value in DN (QGIS: Polygonize). Best for classified rasters.", inputs: rin(), output: Some(PortKind::Vector), params: vec![] }
     }
     fn output_fields(&self) -> OutFields {
@@ -93,7 +93,7 @@ pub struct SampleRaster;
 /// QGIS: Sample raster values (native:rastersampling) — qgis/rasteranalysis.html#sample-raster-values
 impl Tool for SampleRaster {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "sample_raster", name: "Sample Raster Values", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "sample_raster", name: "Sample Raster Values", category: "Raster › Map Algebra", role: Role::Tool,
             description: "Add the raster value under each point as a field (QGIS: Sample raster values).",
             inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }, Port { id: "raster", label: "Raster", kind: PortKind::Raster }],
             output: Some(PortKind::Vector),
@@ -141,7 +141,7 @@ pub struct ZonalStatistics;
 /// QGIS: Zonal statistics (native:zonalstatisticsfb) — qgis/rasteranalysis.html#zonal-statistics
 impl Tool for ZonalStatistics {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "zonal_statistics", name: "Zonal Statistics", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "zonal_statistics", name: "Zonal Statistics", category: "Raster › Map Algebra", role: Role::Tool,
             description: "Count, mean, min and max of raster cells inside each polygon, added as fields (QGIS: Zonal statistics).",
             inputs: vec![Port { id: "in", label: "Zones (polygons)", kind: PortKind::Vector }, Port { id: "raster", label: "Raster", kind: PortKind::Raster }],
             output: Some(PortKind::Vector),

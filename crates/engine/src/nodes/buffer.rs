@@ -10,7 +10,7 @@ impl Tool for Buffer {
         ToolSpec {
             id: "buffer",
             name: "Buffer",
-            category: "Proximity",
+            category: "Vector › Proximity",
             role: Role::Tool,
             description: "Polygons around features at a distance. Geodesic: each feature is buffered in its own azimuthal equidistant projection, so the distance is true on the ellipsoid anywhere (like ArcGIS's geodesic buffer).",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

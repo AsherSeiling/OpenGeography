@@ -7,7 +7,7 @@ impl Tool for BoundingGeometry {
         ToolSpec {
             id: "bounding_geometry",
             name: "Minimum Bounding Geometry",
-            category: "Generalize",
+            category: "Vector › Geometry",
             role: Role::Tool,
             description: "Convex hull, concave hull or bounding rectangle around each feature, each group, or everything.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

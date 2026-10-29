@@ -7,7 +7,7 @@ impl Tool for Clip {
         ToolSpec {
             id: "clip",
             name: "Clip",
-            category: "Overlay",
+            category: "Vector › Overlay",
             role: Role::Tool,
             description: "Cut input features to the area of the clip polygons. Keeps input attributes only.",
             inputs: vec![

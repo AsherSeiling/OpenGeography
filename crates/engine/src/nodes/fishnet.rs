@@ -8,7 +8,7 @@ impl Tool for Fishnet {
         ToolSpec {
             id: "fishnet",
             name: "Create Fishnet",
-            category: "Sampling",
+            category: "Vector › Sampling",
             role: Role::Tool,
             description: "A grid of square or hexagonal cells (real ground size) covering the input's extent (QGIS: Create grid, native:creategrid).",
             inputs: vec![Port { id: "in", label: "Extent from", kind: PortKind::Vector }],

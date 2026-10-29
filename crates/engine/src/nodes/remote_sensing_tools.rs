@@ -20,7 +20,7 @@ fn band_param(p: &Params, k: &str, label: &str) -> Result<usize> {
 pub struct SpectralIndex;
 impl Tool for SpectralIndex {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "spectral_index", name: "Spectral Index (NDVI, NDWI, NBR …)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "spectral_index", name: "Spectral Index (NDVI, NDWI, NBR …)", category: "Raster › Remote Sensing", role: Role::Tool,
             description: "A band-ratio index from two bands of an image. Band A and B mean: NDVI: A = near infrared, B = red; NDWI: A = green, B = near infrared; MNDWI: A = green, B = shortwave infrared 1; NBR: A = near infrared, B = shortwave infrared 2; NDBI: A = shortwave infrared 1, B = near infrared; SAVI: A = near infrared, B = red. Band numbers depend on the sensor (Sentinel-2: red 3, green 2, near infrared 7 or 8 in a stack of B2, B3, B4, B5, B6, B7, B8 …; check your file). Results run from -1 to 1; cells with no data in either band, or a zero denominator, are no data. 'Reflectance scale' only matters for SAVI: 1 if the bands are 0–1, 0.0001 for Sentinel-2 L2A numbers.",
             inputs: vec![Port { id: "in", label: "Multiband image", kind: PortKind::Raster }], output: Some(PortKind::Raster),
             params: vec![
@@ -40,7 +40,7 @@ impl Tool for SpectralIndex {
 pub struct UnsupervisedClassification;
 impl Tool for UnsupervisedClassification {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "classify_kmeans", name: "Unsupervised Classification (K-means)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "classify_kmeans", name: "Unsupervised Classification (K-means)", category: "Raster › Remote Sensing", role: Role::Tool,
             description: "Group the cells of an image into classes of similar colour, without training areas. Bands are put on the same scale first, so a band with big numbers does not dominate. Classes are numbered 1, 2, 3 … from the lowest to the highest value of the first band; 0 is no data. The class centres are stored in the raster's CLASS_CENTRES metadata. Look at the result and name the classes yourself (water, forest …). Repeating the run gives the same map.",
             inputs: vec![Port { id: "in", label: "Multiband image", kind: PortKind::Raster }], output: Some(PortKind::Raster),
             params: vec![

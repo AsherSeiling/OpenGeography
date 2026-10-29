@@ -2,6 +2,7 @@
 // button): categories on the left, items on the right; typing searches
 // everything. Enter adds the highlighted item, Esc closes.
 import { DatabaseRegular, SearchRegular, WrenchRegular } from "@fluentui/react-icons";
+import { compareCategories } from "./categories";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useModel, useRun } from "../store/model";
@@ -37,7 +38,6 @@ export function useAddItems(): AddItem[] {
   }, [specs, owner, layers]);
 }
 
-const CATEGORY_ORDER = ["Input", "Extract", "Overlay", "Proximity", "Analysis", "Geometry", "Generalize", "General", "Tables", "Coordinate Systems", "Sampling", "Raster", "Save to File"];
 
 export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPick: (item: AddItem) => void; onClose: () => void }) {
   const items = useAddItems();
@@ -49,8 +49,7 @@ export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPic
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(items.map((i) => i.category)));
-    const rank = (c: string) => (CATEGORY_ORDER.indexOf(c) < 0 ? 50 : CATEGORY_ORDER.indexOf(c));
-    return cats.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    return cats.sort(compareCategories);
   }, [items]);
 
   const shown = useMemo(() => {

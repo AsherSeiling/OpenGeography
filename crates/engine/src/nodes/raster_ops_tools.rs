@@ -22,7 +22,7 @@ const RESAMPLING: [(&str, &str); 5] = [("near", "Nearest (categories)"), ("bilin
 pub struct Calc1;
 impl Tool for Calc1 {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "raster_calc", name: "Raster Calculator", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "raster_calc", name: "Raster Calculator", category: "Raster › Map Algebra", role: Role::Tool,
             description: "A new raster from an expression of the input raster, called A: A * 0.3048, (A > 1000) * 1, sqrt(A), if(A < 0, 0, A). No-data cells stay no data; results that are not numbers become no data.",
             inputs: vec![rin("Raster (A)")], output: Some(PortKind::Raster),
             params: vec![Param::new("expr", "Expression", ParamKind::Expression).default("A")] }
@@ -37,7 +37,7 @@ impl Tool for Calc1 {
 pub struct Calc2;
 impl Tool for Calc2 {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "raster_calc2", name: "Raster Calculator (A and B)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "raster_calc2", name: "Raster Calculator (A and B)", category: "Raster › Map Algebra", role: Role::Tool,
             description: "A new raster from an expression of two rasters on the same grid, called A and B: (A - B) / (A + B). Use Align Raster first when the grids differ.",
             inputs: vec![Port { id: "a", label: "Raster A", kind: PortKind::Raster }, Port { id: "b", label: "Raster B", kind: PortKind::Raster }],
             output: Some(PortKind::Raster),
@@ -52,7 +52,7 @@ impl Tool for Calc2 {
 pub struct Reclassify;
 impl Tool for Reclassify {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "reclassify", name: "Reclassify Raster", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "reclassify", name: "Reclassify Raster", category: "Raster › Map Algebra", role: Role::Tool,
             description: "Replace cell values by ranges. One rule per line: 0 to 10 = 1 (from 0 up to but not including 10), 5 = 2 (exactly 5), 20 to inf = 3, nodata = 0 (no-data cells get 0), else = nodata (cells no rule matches).",
             inputs: vec![rin("Raster")], output: Some(PortKind::Raster),
             params: vec![
@@ -70,7 +70,7 @@ impl Tool for Reclassify {
 pub struct NoData;
 impl Tool for NoData {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "nodata", name: "NoData Cells", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "nodata", name: "NoData Cells", category: "Raster › Map Algebra", role: Role::Tool,
             description: "Set the value that means no data, give no-data cells a value, or fill them by interpolating from the cells around them.",
             inputs: vec![rin("Raster")], output: Some(PortKind::Raster),
             params: vec![
@@ -95,7 +95,7 @@ impl Tool for NoData {
 pub struct SelectBands;
 impl Tool for SelectBands {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "select_bands", name: "Select Bands", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "select_bands", name: "Select Bands", category: "Raster › Management", role: Role::Tool,
             description: "Keep some bands of a multi-band raster, in the order given (for example 3,2,1).",
             inputs: vec![rin("Raster")], output: Some(PortKind::Raster),
             params: vec![Param::new("bands", "Bands to keep", ParamKind::Text).default("1")] }
@@ -109,7 +109,7 @@ impl Tool for SelectBands {
 pub struct ResampleRaster;
 impl Tool for ResampleRaster {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "resample_raster", name: "Resample Raster", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "resample_raster", name: "Resample Raster", category: "Raster › Management", role: Role::Tool,
             description: "Change the cell size (in the raster's own units: metres, or degrees for a geographic raster).",
             inputs: vec![rin("Raster")], output: Some(PortKind::Raster),
             params: vec![
@@ -126,7 +126,7 @@ impl Tool for ResampleRaster {
 pub struct AlignRaster;
 impl Tool for AlignRaster {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "align_raster", name: "Align Raster", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "align_raster", name: "Align Raster", category: "Raster › Management", role: Role::Tool,
             description: "Put a raster on another raster's grid: its coordinate system, extent and cell size, so the two can be combined cell by cell.",
             inputs: vec![rin("Raster to align"), Port { id: "reference", label: "Reference raster", kind: PortKind::Raster }], output: Some(PortKind::Raster),
             params: vec![Param::new("resampling", "Resampling", ParamKind::Enum).default("bilinear").options(&RESAMPLING)] }
@@ -141,7 +141,7 @@ impl Tool for AlignRaster {
 pub struct MosaicRasters;
 impl Tool for MosaicRasters {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "mosaic_rasters", name: "Mosaic Rasters", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "mosaic_rasters", name: "Mosaic Rasters", category: "Raster › Management", role: Role::Tool,
             description: "Join two rasters into one covering both (the second wins where they overlap). Join more by chaining Mosaic nodes. The result is in the first raster's coordinate system.",
             inputs: vec![Port { id: "a", label: "First raster", kind: PortKind::Raster }, Port { id: "b", label: "Second raster", kind: PortKind::Raster }], output: Some(PortKind::Raster),
             params: vec![Param::new("resampling", "Resampling", ParamKind::Enum).default("near").options(&RESAMPLING)] }
@@ -157,7 +157,7 @@ impl Tool for MosaicRasters {
 pub struct Rasterize;
 impl Tool for Rasterize {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "rasterize", name: "Rasterize (Vector to Raster)", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "rasterize", name: "Rasterize (Vector to Raster)", category: "Raster › Conversion", role: Role::Tool,
             description: "Burn features into a raster covering them: each cell takes the value of a number field, or 1 where there is a feature. The cell size is in the layer's units.",
             inputs: vec![Port { id: "in", label: "Features", kind: PortKind::Vector }], output: Some(PortKind::Raster),
             params: vec![
@@ -188,7 +188,7 @@ impl Tool for Rasterize {
 pub struct Interpolate;
 impl Tool for Interpolate {
     fn spec(&self) -> ToolSpec {
-        ToolSpec { id: "interpolate", name: "Interpolate Points to Raster", category: "Raster", role: Role::Tool,
+        ToolSpec { id: "interpolate", name: "Interpolate Points to Raster", category: "Raster › Interpolation", role: Role::Tool,
             description: "Make a surface from points that have a number field. IDW: weighted by distance (the power sets how fast influence falls off); Linear: triangulated, no data outside the points' outline; Nearest: value of the closest point; Average: mean of points within the radius. Cell size and radius are in the layer's units. Points without a number are ignored.",
             inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Raster),
             params: vec![

@@ -7,7 +7,7 @@ impl Tool for Explode {
         ToolSpec {
             id: "explode",
             name: "Multipart To Singlepart",
-            category: "General",
+            category: "Vector › Geometry",
             role: Role::Tool,
             description: "Split multipart features (e.g. a county with islands) into one feature per part.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

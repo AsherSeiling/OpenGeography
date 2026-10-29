@@ -8,7 +8,7 @@ impl Tool for Collect {
         ToolSpec {
             id: "collect",
             name: "Singlepart To Multipart",
-            category: "General",
+            category: "Vector › Geometry",
             role: Role::Tool,
             description: "Combine features into multipart features, optionally one per value of a field. Unlike Dissolve, shapes are not merged. Adds a COUNT field (QGIS: Collect geometries, native:collect).",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],

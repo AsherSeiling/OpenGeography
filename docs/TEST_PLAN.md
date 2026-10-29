@@ -871,3 +871,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | MS-4 | Apply symbology/labels of one layer to the rest: class symbology and labels need the same field in the target, else the status line says what was not copied; rasters/tables are skipped | | auto: vitest |
 | MS-5 | Export Layers: one GeoPackage per layer, safe unique names (case-insensitive), nothing overwritten | | auto: vitest safeFileName, e2e |
 | MS-6 | "Group" is "Gather Together" (contiguous in drawing order); named groups are not built | decision D-MS | — |
+
+## TC. Tool categories
+| # | Case | Expected | Status |
+|---|---|---|---|
+| TC-1 | Every ToolSpec has a category "Group" or "Group › Sub-group"; groups ordered Vector, Tables, Raster, Hydrology, Analysis, Output | | auto: vitest nodes/categories.test.ts; engine tools.rs (non-empty) |
+| TC-2 | Geoprocessing pane: each group and sub-group is a dropdown with a tool count; open state is remembered; a search opens all matches | | auto: e2e/tool-categories.spec.ts |

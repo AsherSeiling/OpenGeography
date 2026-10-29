@@ -7,7 +7,7 @@ impl Tool for SummaryStatistics {
         ToolSpec {
             id: "summary_statistics",
             name: "Summary Statistics",
-            category: "Analysis",
+            category: "Analysis › Summaries",
             role: Role::Tool,
             description: "Count, sum, mean, min and max of a field, overall or per category. Outputs a table.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Table }],

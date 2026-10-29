@@ -8,7 +8,7 @@ impl Tool for SpatialJoin {
         ToolSpec {
             id: "spatial_join",
             name: "Spatial Join",
-            category: "Overlay",
+            category: "Vector › Overlay",
             role: Role::Tool,
             description: "Attach attributes of join features to target features based on location.",
             inputs: vec![

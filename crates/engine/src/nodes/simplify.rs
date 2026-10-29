@@ -7,7 +7,7 @@ impl Tool for Simplify {
         ToolSpec {
             id: "simplify",
             name: "Simplify",
-            category: "Generalize",
+            category: "Vector › Generalize",
             role: Role::Tool,
             description: "Remove small bends from lines and polygon outlines. Tolerance is a real ground distance.",
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Vector }],
