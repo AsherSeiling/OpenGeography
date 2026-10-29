@@ -85,6 +85,9 @@ interface AppState {
   styles: Record<string, LayerStyle>;
   selection: Record<string, number[]>;
   activeLayer: string | null;
+  /** Layers picked in the Contents pane with Shift/Ctrl/Cmd-click (always includes the active one when non-empty). */
+  selectedLayers: string[];
+  layerAnchor: string | null;
   properties: PropertiesTarget;
   /** Tab to show in layer Properties next time (e.g. "query"). */
   propsTab: string | null;
@@ -110,6 +113,7 @@ interface AppState {
   setSelection: (id: string, fids: number[], mode?: SelectMode) => void;
   clearSelection: () => void;
   setActiveLayer: (id: string | null) => void;
+  setLayerSelection: (ids: string[], anchor: string | null) => void;
   setProperties: (t: PropertiesTarget) => void;
   setMapCrs: (c: MapCrs | null) => void;
   setWorldView: (on: boolean) => void;
@@ -128,6 +132,8 @@ export const useApp = create<AppState>((set, get) => ({
   styles: {},
   selection: {},
   activeLayer: null,
+  selectedLayers: [],
+  layerAnchor: null,
   properties: null,
   propsTab: null,
   mapCrs: null,
@@ -186,6 +192,8 @@ export const useApp = create<AppState>((set, get) => ({
         results,
         selection,
         order: s.order.filter((x) => x !== id),
+        selectedLayers: s.selectedLayers.filter((x) => x !== id),
+        layerAnchor: s.layerAnchor === id ? null : s.layerAnchor,
         activeLayer: s.activeLayer === id ? (s.order.find((x) => x !== id) ?? null) : s.activeLayer,
         properties: s.properties?.kind === "layer" && s.properties.id === id ? null : s.properties,
         dirty: true,
@@ -228,6 +236,7 @@ export const useApp = create<AppState>((set, get) => ({
 
   clearSelection: () => set({ selection: {} }),
   setActiveLayer: (id) => set({ activeLayer: id }),
+  setLayerSelection: (ids, anchor) => set({ selectedLayers: ids, layerAnchor: anchor }),
   setProperties: (t) => set({ properties: t }),
   setMapCrs: (c) => set({ mapCrs: c, dirty: true }),
   setWorldView: (on) => set({ worldView: on }),

@@ -12,6 +12,7 @@ import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle, type SelectMode } from "./store/store";
+import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
 import { flushLayoutSaves, useLayouts } from "./store/layout";
 
 // ---------- dialogs ----------
@@ -33,6 +34,7 @@ export type DialogState =
   | { kind: "export"; owner: string }
   | { kind: "splitByAttribute"; owner: string }
   | { kind: "exportTable"; owner: string }
+  | { kind: "exportLayers"; ids: string[] }
   | { kind: "layoutSeries" }
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
@@ -102,6 +104,85 @@ export async function zoomToLayer(id: string) {
   // With a definition query, zoom to the matching features only.
   const filtered = useApp.getState().layers[id]?.definitionQuery && info && !info.resultOf;
   zoomToExtent(filtered ? await api.layerExtent(info!.id) : (info?.extent ?? null));
+}
+
+// ---------- several layers at once (the Contents pane selection) ----------
+
+/** The layers picked in the Contents pane, in drawing order; the active layer alone when nothing else is picked. */
+export function pickedLayers(): string[] {
+  const s = useApp.getState();
+  const picked = s.order.filter((id) => s.selectedLayers.includes(id));
+  return picked.length ? picked : s.activeLayer && s.layers[s.activeLayer] ? [s.activeLayer] : [];
+}
+
+export function zoomToLayers(ids: string[]) {
+  const infos = ids.map((id) => shown(id)).filter((i): i is LayerInfo => !!i);
+  const ext = unionExtent(infos);
+  if (!ext) return void status("None of the selected layers has an extent to zoom to.");
+  zoomToExtent(ext);
+}
+
+export function setLayersVisible(ids: string[], v: boolean) {
+  const app = useApp.getState();
+  for (const id of ids) if (app.layers[id]?.geomType !== "Table") app.setVisible(id, v);
+  status(`${v ? "Showing" : "Hiding"} ${ids.length} layer${ids.length === 1 ? "" : "s"}`);
+}
+
+export function moveLayers(ids: string[], how: Move) {
+  const app = useApp.getState();
+  app.set({ order: moveSelected(app.order, ids, how), dirty: true });
+}
+
+export async function removeLayers(ids: string[]) {
+  if (ids.length > 1 && !confirm(`Remove ${ids.length} layers from the project? Their source files are not touched.`)) return;
+  for (const id of ids) await removeLayer(id);
+  useApp.getState().setLayerSelection([], null);
+}
+
+/** Copy the symbology or the label settings of `src` onto the other layers; says which could not take them. */
+export function applyStyleToLayers(src: string, ids: string[], parts: StyleParts) {
+  const app = useApp.getState();
+  const from = app.styles[src];
+  if (!from) return;
+  const notes: string[] = [];
+  let done = 0;
+  for (const id of ids) {
+    if (id === src) continue;
+    const info = app.layers[id];
+    const to = app.styles[id];
+    if (!info || !to) continue;
+    const r = applyStyleParts(from, to, info, parts);
+    if (!r) { notes.push(`${info.name}: not a vector layer`); continue; }
+    app.setStyle(id, r.style);
+    done++;
+    if (r.note) notes.push(`${info.name}: ${r.note}`);
+  }
+  status(`Applied ${parts} of ${app.layers[src]?.name} to ${done} layer${done === 1 ? "" : "s"}${notes.length ? `. ${notes.join("; ")}` : ""}`);
+}
+
+/** Write each layer to its own GeoPackage (rasters GeoTIFF) in `dir`; names are made safe and never clash, so nothing is overwritten. */
+export async function runExportLayers(ids: string[], dir: string): Promise<boolean> {
+  const taken = new Set<string>();
+  const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
+  let n = 0;
+  for (const id of ids) {
+    const info = shown(id);
+    if (!info) continue;
+    const raster = info.geomType === "Raster";
+    const file = safeFileName(useApp.getState().layers[id]?.name ?? info.name, raster ? "tif" : "gpkg", taken);
+    const path = `${dir.replace(/[\\/]+$/, "")}${sep}${file}`;
+    const res = await busy(`Exporting ${info.name}`, () =>
+      api.runGraph({
+        nodes: [{ id: "in", tool: "input_layer", params: { layer: info.id } }, { id: "out", tool: "export", params: { path, format: "GPKG" } }],
+        edges: [{ source: "in", target: "out", targetHandle: "in" }],
+      }),
+    );
+    const out = res?.find((r) => r.id === "out");
+    if (!out || out.error) { status(`Export of ${info.name} failed${out?.error ? `: ${out.error}` : ""}. ${n} layer(s) written before it.`); return false; }
+    n++;
+  }
+  status(`Exported ${n} layer${n === 1 ? "" : "s"} to ${dir}`);
+  return true;
 }
 
 export async function zoomToSelection() {
@@ -538,6 +619,8 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
     layers: byId,
     results,
     showOriginal: {},
+    selectedLayers: [],
+    layerAnchor: null,
     order,
     visible: { ...Object.fromEntries(order.map((id) => [id, true])), ...(ui.visible ?? {}) },
     styles: Object.fromEntries(order.map((id) => [id, ui.styles?.[id] ?? defaultStyle(byId[id])])),
