@@ -216,3 +216,28 @@ test("CG8 symbol choices appear in the layer's Symbology and reach the layout re
   const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); const a = g.useApp.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: a.styles, order: a.order, visible: a.visible, project: "p", date: "2026-01-01" }, 96); }) as any;
   expect(out.warnings.filter((w: string) => /symbol|pattern|line style/i.test(w))).toEqual([]);
 });
+
+test("CG9 a theme restyles the page and recolours single-symbol layers", async ({ app }) => {
+  const a = await addTestLayer(app, "polygons", 3, [-93.1, 45.0, -92.9, 45.1]);
+  await gis(app, (g) => g.useApp.setState({ mapCrs: { id: "EPSG:26915", name: "NAD83 / UTM zone 15N" } }));
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await ribbon(app, "Layout", /^Legend$/);
+  await ribbon(app, "Layout", /^Text$/);
+  await app.locator(".rbtn", { hasText: /Look \+ layer colours/ }).click();
+  await app.getByRole("menuitem", { name: "Thematic" }).click();
+  await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "text").color)) as string).toBe("#1f2a44");
+  const doc = await gis(app, (g) => g.useLayouts.getState().doc) as any;
+  expect(doc.elements.find((e: any) => e.kind === "legend").decor.shadow).toBe(true);
+  expect(doc.elements.find((e: any) => e.kind === "map_frame").border.color).toBe("#555555");
+  const st = await gis(app, (g, x: any) => g.useApp.getState().styles[x.id], { id: a.id }) as any;
+  expect(st.fill).toBe("#0072b2");
+  // Page look alone leaves layer colours.
+  await gis(app, (g, x: any) => g.useApp.getState().setStyle(x.id, { ...g.useApp.getState().styles[x.id], fill: "#123456" }), { id: a.id });
+  await app.locator(".rbtn", { hasText: /Page look/ }).click();
+  await app.getByRole("menuitem", { name: "Minimalist" }).click();
+  await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "scale_bar" || e.kind === "text").color)) as string).toBe("#333333");
+  expect(((await gis(app, (g, x: any) => g.useApp.getState().styles[x.id], { id: a.id })) as any).fill).toBe("#123456");
+});

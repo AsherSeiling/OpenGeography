@@ -143,6 +143,8 @@ fn main() {
             commands::download_elevation,
             commands::raster_value,
             commands::raster_ramps,
+            commands::layout_themes,
+            commands::apply_layout_theme,
             commands::read_picture,
             commands::save_raster_style,
             commands::load_raster_style,

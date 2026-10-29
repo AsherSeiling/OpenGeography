@@ -314,6 +314,16 @@ impl Engine {
         raster_style::unique_values(r, band, max.clamp(1, 2000))
     }
 
+    /// The layout themes (look + palette).
+    pub fn layout_themes(&self) -> Vec<layout::themes::Theme> {
+        layout::themes::themes()
+    }
+
+    /// A layout with a theme's page look applied.
+    pub fn apply_layout_theme(&self, layout: &layout::model::Layout, theme: &str) -> Result<layout::model::Layout> {
+        layout::themes::apply(layout, theme)
+    }
+
     /// A picture file as the data URI a layout Picture element stores.
     pub fn read_picture(&self, path: &Path) -> Result<String> {
         layout::shapes::read_picture(path)

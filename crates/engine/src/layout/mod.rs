@@ -14,6 +14,7 @@ pub mod series;
 pub mod shapes;
 pub mod surround;
 pub mod templates;
+pub mod themes;
 pub mod svg;
 pub mod symbols;
 pub mod tabular;

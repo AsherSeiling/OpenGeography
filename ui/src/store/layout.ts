@@ -45,6 +45,8 @@ interface LayoutState {
   /** Move the selected elements together from now on / apart again. */
   group: () => void;
   ungroup: () => void;
+  /** Replace the page look and the elements' styling with a themed copy (one undo step). */
+  applyLook: (next: Layout) => void;
   /** Layout-wide settings kept beside the page: author and editor guides. One undo step. */
   setMeta: (patch: { author?: string; guides?: Guide[] }) => void;
   undo: () => void;
@@ -230,6 +232,10 @@ export const useLayouts = create<LayoutState>()(
         const s = get();
         if (!s.doc) return;
         edit((d) => ({ ...d, elements: d.elements.map((e) => (s.selected.includes(e.id) && e.group ? ({ ...e, group: undefined } as LayoutElement) : e)) }));
+      },
+      applyLook: (next) => {
+        flushBurst();
+        edit((d) => ({ ...d, page: { ...d.page, background: next.page.background }, elements: d.elements.map((e) => next.elements.find((n) => n.id === e.id) ?? e) }));
       },
       setMeta: (patch) => {
         flushBurst();
