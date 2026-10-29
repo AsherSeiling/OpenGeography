@@ -443,6 +443,9 @@ pub struct LabelStyle {
     pub min_scale: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_scale: Option<u64>,
+    /// Only features with INDEX = 1 (index contours) are labelled.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub index_only: bool,
 }
 
 impl Default for LayerStyle {

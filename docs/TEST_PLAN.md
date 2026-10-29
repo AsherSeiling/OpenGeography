@@ -877,3 +877,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 |---|---|---|---|
 | TC-1 | Every ToolSpec has a category "Group" or "Group › Sub-group"; groups ordered Vector, Tables, Raster, Hydrology, Analysis, Output | | auto: vitest nodes/categories.test.ts; engine tools.rs (non-empty) |
 | TC-2 | Geoprocessing pane: each group and sub-group is a dropdown with a tool count; open state is remembered; a search opens all matches | | auto: e2e/tool-categories.spec.ts |
+
+## SY. Symbology and Labels node
+| # | Case | Expected | Status |
+|---|---|---|---|
+| SY-1 | Node passes data, CRS and row count through unchanged (contours → node → Output); label on without a field and opacity outside 0–1 give readable errors | | auto: engine.rs symbology_node_passes_contours_through_and_validates |
+| SY-2 | Params → LayerStyle: colour, width, opacity, index colour as a two-class style on INDEX, labels with halo and index-only | | auto: vitest layers/nodeStyle.test.ts |
+| SY-3 | After a run, the owner layer takes the node's style (map and layouts read the same style) | | auto: e2e/symbology-node.spec.ts |
+| SY-4 | Index-only labels: map tile fields add INDEX; layout labels filter `INDEX = 1` (none if the layer has no INDEX field) | | vitest labels.test.ts; layout engine test to add with LB stage 3 |
+| SY-5 | Raster colour-ramp symbology | not built (rasters have a fixed ramp today) | decision D-SY |

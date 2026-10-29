@@ -364,7 +364,7 @@ export function MapView() {
       if (lf && style.label && !d.labels) {
         const grid = tileGridFor(active.info.grid, VECTOR_MAX_LEVEL);
         const lt = new VectorTileLayer({
-          source: new VectorTileSource({ url: tileUrl(info, labelTileFields(info.geomType, lf), active.info.crsKey), projection: active.projection, tileGrid: grid, format: new MVT(), transition: 0 }),
+          source: new VectorTileSource({ url: tileUrl(info, labelTileFields(info.geomType, lf, !!style.label?.indexOnly), active.info.crsKey), projection: active.projection, tileGrid: grid, format: new MVT(), transition: 0 }),
           declutter: true,
           updateWhileAnimating: true,
           updateWhileInteracting: true,

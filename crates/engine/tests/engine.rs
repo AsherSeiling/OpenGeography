@@ -1393,3 +1393,40 @@ fn map_crs_queries_are_exact_in_utm() {
     assert!(near(600.0).contains(&fid));
     assert!(e.identify(&l.id, px, py, UTM, 0.0).is_err());
 }
+
+/// Symbology and Labels node: the data passes through unchanged; a label without a field is a readable error.
+#[test]
+fn symbology_node_passes_contours_through_and_validates() {
+    let dir = tempfile::tempdir().unwrap();
+    let dem = dir.path().join("hill.tif");
+    write_test_dem(&dem);
+    let e = Engine::new().unwrap();
+    let l = e.import(&dem).unwrap().remove(0);
+    let run = |params: serde_json::Value| {
+        let g = graph(json!({
+            "nodes": [
+                {"id": "in", "tool": "input_layer", "params": {"layer": l.id}},
+                {"id": "c", "tool": "contours", "params": {"interval": 10, "base": 0, "index_every": 5}},
+                {"id": "s", "tool": "symbology", "params": params},
+                {"id": "out", "tool": "layer_output", "params": {"layer": l.id}}
+            ],
+            "edges": [
+                {"source": "in", "target": "c", "targetHandle": "in"},
+                {"source": "c", "target": "s", "targetHandle": "in"},
+                {"source": "s", "target": "out", "targetHandle": "in"}
+            ]
+        }));
+        e.run_graph(&g, None, &mut |_| {}).unwrap()
+    };
+    let res = run(json!({"index_color": "#5c3d1e", "label": true, "label_field": "ELEV", "label_index_only": true}));
+    let (c, s) = (res.iter().find(|r| r.id == "c").unwrap(), res.iter().find(|r| r.id == "s").unwrap());
+    assert!(matches!(s.status, Status::Done | Status::Cached), "{:?}", s.error);
+    assert_eq!(s.rows, c.rows);
+    assert_eq!(s.crs, c.crs);
+    let bad = run(json!({"label": true}));
+    let s = bad.iter().find(|r| r.id == "s").unwrap();
+    assert_eq!(s.status, Status::Error);
+    assert!(s.error.as_deref().unwrap().contains("ELEV"), "{:?}", s.error);
+    let bad = run(json!({"opacity": 3}));
+    assert!(bad.iter().find(|r| r.id == "s").unwrap().error.as_deref().unwrap().contains("between 0 and 1"));
+}

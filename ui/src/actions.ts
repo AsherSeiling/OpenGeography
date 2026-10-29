@@ -12,6 +12,7 @@ import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, useApp, type LayerStyle, type SelectMode } from "./store/store";
+import { styleFromSymbologyNode } from "./layers/nodeStyle";
 import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
 import { flushLayoutSaves, useLayouts } from "./store/layout";
 
@@ -466,6 +467,7 @@ export async function runModel(target?: string) {
   useModel.getState().setLastOutputs(Object.fromEntries(res.filter((r) => (r.status === "done" || r.status === "cached") && r.output).map((r) => [r.id, r.output!])));
   const ok = res.filter((r) => r.status === "done" || r.status === "cached").map((r) => [r.id, sigs[r.id]]);
   useRun.setState((s) => ({ ranSig: { ...s.ranSig, ...Object.fromEntries(ok) } }));
+  applySymbologyNodes(owner, res);
   const errors = res.filter((r) => r.status === "error");
   if (res.some((r) => r.status === "cancelled")) {
     status(`Model run cancelled. ${useApp.getState().layers[owner]?.name ?? "The layer"} still shows its last result.`);
@@ -476,6 +478,19 @@ export async function runModel(target?: string) {
       ? `Node tree finished with ${errors.length} error(s). Click a red step to see why.`
       : `${useApp.getState().layers[owner]?.name ?? "Layer"} updated in ${((performance.now() - t0) / 1000).toFixed(1)}s (${res.filter((r) => r.status === "cached").length} step(s) reused from cache)`,
   );
+}
+
+/** A Symbology and Labels node that ran in the open tree restyles the layer the tree belongs to (the last one in the tree wins). */
+function applySymbologyNodes(owner: string, res: { id: string; status: string }[]) {
+  const app = useApp.getState();
+  const base = app.styles[owner];
+  if (!base) return;
+  const ran = new Set(res.filter((r) => r.status === "done" || r.status === "cached").map((r) => r.id));
+  const nodes = useModel.getState().nodes.filter((n) => n.data.tool === "symbology" && ran.has(n.id));
+  const last = nodes.at(-1);
+  if (!last) return;
+  app.setStyle(owner, styleFromSymbologyNode(last.data.params, base));
+  status(`Symbology and Labels node applied to ${app.layers[owner]?.name ?? "the layer"}`);
 }
 
 /** Copy a layer's node-tree result into a new, independent layer. */

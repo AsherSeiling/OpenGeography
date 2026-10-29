@@ -23,6 +23,7 @@ describe("feature labels (L1)", () => {
   it("L1-P1 polygons read anchor points from the engine, points and lines their own tiles", () => {
     expect(labelTileFields("Polygon", "NAME")).toEqual(["NAME", ANCHORS_FIELD]);
     expect(labelTileFields("Point", "NAME")).toEqual(["NAME"]);
+    expect(labelTileFields("Line", "ELEV", true)).toEqual(["ELEV", "INDEX"]);
     expect(labelTileFields("Line", "NAME")).toEqual(["NAME"]);
   });
 

@@ -96,7 +96,7 @@ pub struct DroppedEdit {
 /// What a layer's labels look like in this frame: the map's setting with this layout's edits on top.
 /// `None` when labels are off or have no field.
 pub fn effective(base: Option<&LabelStyle>, patch: Option<&LabelPatch>, fields: &[String]) -> Option<LabelStyle> {
-    let mut l = base.cloned().unwrap_or(LabelStyle { enabled: false, field: String::new(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None });
+    let mut l = base.cloned().unwrap_or(LabelStyle { enabled: false, field: String::new(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false });
     if let Some(p) = patch {
         if let Some(v) = p.enabled {
             l.enabled = v;
@@ -160,12 +160,18 @@ fn anchor_sql(info: &LayerInfo, label: &LabelStyle, frame_crs: &str, bbox3857: O
         Some(b) => format!("ST_Intersects(__g, ST_MakeEnvelope({}, {}, {}, {}))", b[0], b[1], b[2], b[3]),
         None => "__g IS NOT NULL".into(),
     };
+    // Index-only labels (contours): features with INDEX = 1. A layer without an INDEX field has none to pick.
+    let index = if label.index_only {
+        if info.fields.iter().any(|f| f.name == "INDEX") { " AND \"INDEX\" = 1".to_string() } else { " AND FALSE".to_string() }
+    } else {
+        String::new()
+    };
     let env = format!("ST_MakeEnvelope({}, {}, {}, {})", extent[0], extent[1], extent[2], extent[3]);
     let field = ident(&label.field);
     let clipped = format!(
         "SELECT __fid, t, c FROM (
            SELECT __fid, t, CASE WHEN ST_XMin(g) >= {} AND ST_XMax(g) <= {} AND ST_YMin(g) >= {} AND ST_YMax(g) <= {} THEN g ELSE ST_Intersection(g, {env}) END AS c
-           FROM (SELECT __fid, CAST({field} AS VARCHAR) AS t, {g} AS g FROM {t} WHERE {field} IS NOT NULL AND {filter}{def})
+           FROM (SELECT __fid, CAST({field} AS VARCHAR) AS t, {g} AS g FROM {t} WHERE {field} IS NOT NULL AND {filter}{def}{index})
          ) WHERE c IS NOT NULL AND NOT ST_IsEmpty(c) ORDER BY __fid LIMIT {limit}",
         extent[0],
         extent[2],

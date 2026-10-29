@@ -784,7 +784,7 @@ mod c24 {
 // ---------- L2: labels in layouts (docs/LAYOUTS_PLAN.md) ----------
 
 fn label(field: &str) -> engine::layout::model::LabelStyle {
-    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None }
+    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false }
 }
 
 /// (text, x, y, size) of every label fill `<text>`; halo underlays carry a stroke and are skipped.
