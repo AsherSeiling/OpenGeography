@@ -555,6 +555,11 @@ pub async fn raster_histogram(engine: Eng<'_>, id: String, band: usize, bins: us
 }
 
 #[tauri::command]
+pub async fn raster_classify(engine: Eng<'_>, id: String, band: usize, method: String, classes: usize) -> Res<Vec<f64>> {
+    blocking(&engine, move |e| e.raster_classify(&id, band, &method, classes)).await
+}
+
+#[tauri::command]
 pub async fn raster_value(engine: Eng<'_>, id: String, lon: f64, lat: f64) -> Res<Option<f64>> {
     blocking(&engine, move |e| e.raster_value(&id, lon, lat)).await
 }

@@ -85,6 +85,8 @@ export interface RasterStyle {
   stops?: { pos: number; color: string; alpha?: number }[];
   invert?: boolean;
   mode?: "linear" | "discrete";
+  /** Class upper bounds; with mode "discrete" the ramp is sampled once per class. */
+  breaks?: number[];
   /** 0–1, on top of the layer opacity. */
   opacity?: number;
   nodataTransparent?: boolean;

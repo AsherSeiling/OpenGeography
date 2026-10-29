@@ -90,6 +90,8 @@ pub struct RasterStyle {
     pub stops: Vec<Stop>,
     pub invert: bool,
     pub mode: ColorMode,
+    /// Class upper bounds (ascending, n-1 for n classes). With `mode: "discrete"` and breaks, the ramp is sampled once per class (classified rendering); without, one class per ramp stop.
+    pub breaks: Vec<f64>,
     pub opacity: f32,
     /// Cells equal to the raster's NoData value are transparent.
     pub nodata_transparent: bool,
@@ -115,6 +117,7 @@ impl Default for RasterStyle {
             stops: Vec::new(),
             invert: false,
             mode: ColorMode::Linear,
+            breaks: Vec::new(),
             opacity: 1.0,
             nodata_transparent: true,
             transparent_ranges: Vec::new(),
@@ -150,6 +153,9 @@ impl RasterStyle {
         if self.stretch.mode == StretchMode::Manual && self.stretch.min >= self.stretch.max {
             bail!("Stretch minimum must be below the maximum");
         }
+        if self.breaks.iter().any(|b| !b.is_finite()) || self.breaks.windows(2).any(|w| w[0] >= w[1]) {
+            bail!("Class breaks must be numbers in increasing order");
+        }
         if self.ramp == "custom" && self.stops.len() < 2 {
             bail!("A custom colour ramp needs at least two stops");
         }
@@ -170,7 +176,12 @@ pub struct RampInfo {
     pub colors: Vec<String>,
     /// Qualitative ramps are meant for classes, not smooth blending.
     pub discrete: bool,
+    /// Distinguishable with the common colour-vision deficiencies (viridis family, single-hue sequentials, and the blue–orange/brown–teal diverging sets).
+    pub cb_safe: bool,
 }
+
+/// Ramps that stay readable for red–green colour-blind viewers.
+const CB_SAFE: &[&str] = &["viridis", "magma", "inferno", "plasma", "cividis", "gray", "bathymetry", "Blues", "Greens", "Oranges", "Purples", "YlOrRd", "YlGnBu", "RdBu", "BrBG", "PuOr"];
 
 const RAMPS: &[(&str, &str, bool, &str)] = &[
     ("viridis", "Scientific", false, "440154 482878 3e4989 31688e 26828e 1f9e89 35b779 6ece58 b5de2b fde725"),
@@ -205,7 +216,7 @@ const RAMPS: &[(&str, &str, bool, &str)] = &[
 pub fn ramps() -> Vec<RampInfo> {
     RAMPS
         .iter()
-        .map(|(name, group, discrete, hex)| RampInfo { name, group, colors: hex.split(' ').map(|h| format!("#{h}")).collect(), discrete: *discrete })
+        .map(|(name, group, discrete, hex)| RampInfo { name, group, colors: hex.split(' ').map(|h| format!("#{h}")).collect(), discrete: *discrete, cb_safe: CB_SAFE.contains(name) })
         .collect()
 }
 
@@ -374,6 +385,80 @@ pub fn stretch_range(info: &RasterInfo, style: &RasterStyle) -> Result<(f64, f64
     Ok(if hi > lo { (lo, hi) } else { (lo, lo + 1e-6) })
 }
 
+// ---------------------------------------------------------------- classification
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ClassMethod {
+    Equal,
+    Quantile,
+    /// Fisher–Jenks natural breaks (Jenks 1967; Fisher 1958), on a ≤ 1000-value quantile sample.
+    Jenks,
+    /// Classes one standard deviation wide, centred on the mean.
+    StdDev,
+}
+
+/// Class upper bounds (n-1 interior breaks; fewer when values repeat) for `n` classes.
+pub fn classify(stats: &BandStats, method: ClassMethod, n: usize) -> Result<Vec<f64>> {
+    if !(2..=64).contains(&n) {
+        bail!("Choose between 2 and 64 classes");
+    }
+    let mut b: Vec<f64> = match method {
+        ClassMethod::Equal => (1..n).map(|i| stats.min + (stats.max - stats.min) * i as f64 / n as f64).collect(),
+        ClassMethod::Quantile => (1..n).map(|i| stats.percentile(100.0 * i as f64 / n as f64)).collect(),
+        ClassMethod::StdDev => {
+            let half = n as f64 / 2.0;
+            (1..n).map(|i| stats.mean + (i as f64 - half) * stats.std).filter(|v| *v > stats.min && *v < stats.max).collect()
+        }
+        ClassMethod::Jenks => jenks(&stats.sorted, n),
+    };
+    b.dedup_by(|a, c| (*a - *c).abs() < 1e-12);
+    Ok(b)
+}
+
+fn jenks(sorted: &[f32], n: usize) -> Vec<f64> {
+    let m = sorted.len().min(1000);
+    if m < n + 1 {
+        return Vec::new();
+    }
+    let data: Vec<f64> = (0..m).map(|i| sorted[i * (sorted.len() - 1) / (m - 1)] as f64).collect();
+    // Prefix sums for O(1) within-class variance.
+    let (mut s1, mut s2) = (vec![0.0; m + 1], vec![0.0; m + 1]);
+    for i in 0..m {
+        s1[i + 1] = s1[i] + data[i];
+        s2[i + 1] = s2[i] + data[i] * data[i];
+    }
+    let cost = |a: usize, b: usize| -> f64 {
+        // sum of squared deviations of data[a..b]
+        let (c, s, q) = ((b - a) as f64, s1[b] - s1[a], s2[b] - s2[a]);
+        q - s * s / c
+    };
+    let mut dp = vec![vec![f64::INFINITY; m + 1]; n + 1];
+    let mut cut = vec![vec![0usize; m + 1]; n + 1];
+    dp[0][0] = 0.0;
+    for k in 1..=n {
+        for j in k..=m {
+            for i in (k - 1)..j {
+                let c = dp[k - 1][i] + cost(i, j);
+                if c < dp[k][j] {
+                    dp[k][j] = c;
+                    cut[k][j] = i;
+                }
+            }
+        }
+    }
+    let mut breaks = Vec::new();
+    let mut j = m;
+    for k in (2..=n).rev() {
+        let i = cut[k][j];
+        // The break sits between the classes: the last value of the lower class.
+        breaks.push(data[i - 1]);
+        j = i;
+    }
+    breaks.reverse();
+    breaks
+}
+
 // ---------------------------------------------------------------- colouring
 
 fn adjust(c: [f32; 3], s: &RasterStyle) -> [f32; 3] {
@@ -398,7 +483,8 @@ fn adjust(c: [f32; 3], s: &RasterStyle) -> [f32; 3] {
 /// RGBA pixels for one band's `values` (`alpha` from the warp: 0 outside the raster).
 pub fn colorize(values: &[f32], alpha: &[f32], info: &RasterInfo, style: &RasterStyle, range: (f64, f64)) -> Result<Vec<u8>> {
     let gray = style.renderer == Renderer::Gray;
-    let lut = if gray { Vec::new() } else { build_lut(style)? };
+    let classed = style.mode == ColorMode::Discrete && !style.breaks.is_empty();
+    let lut = if gray { Vec::new() } else if classed { build_lut(&RasterStyle { mode: ColorMode::Linear, ..style.clone() })? } else { build_lut(style)? };
     let span = (range.1 - range.0).max(1e-12);
     let nodata = info.nodata.map(|n| n as f32);
     let mut out = vec![0u8; values.len() * 4];
@@ -412,7 +498,11 @@ pub fn colorize(values: &[f32], alpha: &[f32], info: &RasterInfo, style: &Raster
         if style.transparent_ranges.iter().any(|r| (v as f64) >= r[0] && (v as f64) <= r[1]) {
             continue;
         }
-        let t = (((v as f64 - range.0) / span).clamp(0.0, 1.0)) as f32;
+        let mut t = (((v as f64 - range.0) / span).clamp(0.0, 1.0)) as f32;
+        if classed {
+            let k = style.breaks.partition_point(|b| *b < v as f64);
+            t = k as f32 / (style.breaks.len().max(1)) as f32;
+        }
         let (rgb, a) = if gray {
             let g = if style.invert { 1.0 - t } else { t } * 255.0;
             ([g, g, g], 1.0)
@@ -556,6 +646,52 @@ mod tests {
         let mut s = pseudo("viridis");
         s.band = 3;
         assert!(s.validate(&info()).unwrap_err().to_string().contains("Band 3"));
+    }
+
+    fn stats_of(v: Vec<f32>) -> BandStats {
+        let n = v.len() as f64;
+        let mean = v.iter().map(|x| *x as f64).sum::<f64>() / n;
+        let std = (v.iter().map(|x| (*x as f64 - mean).powi(2)).sum::<f64>() / n).sqrt();
+        BandStats { min: v[0] as f64, max: v[v.len() - 1] as f64, mean, std, sorted: v }
+    }
+
+    #[test]
+    fn classification_methods() {
+        let uni = stats_of((0..=100).map(|i| i as f32).collect());
+        assert_eq!(classify(&uni, ClassMethod::Equal, 4).unwrap(), vec![25.0, 50.0, 75.0]);
+        assert_eq!(classify(&uni, ClassMethod::Quantile, 2).unwrap(), vec![50.0]);
+        // Two tight clusters: Jenks cuts between them, equal interval does not have to.
+        let mut v: Vec<f32> = (0..50).map(|i| i as f32 * 0.1).collect();
+        v.extend((0..50).map(|i| 100.0 + i as f32 * 0.1));
+        let two = stats_of(v);
+        let j = classify(&two, ClassMethod::Jenks, 2).unwrap();
+        assert_eq!(j.len(), 1);
+        assert!(j[0] >= 4.9 && j[0] < 100.0, "{j:?}");
+        let sd = classify(&uni, ClassMethod::StdDev, 4).unwrap();
+        assert!(sd.windows(2).all(|w| w[0] < w[1]) && sd.iter().all(|b| *b > 0.0 && *b < 100.0));
+        assert!(classify(&uni, ClassMethod::Equal, 1).is_err());
+    }
+
+    #[test]
+    fn classed_rendering_uses_one_colour_per_class() {
+        let mut s = pseudo("gray");
+        s.mode = ColorMode::Discrete;
+        s.breaks = vec![3.0, 7.0];
+        let px = colorize(&[1.0, 2.9, 5.0, 9.0], &[255.0; 4], &info(), &s, (0.0, 10.0)).unwrap();
+        assert_eq!(px[0], 0);
+        assert_eq!(px[4], 0);
+        assert!((px[8] as i32 - 128).abs() <= 1);
+        assert_eq!(px[12], 255);
+        s.breaks = vec![7.0, 3.0];
+        assert!(s.validate(&info()).is_err());
+    }
+
+    #[test]
+    fn colour_blind_safe_flags() {
+        let r = ramps();
+        assert!(r.iter().find(|x| x.name == "viridis").unwrap().cb_safe);
+        assert!(!r.iter().find(|x| x.name == "RdYlGn").unwrap().cb_safe);
+        assert!(CB_SAFE.iter().all(|n| r.iter().any(|x| x.name == *n)));
     }
 
     #[test]

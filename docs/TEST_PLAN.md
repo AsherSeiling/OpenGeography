@@ -918,3 +918,6 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | RS1-5 | Stretch min-max / percentile / std dev / manual on a real raster; gray and pseudocolour tiles differ from the default look; band choice | | auto: tests/raster_style.rs |
 | RS1-6 | Default style draws exactly as before (existing tile/layout goldens unchanged) | | auto: existing tests |
 | RS1-7 | Style token in the tile URL round-trips (TS ↔ Rust) | | auto: vitest style.test.ts + raster_style.rs token_round_trip |
+| RS2-1 | Classification: equal interval, quantile, Jenks (cuts between two clusters), standard deviation; 2–64 classes | | auto: raster_style.rs classification_methods |
+| RS2-2 | Classed rendering: one colour per class, breaks must increase | | auto: raster_style.rs classed_rendering_* |
+| RS2-3 | Colour-blind-safe flag on ramps (viridis family, single-hue sequentials, RdBu/BrBG/PuOr) | | auto: colour_blind_safe_flags |
