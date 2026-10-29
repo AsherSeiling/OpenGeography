@@ -183,3 +183,33 @@ impl Tool for Rasterize {
         rout(out?, i.crs.clone())
     }
 }
+
+/// Surface from points (QGIS: IDW interpolation `qgis:idwinterpolation`, TIN interpolation `qgis:tininterpolation`, via GDAL grid algorithms).
+pub struct Interpolate;
+impl Tool for Interpolate {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec { id: "interpolate", name: "Interpolate Points to Raster", category: "Raster", role: Role::Tool,
+            description: "Make a surface from points that have a number field. IDW: weighted by distance (the power sets how fast influence falls off); Linear: triangulated, no data outside the points' outline; Nearest: value of the closest point; Average: mean of points within the radius. Cell size and radius are in the layer's units. Points without a number are ignored.",
+            inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Raster),
+            params: vec![
+                Param::new("field", "Value field", ParamKind::Field),
+                Param::new("method", "Method", ParamKind::Enum).default("idw").options(&[("idw", "IDW (inverse distance)"), ("linear", "Linear (TIN)"), ("nearest", "Nearest point"), ("average", "Moving average")]),
+                Param::new("cell", "Cell size", ParamKind::Number).default(100),
+                Param::new("power", "IDW power", ParamKind::Number).default(2),
+                Param::new("radius", "Search radius (0: none)", ParamKind::Number).default(0),
+            ] }
+    }
+    fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+        let i = &inputs["in"];
+        let crs = crate::crs::resolve(need_crs(i)?);
+        let field = p.req_str("field", "Value field")?;
+        let gpkg = raster::new_store_path("interpolate_in", "gpkg");
+        ctx.conn.execute_batch(&format!(
+            "COPY (SELECT TRY_CAST({}::VARCHAR AS DOUBLE) AS v, geom FROM {} WHERE geom IS NOT NULL AND ST_GeometryType(geom) = 'POINT' AND TRY_CAST({}::VARCHAR AS DOUBLE) IS NOT NULL) TO {} (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'f', SRS {}, USE_TMP_FILE false)",
+            ident(&field), ident(&i.table), ident(&field), lit(gpkg.to_str().unwrap()), lit(&crs)
+        ))?;
+        let out = ro::interpolate(&gpkg, p.str("method").as_deref().unwrap_or("idw"), p.f64("cell").unwrap_or(0.0), p.f64("power").unwrap_or(2.0), p.f64("radius").unwrap_or(0.0));
+        let _ = std::fs::remove_file(&gpkg);
+        rout(out?, i.crs.clone())
+    }
+}

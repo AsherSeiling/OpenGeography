@@ -814,3 +814,13 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | E3-1 | Cancel | gdaldem (hillshade, slope, aspect, TRI) on projected and geographic rasters, overviews, calculator, resample, align, mosaic, reclassify, band select all stop; uncancelled runs complete | auto: raster_cancel::e3_every_raster_step… |
 | E3-2 | Cancel part-way | a 36-million-cell calculation stops within 5 s of the cancel | auto: raster_cancel::e3_a_cancel_part_way… |
 | E-9 | Raster tools across the CRS zoo | matrix covers vector tools only; raster tools are excluded with a reason and tested in raster_nodes.rs | partial |
+
+## H. Advanced analysis (phase H; design in docs/ANALYSIS_PLAN.md)
+
+| ID | What | Expect | Status |
+|---|---|---|---|
+| H1-1 | Interpolate Points to Raster (linear/TIN) from a 5 × 5 lattice on a plane | cells equal the plane (±1e-3); grid starts on a multiple of the cell size; CRS kept | auto: raster_nodes::h1_interpolate_recovers_a_plane… |
+| H1-2 | IDW, nearest, moving average | whole extent filled (IDW, nearest); a radius limits it; average needs a radius | auto: raster_nodes (IDW); nearest/average to add |
+| H1-3 | Refusals | linear with < 3 points, average without radius, cell size 0, no numeric values → readable sentence | auto: raster_nodes::h1_interpolate_reports… |
+| H1-4 | Cancel and progress | stops on Cancel, no partial file | to automate (uses the shared GDAL progress hook) |
+| H1-5 | Raster store names are unique when two threads write at once | no "already exists" collisions | covered by the parallel raster_nodes tests |

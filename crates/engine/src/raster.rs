@@ -58,7 +58,10 @@ pub fn store_dir() -> PathBuf {
 pub fn new_store_path(stem: &str, ext: &str) -> PathBuf {
     let n = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let safe: String = stem.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    store_dir().join(format!("{safe}_{n:x}.{ext}"))
+    // The clock can repeat on two threads at once; the counter keeps names unique.
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let k = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    store_dir().join(format!("{safe}_{n:x}_{k:x}.{ext}"))
 }
 
 fn cstr(s: &str) -> Result<CString> {

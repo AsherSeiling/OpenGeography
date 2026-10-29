@@ -11,7 +11,7 @@ Decision (user, 2026-10-29): **reuse permissively licensed libraries directly** 
 | 3 | WhiteboxTools | MIT | Hydrology: breach/fill depressions, D8/D-infinity flow direction, flow accumulation, watersheds, stream extraction | **Not published as a crate** (checked crates.io 2026-10-29). Options below |
 | 4 | Small hand-written code from textbook formulas | n/a (formulas are not copyrightable) | Moran's I, Getis-Ord Gi*, Geary's C, kriging variogram fit + solve, NDVI-style indices, k-means / maximum likelihood | Rust, tested against published worked examples |
 
-## Open decision (needs the user): how to ship WhiteboxTools
+## Decided (user, 2026-10-29): option A, sidecar, for hydrology only
 
 - **A. Sidecar executable.** Build `whitebox_tools` from a pinned git tag in CI for each OS, bundle it in `resources/`, run it as a child process with progress parsed from stdout, cancel by killing the process. Pros: full tool set, MIT, no engine dependency churn. Cons: one extra ~20–30 MB binary per platform, a CI build step, a process boundary.
 - **B. Git dependency on the library crates.** Link its raster/hydrology code into the engine. Pros: no sidecar. Cons: pulls a large dependency tree from git, its raster I/O duplicates GDAL, version churn.

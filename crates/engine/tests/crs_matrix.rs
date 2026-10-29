@@ -113,7 +113,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 31] = [
+const EXCLUDED: [(&str, &str); 32] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("layer_output", "writes the result back; covered by every matrix run"),
     ("add_to_map", "a table sink"),
@@ -145,6 +145,7 @@ const EXCLUDED: [(&str, &str); 31] = [
     ("align_raster", "raster tool: raster_nodes.rs (aligns across CRSs, raster_ops.rs)"),
     ("mosaic_rasters", "raster tool: raster_nodes.rs and raster_ops.rs"),
     ("rasterize", "vector to raster in the layer's CRS: raster_nodes.rs"),
+    ("interpolate", "points to raster in the layer's CRS: raster_nodes.rs (H1)"),
 ];
 // zonal_statistics is the 23rd raster tool; the list above is checked by the guard against the registry.
 
