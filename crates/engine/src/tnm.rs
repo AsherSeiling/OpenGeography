@@ -105,6 +105,8 @@ pub struct ElevationPlan {
     pub height_m: f64,
     /// "EPSG:326xx" (one UTM zone) or "EPSG:4326" (wider).
     pub crs: String,
+    /// The output is in degrees (EPSG:4326) rather than a UTM zone.
+    pub geographic: bool,
     /// Output grid: west, north corner and the cell size in CRS units (metres, or degrees for EPSG:4326).
     pub x0: f64,
     pub y0: f64,
@@ -228,7 +230,7 @@ pub fn plan_elevation_with(bbox: [f64; 4], resolution: f64, tile_px: u32) -> Res
         notes.push(format!("The area is too large for {requested_res:.0} m cells (over {} million cells); {used_res:.0} m cells are used.", MAX_CELLS / 1_000_000));
     }
     let (crs, x0, y0, cell, cols, rows) = g;
-    if crs == "EPSG:4326" {
+    if !utm {
         notes.push(if e - w > MAX_UTM_WIDTH_DEG {
             format!("The area is {:.1}° wide, more than one UTM zone, so the elevation is kept in geographic coordinates (EPSG:4326, cells of {cell:.6}°). East–west cells get narrower toward the poles.", e - w)
         } else {
@@ -247,6 +249,7 @@ pub fn plan_elevation_with(bbox: [f64; 4], resolution: f64, tile_px: u32) -> Res
         width_m,
         height_m,
         crs,
+        geographic: !utm,
         x0,
         y0,
         cell,

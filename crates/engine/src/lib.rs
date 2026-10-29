@@ -264,7 +264,7 @@ impl Engine {
             task.check()
         })?;
         let id = self.alloc_id();
-        let cells = if plan.crs == "EPSG:4326" { format!("~{:.0} m", plan.used_res) } else { format!("{:.0} m", plan.used_res) };
+        let cells = if plan.geographic { format!("~{:.0} m", plan.used_res) } else { format!("{:.0} m", plan.used_res) };
         let name = format!("Elevation (3DEP {cells}) — {area_label}");
         let info = layers::raster_layer(&id, &name, &path, Some("USGS 3DEP elevation (The National Map)".into()))?;
         self.with_conn(|c| {
