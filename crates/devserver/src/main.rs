@@ -188,6 +188,17 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             engine::progress::cancel(a["id"].as_u64().unwrap_or(0));
             json!(null)
         }
+        "census_datasets" => json!(engine::census::DATASETS),
+        // The browser build has no keychain: the key comes from the environment of the dev server and can't be set from the page.
+        "census_key_status" => json!(std::env::var("GIS_CENSUS_KEY").is_ok_and(|k| !k.trim().is_empty())),
+        "census_key_set" | "census_key_delete" => return Err(anyhow::anyhow!("The browser test build has no system keychain. Set GIS_CENSUS_KEY in the environment of the dev server.")),
+        "census_join" => {
+            let spec: engine::census::Spec = de(a, "spec")?;
+            let key = std::env::var("GIS_CENSUS_KEY").ok();
+            let r = e.census_join(&s(a, "layer")?, &s(a, "geoidField")?, &spec, key.as_deref())?;
+            let _ = e.prewarm(&r.layer.id, 8, &[]);
+            json!(r)
+        }
         "arcgis_catalog" => json!(engine::arcgis::catalog()),
         "arcgis_layers" => json!(engine::arcgis::describe_service(&s(a, "url")?)?),
         "arcgis_import" => {

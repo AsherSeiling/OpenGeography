@@ -737,3 +737,16 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | D1-7 | Empty area, JSON error, HTTP 500, unreachable, not ArcGIS | nothing added / readable sentence naming the host | auto: arcgis::d1_an_empty_area… |
 | D1-8 | Real services | every catalog entry answers a small query | ignored network: arcgis::d1_real_catalog_entries_answer |
 | D1-9 | Dialog | catalog, source and licence shown before download; bad address explained; Download disabled until a layer is chosen | auto: e2e/arcgis.spec.ts |
+
+## D2. Census data join and keychain (phase D2)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| D2-1 | Variable codes | upper-cased, de-duplicated; spaces, `;`, > 40 refused before any request | auto: census::d2_variable_codes…; ui census/presets.test.ts |
+| D2-2 | Tract join across two states | one request per state; values by GEOID; no feature lost; unmatched and suppressed counted; Bureau markers (−666666666) stored as no value; source layer untouched; cited with the Census disclaimer; inherits the source's citations | auto: census::d2_tracts… |
+| D2-3 | Joining twice | refused: never overwrites a field | auto: census::d2_tracts… |
+| D2-4 | GEOIDs stored as numbers | leading zero restored (1 → 01); level guessed from length (2/5/11/12); odd length asks for the level | auto: census::d2_numbers… |
+| D2-5 | Failures | unknown variable, wrong key, missing year, unreachable, missing field: sentences; the key never appears in a message | auto: census::d2_failures… |
+| D2-6 | Real API | Oklahoma County population > 600 000 | ignored network: census::d2_real_api… |
+| D2-7 | Dialog | GEOID field guessed, presets per dataset, bad codes block Join, years per dataset, the browser build says it has no keychain | auto: e2e/census.spec.ts |
+| D2-8 | Keychain (manual, per OS) | Save a key; restart the app; the dialog says a key is saved and a join uses it (no key in the request log, project file or error text); Remove deletes it | manual M-31 (macOS, Windows, Linux); not verified on any OS yet |

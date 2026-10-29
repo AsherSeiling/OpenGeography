@@ -243,3 +243,9 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - The catalog is JSON (`assets/arcgis_catalog.json`), each entry with its own citation; all five endpoints were checked against the live services on 2026-10-28 (PAD-US 3.0 manager name, FEMA NFHL zones and boundaries, NWI wetlands, NIFC current perimeters). Entries that need more than one layer per dataset merge them with CATEGORY. Adding a dataset is adding a JSON object.
 - A pasted address gets a citation stub (`complete: false`) the user finishes in Sources; the service host appears in every error.
 - Not in D1: state portals, per-entry field pickers, clipping to a polygon (the National Map dialog does that).
+
+### D2 — Census join and keychain
+- The join is a command with a dialog, not a model node: a node would put a network request inside every model run (not reproducible offline, slow re-runs). A node that reads an already-joined layer needs nothing new.
+- The key lives in the OS keychain (`keyring` crate, only in the Tauri shell; Linux uses the Secret Service with the vendored dbus build). The UI can save, check for and delete it; nothing returns it. The shell reads it for one request and passes it to the engine, which never stores it and redacts it from messages. The browser test build has no keychain and says so (key from `GIS_CENSUS_KEY` for dev).
+- Level and states come from the GEOIDs (length after restoring leading zeros), so one request per state; the Bureau's "no value" markers become NULL and are counted.
+- `THIRD_PARTY_NOTICES.md` was NOT regenerated: the script reads the local Homebrew bundle, which links GPL-only poppler, x265 and librttopo (the CI conda/Windows builds do not). Regenerate it from a CI build at the final push, adding `keyring`.
