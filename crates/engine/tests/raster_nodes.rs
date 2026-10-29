@@ -1,0 +1,146 @@
+//! The raster foundation tools as model nodes (phases E1, E2): parameters, ports, CRS carried through, readable errors in the node.
+
+use engine::graph::{Graph, NodeResult, Status};
+use engine::Engine;
+use serde_json::{json, Value};
+use std::path::Path;
+
+const X0: f64 = 600_000.0;
+const Y0: f64 = 3_900_000.0;
+
+fn dem(path: &Path, size: usize, x0: f64, cell: f64, epsg: u32, nodata: Option<f64>, f: impl Fn(usize, usize) -> f32) {
+    let drv = gdal::DriverManager::get_driver_by_name("GTiff").unwrap();
+    let mut ds = drv.create_with_band_type::<f32, _>(path, size, size, 1).unwrap();
+    ds.set_geo_transform(&[x0, cell, 0.0, Y0, 0.0, -cell]).unwrap();
+    ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(epsg).unwrap()).unwrap();
+    let mut band = ds.rasterband(1).unwrap();
+    if let Some(nd) = nodata {
+        band.set_no_data_value(Some(nd)).unwrap();
+    }
+    let data: Vec<f32> = (0..size * size).map(|i| f(i / size, i % size)).collect();
+    band.write((0, 0), (size, size), &mut gdal::raster::Buffer::new((size, size), data)).unwrap();
+}
+
+fn pixel(path: &str, col: isize, row: isize) -> f32 {
+    let ds = gdal::Dataset::open(path).unwrap();
+    ds.rasterband(1).unwrap().read_as::<f32>((col, row), (1, 1), (1, 1), None).unwrap().data()[0]
+}
+
+fn size(path: &str) -> (usize, usize) {
+    gdal::Dataset::open(path).unwrap().raster_size()
+}
+
+fn run(e: &Engine, tool: &str, params: Value, inputs: &[&str]) -> NodeResult {
+    let spec = e.tool_specs().into_iter().find(|s| s.id == tool).unwrap_or_else(|| panic!("no tool {tool}"));
+    let mut nodes = vec![json!({"id": "t", "tool": tool, "params": params})];
+    let mut edges = vec![];
+    for (i, l) in inputs.iter().enumerate() {
+        nodes.push(json!({"id": format!("in{i}"), "tool": "input_layer", "params": {"layer": l}}));
+        edges.push(json!({"source": format!("in{i}"), "target": "t", "targetHandle": spec.inputs[i].id}));
+    }
+    let g: Graph = serde_json::from_value(json!({"nodes": nodes, "edges": edges})).unwrap();
+    e.run_graph(&g, Some("t"), &mut |_| {}).unwrap().into_iter().find(|r| r.id == "t").unwrap()
+}
+
+fn ok(e: &Engine, tool: &str, params: Value, inputs: &[&str]) -> NodeResult {
+    let r = run(e, tool, params, inputs);
+    assert!(matches!(r.status, Status::Done | Status::Cached), "{tool}: {:?} {:?}", r.status, r.error);
+    r
+}
+
+fn import(e: &Engine, p: &Path) -> String {
+    e.import(p).unwrap().remove(0).id
+}
+
+#[test]
+fn e1_nodes_calculate_reclassify_fill_and_select() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let a = dir.path().join("a.tif");
+    let b = dir.path().join("b.tif");
+    dem(&a, 20, X0, 30.0, 32614, Some(-9999.0), |r, c| if r == 5 && c == 5 { -9999.0 } else { (r * 100 + c) as f32 });
+    dem(&b, 20, X0, 30.0, 32614, None, |_, _| 2.0);
+    let (ia, ib) = (import(&e, &a), import(&e, &b));
+
+    let feet = ok(&e, "raster_calc", json!({"expr": "A * 3.28084"}), &[&ia]);
+    assert_eq!(feet.crs.as_deref(), Some("EPSG:32614"));
+    let out = feet.output.as_ref().unwrap();
+    assert!((pixel(out, 3, 2) as f64 - 203.0 * 3.28084).abs() < 1e-2);
+    assert_eq!(pixel(out, 5, 5), engine::raster_ops::OUT_NODATA as f32);
+
+    let two = ok(&e, "raster_calc2", json!({"expr": "A / B"}), &[&ia, &ib]);
+    assert_eq!(pixel(two.output.as_ref().unwrap(), 4, 4), 202.0);
+
+    // A bad expression is the node's error, in words.
+    let bad = run(&e, "raster_calc", json!({"expr": "A +"}), &[&ia]);
+    assert!(matches!(bad.status, Status::Error) && bad.error.as_deref().unwrap_or("").contains("is not valid"), "{:?}", bad.error);
+
+    let rc = ok(&e, "reclassify", json!({"band": 1, "rules": "0 to 100 = 1\n100 to 1000 = 2\nnodata = 0\nelse = nodata"}), &[&ia]);
+    let ro = rc.output.as_ref().unwrap();
+    assert_eq!((pixel(ro, 3, 0), pixel(ro, 3, 2), pixel(ro, 5, 5)), (1.0, 2.0, 0.0));
+    let bad = run(&e, "reclassify", json!({"band": 1, "rules": "0 to 10"}), &[&ia]);
+    assert!(bad.error.as_deref().unwrap_or("").contains("equals sign"), "{:?}", bad.error);
+
+    let filled = ok(&e, "nodata", json!({"mode": "fill", "distance": 5, "smoothing": 0}), &[&ia]);
+    let v = pixel(filled.output.as_ref().unwrap(), 5, 5);
+    assert!((v - 505.0).abs() < 30.0, "the hole is filled from its neighbours (inverse-distance interpolation is not exact on a slope): {v}");
+    let declared = ok(&e, "nodata", json!({"mode": "declare", "value": 0}), &[&ib]);
+    assert!(declared.output.is_some());
+    let replaced = ok(&e, "nodata", json!({"mode": "replace", "value": 0}), &[&ia]);
+    assert_eq!(pixel(replaced.output.as_ref().unwrap(), 5, 5), 0.0);
+
+    let sel = ok(&e, "select_bands", json!({"bands": "1"}), &[&ia]);
+    assert_eq!(size(sel.output.as_ref().unwrap()), (20, 20));
+    assert!(run(&e, "select_bands", json!({"bands": "2"}), &[&ia]).error.unwrap_or_default().contains("band 2 does not exist"));
+}
+
+#[test]
+fn e2_nodes_resample_align_mosaic() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let a = dir.path().join("a.tif");
+    let right = dir.path().join("right.tif");
+    let coarse = dir.path().join("coarse.tif");
+    dem(&a, 20, X0, 30.0, 32614, Some(-9999.0), |_, _| 1.0);
+    dem(&right, 20, X0 + 600.0, 30.0, 32614, Some(-9999.0), |_, _| 2.0);
+    dem(&coarse, 10, X0, 60.0, 32614, None, |_, _| 5.0);
+    let (ia, ir, ic) = (import(&e, &a), import(&e, &right), import(&e, &coarse));
+
+    let rs = ok(&e, "resample_raster", json!({"cell": 15, "resampling": "near"}), &[&ia]);
+    assert_eq!(size(rs.output.as_ref().unwrap()), (40, 40));
+    assert_eq!(rs.crs.as_deref(), Some("EPSG:32614"));
+    assert!(run(&e, "resample_raster", json!({"cell": 0, "resampling": "near"}), &[&ia]).error.unwrap_or_default().contains("greater than 0"));
+
+    let al = ok(&e, "align_raster", json!({"resampling": "near"}), &[&ic, &ia]);
+    assert_eq!(size(al.output.as_ref().unwrap()), (20, 20), "the coarse raster is on the 30 m grid of the reference");
+    assert_eq!(pixel(al.output.as_ref().unwrap(), 4, 4), 5.0);
+
+    let m = ok(&e, "mosaic_rasters", json!({"resampling": "near"}), &[&ia, &ir]);
+    let mo = m.output.as_ref().unwrap();
+    assert_eq!(size(mo), (40, 20));
+    assert_eq!((pixel(mo, 0, 0), pixel(mo, 39, 19)), (1.0, 2.0));
+}
+
+#[test]
+fn e2_rasterize_node_burns_a_field_in_the_layers_crs() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    let gpkg = dir.path().join("z.gpkg");
+    c.execute_batch(&format!(
+        "COPY (SELECT * FROM (VALUES (1, 4.5, ST_GeomFromText('POLYGON((600000 3899000, 600100 3899000, 600100 3899100, 600000 3899100, 600000 3899000))')),
+                                     (2, 9.5, ST_GeomFromText('POLYGON((600100 3899000, 600200 3899000, 600200 3899100, 600100 3899100, 600100 3899000))'))) t(id, val, geom))
+         TO '{}' (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'z', SRS 'EPSG:32614', USE_TMP_FILE false)",
+        gpkg.display()
+    ))
+    .unwrap();
+    let id = import(&e, &gpkg);
+    let r = ok(&e, "rasterize", json!({"field": "val", "cell": 20}), &[&id]);
+    assert_eq!(r.crs.as_deref(), Some("EPSG:32614"));
+    let out = r.output.as_ref().unwrap();
+    assert_eq!(size(out), (10, 5));
+    assert_eq!((pixel(out, 1, 1), pixel(out, 8, 1)), (4.5, 9.5));
+    let ones = ok(&e, "rasterize", json!({"cell": 50}), &[&id]);
+    assert_eq!(pixel(ones.output.as_ref().unwrap(), 0, 0), 1.0);
+}

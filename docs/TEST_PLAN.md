@@ -796,3 +796,21 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | D6-5 | Real services | Oklahoma magnitude 3+ since 2024; soil units in Norman | ignored network: jsonapis::d6_real_services (passes) |
 | D6-6 | Dialog | soils blocked for a large area, quake date errors explained | auto: e2e/hazards.spec.ts |
 | D6-7 | WMS / WMTS display, NASA POWER | not built (see DECISIONS D6) | deferred |
+
+## E. Raster foundation (phases E1, E2, E3)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| E1-1 | Raster calculator | `A * 2 + 1`, two rasters, comparisons, `if`, `sqrt`, `exp/ln`, `pow`, `max`; no-data in → no-data out; division by zero and √(negative) → no data; CRS and grid kept | auto: raster_ops::e1_calculator_evaluates… |
+| E1-2 | Calculator refusals | empty, malformed, unknown variable, rasters on different grids / CRS → say "use Align Raster" | auto: raster_ops::e1_calculator_explains… |
+| E1-3 | Reclassify | ranges, exact values, `nodata =`, `else =`; overlaps, missing `=`, reversed range, band that does not exist refused in words | auto: raster_ops::e1_reclassify… |
+| E1-4 | NoData | declare a value, replace no-data with a value, fill by interpolation (all hole cells filled, near the plane); no-flag and bad distance refused | auto: raster_ops::e1_nodata_tools… |
+| E1-5 | Select bands | order kept; band 0, too high, non-number, empty refused | auto: raster_ops::e1_band_select… |
+| E2-1 | Resample | 10 m → 5 m / 20 m cells; 0 and absurd sizes (> 400 million cells) refused; unknown method named | auto: raster_ops::e2_resample… |
+| E2-2 | Align | a geographic raster lands on a UTM reference's exact grid (extent, cell size, CRS) with values; no-CRS raster refused | auto: raster_ops::e2_align… |
+| E2-3 | Mosaic | two neighbours: 20 × 10 cells, no seam; one raster refused; different CRS reprojected | auto: raster_ops::e2_mosaic… |
+| E2-4 | Rasterize | field values or 1, grid starts on a multiple of the cell size, no-data elsewhere; bad cell size and unknown field refused | auto: raster_ops::e2_rasterize… |
+| E1/E2-6 | As model nodes | ports, parameters, CRS carried, node errors in words | auto: raster_nodes.rs; e2e/raster-tools.spec.ts (catalog) |
+| E3-1 | Cancel | gdaldem (hillshade, slope, aspect, TRI) on projected and geographic rasters, overviews, calculator, resample, align, mosaic, reclassify, band select all stop; uncancelled runs complete | auto: raster_cancel::e3_every_raster_step… |
+| E3-2 | Cancel part-way | a 36-million-cell calculation stops within 5 s of the cancel | auto: raster_cancel::e3_a_cancel_part_way… |
+| E-9 | Raster tools across the CRS zoo | matrix covers vector tools only; raster tools are excluded with a reason and tested in raster_nodes.rs | partial |

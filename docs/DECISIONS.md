@@ -267,3 +267,11 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 ### D6 — JSON APIs and soils
 - Built: USGS earthquakes (FDSN GeoJSON; Oklahoma-size queries stay under the 20 000-event limit, larger ones are told to narrow) and NRCS SSURGO map units through Soil Data Access (polygon intersection query; area limited to 0.25° because the polygons are large). Both verified against the live services.
 - Not built, on purpose: **WMS/WMTS display** (a new map layer type in the OpenLayers view with its own CRS and legend handling: its own task, and the layout renderer would need to print it) and **NASA POWER** (a time series for a point, a table rather than a map layer; it belongs with the future table/chart tools). The ribbon has no placeholder for either.
+
+### E — Raster foundation (E1–E3)
+- Reuse over reimplementation (user's usage concern, 2026-10-29): GDAL does translate, warp, mosaic, fill-nodata, rasterize and gdaldem; the calculator evaluates expressions with the MIT `fasteval` crate instead of a hand-written parser, and adds the functions raster people expect (`sqrt exp ln pow atan2 if`) through its namespace hook. QGIS algorithm ids are cited, no QGIS code is used.
+- The calculator reads blocks of 128 rows, so memory does not grow with raster size; inputs must share one grid (otherwise "use Align Raster"), which keeps results honest instead of silently resampling.
+- Output raster rules: Float32, tiled DEFLATE GeoTIFF with overviews, no-data -3.4e38 for tools that create values, CRS copied from the input (Align and Mosaic: from the reference / first raster). Rasterize starts its grid on a multiple of the cell size so the same layer and cell size give the same cells.
+- Reclassify ranges are `from <= x < to` and may not overlap (the result must not depend on rule order).
+- E3: gdaldem already stopped through GDAL's progress hook; what was missing was cancel for overviews (now `GDALBuildOverviews` with the hook) and a test for all steps. Known issue 1 ("gdaldem steps can't be cancelled") is closed.
+- Vector tools still go through the CRS matrix; raster tools are excluded from it with a reason and covered in `raster_nodes.rs`.

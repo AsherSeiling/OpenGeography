@@ -38,7 +38,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 | Validation vs execution status | ✅ | port checks at connect/insert/run; changed-since-last-run marker; Output flags previous/outdated results |
 | Execution: topo order, SHA-256 session cache, skip downstream of failures | ✅ | cache key has no tool version (cache is per session, so acceptable) |
 | Progress for model runs | ✅ | step n of N |
-| Cancel a model run | ✅ | DuckDB interrupt + step checks; atomic result writes; slow for per-feature geodesic tools; GDAL raster steps finish first |
+| Cancel a model run | ✅ | DuckDB interrupt + step checks; atomic result writes; GDAL raster steps (incl. gdaldem and overviews) stop through the progress hook (`tests/raster_cancel.rs`) |
 | Copy/paste, duplicate, mute, collapse, make links | ✅ | auto-layout ⬜ |
 | Attribute history between nodes ("git for tables") | ✅ | B2.1 (persisted node cache), B2.2 (engine diff + node-rows commands, `history.rs`) and B2.3 (table pane UI: node picker, diff bar, node-card menu) done 2026-10-23. Designed 2026-10-23 in `docs/ATTRIBUTE_HISTORY_PLAN.md` (build B2.1–B2.3). Requested 2026-10-23: keep each node's output table as a versioned snapshot (what changed vs. the previous node: rows added/removed, fields added/changed); the Attribute Table shows the Output by default with a picker to view any earlier node's table and its diff. Builds on the node cache tables (`__node_<hash>`), which currently live only for a session. |
 | Model tests (graph semantics, persistence) | 🟡 | engine tests cover every tool (`tests/tools.rs`, `tests/rasters.rs`); UI graph ops covered by `nodeEditor.test.ts` and `modelStore.test.ts`; no component-level tests of the canvas (manual M-14 in the test plan) |
@@ -51,7 +51,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 | Union, symmetrical difference, singlepart→multipart (Collect) | ✅ |
 | Concave hull (Minimum Bounding Geometry), Delaunay triangulation | ✅ |
 | Raster: contours, hillshade, slope, aspect, ruggedness, clip, warp, polygonize, sample, zonal stats | 🟡 (tested on analytic grids in `tests/rasters.rs`; open bugs B-T5 Warp crash on invalid CRS, B-T7 Warp of a CRS-less raster, B-T6 — see `docs/BUGS.md`) |
-| Raster missing: calculator, reclassify, resample/align, mosaic, rasterize, NoData tools, band select | ⬜ |
+| Raster foundation: calculator, reclassify, resample, align, mosaic, rasterize, NoData tools, band select | ✅ (2026-10-29, `tests/raster_ops.rs`, `raster_nodes.rs`, `raster_cancel.rs`) |
 | Hydrology, interpolation, spatial statistics, remote sensing | ⬜ |
 | Measure, MGRS, resection/intersection | ✅ |
 
@@ -84,7 +84,7 @@ P0 baseline — done 2026-10-23 (all tests green on macOS).
 P1 release reliability — CI green on macOS, Linux and Windows (done 2026-10-23). GPL-free GDAL, bundled-data precedence and project-portable rasters done. Remaining: hands-on Windows/Linux checks, release workflow, macOS notarization and Intel build.
 P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts. Deleted-layer references flagged and one undo step per parameter edit also done. Remaining: **attribute history between nodes**, UI graph tests.
 P3 processing correctness — parameter validation; missing vector tools (union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay).
-P4 raster foundation — calculator, alignment, NoData, resample, mosaic.
+P4 raster foundation — done 2026-10-29 (calculator, alignment, NoData, resample, mosaic, rasterize, reclassify, band select).
 P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; docs/PUBLIC_DATA_CATALOG.md), Census join, NAIP, NASA.
 P6 layouts (designed: `docs/LAYOUTS_PLAN.md`; C2.1–C2.4 ✅ — page, frames, legend, scale bar, north arrow, sources, graticule/grid, rasters, USGS basemaps; C3.1–C3.2 templates and map series ⬜), then the Topo Map Builder.
 P7 Python tool SDK + headless CLI.
