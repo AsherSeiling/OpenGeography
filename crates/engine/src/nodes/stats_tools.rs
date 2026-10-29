@@ -5,7 +5,7 @@ use super::*;
 use crate::spatial_stats as ss;
 
 /// Rows with a geometry and a number in `field`: (row number, value, x, y) from the feature's centroid. The row number is DuckDB's scan order, which is the table's insertion order (the same in `HotSpots` when it joins the results back).
-fn read_points(ctx: &Ctx, i: &Rel, field: &str) -> Result<Vec<(i64, f64, f64, f64)>> {
+pub(super) fn read_points(ctx: &Ctx, i: &Rel, field: &str) -> Result<Vec<(i64, f64, f64, f64)>> {
     let crs = need_crs(i)?;
     if crate::crs::is_geographic(crs) {
         bail!("Spatial statistics measure distances between features, so the layer must be in a projected coordinate system (metres or feet), not degrees. Add a Project step first.");
@@ -104,5 +104,36 @@ impl Tool for HotSpots {
             crs: i.crs.clone(),
             view: false,
         })
+    }
+}
+
+pub struct Kriging;
+impl Tool for Kriging {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec { id: "kriging", name: "Kriging (Ordinary)", category: "Raster", role: Role::Tool,
+            description: "Make a surface from points with a number field, plus how uncertain it is. The spatial pattern of the values is measured (a variogram) and fitted with a spherical, exponential or Gaussian model, or all three with the best kept (Auto); leave nugget, sill and range empty to fit them, or fill all three to use your own. Band 1 is the prediction, band 2 the kriging variance (higher = less certain). The layer must be in a projected coordinate system; cell size and range are in its units. The fitted model is stored in the raster's VARIOGRAM metadata. Points at the same place are averaged.",
+            inputs: vec![Port { id: "in", label: "Points", kind: PortKind::Vector }], output: Some(PortKind::Raster),
+            params: vec![
+                Param::new("field", "Value field", ParamKind::Field).field_of("in"),
+                Param::new("model", "Variogram model", ParamKind::Enum).default("auto").options(&[("auto", "Auto (best fit)"), ("spherical", "Spherical"), ("exponential", "Exponential"), ("gaussian", "Gaussian")]),
+                Param::new("cell", "Cell size", ParamKind::Number).default(100),
+                Param::new("neighbours", "Neighbours used per cell", ParamKind::Number).default(12),
+                Param::new("nugget", "Nugget (empty: fit)", ParamKind::Number).optional(),
+                Param::new("sill", "Partial sill (empty: fit)", ParamKind::Number).optional(),
+                Param::new("range", "Range (empty: fit)", ParamKind::Number).optional(),
+            ] }
+    }
+    fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+        let i = &inputs["in"];
+        let field = p.req_str("field", "Value field")?;
+        let pts: Vec<(f64, f64, f64)> = read_points(ctx, i, &field)?.into_iter().map(|r| (r.2, r.3, r.1)).collect();
+        let model = crate::kriging::Model::parse(p.str("model").as_deref().unwrap_or("auto"))?;
+        let fixed = match (p.f64("nugget"), p.f64("sill"), p.f64("range")) {
+            (None, None, None) => None,
+            (Some(n), Some(s), Some(r)) => Some((n, s, r)),
+            _ => bail!("Give all of nugget, sill and range to use your own variogram, or leave all three empty to fit one"),
+        };
+        let (path, _v) = crate::kriging::run(&pts, model, fixed, p.f64("cell").unwrap_or(0.0), p.f64("neighbours").unwrap_or(12.0) as usize, need_crs(i)?)?;
+        Ok(Output::Raster { path: path.display().to_string(), crs: i.crs.clone() })
     }
 }

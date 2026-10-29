@@ -18,7 +18,7 @@ const BLOCK_ROWS: usize = 128;
 /// Most cells an output may have (a guard against a mistyped cell size).
 pub const MAX_CELLS: u64 = 400_000_000;
 
-fn cancelled() -> Result<()> {
+pub(crate) fn cancelled() -> Result<()> {
     if crate::progress::run_cancelled() {
         bail!(crate::progress::CANCELLED);
     }
@@ -58,7 +58,7 @@ fn same_grid(a: &Grid, b: &Grid, what: &str) -> Result<()> {
     Ok(())
 }
 
-fn create_like(out: &Path, g: &Grid, bands: usize, nodata: Option<f64>) -> Result<Dataset> {
+pub(crate) fn create_like(out: &Path, g: &Grid, bands: usize, nodata: Option<f64>) -> Result<Dataset> {
     let opts = RasterCreationOptions::from_iter(["TILED=YES", "COMPRESS=DEFLATE", "PREDICTOR=3", "BIGTIFF=IF_SAFER"]);
     let drv = gdal::DriverManager::get_driver_by_name("GTiff")?;
     let mut ds = drv
@@ -378,7 +378,7 @@ pub fn select_bands(src: &Path, bands: &str) -> Result<PathBuf> {
 
 // ---------------------------------------------------------------- E2
 
-fn check_cells(cols: f64, rows: f64) -> Result<()> {
+pub(crate) fn check_cells(cols: f64, rows: f64) -> Result<()> {
     if !(cols.is_finite() && rows.is_finite()) || cols * rows > MAX_CELLS as f64 {
         bail!("That would make a raster of {:.0} million cells ({} × {}); the limit is {} million. Use a larger cell size.", cols * rows / 1e6, cols as u64, rows as u64, MAX_CELLS / 1_000_000);
     }

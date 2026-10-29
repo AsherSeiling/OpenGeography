@@ -67,3 +67,56 @@ fn h3_nodes_refuse_geographic_layers_and_bad_input_in_words() {
     let r = run(&e, "hot_spots", json!({"field": "val", "k": 0}), &utm);
     assert!(r.error.as_deref().unwrap_or("").contains("whole number"), "{:?}", r.error);
 }
+
+fn surface_layer(e: &Engine, dir: &Path, epsg: &str) -> String {
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    let gpkg = dir.join(format!("s_{epsg}.gpkg").replace(':', "_"));
+    let mut rows = vec![];
+    for i in 0..9 {
+        for j in 0..9 {
+            let (x, y) = (600_000.0 + i as f64 * 100.0 + ((i * 7 + j * 3) % 5) as f64, 3_900_000.0 + j as f64 * 100.0 + ((i * 2 + j * 11) % 7) as f64);
+            rows.push(format!("({}::DOUBLE, ST_GeomFromText('POINT({x} {y})'))", 10.0 + 0.01 * (x - 600_000.0) + 0.02 * (y - 3_900_000.0)));
+        }
+    }
+    c.execute_batch(&format!("COPY (SELECT * FROM (VALUES {}) t(val, geom)) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'p', SRS '{epsg}', USE_TMP_FILE false)", rows.join(","), gpkg.display())).unwrap();
+    e.import(&gpkg).unwrap().remove(0).id
+}
+
+#[test]
+fn h2_kriging_node_gives_prediction_and_variance_bands_in_the_layers_crs() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let id = surface_layer(&e, dir.path(), "EPSG:32614");
+    let r = run(&e, "kriging", json!({"field": "val", "cell": 50, "model": "auto"}), &id);
+    assert!(matches!(r.status, Status::Done | Status::Cached), "{:?}", r.error);
+    assert_eq!(r.crs.as_deref(), Some("EPSG:32614"));
+    let ds = gdal::Dataset::open(r.output.as_ref().unwrap()).unwrap();
+    assert_eq!(ds.raster_count(), 2);
+    let (cols, rows) = ds.raster_size();
+    assert!(cols >= 16 && rows >= 16, "{cols} x {rows}");
+    // The middle of the grid: x = 600_400, y = 3_900_400 → z = 10 + 4 + 8 = 22 (the surface is a plane).
+    let (c, rw) = (((600_400.0f64 - ds.geo_transform().unwrap()[0]) / 50.0) as isize, ((ds.geo_transform().unwrap()[3] - 3_900_400.0) / 50.0) as isize);
+    let z = ds.rasterband(1).unwrap().read_as::<f32>((c, rw), (1, 1), (1, 1), None).unwrap().data()[0];
+    let var = ds.rasterband(2).unwrap().read_as::<f32>((c, rw), (1, 1), (1, 1), None).unwrap().data()[0];
+    assert!((z - 22.0).abs() < 0.3, "{z}");
+    assert!(var >= 0.0 && var.is_finite());
+    use gdal::Metadata;
+    assert!(ds.metadata_item("VARIOGRAM", "").unwrap_or_default().contains("range="));
+}
+
+#[test]
+fn h2_kriging_node_refuses_geographic_layers_and_partial_variograms_in_words() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let geo = grid_layer(&e, dir.path(), "EPSG:4326", false, 0.1, -100.0, 35.0);
+    let r = run(&e, "kriging", json!({"field": "val", "cell": 0.05}), &geo);
+    assert!(r.error.as_deref().unwrap_or("").contains("projected coordinate system"), "{:?}", r.error);
+    let utm = surface_layer(&e, dir.path(), "EPSG:32614");
+    let r = run(&e, "kriging", json!({"field": "val", "cell": 50, "nugget": 0.1}), &utm);
+    assert!(r.error.as_deref().unwrap_or("").contains("all of nugget, sill and range"), "{:?}", r.error);
+    let r = run(&e, "kriging", json!({"field": "val", "cell": 50, "nugget": 0.0, "sill": 4.0, "range": 300.0, "neighbours": 3}), &utm);
+    assert!(r.error.as_deref().unwrap_or("").contains("between 8 and 32"), "{:?}", r.error);
+    let ok = run(&e, "kriging", json!({"field": "val", "cell": 50, "model": "exponential", "nugget": 0.0, "sill": 4.0, "range": 300.0}), &utm);
+    assert!(matches!(ok.status, Status::Done | Status::Cached), "{:?}", ok.error);
+}

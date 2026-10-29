@@ -7,6 +7,7 @@ pub mod crs;
 pub mod arcgis;
 pub mod raster_ops;
 pub mod spatial_stats;
+pub mod kriging;
 pub mod jsonapis;
 pub mod ogcapi;
 pub mod overture;
