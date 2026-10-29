@@ -1170,3 +1170,19 @@ fn lb1_font_list_is_sorted_unique_and_clean_names_are_attribute_safe() {
     assert!(l.windows(2).all(|w| w[0].name < w[1].name), "sorted, no duplicates");
     assert_eq!(engine::fonts::clean_name("A\"b'<c>&;d, e"), "Abcd e");
 }
+
+#[test]
+fn lb1_text_element_can_use_an_installed_family() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let Some(f) = engine::fonts::list().into_iter().next() else { return };
+    let mut req = request(&ids, categorized());
+    if let engine::layout::model::Element::Text { family, .. } = &mut req.layout.elements[1] {
+        *family = Some(f.name.clone());
+    } else {
+        panic!("second element is the title");
+    }
+    let out = render(&e, &req);
+    assert!(out.svg.contains(&format!("font-family=\"'{}', Noto Sans\"", f.name)), "title uses the family");
+    assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF-"));
+}

@@ -106,6 +106,8 @@ export interface TextElement extends Placement {
   kind: "text";
   text: string;
   font: "sans" | "sans-bold" | "sans-italic";
+  /** An installed font family used in place of the bundled face. */
+  family?: string;
   size: number;
   align: "left" | "center" | "right";
   color: string;

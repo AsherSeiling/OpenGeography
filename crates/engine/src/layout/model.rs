@@ -194,6 +194,9 @@ pub enum Element {
         /// "sans" | "sans-bold" | "sans-italic".
         #[serde(default = "sans")]
         font: String,
+        /// An installed font family (`fonts::list`) used in place of the bundled face; the weight/style of `font` still applies. Missing → Noto Sans.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        family: Option<String>,
         #[serde(default = "size_pt")]
         size: f64,
         /// "left" | "center" | "right".
