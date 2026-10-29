@@ -171,3 +171,11 @@ pub fn init() {
         std::env::set_var("GDAL_DRIVER_PATH", dir.join("gdalplugins"));
     }
 }
+
+/// The WhiteboxTools command-line program (MIT, https://github.com/jblindsay/whitebox-tools) shipped for the hydrology tools.
+/// `GIS_STUDIO_WHITEBOX` points at a copy elsewhere (development, tests); None when it is not installed.
+pub fn whitebox_exe() -> Option<PathBuf> {
+    let name = format!("whitebox_tools{}", std::env::consts::EXE_SUFFIX);
+    let candidates = [std::env::var_os("GIS_STUDIO_WHITEBOX").map(PathBuf::from), dir().map(|d| d.join("whitebox").join(&name))];
+    candidates.into_iter().flatten().find(|p| p.is_file())
+}

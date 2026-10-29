@@ -44,3 +44,6 @@ cp -L "$ROOT"/crates/engine/assets/proj-grids/*.tif "$OUT/proj/"
 touch "$OUT/gdalplugins/.keep"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$OUT/THIRD_PARTY_NOTICES.md"
 echo "Staged resources for $PLATFORM in $OUT ($(du -sh "$OUT" | cut -f1))"
+
+# WhiteboxTools program for the hydrology tools (MIT; built from a pinned release, see the script). WHITEBOX_SKIP=1 leaves it out.
+if [ -z "${WHITEBOX_SKIP:-}" ]; then "$ROOT/scripts/build-whitebox.sh"; fi

@@ -10,6 +10,7 @@ GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source softwar
 | PROJ data files (proj.db, grids) | MIT (PROJ); grids per their providers | https://proj.org/ |
 | GDAL data files | MIT | https://gdal.org/ |
 | DuckDB spatial extension | MIT | https://github.com/duckdb/duckdb-spatial |
+| WhiteboxTools program (hydrology tools), © John Lindsay; built from release v2.4.0 and shipped as a separate program | MIT | https://github.com/jblindsay/whitebox-tools |
 | World Magnetic Model 2025 coefficients (via `geomagnetism`) | Public domain (NOAA NCEI / British Geological Survey) | https://www.ncei.noaa.gov/products/world-magnetic-model |
 | Noto Sans Regular, Bold, Italic (`crates/engine/assets/fonts/`, embedded in print layouts; license text in `OFL.txt` there) | SIL Open Font License 1.1, © The Noto Project Authors | https://github.com/notofonts/latin-greek-cyrillic |
 | Extra CRS definitions (`crates/engine/assets/extra_crs.json`) | Derived from PROJ / EPSG (terms above) | https://proj.org/ |

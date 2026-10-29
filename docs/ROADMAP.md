@@ -52,7 +52,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 | Concave hull (Minimum Bounding Geometry), Delaunay triangulation | ✅ |
 | Raster: contours, hillshade, slope, aspect, ruggedness, clip, warp, polygonize, sample, zonal stats | 🟡 (tested on analytic grids in `tests/rasters.rs`; open bugs B-T5 Warp crash on invalid CRS, B-T7 Warp of a CRS-less raster, B-T6 — see `docs/BUGS.md`) |
 | Raster foundation: calculator, reclassify, resample, align, mosaic, rasterize, NoData tools, band select | ✅ (2026-10-29, `tests/raster_ops.rs`, `raster_nodes.rs`, `raster_cancel.rs`) |
-| Hydrology, interpolation, spatial statistics, remote sensing | 🟡 H1 interpolation, H2 kriging, H3 Moran's I + hot spots done 2026-10-29; H4 hydrology, H5 remote sensing open |
+| Hydrology, interpolation, spatial statistics, remote sensing | 🟡 H1 interpolation, H2 kriging, H3 Moran's I + hot spots, H4 hydrology (WhiteboxTools sidecar) done 2026-10-29; H5 remote sensing open |
 | Measure, MGRS, resection/intersection | ✅ |
 
 ## 2. Platform matrix
