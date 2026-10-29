@@ -129,6 +129,23 @@ export interface CrsGrid {
   tileSize: number;
 }
 
+/** What a 3DEP download of a box will be (tnm::ElevationPlan). */
+export interface ElevationPlan {
+  requestedRes: number;
+  usedRes: number;
+  cols: number;
+  rows: number;
+  bytes: number;
+  coarsened: boolean;
+  widthM: number;
+  heightM: number;
+  crs: string;
+  tilesX: number;
+  tilesY: number;
+  needsConfirm: boolean;
+  notes: string[];
+}
+
 export interface CrsInfo {
   name: string;
   code: string | null;
@@ -377,7 +394,8 @@ export const api = {
   measureFeature: (id: string, fid: number) =>
     invoke<{ area: number | null; perimeter: number | null; length: number | null; centroid: [number, number] | null }>("measure_feature", { id, fid }),
   createFeatures: (name: string, features: { wkt: string; props?: Record<string, unknown> }[]) => invoke<LayerInfo>("create_features", { name, features }),
-  downloadElevation: (bbox: Extent, resolution: number, label: string) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label })),
+  planElevation: (bbox: Extent, resolution: number) => invoke<ElevationPlan>("plan_elevation", { bbox, resolution }),
+  downloadElevation: (bbox: Extent, resolution: number, label: string, confirmed = false) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label, confirmed })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),

@@ -111,6 +111,7 @@ fn main() {
             commands::fs_list,
             commands::fs_inspect,
             commands::fs_stat,
+            commands::plan_elevation,
             commands::download_elevation,
             commands::raster_value,
             commands::measure_feature,

@@ -188,8 +188,9 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             engine::progress::cancel(a["id"].as_u64().unwrap_or(0));
             json!(null)
         }
+        "plan_elevation" => json!(e.plan_elevation(de(a, "bbox")?, f(a, "resolution")?)?),
         "download_elevation" => {
-            let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?)?;
+            let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?, a["confirmed"].as_bool().unwrap_or(false))?;
             json!(l)
         }
         "measure_feature" => json!(e.measure_feature(&s(a, "id")?, a["fid"].as_i64().unwrap_or(0))?),

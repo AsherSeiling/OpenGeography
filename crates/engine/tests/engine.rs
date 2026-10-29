@@ -634,7 +634,7 @@ fn rasters_contours_hillshade_slope() {
 #[ignore]
 fn download_3dep_elevation() {
     let e = Engine::new().unwrap();
-    let l = e.download_elevation([-97.47, 35.17, -97.43, 35.21], 10.0, "Norman, OK").unwrap();
+    let l = e.download_elevation([-97.47, 35.17, -97.43, 35.21], 10.0, "Norman, OK", true).unwrap();
     let r = l.raster.unwrap();
     assert!(r.min > 300.0 && r.max < 420.0, "elevation range {} {}", r.min, r.max);
     assert!(l.crs.unwrap().contains("32614"));

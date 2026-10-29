@@ -521,8 +521,13 @@ pub async fn save_text(path: String, text: String) -> Res<()> {
 // ---------- rasters ----------
 
 #[tauri::command]
-pub async fn download_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64, label: String) -> Res<LayerInfo> {
-    let info = blocking(&engine, move |e| e.download_elevation(bbox, resolution, &label)).await?;
+pub async fn plan_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64) -> Res<engine::tnm::ElevationPlan> {
+    blocking(&engine, move |e| e.plan_elevation(bbox, resolution)).await
+}
+
+#[tauri::command]
+pub async fn download_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64, label: String, confirmed: Option<bool>) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.download_elevation(bbox, resolution, &label, confirmed.unwrap_or(false))).await?;
     prewarm(&engine, vec![info.id.clone()]);
     Ok(info)
 }

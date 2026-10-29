@@ -74,7 +74,7 @@ fn a_refused_download_adds_no_layers_citations_or_lingering_tasks() {
     let err = e.tiger_import(&["blocks".into()], "Current", "40", None, "Offline area").unwrap_err().to_string();
     assert!(err.contains("choose a county"), "{err}");
     assert!(e.tnm_import(&["bogus".into()], [0.0, 0.0, 1.0, 1.0], None, true, "Offline area").is_err());
-    assert!(e.download_elevation([1.0, 1.0, 1.0, 1.0], 10.0, "Offline area").is_err());
+    assert!(e.download_elevation([1.0, 1.0, 1.0, 1.0], 10.0, "Offline area", true).is_err());
     assert!(e.list_layers().is_empty());
     assert!(e.sources().unwrap().is_empty());
     assert!(engine::progress::snapshot().iter().all(|t| !t.label.contains("Offline area")), "tasks ended with the failed requests");
@@ -147,7 +147,7 @@ fn tiger_year_list_and_availability() {
 #[ignore = "network: needs elevation.nationalmap.gov"]
 fn elevation_download_small_area() {
     let e = Engine::new().unwrap();
-    let l = e.download_elevation([-97.450, 35.200, -97.445, 35.204], 0.1, "Small area test").unwrap();
+    let l = e.download_elevation([-97.450, 35.200, -97.445, 35.204], 0.1, "Small area test", true).unwrap();
     let r = l.raster.unwrap();
     assert!((r.pixel_size - 1.0).abs() < 0.2, "pixel size {}", r.pixel_size);
     assert!(r.min > 250.0 && r.max < 450.0, "Norman, OK elevation range {} {}", r.min, r.max);
@@ -156,42 +156,14 @@ fn elevation_download_small_area() {
     assert!(e.sources().unwrap().iter().any(|s| s.citation.title.contains("3DEP") || s.citation.title.to_lowercase().contains("elevation")));
 }
 
-// Bug D-1, case DEM-2: the plan sizes a download on the ellipsoid and refuses what one download cannot do.
-#[test]
-fn dem_2_elevation_plan_sizes_and_limits() {
-    use engine::tnm::plan_elevation;
-    // 10 km square near 40° N at 30 m: ~333 cells a side, not coarsened.
-    let p = plan_elevation([-100.0, 40.0, -99.8829, 40.0903], 30.0).unwrap();
-    assert!(!p.coarsened && p.used_res == 30.0);
-    assert!((p.height_m - 10_000.0).abs() < 60.0 && (p.width_m - 10_000.0).abs() < 100.0, "{p:?}");
-    assert_eq!(p.bytes, p.cols as u64 * p.rows as u64 * 4);
-    // 1 degree of latitude is 110.6 km at the equator and 111.7 km at 80°.
-    let eq = plan_elevation([0.0, -0.5, 0.1, 0.5], 90.0).unwrap();
-    assert!((eq.height_m - 110_574.0).abs() < 300.0, "{eq:?}");
-    // 3° × 3° at 40° N at 10 m needs more than 8000 cells: coarsened, and says so.
-    let c = plan_elevation([-100.0, 39.0, -97.0, 42.0], 10.0).unwrap();
-    assert!(c.coarsened && c.used_res > 10.0 && c.used_res <= 90.0 && c.cols <= 8000 && c.rows <= 8000, "{c:?}");
-    // No tile above the service limit for any accepted box.
-    for (bbox, res) in [([0.0, 0.0, 6.0, 6.0], 1.0), ([-120.0, -60.0, -114.5, -55.0], 5.0), ([170.0, 10.0, 176.0, 12.0], 30.0)] {
-        let p = plan_elevation(bbox, res).unwrap();
-        assert!(p.cols <= 8000 && p.rows <= 8000, "{bbox:?} {p:?}");
-    }
-}
+// D0: the plan and the guard are tested in dem_tiles.rs (mock service).
 
+// DEM-11 (network, ignored): a 3° × 3° box at 90 m around Mt Whitney through the real service, in tiles.
 #[test]
-fn dem_2_elevation_guard_refuses_in_plain_words_before_any_request() {
-    use engine::tnm::{download_elevation, plan_elevation};
-    for (bbox, res, text) in [
-        ([-100.0, 30.0, -90.0, 31.0], 30.0, "6° (one UTM zone)"),
-        ([-100.0, 80.0, -99.0, 85.0], 30.0, "84°"),
-        ([-100.0, -86.0, -99.0, -80.0], 30.0, "84°"),
-        ([0.0, 0.0, 6.0, 8.0], 30.0, "too large for one download"),
-        ([-181.0, 0.0, -180.0, 1.0], 30.0, "outside longitude"),
-        ([0.0, 0.0, 1.0, 1.0], 0.0, "resolution"),
-        ([0.0, 0.0, 1.0, 1.0], f64::NAN, "resolution"),
-    ] {
-        let err = plan_elevation(bbox, res).unwrap_err().to_string();
-        assert!(err.contains(text), "{bbox:?}: {err}");
-        assert_eq!(download_elevation(bbox, res, &noop).unwrap_err().to_string(), err, "download uses the same guard");
-    }
+#[ignore = "network: real 3DEP service, several requests"]
+fn dem_11_real_service_large_area_contains_mt_whitney() {
+    let e = Engine::new().unwrap();
+    let l = e.download_elevation([-120.0, 35.0, -117.0, 38.0], 90.0, "Sierra Nevada", true).unwrap();
+    let r = l.raster.unwrap();
+    assert!(r.max > 4300.0 && r.max < 4430.0, "highest cell {} m (Mt Whitney is 4421 m)", r.max);
 }
