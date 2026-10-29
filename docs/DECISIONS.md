@@ -285,3 +285,9 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - One node, "Interpolate Points to Raster", over GDAL's grid algorithms (IDW, linear/TIN, nearest, moving average); cites QGIS `qgis:idwinterpolation` / `qgis:tininterpolation`, no QGIS code.
 - The grid starts on a multiple of the cell size (same rule as Rasterize); cell size and radius are in the layer's units; the layer's CRS is carried through. Linear is no data outside the points' hull. Non-point geometries and rows without a number are ignored.
 - `raster::new_store_path` now appends a counter: the clock repeated on two threads and gave the same file name (found by the new tests).
+
+## H3 — Spatial statistics (2026-10-29)
+- Two nodes in the Analysis tab: Spatial Autocorrelation (global Moran's I, randomisation variance after Cliff & Ord 1981; one-row table) and Hot Spot Analysis (Getis-Ord Gi*, Ord & Getis 1995; adds gi_z, gi_p, hotspot -3…3). Formulas written from the papers, no library code.
+- Neighbours are each feature's k nearest by centroid (default 8, ties broken by index, so results repeat); weights are row-standardised (Moran) or binary with self (Gi*). Distance-band weights and permutation p-values are not built; local Moran's I and Geary's C are left for later.
+- Geographic layers are refused (distances in degrees mean nothing); the user projects first. Features without a number are left out (Moran's I reports how many); the Gi* columns are empty for them.
+- Results are joined back by DuckDB's scan order (`row_number() OVER ()`): tables have no `rowid` once they are views.
