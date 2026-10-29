@@ -307,7 +307,7 @@ export async function exportLayoutSeries(format: "pdf" | "png") {
   }
 }
 
-async function pickPicture(title: string): Promise<string | null> {
+export async function pickPicture(title: string): Promise<string | null> {
   if (IN_TAURI) {
     const picked = await openDialog({ title, multiple: false, filters: [{ name: "Pictures", extensions: ["png", "jpg", "jpeg", "svg"] }] });
     return typeof picked === "string" ? picked : null;

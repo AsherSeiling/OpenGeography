@@ -611,6 +611,21 @@ pub struct LayerStyle {
     /// Feature labels (L1); layouts draw them from L2 on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<LabelStyle>,
+    /// Point symbol in layouts: "" (circle) | square | triangle | diamond | star | cross | x | svg.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub marker: Option<String>,
+    /// For marker "svg": a `data:image/svg+xml;base64,…` file of the user's.
+    #[serde(default, rename = "markerSvg", skip_serializing_if = "Option::is_none")]
+    pub marker_svg: Option<String>,
+    /// Line style in layouts: solid | dashed | dotted | dashdot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dash: Option<String>,
+    /// Polygon fill pattern in layouts (marks over the fill colour): hatch | hatch2 | cross | horizontal | vertical | grid | dots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+    /// Spacing of the pattern, CSS px.
+    #[serde(default, rename = "patternSpacing", skip_serializing_if = "Option::is_none")]
+    pub pattern_spacing: Option<f64>,
     /// Layout-only effects: a drop shadow behind the layer's drawing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effect: Option<LayerEffect>,
@@ -874,6 +889,11 @@ impl Default for LayerStyle {
             breaks: None,
             colors: None,
             label: None,
+            marker: None,
+            marker_svg: None,
+            dash: None,
+            pattern: None,
+            pattern_spacing: None,
             effect: None,
             raster: None,
         }
