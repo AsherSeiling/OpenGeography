@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the WhiteboxTools program (MIT, John Lindsay) from a pinned release and stage it for the hydrology tools:
-#   src-tauri/resources/whitebox/whitebox_tools[.exe] + LICENSE.txt
+#   src-tauri/resources/whitebox/whitebox_tools[.exe] + WhiteboxTools-MIT-LICENSE.txt
 # Source: https://github.com/jblindsay/whitebox-tools at tag v2.4.0 (commit below), built with the Rust toolchain on this machine.
 #   scripts/build-whitebox.sh            clone the tag into target/whitebox-src, build, stage
 #   WHITEBOX_SRC=<checkout> scripts/build-whitebox.sh    use an existing checkout (offline); its commit must match
@@ -28,6 +28,6 @@ fi
 cargo build --release -p whitebox_tools
 mkdir -p "$OUT"
 cp "target/release/$EXE" "$OUT/$EXE"
-cp LICENSE.txt "$OUT/LICENSE.txt"
+rm -f "$OUT/LICENSE.txt"; cp LICENSE.txt "$OUT/WhiteboxTools-MIT-LICENSE.txt"  # unique name: the Windows installer flattens resources and GDAL ships a LICENSE.TXT too
 export_env
 echo "WhiteboxTools $TAG staged in $OUT"
