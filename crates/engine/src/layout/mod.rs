@@ -170,14 +170,14 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
                     surround::legend(&mut s, &mut warnings, at, title, *columns, c, req, lookup);
                 }
             }
-            Element::ScaleBar { at, frame, units, segments, ratio } => {
+            Element::ScaleBar { at, frame, units, segments, ratio, style, units2, verbal, color } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::scale_bar(&mut s, &mut warnings, at, units, *segments, *ratio, c);
+                    surround::scale_bar(&mut s, &mut warnings, at, &surround::BarOpts { units, segments: *segments, ratio: *ratio, style, units2, verbal: *verbal, color }, c);
                 }
             }
-            Element::NorthArrow { at, frame, style } => {
+            Element::NorthArrow { at, frame, style, north, color, source } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::north_arrow(&mut s, at, style, c);
+                    surround::north_arrow(&mut s, &mut warnings, at, &surround::ArrowOpts { style, north, color, source }, c);
                 }
             }
             Element::Sources { at, frame, size } => {

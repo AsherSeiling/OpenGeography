@@ -140,12 +140,23 @@ export interface ScaleBarElement extends Placement {
   segments: number;
   /** Also print "1:N" under the bar (C3.0). */
   ratio?: boolean;
+  /** Default "alternating". "double" adds a second bar in `units2`. */
+  style?: "alternating" | "hollow" | "line" | "ticks" | "double";
+  units2?: "km" | "mi" | "m" | "ft";
+  /** Also print "1 cm on the map = N units". */
+  verbal?: boolean;
+  color?: string;
 }
 
 export interface NorthArrowElement extends Placement {
   kind: "north_arrow";
   frame: string;
-  style: "simple" | "compass";
+  style: "simple" | "compass" | "arrow" | "triangle" | "half" | "rose" | "circle" | "custom";
+  /** "true" (default; follows meridian convergence) or "grid". */
+  north?: "true" | "grid";
+  color?: string;
+  /** Style "custom": picture data URI whose top points north. */
+  source?: string;
 }
 
 export interface SourcesElement extends Placement {

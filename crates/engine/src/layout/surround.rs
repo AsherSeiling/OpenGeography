@@ -164,78 +164,207 @@ pub fn plan_bar(units: &str, segments: u32, k: f64, scale: f64, max_mm: f64) -> 
 
 const BAR_LABEL_PT: f64 = 7.0;
 
-pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, units: &str, segments: u32, ratio: bool, ctx: &FrameCtx) {
-    // Room for the half-width of the last label ("4 km") past the bar's end.
-    let reserve = 7.0;
-    let Some(plan) = plan_bar(units, if segments == 0 { 4 } else { segments }, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) else {
-        warnings.push(format!("Scale bar '{}' is too narrow to draw; make it wider", at.id));
-        return;
-    };
-    open_group(out, "scalebar", at);
-    let x0 = at.x + 1.0;
-    let bar_h = 2.0f64.min(at.h / 3.0);
-    let y0 = at.y + 1.0;
-    let seg_mm = plan.length_mm / plan.segments as f64;
-    for i in 0..plan.segments {
-        let _ = write!(
-            out,
-            "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\" stroke=\"#000000\" stroke-width=\"0.25\"/>",
-            mm(x0 + seg_mm * i as f64),
-            mm(y0),
-            mm(seg_mm),
-            mm(bar_h),
-            if i % 2 == 0 { "#000000" } else { "#ffffff" }
-        );
+pub const BAR_STYLES: &[&str] = &["alternating", "hollow", "line", "ticks", "double"];
+pub const ARROW_STYLES: &[&str] = &["simple", "compass", "arrow", "triangle", "half", "rose", "circle", "custom"];
+
+/// Scale bar settings beyond size and position.
+pub struct BarOpts<'a> {
+    pub units: &'a str,
+    pub segments: u32,
+    pub ratio: bool,
+    /// One of [`BAR_STYLES`]; empty = "alternating".
+    pub style: &'a str,
+    /// "double" style: the second bar's units.
+    pub units2: &'a str,
+    /// A sentence under the bar: "1 cm on the map = 240 m".
+    pub verbal: bool,
+    pub color: &'a str,
+}
+
+/// "1 cm = 240 m" at the nominal scale (`unit` picked so the number is readable).
+pub fn verbal_scale(scale: f64, units: &str) -> String {
+    let (unit, m) = unit_m(units);
+    let ground_m = scale / 100.0; // one cm on the page
+    let mut v = ground_m / m;
+    let mut u = unit;
+    // A km/mi bar at a large scale would read "0.0024 km"; fall back to metres/feet.
+    if v < 1.0 && unit == "km" {
+        v = ground_m;
+        u = "m";
+    } else if v < 1.0 && unit == "mi" {
+        v = ground_m / 0.3048;
+        u = "ft";
     }
+    format!("1 cm on the map = {} {u}", num((v * 100.0).round() / 100.0))
+}
+
+fn draw_bar(out: &mut String, x0: f64, y0: f64, bar_h: f64, plan: &BarPlan, style: &str, color: &str, labels_below: bool) -> f64 {
+    let seg_mm = plan.length_mm / plan.segments as f64;
+    let c = svg::color(color, "#000000");
+    match style {
+        "line" | "ticks" => {
+            let tick = if style == "ticks" { bar_h } else { bar_h * 0.6 };
+            let yl = y0 + bar_h;
+            let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{c}\" stroke-width=\"0.4\"/>", mm(x0), mm(yl), mm(x0 + plan.length_mm), mm(yl));
+            for i in 0..=plan.segments {
+                let x = x0 + seg_mm * i as f64;
+                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{c}\" stroke-width=\"0.4\"/>", mm(x), mm(yl), mm(x), mm(yl - tick));
+            }
+        }
+        _ => {
+            for i in 0..plan.segments {
+                let fill = if style == "hollow" || i % 2 == 1 { "#ffffff" } else { c.as_str() };
+                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{fill}\" stroke=\"{c}\" stroke-width=\"0.25\"/>", mm(x0 + seg_mm * i as f64), mm(y0), mm(seg_mm), mm(bar_h));
+            }
+        }
+    }
+    let _ = labels_below;
     let label_y = y0 + bar_h + 0.8 + BAR_LABEL_PT * PT_MM * 0.8;
     for i in 0..=plan.segments {
         let v = plan.segment * i as f64;
         let label = if i == plan.segments { format!("{} {}", num(v), plan.unit) } else { num(v) };
         text_line(out, x0 + seg_mm * i as f64, label_y, &label, "sans", BAR_LABEL_PT, "middle");
     }
-    if ratio {
-        // "1:24,000" on its own line under the distances, so it never collides with them.
-        let ratio_y = label_y + BAR_LABEL_PT * PT_MM * 1.4;
-        if ratio_y > at.y + at.h {
-            warnings.push(format!("Scale bar '{}' is too short for its 1:N label; make it taller", at.id));
+    label_y
+}
+
+pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, o: &BarOpts, ctx: &FrameCtx) {
+    // Room for the half-width of the last label ("4 km") past the bar's end.
+    let reserve = 7.0;
+    let segments = if o.segments == 0 { 4 } else { o.segments };
+    let style = if o.style.is_empty() { "alternating" } else { o.style };
+    let Some(plan) = plan_bar(o.units, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) else {
+        warnings.push(format!("Scale bar '{}' is too narrow to draw; make it wider", at.id));
+        return;
+    };
+    open_group(out, "scalebar", at);
+    let x0 = at.x + 1.0;
+    let bar_h = 2.0f64.min(at.h / 3.0);
+    let mut label_y = draw_bar(out, x0, at.y + 1.0, bar_h, &plan, style, o.color, true);
+    if style == "double" {
+        // The same ground length again in the second unit, below the first bar's labels.
+        let u2 = if o.units2.is_empty() { "mi" } else { o.units2 };
+        if let Some(p2) = plan_bar(u2, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) {
+            let y2 = label_y + 1.2;
+            label_y = draw_bar(out, x0, y2, bar_h, &p2, "alternating", o.color, true);
         }
-        text_line(out, x0, ratio_y, &format!("1:{}", super::grouped(ctx.scale)), "sans", BAR_LABEL_PT, "start");
+    }
+    let mut line_y = label_y;
+    if o.verbal {
+        line_y += BAR_LABEL_PT * PT_MM * 1.4;
+        text_line(out, x0, line_y, &verbal_scale(ctx.scale, o.units), "sans", BAR_LABEL_PT, "start");
+    }
+    if o.ratio {
+        // "1:24,000" on its own line under the distances, so it never collides with them.
+        line_y += BAR_LABEL_PT * PT_MM * 1.4;
+        text_line(out, x0, line_y, &format!("1:{}", super::grouped(ctx.scale)), "sans", BAR_LABEL_PT, "start");
+    }
+    if (o.ratio || o.verbal || style == "double") && line_y > at.y + at.h + 1e-6 {
+        warnings.push(if o.ratio { format!("Scale bar '{}' is too short for its 1:N label; make it taller", at.id) } else { format!("Scale bar '{}' does not fit its height; make it taller", at.id) });
     }
     out.push_str("</g>");
 }
 
 // ---------------------------------------------------------------- north arrow
 
-pub fn north_arrow(out: &mut String, at: &Placement, style: &str, ctx: &FrameCtx) {
-    // True north on the page: its bearing from grid up plus the frame's own
-    // rotation (both clockwise, like SVG's rotate()).
-    let angle = ctx.factors.true_north_deg + ctx.rotation;
+/// North arrow settings. The artwork is our own SVG-free geometry; `custom` embeds the user's picture.
+pub struct ArrowOpts<'a> {
+    /// One of [`ARROW_STYLES`].
+    pub style: &'a str,
+    /// "true" (default, follows meridian convergence) or "grid" (the frame's up direction).
+    pub north: &'a str,
+    pub color: &'a str,
+    /// Style "custom": a `data:image/...` URI whose top points north.
+    pub source: &'a str,
+}
+
+/// Rotation of the arrow on the page: true north's bearing from grid up (or 0 for grid north) plus the frame rotation.
+pub fn arrow_angle(north: &str, ctx: &FrameCtx) -> f64 {
+    (if north == "grid" { 0.0 } else { ctx.factors.true_north_deg }) + ctx.rotation
+}
+
+pub fn north_arrow(out: &mut String, warnings: &mut Vec<String>, at: &Placement, o: &ArrowOpts, ctx: &FrameCtx) {
+    let angle = arrow_angle(o.north, ctx);
     let (cx, cy) = (at.x + at.w / 2.0, at.y + at.h / 2.0);
+    let c = svg::color(o.color, "#000000");
     open_group(out, "northarrow-outer", at);
     let _ = write!(out, "<g id=\"northarrow-{}\" transform=\"rotate({} {} {})\">", esc(&at.id), mm(angle), mm(cx), mm(cy));
+    if o.style == "custom" {
+        match super::shapes::check_picture(o.source) {
+            Ok("") | Err(_) => warnings.push(format!("North arrow '{}': choose a PNG, JPEG or SVG picture for the custom style", at.id)),
+            Ok(_) => {
+                let _ = write!(out, "<image x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" preserveAspectRatio=\"xMidYMid meet\" href=\"{}\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h), o.source);
+            }
+        }
+        out.push_str("</g></g>");
+        return;
+    }
     let label_pt = 9.0f64.min(at.h * 0.3 / PT_MM);
     let label_h = label_pt * PT_MM;
-    text_line(out, cx, at.y + label_h * 0.9, "N", "sans-bold", label_pt, "middle");
-    let top = at.y + label_h * 1.2;
+    let with_n = o.style != "rose";
+    if with_n {
+        text_line(out, cx, at.y + label_h * 0.9, "N", "sans-bold", label_pt, "middle");
+    }
+    let top = if with_n { at.y + label_h * 1.2 } else { at.y };
     let (len, half) = (at.y + at.h - top, (at.w / 2.0).min((at.y + at.h - top) * 0.3));
     let pts = |v: &[(f64, f64)]| v.iter().map(|(x, y)| format!("{},{}", mm(*x), mm(*y))).collect::<Vec<_>>().join(" ");
-    if style == "compass" {
-        // 4-point star, long points north-south; fixed ratios, no trigonometry.
-        let r = len.min(at.w) / 2.0;
-        let mid = top + len / 2.0;
-        let p = |dx: f64, dy: f64| (cx + dx * r, mid + dy * r);
-        let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.25\"/>", mm(cx), mm(mid), mm(r * 0.8));
-        let star = [p(0.0, -1.0), p(0.2, -0.2), p(0.7, 0.0), p(0.2, 0.2), p(0.0, 1.0), p(-0.2, 0.2), p(-0.7, 0.0), p(-0.2, -0.2)];
-        let _ = write!(out, "<polygon points=\"{}\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"0.25\" stroke-linejoin=\"miter\"/>", pts(&star));
-        let right = [p(0.0, -1.0), p(0.2, -0.2), p(0.7, 0.0), p(0.2, 0.2), p(0.0, 1.0), p(0.0, 0.0)];
-        let _ = write!(out, "<polygon points=\"{}\" fill=\"#000000\"/>", pts(&right));
-    } else {
-        // "simple": a kite, right half black.
-        let (bottom, notch) = (top + len, top + len * 0.75);
-        let left = [(cx, top), (cx, notch), (cx - half, bottom)];
-        let right = [(cx, top), (cx + half, bottom), (cx, notch)];
-        let _ = write!(out, "<polygon points=\"{}\" fill=\"#ffffff\" stroke=\"#000000\" stroke-width=\"0.25\" stroke-linejoin=\"miter\"/>", pts(&left));
-        let _ = write!(out, "<polygon points=\"{}\" fill=\"#000000\" stroke=\"#000000\" stroke-width=\"0.25\" stroke-linejoin=\"miter\"/>", pts(&right));
+    let poly = |out: &mut String, v: &[(f64, f64)], fill: &str| {
+        let _ = write!(out, "<polygon points=\"{}\" fill=\"{fill}\" stroke=\"{c}\" stroke-width=\"0.25\" stroke-linejoin=\"miter\"/>", pts(v));
+    };
+    let bottom = top + len;
+    match o.style {
+        "compass" | "rose" => {
+            // 4-point star, long points north-south; fixed ratios, no trigonometry. "rose" adds the four short diagonal points and the cardinal letters.
+            let r = len.min(at.w) / 2.0;
+            let mid = top + len / 2.0;
+            let p = |dx: f64, dy: f64| (cx + dx * r, mid + dy * r);
+            let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"none\" stroke=\"{c}\" stroke-width=\"0.25\"/>", mm(cx), mm(mid), mm(r * 0.8));
+            if o.style == "rose" {
+                let d = 0.55;
+                poly(out, &[p(0.0, 0.0), p(d * 0.25, -d * 0.55), p(d, -d), p(d * 0.55, -d * 0.25)], "#ffffff");
+                poly(out, &[p(0.0, 0.0), p(d * 0.55, d * 0.25), p(d, d), p(d * 0.25, d * 0.55)], "#ffffff");
+                poly(out, &[p(0.0, 0.0), p(-d * 0.25, d * 0.55), p(-d, d), p(-d * 0.55, d * 0.25)], "#ffffff");
+                poly(out, &[p(0.0, 0.0), p(-d * 0.55, -d * 0.25), p(-d, -d), p(-d * 0.25, -d * 0.55)], "#ffffff");
+            }
+            let star = [p(0.0, -1.0), p(0.2, -0.2), p(0.7, 0.0), p(0.2, 0.2), p(0.0, 1.0), p(-0.2, 0.2), p(-0.7, 0.0), p(-0.2, -0.2)];
+            poly(out, &star, "#ffffff");
+            let right = [p(0.0, -1.0), p(0.2, -0.2), p(0.7, 0.0), p(0.2, 0.2), p(0.0, 1.0), p(0.0, 0.0)];
+            let _ = write!(out, "<polygon points=\"{}\" fill=\"{c}\"/>", pts(&right));
+            if o.style == "rose" {
+                let lp = (r * 0.2 / PT_MM).clamp(4.0, 8.0);
+                let (lx, ly) = (p(0.0, -1.0), p(0.0, 1.0));
+                text_line(out, lx.0, lx.1 - 0.6, "N", "sans-bold", lp, "middle");
+                text_line(out, ly.0, ly.1 + lp * PT_MM * 0.9, "S", "sans", lp, "middle");
+                text_line(out, cx + r * 1.0 + 0.8, mid + lp * PT_MM * 0.35, "E", "sans", lp, "start");
+                text_line(out, cx - r * 1.0 - 0.8, mid + lp * PT_MM * 0.35, "W", "sans", lp, "end");
+            }
+        }
+        "arrow" => {
+            // Plain arrow with a shaft.
+            let w = half.min(at.w / 2.0) * 0.9;
+            let head = len * 0.45;
+            poly(out, &[(cx, top), (cx + w, top + head), (cx + w * 0.3, top + head), (cx + w * 0.3, bottom), (cx - w * 0.3, bottom), (cx - w * 0.3, top + head), (cx - w, top + head)], &c);
+        }
+        "triangle" => {
+            poly(out, &[(cx, top), (cx + half, bottom), (cx - half, bottom)], &c);
+        }
+        "half" => {
+            // Topographic-map style: a line to a half arrowhead on the left.
+            let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{c}\" stroke-width=\"0.35\"/>", mm(cx), mm(top), mm(cx), mm(bottom));
+            poly(out, &[(cx, top), (cx - half * 0.7, top + len * 0.4), (cx, top + len * 0.3)], &c);
+        }
+        "circle" => {
+            let r = len.min(at.w) / 2.0;
+            let mid = top + len / 2.0;
+            let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"#ffffff\" stroke=\"{c}\" stroke-width=\"0.35\"/>", mm(cx), mm(mid), mm(r));
+            poly(out, &[(cx, mid - r * 0.8), (cx + r * 0.45, mid + r * 0.6), (cx, mid + r * 0.25), (cx - r * 0.45, mid + r * 0.6)], &c);
+        }
+        _ => {
+            // "simple": a kite, right half filled.
+            let notch = top + len * 0.75;
+            poly(out, &[(cx, top), (cx, notch), (cx - half, bottom)], "#ffffff");
+            poly(out, &[(cx, top), (cx + half, bottom), (cx, notch)], &c);
+        }
     }
     out.push_str("</g></g>");
 }

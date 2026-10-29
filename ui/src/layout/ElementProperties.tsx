@@ -6,7 +6,7 @@ import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { displayInfo, useApp } from "../store/store";
 import { withStyleOverride } from "./labelEdits";
-import { choosePicture, pickFrameCrs, setFrameFromMapView } from "./actions";
+import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
 import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
@@ -214,17 +214,36 @@ function LegendFields({ el, set }: { el: LegendElement; set: Set }) {
 
 function ScaleBarFields({ el, set }: { el: ScaleBarElement; set: Set }) {
   const units: [ScaleBarElement["units"], string][] = [["km", "Kilometres"], ["mi", "Miles"], ["m", "Metres"], ["ft", "Feet"]];
+  const styles: [NonNullable<ScaleBarElement["style"]>, string][] = [["alternating", "Alternating blocks"], ["hollow", "Hollow blocks"], ["line", "Line with ticks"], ["ticks", "Line with tall ticks"], ["double", "Double (two units)"]];
   return (
     <>
+      <Choice label="Style" value={el.style || "alternating"} options={styles} onPick={(style) => set({ style })} />
       <Choice label="Units" value={el.units || "km"} options={units} onPick={(units) => set({ units })} />
+      {el.style === "double" && <Choice label="Second bar units" value={el.units2 || "mi"} options={units} onPick={(units2) => set({ units2 })} />}
       <Num label="Segments" value={el.segments || 4} min={1} max={10} step={1} onChange={(segments) => set({ segments: Math.round(segments) })} />
+      <ColorInput label="Colour" value={el.color || "#000000"} onChange={(color) => set({ color }, "color")} />
       <Checkbox label="Also print the ratio (1:N) under the bar" checked={!!el.ratio} onChange={(_, d) => set({ ratio: d.checked ? true : undefined })} />
+      <Checkbox label="Also print the sentence (1 cm on the map = …)" checked={!!el.verbal} onChange={(_, d) => set({ verbal: d.checked ? true : undefined })} />
     </>
   );
 }
 
 function NorthArrowFields({ el, set }: { el: NorthArrowElement; set: Set }) {
-  return <Choice label="Style" value={el.style || "simple"} options={[["simple", "Simple"], ["compass", "Compass"]]} onPick={(style) => set({ style })} />;
+  const styles: [NorthArrowElement["style"], string][] = [["simple", "Simple kite"], ["compass", "Compass star"], ["rose", "Compass rose (N E S W)"], ["arrow", "Arrow"], ["triangle", "Triangle"], ["half", "Half arrow (topographic)"], ["circle", "Arrow in circle"], ["custom", "Custom picture"]];
+  return (
+    <>
+      <Choice label="Style" value={el.style || "simple"} options={styles} onPick={(style) => set({ style })} />
+      <Choice label="Points to" value={el.north || "true"} options={[["true", "True north (follows meridian convergence)"], ["grid", "Grid north (map's up)"]]} onPick={(north) => set({ north })} />
+      {el.style === "custom" ? (
+        <>
+          <Button onClick={() => void choosePictureFor(el.id)}>{el.source ? "Replace picture…" : "Choose picture…"}</Button>
+          <div className="props-hint">The top of the picture must point north.</div>
+        </>
+      ) : (
+        <ColorInput label="Colour" value={el.color || "#000000"} onChange={(color) => set({ color }, "color")} />
+      )}
+    </>
+  );
 }
 
 function SourcesFields({ el, set }: { el: SourcesElement; set: Set }) {

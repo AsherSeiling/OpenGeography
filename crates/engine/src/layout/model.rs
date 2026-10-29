@@ -251,13 +251,33 @@ pub enum Element {
         /// Also print the ratio ("1:24,000") under the bar (C3.0).
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         ratio: bool,
+        /// "alternating" (default) | "hollow" | "line" | "ticks" | "double".
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        style: String,
+        /// Style "double": the second bar's units.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        units2: String,
+        /// Also print "1 cm on the map = N units".
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        verbal: bool,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        color: String,
     },
     NorthArrow {
         #[serde(flatten)]
         at: Placement,
         frame: String,
+        /// One of `surround::ARROW_STYLES`; empty = "simple".
         #[serde(default)]
         style: String,
+        /// "true" (default) or "grid".
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        north: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        color: String,
+        /// Style "custom": picture data URI whose top points north.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        source: String,
     },
     Sources {
         #[serde(flatten)]
@@ -365,6 +385,23 @@ impl Layout {
             }
             if let Element::Shape { shape, .. } = e {
                 super::shapes::check_shape(shape)?;
+            }
+            if let Element::ScaleBar { style, units2, .. } = e {
+                if !style.is_empty() && !super::surround::BAR_STYLES.contains(&style.as_str()) {
+                    bail!("Unknown scale bar style '{style}' ({})", super::surround::BAR_STYLES.join(", "));
+                }
+                if !units2.is_empty() && !["km", "mi", "m", "ft"].contains(&units2.as_str()) {
+                    bail!("Unknown scale bar units '{units2}' (km, mi, m or ft)");
+                }
+            }
+            if let Element::NorthArrow { style, north, source, .. } = e {
+                if !style.is_empty() && !super::surround::ARROW_STYLES.contains(&style.as_str()) {
+                    bail!("Unknown north arrow style '{style}' ({})", super::surround::ARROW_STYLES.join(", "));
+                }
+                if !matches!(north.as_str(), "" | "true" | "grid") {
+                    bail!("North arrow direction must be \"true\" or \"grid\"");
+                }
+                super::shapes::check_picture(source)?;
             }
             if let Element::Picture { source, .. } = e {
                 super::shapes::check_picture(source)?;

@@ -37,3 +37,29 @@ test("CG1 shapes, pictures and background/frame/shadow in a layout", async ({ ap
   const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
   expect(out.warnings).toEqual([]);
 });
+
+test("CG2 north arrow styles and scale bar styles from Properties", async ({ app }) => {
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  await gis(app, (g) => g.useApp.setState({ mapCrs: { id: "EPSG:26915", name: "NAD83 / UTM zone 15N" } }));
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { crs: "EPSG:26915", center: [500000, 4649776], scale: 24000, basemap: "none" }); });
+  await ribbon(app, "Layout", /^North Arrow$/);
+  await app.getByRole("combobox", { name: "Style" }).click();
+  await app.getByRole("option", { name: "Compass rose (N E S W)" }).click();
+  await app.getByRole("combobox", { name: "Points to" }).click();
+  await app.getByRole("option", { name: /Grid north/ }).click();
+  const na = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "north_arrow")) as any;
+  expect(na.style).toBe("rose");
+  expect(na.north).toBe("grid");
+  await ribbon(app, "Layout", /^Scale Bar$/);
+  await app.getByRole("combobox", { name: "Style" }).click();
+  await app.getByRole("option", { name: "Double (two units)" }).click();
+  await app.getByRole("checkbox", { name: /1 cm on the map/ }).check();
+  const sb = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "scale_bar")) as any;
+  expect([sb.style, sb.verbal]).toEqual(["double", true]);
+  const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
+  expect(out.warnings.filter((w: string) => /North arrow|Scale bar/.test(w) && !/too short|does not fit/.test(w))).toEqual([]);
+});
