@@ -19,7 +19,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
-import { api, errorText, type CrsInfo as CrsInfoT, type ToolParam } from "../ipc/api";
+import { api, errorText, type CrsInfo as CrsInfoT, type ToolParam, type TransformReport } from "../ipc/api";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
@@ -94,16 +94,23 @@ export function CrsInfo({ id }: { id: string }) {
   const mapCrs = useApp((s) => s.mapCrs);
   const [detail, setDetail] = useState<CrsInfoT | null>(null);
   const [mapKey, setMapKey] = useState<boolean | null>(null);
+  const [shift, setShift] = useState<TransformReport | null>(null);
+  const [strict, setStrict] = useState(false);
   const ext = info.nativeExtent;
   // What the engine knows about this layer's CRS (unit, datum, area of use) and whether the map has to reproject it.
   useEffect(() => {
     let live = true;
     setDetail(null);
     setMapKey(null);
+    setShift(null);
     if (info.crs) {
       api.crsInfo(info.crs).then((d) => live && setDetail(d)).catch(() => {});
-      if (mapCrs) api.sameCrs(info.crs, mapCrs.id).then((same) => live && setMapKey(same)).catch(() => {});
+      if (mapCrs) {
+        api.sameCrs(info.crs, mapCrs.id).then((same) => live && setMapKey(same)).catch(() => {});
+        api.transformReport(info.crs, mapCrs.id, info.nativeExtent ?? null).then((r) => live && setShift(r)).catch(() => {});
+      }
     }
+    api.datumPolicy().then((v) => live && setStrict(v)).catch(() => {});
     return () => { live = false; };
   }, [info.crs, mapCrs?.id]);
   return (
@@ -122,6 +129,22 @@ export function CrsInfo({ id }: { id: string }) {
             </>
           )}
           {mapKey !== null && (<><dt>On the map</dt><dd>{mapKey ? "drawn as is (same as the map CRS)" : "drawn in the map CRS (reprojected)"}</dd></>)}
+          {shift && mapKey === false && (
+            <>
+              <dt>Datum shift</dt>
+              <dd>
+                <span className={shift.warn ? "warn-text" : undefined}>{shift.text}</span>
+              </dd>
+            </>
+          )}
+          <dt>Strict datum mode</dt>
+          <dd>
+            <Checkbox
+              label="Refuse approximate datum shifts (otherwise warn and continue)"
+              checked={strict}
+              onChange={(_, d) => { setStrict(!!d.checked); api.setDatumPolicy(!!d.checked).catch(() => {}); }}
+            />
+          </dd>
           <dt>Definition</dt>
           <dd className="wrap mono">{info.crs.length > 80 ? `${info.crs.slice(0, 80)}…` : info.crs}</dd>
           {ext && (

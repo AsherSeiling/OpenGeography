@@ -36,6 +36,8 @@ fn csv_in_lonlat_and_projected_with_sidecar() {
     assert!((cols[3].parse::<f64>().unwrap() + 93.0).abs() < 1e-3 && (cols[4].parse::<f64>().unwrap() - 39.75).abs() < 0.01, "{cols:?}");
     let side = std::fs::read_to_string(&r.sidecar).unwrap();
     assert!(side.contains("Units: degree") && side.contains("EPSG:4326"), "{side}");
+    // The datum shift is described too: NAD83 to WGS 84 is a datum change with a stated accuracy.
+    assert!(side.contains("Transformation: Datum change North American Datum 1983 → World Geodetic System 1984"), "{side}");
 
     // A projected target keeps metres and says so; only the selected feature is written.
     let out2 = dir.path().join("utm.csv");

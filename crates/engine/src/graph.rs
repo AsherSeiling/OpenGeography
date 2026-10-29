@@ -377,6 +377,8 @@ pub fn run(
         let mut hasher = Sha256::new();
         hasher.update(node.tool.as_bytes());
         hasher.update(serde_json::to_string(&node.params)?.as_bytes());
+        // Strict datum mode can refuse a step that Warn mode ran, so the two must not share cached results (CRS accuracy plan A3).
+        hasher.update([crate::transform_report::is_strict() as u8]);
         for h in &input_hashes {
             hasher.update(h.as_bytes());
         }

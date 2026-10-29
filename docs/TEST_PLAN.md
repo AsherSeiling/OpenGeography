@@ -922,3 +922,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | RS2-2 | Classed rendering: one colour per class, breaks must increase | | auto: raster_style.rs classed_rendering_* |
 | RS2-3 | Colour-blind-safe flag on ramps (viridis family, single-hue sequentials, RdBu/BrBG/PuOr) | | auto: colour_blind_safe_flags |
 | RS3-1 | Raster Symbology pane: render type, band, stretch + histogram with draggable min/max (becomes manual), grouped ramp picker with colour-blind-safe marks, invert, classified colours with editable breaks, opacity, NoData and value-range transparency, image adjustments | | auto: e2e/raster-symbology.spec.ts, vitest raster/histogram.test.ts; visual check in the packaged app pending |
+
+## CRS accuracy (docs/CRS_ACCURACY_PLAN.md)
+
+| ID | What | Expect | Status |
+|---|---|---|---|
+| CA-1 | Transform report levels | projection-only = exact; US NAD27 ↔ WGS 84/NAD83 = precise (grid, up to 2 m); rougher = approximate (warn); none = ballpark (warn) | auto: transform_report unit tests |
+| CA-2 | Missing grid is detected | in an install without grids the US NAD27 shift reports `gridMissing` and "not installed" | auto: tests/datum_policy.rs |
+| CA-3 | Warn (default) and Strict | Warn: the step runs, node message starts "Warning, datum change …"; Strict: step stops with "Stopped … Strict mode"; the choice is saved in the app-data folder; Strict and Warn do not share cached results | auto: tests/datum_policy.rs |
+| CA-4 | Properties pane | "Datum shift" line for a layer whose CRS differs from the map CRS; Strict checkbox toggles the engine policy | auto: e2e/datum.spec.ts |
+| CA-5 | Export Table note | the `.crs.txt` sidecar has a "Transformation:" line; Strict refuses an approximate shift | auto: export_table tests (note line), datum_policy (refusal path shared) |
+| CA-6 | Coverage table | 9 regions, each with a level; the packaged app's `--self-test` fails if a US region is approximate | auto: transform_report::coverage…, e2e/datum.spec.ts; self-test on the Mac app |
+| CA-7 | Not yet | Datum Grids menu, downloads, bundled Canada/Mexico/Australia grids (B1/B2), vertical datums (C1/C2), planar-tool warnings (C3), foot units (C4), responsible-use page (D3) | planned |

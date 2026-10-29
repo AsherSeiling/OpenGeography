@@ -104,8 +104,12 @@ impl Engine {
         task.set(0.9, Some("Writing the coordinate system note"));
         let rows = self.with_conn(|c| Ok(c.query_row(&format!("SELECT count(*) FROM ({query})"), [], |r| r.get::<_, i64>(0))?))?;
         let code = target.code.clone().unwrap_or_else(|| "custom definition".into());
+        let transform = match crate::transform_report::datum_note(&from, &spec.crs, info.native_extent)? {
+            Some(n) => n,
+            None => "No datum change; only the map projection differs.".into(),
+        };
         let note = format!(
-            "Coordinate system of the {xc}/{yc} columns in {}\nName: {}\nCode: {code}\nUnits: {}\nDatum: {}\nSource layer: {} (coordinates reprojected from {from})\nColumn order: {xc} is {}, {yc} is {}.\nRows: {rows}\n",
+            "Coordinate system of the {xc}/{yc} columns in {}\nName: {}\nCode: {code}\nUnits: {}\nDatum: {}\nSource layer: {} (coordinates reprojected from {from})\nTransformation: {transform}\nColumn order: {xc} is {}, {yc} is {}.\nRows: {rows}\n",
             Path::new(&spec.path).file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default(),
             target.name,
             target.unit,
