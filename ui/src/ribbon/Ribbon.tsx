@@ -33,7 +33,7 @@ const TABS: Record<string, Group[]> = {
     },
     { label: "Inquiry", items: [{ cmd: "identify" }, { cmd: "measure" }, { cmd: "measureArea", size: "small" }] },
     { label: "Land Nav", items: [{ cmd: "resection" }, { cmd: "intersection" }] },
-    { label: "Coordinate System", items: [{ cmd: "mapCrs" }] },
+    { label: "Coordinate System", items: [{ cmd: "mapCrs" }, { cmd: "tissot" }] },
   ],
   Insert: [
     { label: "Layouts", items: [{ custom: <NewLayoutGallery /> }] },

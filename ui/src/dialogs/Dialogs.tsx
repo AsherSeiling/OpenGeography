@@ -107,7 +107,24 @@ export function describeCrs(i: CrsInfo): string {
   return [i.code ? `${i.name} (${i.code})` : i.name, i.geographic ? "geographic" : "projected", i.unit, i.datum, area].filter(Boolean).join(" · ");
 }
 
+const RECENT_KEY = "gis.crs.recent";
+/** The last coordinate systems picked, newest first (kept in this browser/app profile only). */
+export function recentCrs(): { id: string; name: string }[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((e) => e && typeof e.id === "string" && typeof e.name === "string").slice(0, 6) : [];
+  } catch {
+    return [];
+  }
+}
+export function rememberCrs(id: string, name: string, list = recentCrs()): { id: string; name: string }[] {
+  const next = [{ id, name }, ...list.filter((e) => e.id !== id)].slice(0, 6);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* storage may be unavailable */ }
+  return next;
+}
+
 export function CrsPicker({ value, onChange }: { value: string | null; onChange: (id: string, name: string) => void }) {
+  const [recents] = useState(recentCrs);
   const [list, setList] = useState<CrsEntry[]>([]);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | "projected" | "geographic">("all");
@@ -179,6 +196,12 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
             {e.name}
           </Button>
         ))}
+        {recents.length > 0 && <span className="muted">Recent:</span>}
+        {recents.map((e) => (
+          <Button key={`r-${e.id}`} size="small" onClick={() => onChange(e.id, e.name)} title={e.id}>
+            {e.name}
+          </Button>
+        ))}
         {utm.map((id) => (
           <Button key={id} size="small" icon={<Globe20Regular />} onClick={() => onChange(id, crsName(id))} title="UTM zone at the map center">
             {crsName(id)}
@@ -225,7 +248,7 @@ function CrsPickerDialog({ title, initial, onPick, onClose }: { title: string; i
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!sel} onClick={() => sel && onPick(sel.id, sel.name)}>OK</Button>
+            <Button appearance="primary" disabled={!sel} onClick={() => { if (!sel) return; rememberCrs(sel.id, sel.name); onPick(sel.id, sel.name); }}>OK</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

@@ -19,7 +19,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
-import { api, errorText, type ToolParam } from "../ipc/api";
+import { api, errorText, type CrsInfo as CrsInfoT, type ToolParam } from "../ipc/api";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
@@ -90,13 +90,37 @@ function LayerProperties({ id }: { id: string }) {
 
 export function CrsInfo({ id }: { id: string }) {
   const info = useApp((s) => s.layers[id]);
+  const mapCrs = useApp((s) => s.mapCrs);
+  const [detail, setDetail] = useState<CrsInfoT | null>(null);
+  const [mapKey, setMapKey] = useState<boolean | null>(null);
   const ext = info.nativeExtent;
+  // What the engine knows about this layer's CRS (unit, datum, area of use) and whether the map has to reproject it.
+  useEffect(() => {
+    let live = true;
+    setDetail(null);
+    setMapKey(null);
+    if (info.crs) {
+      api.crsInfo(info.crs).then((d) => live && setDetail(d)).catch(() => {});
+      if (mapCrs) api.sameCrs(info.crs, mapCrs.id).then((same) => live && setMapKey(same)).catch(() => {});
+    }
+    return () => { live = false; };
+  }, [info.crs, mapCrs?.id]);
   return (
     <div className="stack">
       {info.crs ? (
         <dl className="kv">
           <dt>Name</dt>
           <dd>{info.crsName ?? crsName(info.crs)}</dd>
+          {detail && (
+            <>
+              {detail.code && (<><dt>Code</dt><dd>{detail.code}</dd></>)}
+              <dt>Kind</dt>
+              <dd>{detail.geographic ? "Geographic" : "Projected"}, unit {detail.unit}</dd>
+              {detail.datum && (<><dt>Datum</dt><dd>{detail.datum}</dd></>)}
+              {detail.areaOfUse && (<><dt>Valid in</dt><dd>{`${detail.areaOfUse[1].toFixed(1)}° to ${detail.areaOfUse[3].toFixed(1)}° N, ${detail.areaOfUse[0].toFixed(1)}° to ${detail.areaOfUse[2].toFixed(1)}° E`}</dd></>)}
+            </>
+          )}
+          {mapKey !== null && (<><dt>On the map</dt><dd>{mapKey ? "drawn as is (same as the map CRS)" : "drawn in the map CRS (reprojected)"}</dd></>)}
           <dt>Definition</dt>
           <dd className="wrap mono">{info.crs.length > 80 ? `${info.crs.slice(0, 80)}…` : info.crs}</dd>
           {ext && (

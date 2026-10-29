@@ -118,6 +118,16 @@ pub async fn crs_info(engine: Eng<'_>, crs: String) -> Res<engine::crs::CrsInfo>
 }
 
 #[tauri::command]
+pub async fn tissot_layer(engine: Eng<'_>, crs: String, spacing_deg: f64, radius_km: f64) -> Res<(engine::layers::LayerInfo, usize)> {
+    blocking(&engine, move |e| e.tissot_layer(&crs, spacing_deg, radius_km)).await
+}
+
+#[tauri::command]
+pub async fn same_crs(engine: Eng<'_>, a: String, b: String) -> Res<bool> {
+    blocking(&engine, move |e| Ok(e.same_crs(&a, &b))).await
+}
+
+#[tauri::command]
 pub async fn map_factors(engine: Eng<'_>, crs: String, x: f64, y: f64) -> Res<(f64, f64)> {
     blocking(&engine, move |e| e.map_factors(&crs, x, y)).await
 }

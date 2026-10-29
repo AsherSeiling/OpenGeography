@@ -59,6 +59,7 @@ import {
   newProject,
   openProject,
   pickMapCrs,
+  addTissotCircles,
   removeLayer,
   runModel,
   saveProject,
@@ -126,6 +127,7 @@ const list: Command[] = [
   { id: "measureArea", label: "Measure Area", icon: <ShapesRegular />, run: () => { useNav.getState().set({ measureMode: "area" }); app().setTool("measure"); }, checked: () => app().tool === "measure" && useNav.getState().measureMode === "area", tip: "Geodesic area and perimeter" },
   { id: "resection", label: "Resection", icon: <MyLocationRegular />, run: () => useNav.getState().set({ navPanel: "resection" }), checked: () => useNav.getState().navPanel === "resection", tip: "Find your position from azimuths to known landmarks (MGRS, mils, G-M angle)" },
   { id: "intersection", label: "Intersection", icon: <TargetArrowRegular />, run: () => useNav.getState().set({ navPanel: "intersection" }), checked: () => useNav.getState().navPanel === "intersection", tip: "Locate an unseen point from azimuths taken at known positions" },
+  { id: "tissot", label: "Tissot Circles", icon: <GlobeRegular />, run: addTissotCircles, tip: "Add circles that are round on the ground; their shape in the map's coordinate system shows its distortion" },
   { id: "mapCrs", label: "Coordinate System", icon: <GlobeRegular />, run: pickMapCrs, tip: "Set the map's coordinate system (used for coordinates, measurements and layouts)" },
 
   // Data tab

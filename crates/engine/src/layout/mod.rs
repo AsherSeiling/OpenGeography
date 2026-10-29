@@ -56,12 +56,15 @@ fn tokens(text: &str, req: &RenderRequest) -> String {
         _ => None,
     });
     let (crs, scale) = first.map_or(("", 0.0), |f| f);
+    let described = crate::crs::statement(crs);
     let out = text
         .replace("{layout_name}", &req.layout.name)
         .replace("{project}", &req.project)
         .replace("{date}", &req.date)
         .replace("{scale}", &if scale > 0.0 { format!("1:{}", grouped(scale)) } else { String::new() })
-        .replace("{crs}", crs)
+        .replace("{crs}", &described.crs)
+        .replace("{datum}", &described.datum)
+        .replace("{units}", &described.units)
         .replace("{page_name}", &req.page.as_ref().map_or(req.layout.name.clone(), |p| p.name.clone()))
         .replace("{page_number}", &req.page.as_ref().map_or(1, |p| p.number).to_string())
         .replace("{page_count}", &req.page.as_ref().map_or(1, |p| p.count).to_string());
