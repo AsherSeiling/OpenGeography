@@ -373,6 +373,9 @@ pub struct LayerStyle {
     /// Feature labels (L1); layouts draw them from L2 on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<LabelStyle>,
+    /// Raster symbology; the layout draws rasters exactly as the map does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raster: Option<crate::raster_style::RasterStyle>,
 }
 
 /// Label edits of one layer in one map frame (L3): a partial style for this layout only, and per-feature edits keyed by `__fid`.
@@ -550,6 +553,7 @@ impl Default for LayerStyle {
             breaks: None,
             colors: None,
             label: None,
+            raster: None,
         }
     }
 }

@@ -19,6 +19,7 @@ const ALL_KEYS: Record<keyof LayerStyle, true> = {
   breaks: true,
   colors: true,
   label: true,
+  raster: true,
 };
 
 describe("LayerStyle engine mirror", () => {

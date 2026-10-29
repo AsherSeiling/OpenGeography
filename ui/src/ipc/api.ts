@@ -533,6 +533,8 @@ export const api = {
   arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),
   planElevation: (bbox: Extent, resolution: number) => invoke<ElevationPlan>("plan_elevation", { bbox, resolution }),
   downloadElevation: (bbox: Extent, resolution: number, label: string, confirmed = false) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label, confirmed })),
+  rasterRamps: () => invoke<RampInfo[]>("raster_ramps"),
+  rasterHistogram: (id: string, band: number, bins: number) => invoke<RasterHistogram>("raster_histogram", { id, band, bins }),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   listFonts: () => invoke<FontFamily[]>("list_fonts"),
@@ -626,6 +628,23 @@ export const api = {
   exportLayout: (req: RenderRequest, format: "svg" | "pdf" | "png", dpi: number, path: string) =>
     track(invoke<string[]>("export_layout", { req, format, dpi, path })),
 };
+
+export interface RampInfo {
+  name: string;
+  group: "Scientific" | "Terrain" | "Sequential" | "Diverging" | "Qualitative" | "Gray";
+  colors: string[];
+  discrete: boolean;
+}
+
+export interface RasterHistogram {
+  min: number;
+  max: number;
+  mean: number;
+  std: number;
+  p2: number;
+  p98: number;
+  counts: number[];
+}
 
 // Custom protocol base: Windows WebView2 maps custom schemes to http://<scheme>.localhost.
 const TILE_BASE = !IN_TAURI ? DEV_SERVER : navigator.userAgent.includes("Windows") ? "http://gis.localhost" : "gis://localhost";

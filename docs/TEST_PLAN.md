@@ -907,3 +907,14 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LB3-4 | Index contours only: with `indexOnly`, only INDEX = 1 lines are labelled, with their ELEV | | auto: layout.rs lb3_index_contours_only_* |
 | LB3-5 | Map: contour style = OpenLayers line placement with `repeat` = spacing (≥ 40 px), curved and upright, in-line break = thick halo in the halo colour; Symbology and Labels node params produce it | | auto: vitest labels.test.ts; e2e/symbology-node.spec.ts |
 | LB3-6 | Not built: curved text in layouts (labels only where the line is nearly straight), contour labels that follow tight bends, label masks | decision D-LB3 | — |
+
+## RS — Raster symbology (2026-10-29, `docs/CARTOGRAPHY_PLAN.md`)
+| # | Case | Result | Automation |
+|---|---|---|---|
+| RS1-1 | Colour-ramp library: every ramp parses, names unique, groups Scientific/Terrain/Sequential/Diverging/Qualitative present | | auto: raster_style.rs ramps_parse_and_are_unique |
+| RS1-2 | Linear ramp ends/middle, invert, discrete classes, custom stops with per-stop opacity, validation messages | | auto: raster_style.rs tests |
+| RS1-3 | Transparency: NoData, value ranges, global opacity, outside the raster | | auto: raster_style.rs transparency_rules |
+| RS1-4 | Brightness, contrast, gamma, saturation | | auto: raster_style.rs adjustments |
+| RS1-5 | Stretch min-max / percentile / std dev / manual on a real raster; gray and pseudocolour tiles differ from the default look; band choice | | auto: tests/raster_style.rs |
+| RS1-6 | Default style draws exactly as before (existing tile/layout goldens unchanged) | | auto: existing tests |
+| RS1-7 | Style token in the tile URL round-trips (TS ↔ Rust) | | auto: vitest style.test.ts + raster_style.rs token_round_trip |
