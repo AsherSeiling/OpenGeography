@@ -238,11 +238,15 @@ fn cancel_at_page(label: &str, after: usize) -> std::thread::JoinHandle<bool> {
     })
 }
 
+/// Enough pages that the export is still running when the watcher's cancel lands, even on a fast release build (CI run 40780933485:
+/// 40 pages finished before the cancel arrived on macOS and Windows).
+const PAGES: usize = 400;
+
 #[test]
 fn p22_cancel_after_page_three_leaves_no_partial_file() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();
-    let id = counties(&e, dir.path(), 40, "'c' || x");
+    let id = counties(&e, dir.path(), PAGES, "'c' || x");
     let mut l = layout(&id, spec(&id));
     l.name = "CancelPdf".into();
     let req = request(&l, &id);
@@ -265,5 +269,5 @@ fn p22_cancel_after_page_three_leaves_no_partial_file() {
     assert!(engine::progress::snapshot().iter().all(|t| !t.label.contains("CancelP")), "task removed");
 
     // The engine still works.
-    assert_eq!(e.series_pages(&req.layout).unwrap().len(), 40);
+    assert_eq!(e.series_pages(&req.layout).unwrap().len(), PAGES);
 }

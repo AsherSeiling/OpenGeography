@@ -59,6 +59,8 @@ jobs:
       - run: npm ci
       - id: ui
         run: npm test
+      - name: Build WhiteboxTools (hydrology tools; tests and the installer use this copy)
+        run: scripts/ci-run.sh "WhiteboxTools build" scripts/build-whitebox.sh
       - id: engine
         run: RUSTFLAGS="$TEST_RUSTFLAGS" scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - name: Map performance gate
@@ -132,6 +134,8 @@ jobs:
       - run: npm ci
       - id: ui
         run: npm test
+      - name: Build WhiteboxTools (hydrology tools; tests and the installer use this copy)
+        run: scripts/ci-run.sh "WhiteboxTools build" scripts/build-whitebox.sh
       - id: engine
         run: RUSTFLAGS="$LINK_RUSTFLAGS" scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - run: scripts/stage-resources.sh linux_amd64
@@ -214,6 +218,8 @@ jobs:
       - run: npm ci
       - id: ui
         run: npm test
+      - name: Build WhiteboxTools (hydrology tools; tests and the installer use this copy)
+        run: scripts/ci-run.sh "WhiteboxTools build" scripts/build-whitebox.sh
       - id: engine
         run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - name: Stage resources and the DLLs the app needs next to its exe

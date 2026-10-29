@@ -10,7 +10,9 @@ TAG="v2.4.0"
 COMMIT="28ed01f506f2024cfb52db85348b887f2ded4e5d"
 OUT="$ROOT/src-tauri/resources/whitebox"
 EXE="whitebox_tools"; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) EXE="whitebox_tools.exe" ;; esac
-if [ -x "$OUT/$EXE" ] && [ -z "${WHITEBOX_REBUILD:-}" ]; then echo "WhiteboxTools already staged ($OUT/$EXE)"; exit 0; fi
+# In CI the tests find the program through GIS_STUDIO_WHITEBOX (a native path on Windows).
+export_env() { if [ -n "${GITHUB_ENV:-}" ]; then P="$OUT/$EXE"; command -v cygpath >/dev/null && P="$(cygpath -w "$P")"; echo "GIS_STUDIO_WHITEBOX=$P" >> "$GITHUB_ENV"; fi; }
+if [ -x "$OUT/$EXE" ] && [ -z "${WHITEBOX_REBUILD:-}" ]; then echo "WhiteboxTools already staged ($OUT/$EXE)"; export_env; exit 0; fi
 SRC="${WHITEBOX_SRC:-$ROOT/target/whitebox-src}"
 if [ ! -d "$SRC/.git" ]; then
   rm -rf "$SRC"
@@ -27,4 +29,5 @@ cargo build --release -p whitebox_tools
 mkdir -p "$OUT"
 cp "target/release/$EXE" "$OUT/$EXE"
 cp LICENSE.txt "$OUT/LICENSE.txt"
+export_env
 echo "WhiteboxTools $TAG staged in $OUT"
