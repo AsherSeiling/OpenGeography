@@ -286,6 +286,29 @@ export interface TransformReport {
   text: string;
 }
 
+/** One datum grid of the PROJ-data catalog (Datum Grids menu). */
+export interface DatumGrid {
+  name: string;
+  country: string;
+  continent: string;
+  source: string;
+  sourceId: string;
+  /** horizontal, vertical, 3d, deformation or other. */
+  kind: "horizontal" | "vertical" | "3d" | "deformation" | "other";
+  area: string;
+  from: string;
+  to: string;
+  description: string;
+  size: number;
+  sha256: string;
+  url: string;
+  /** Shipped in the installer. */
+  bundled: boolean;
+  installed: boolean;
+  /** "app", "downloaded" or "". */
+  location: string;
+}
+
 export interface CrsDisplayInfo {
   /** "3857" for Web Mercator, else a 12-hex-digit key of the CRS. */
   crsKey: string;
@@ -588,6 +611,11 @@ export const api = {
   setDatumPolicy: (strict: boolean) => invoke<null>("set_datum_policy", { strict }),
   /** How well this installation moves coordinates in each checked region. */
   datumCoverage: () => invoke<[string, TransformReport][]>("datum_coverage"),
+  /** Every datum grid PROJ-data offers, with where each is installed. */
+  listDatumGrids: () => invoke<DatumGrid[]>("list_datum_grids"),
+  /** Download one grid (checksum-verified). Grids above 50 MB need `confirmed`. */
+  downloadDatumGrid: (name: string, confirmed: boolean) => invoke<DatumGrid>("download_datum_grid", { name, confirmed }),
+  removeDatumGrid: (name: string) => invoke<null>("remove_datum_grid", { name }),
   /** [k, convergence in degrees] of `crs` at (x, y) in that CRS. */
   mapFactors: (crs: string, x: number, y: number) => invoke<[number, number]>("map_factors", { crs, x, y }),
   /** Tissot circles for `crs` as a WGS 84 layer; [layer, grid points the CRS cannot represent]. */
