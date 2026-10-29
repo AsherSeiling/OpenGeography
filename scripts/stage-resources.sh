@@ -37,6 +37,8 @@ PROJ_SRC="${PROJ_DATA_SRC:-$(dirname "$(projinfo --searchpaths 2>/dev/null | tai
 [ -f "$PROJ_SRC/proj.db" ] || PROJ_SRC=/opt/homebrew/share/proj
 cp -L "$PROJ_SRC/proj.db" "$OUT/proj/"
 [ -f "$PROJ_SRC/proj.ini" ] && cp -L "$PROJ_SRC/proj.ini" "$OUT/proj/"
+# Datum grids (NAD27 <-> NAD83 for the US): DuckDB's own PROJ cannot fetch them from the network, so they ship with the app.
+cp -L "$ROOT"/crates/engine/assets/proj-grids/*.tif "$OUT/proj/"
 touch "$OUT/gdalplugins/.keep"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$OUT/THIRD_PARTY_NOTICES.md"
 echo "Staged resources for $PLATFORM in $OUT ($(du -sh "$OUT" | cut -f1))"

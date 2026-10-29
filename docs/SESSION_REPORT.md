@@ -8,7 +8,7 @@ Standing orders: finish R → E; **no GitHub CI until all phases are done** (pus
 |---|---|---|---|
 | 1 | R6 leftovers: Tissot layer, layer source panel, layout `{datum}`/`{units}` tokens, picker recents | R-H9, R-H10, R-H11, R-I5 automated | **done** (area-of-use data chip left, G15) |
 | 2 | R8 world view: world-mode display tables, graticule / outline / standard-parallel layers, bundled Natural Earth 110m outline, projection builder | R-W cases automated | **done** (R-W10 colouring, R-W11 perf deferred) |
-| 3 | R7 prep + **local macOS build** (`package-macos.sh`, `--self-test`, copy `.app` + DMG, `cargo clean`) | build runs, self-test passes | planned |
+| 3 | R7 prep + **local macOS build** (`package-macos.sh`, `--self-test`, copy `.app` + DMG, `cargo clean`) | build runs, self-test passes | **done** (self-test OK after fixing P-1; `cargo clean` at session end) |
 | 4 | Phase D: D0 tiled DEM, D1 ArcGIS REST catalog, D2 Census + keychain, D3 STAC/COG, D4 GeoParquet, D5 OGC API, D6 JSON APIs/SSURGO/WMS | each with mock-service tests; network tests `#[ignore]` | planned |
 | 5 | Phase E: E1 raster calculator/reclassify/NoData/band select, E2 resample/align/mosaic/rasterize, E3 cancellable gdaldem | tests per tool, added to the CRS matrix guard | planned |
 | 6 | Bookkeeping at each block: TEST_PLAN, TEST_PLAN_FULL, DECISIONS, BUGS, PROJECT_STATUS, roadmap, Claude Doc rows | docs match code | continuous |
