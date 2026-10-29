@@ -723,3 +723,17 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | Sources / citations | 10 / 1 / 1 | `progress_sources.rs` (4), `citeEdge.test.ts`, `prefs.test.ts` |
 | Project save / open | 8 / 2 / 1 | `project.rs` (5) |
 | Progress / cancel | 12 / 1 / 0 | `progress_sources.rs` (6, 1 ignored), `cancel.rs` (6, all ignored) |
+
+## D1. Generic ArcGIS REST catalog (phase D1)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| D1-1 | Pasted service addresses | trailing `/`, `?f=json`, layer number, `/query` removed; non-https and non-ArcGIS refused in words | auto: arcgis::d1_service_addresses… |
+| D1-2 | Catalog integrity | unique ids, https services, every citation field filled, `complete` citations | auto: arcgis::d1_the_catalog… |
+| D1-3 | Layers of a service | group layers left out, geometry types shown | auto: arcgis::d1_layers… |
+| D1-4 | Paging and conversion | 25 features over 3 pages + count; Esri dates → ISO; attributes kept; layer named and cited as a Web service (stub to complete) | auto: arcgis::d1_a_custom_layer… |
+| D1-5 | Layer by number or name | "1" and "#0" work; unknown name says so; missing layer asks to choose | auto: arcgis::d1_a_layer_can_be_named… |
+| D1-6 | Several layers | merged with CATEGORY | auto: arcgis::d1_several_layers… |
+| D1-7 | Empty area, JSON error, HTTP 500, unreachable, not ArcGIS | nothing added / readable sentence naming the host | auto: arcgis::d1_an_empty_area… |
+| D1-8 | Real services | every catalog entry answers a small query | ignored network: arcgis::d1_real_catalog_entries_answer |
+| D1-9 | Dialog | catalog, source and licence shown before download; bad address explained; Download disabled until a layer is chosen | auto: e2e/arcgis.spec.ts |

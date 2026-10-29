@@ -4,6 +4,7 @@
 pub mod attrs;
 pub mod catalog;
 pub mod crs;
+pub mod arcgis;
 pub mod tissot;
 pub mod world;
 pub mod db;
@@ -377,6 +378,33 @@ impl Engine {
 
     /// Download The National Map vector datasets for a lon/lat box and add them
     /// as layers, clipped to the box or to a polygon layer's shape when `clip`.
+    /// Download one ArcGIS REST layer (catalog entry or pasted URL) for a lon/lat box and add it, cited. An area with no features adds nothing
+    /// and returns an empty list.
+    pub fn arcgis_import(&self, spec: &arcgis::Spec, bbox: [f64; 4], area_label: &str) -> Result<Vec<LayerInfo>> {
+        let (cite, label) = arcgis::citation(spec)?;
+        let (sources, cache_id) = arcgis::sources_of(spec)?;
+        let task = Task::start(format!("Downloading {label} for {area_label}")).cancellable();
+        let cache = std::env::temp_dir().join("gis-studio-cache");
+        let refs: Vec<(&str, &str)> = sources.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
+        let path = tnm_vector::fetch_sources(&label, &cache_id, &refs, bbox, &cache, &|f, msg| {
+            if !f.is_nan() {
+                task.set(f * 0.85, Some(msg.to_string()));
+            } else {
+                task.detail(msg.to_string());
+            }
+            task.check()
+        })?;
+        let Some(path) = path else { return Ok(vec![]) };
+        task.set(0.9, Some(format!("{label}: building the layer…")));
+        let mut out = Vec::new();
+        for info in self.import_with(&path, &mut Task::start(format!("Adding {label}")))? {
+            let info = self.rename_layer(&info.id, &label)?;
+            self.with_conn(|c| sources::record(c, &cite, &info.id, &info.name))?;
+            out.push(info);
+        }
+        Ok(out)
+    }
+
     /// Datasets download in parallel; one failing doesn't stop the others.
     pub fn tnm_import(&self, datasets: &[String], bbox: [f64; 4], clip_layer: Option<&str>, clip: bool, area_label: &str) -> Result<TnmImport> {
         let cache = std::env::temp_dir().join("gis-studio-cache");

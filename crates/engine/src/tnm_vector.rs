@@ -85,16 +85,19 @@ pub fn dataset(id: &str) -> Result<&'static Dataset> {
     DATASETS.iter().find(|d| d.id == id).ok_or_else(|| anyhow!("Unknown National Map dataset '{id}'"))
 }
 
-fn host(url: &str) -> &str {
-    url.trim_start_matches("https://").split('/').next().unwrap_or(url)
+pub(crate) fn host(url: &str) -> &str {
+    url.trim_start_matches("https://").trim_start_matches("http://").split('/').next().unwrap_or(url)
 }
 
+/// Wait before the first retry of a slow service, in milliseconds (doubles each time). Tests set it low.
+pub static RETRY_BACKOFF_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(2000);
+
 /// GET JSON, retrying slow or failing servers (timeouts, 5xx).
-fn get_json(url: &str) -> Result<Value> {
+pub(crate) fn get_json(url: &str) -> Result<Value> {
     let mut last = String::new();
     for attempt in 0..3 {
         if attempt > 0 {
-            std::thread::sleep(Duration::from_secs(2 * attempt));
+            std::thread::sleep(Duration::from_millis(RETRY_BACKOFF_MS.load(std::sync::atomic::Ordering::Relaxed) * attempt));
         }
         let resp = ureq::get(url).set("User-Agent", "GIS-Studio (open-source GIS)").timeout(Duration::from_secs(150)).call();
         match resp {
@@ -112,19 +115,19 @@ fn get_json(url: &str) -> Result<Value> {
                     if code >= 500 {
                         continue;
                     }
-                    bail!("The National Map ({}) said: {last}", host(url));
+                    bail!("The service at {} said: {last}", host(url));
                 }
                 return Ok(v);
             }
-            Err(ureq::Error::Status(code, _)) if code < 500 => bail!("The National Map ({}) refused the request (HTTP {code})", host(url)),
+            Err(ureq::Error::Status(code, _)) if code < 500 => bail!("The service at {} refused the request (HTTP {code})", host(url)),
             Err(e) => last = e.to_string(),
         }
     }
-    bail!("The National Map ({}) isn't responding — try again later or use a smaller area. ({last})", host(url))
+    bail!("The service at {} isn't responding — try again later or use a smaller area. ({last})", host(url))
 }
 
 #[derive(Clone)]
-struct LayerMeta {
+pub(crate) struct LayerMeta {
     id: i64,
     oid: String,
     dates: Vec<String>,
@@ -132,18 +135,24 @@ struct LayerMeta {
 
 /// Layer number, object-id field and date fields for a layer name. Names can
 /// appear twice (a label layer and a feature layer); the feature layer comes last.
-fn layer_meta(service: &str, name: &str) -> Result<LayerMeta> {
+pub(crate) fn layer_meta(service: &str, name: &str) -> Result<LayerMeta> {
     static CACHE: OnceLock<Mutex<HashMap<String, LayerMeta>>> = OnceLock::new();
     let key = format!("{service}/{name}");
     if let Some(m) = CACHE.get_or_init(Default::default).lock().get(&key) {
         return Ok(m.clone());
     }
-    let v = get_json(&format!("{service}?f=json"))?;
-    let id = v["layers"]
-        .as_array()
-        .and_then(|ls| ls.iter().filter(|l| l["name"].as_str() == Some(name) && l["subLayerIds"].is_null()).last())
-        .and_then(|l| l["id"].as_i64())
-        .ok_or_else(|| anyhow!("The National Map no longer has a layer named '{name}'"))?;
+    // "#28" names a layer by number; anything else by its name.
+    let id = match name.strip_prefix('#').and_then(|n| n.parse::<i64>().ok()) {
+        Some(id) => id,
+        None => {
+            let v = get_json(&format!("{service}?f=json"))?;
+            v["layers"]
+                .as_array()
+                .and_then(|ls| ls.iter().filter(|l| l["name"].as_str() == Some(name) && l["subLayerIds"].is_null()).last())
+                .and_then(|l| l["id"].as_i64())
+                .ok_or_else(|| anyhow!("The service at {} has no layer named '{name}'", host(service)))?
+        }
+    };
     let lv = get_json(&format!("{service}/{id}?f=json"))?;
     let fields = lv["fields"].as_array().cloned().unwrap_or_default();
     let oid = fields
@@ -286,6 +295,13 @@ fn cache_path(cache_dir: &Path, id: &str, bbox: [f64; 4]) -> PathBuf {
 /// no such features.
 pub fn fetch(id: &str, bbox: [f64; 4], cache_dir: &Path, report: &(dyn Fn(f64, &str) -> Result<()> + Sync)) -> Result<Option<PathBuf>> {
     let d = dataset(id)?;
+    fetch_sources(d.label, id, d.sources, bbox, cache_dir, report)
+}
+
+/// `fetch` for any list of (service URL, layer name or "#number") on ArcGIS REST servers; several layers are merged with a
+/// CATEGORY field naming the source layer. `cache_id` names the cached file. Used by the National Map datasets and the generic catalog (D1).
+pub fn fetch_sources(label: &str, cache_id: &str, sources: &[(&str, &str)], bbox: [f64; 4], cache_dir: &Path, report: &(dyn Fn(f64, &str) -> Result<()> + Sync)) -> Result<Option<PathBuf>> {
+    let id = cache_id;
     let [w, s, e, n] = bbox;
     if !(w < e && s < n) {
         bail!("The area is empty");
@@ -293,19 +309,19 @@ pub fn fetch(id: &str, bbox: [f64; 4], cache_dir: &Path, report: &(dyn Fn(f64, &
     std::fs::create_dir_all(cache_dir)?;
     let path = cache_path(cache_dir, id, bbox);
     if path.exists() {
-        report(1.0, &format!("{} (already downloaded)", d.label))?;
+        report(1.0, &format!("{label} (already downloaded)"))?;
         return Ok(Some(path));
     }
 
-    report(0.0, &format!("{}: downloading from {}…", d.label, host(d.sources[0].0)))?;
-    let metas: Vec<(&'static str, &'static str, LayerMeta)> = d.sources.iter().map(|(svc, name)| Ok((*svc, *name, layer_meta(svc, name)?))).collect::<Result<_>>()?;
+    report(0.0, &format!("{label}: downloading from {}…", host(sources[0].0)))?;
+    let metas: Vec<(String, String, LayerMeta)> = sources.iter().map(|(svc, name)| Ok((svc.to_string(), name.to_string(), layer_meta(svc, name)?))).collect::<Result<_>>()?;
 
     // Counting costs as much as a page on slow servers, so count in the
     // background while downloading; the bar becomes exact once counts arrive.
     // A detached thread, so a slow count never delays a finished download.
     let total: std::sync::Arc<Mutex<Option<usize>>> = Default::default();
     {
-        let (total, jobs): (_, Vec<(&'static str, LayerMeta)>) = (total.clone(), metas.iter().map(|(svc, _, m)| (*svc, m.clone())).collect());
+        let (total, jobs): (_, Vec<(String, LayerMeta)>) = (total.clone(), metas.iter().map(|(svc, _, m)| (svc.clone(), m.clone())).collect());
         std::thread::spawn(move || {
             let counts: Vec<Option<usize>> = std::thread::scope(|cs| {
                 let hs: Vec<_> = jobs.iter().map(|(svc, m)| cs.spawn(move || count(svc, m, bbox))).collect();
@@ -336,23 +352,23 @@ pub fn fetch(id: &str, bbox: [f64; 4], cache_dir: &Path, report: &(dyn Fn(f64, &
                         ("f", "json".into()),
                     ],
                 ))
-                .with_context(|| format!("Downloading {}", d.label))?;
+                .with_context(|| format!("Downloading {label}"))?;
                 let got = page["features"].as_array().cloned().unwrap_or_default();
                 let n = got.len();
                 for f in got {
                     let Some(geom) = esri_to_geojson(&f["geometry"]) else { continue };
                     let mut props = f["attributes"].as_object().cloned().unwrap_or_default();
                     fix_dates(&mut props, &m.dates);
-                    if d.sources.len() > 1 {
+                    if sources.len() > 1 {
                         props.insert("CATEGORY".into(), Value::String(name.to_string()));
                     }
                     features.push(json!({ "type": "Feature", "properties": props, "geometry": geom }));
                 }
                 offset += n;
                 match *total.lock() {
-                    Some(t) if t > MAX_FEATURES => bail!("{} has about {t} features in this area (limit {MAX_FEATURES}). Zoom in or pick a smaller area.", d.label),
-                    Some(t) => report((features.len() as f64 / t.max(1) as f64).min(1.0), &format!("{}: {} of {t} features", d.label, features.len()))?,
-                    None => report(f64::NAN, &format!("{}: {} features so far", d.label, features.len()))?,
+                    Some(t) if t > MAX_FEATURES => bail!("{label} has about {t} features in this area (limit {MAX_FEATURES}). Zoom in or pick a smaller area."),
+                    Some(t) => report((features.len() as f64 / t.max(1) as f64).min(1.0), &format!("{label}: {} of {t} features", features.len()))?,
+                    None => report(f64::NAN, &format!("{label}: {} features so far", features.len()))?,
                 }
                 let more = page["exceededTransferLimit"].as_bool().unwrap_or(false);
                 if n == 0 || (!more && n < PAGE) {
@@ -365,7 +381,7 @@ pub fn fetch(id: &str, bbox: [f64; 4], cache_dir: &Path, report: &(dyn Fn(f64, &
         }
         Ok(features)
     })()?;
-    report(1.0, &format!("{}: {} features", d.label, features.len()))?;
+    report(1.0, &format!("{label}: {} features", features.len()))?;
     if features.is_empty() {
         return Ok(None);
     }

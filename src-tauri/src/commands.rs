@@ -616,3 +616,20 @@ pub async fn export_layout_series(engine: Eng<'_>, req: engine::layout::model::R
 pub async fn export_layout(engine: Eng<'_>, req: engine::layout::model::RenderRequest, format: String, dpi: f64, path: PathBuf) -> Res<Vec<String>> {
     blocking(&engine, move |e| e.export_layout(&req, engine::layout::ExportFormat::parse(&format)?, dpi, &path)).await
 }
+
+#[tauri::command]
+pub async fn arcgis_catalog() -> Res<Vec<engine::arcgis::Entry>> {
+    Ok(engine::arcgis::catalog().to_vec())
+}
+
+#[tauri::command]
+pub async fn arcgis_layers(url: String) -> Res<Vec<engine::arcgis::ServiceLayer>> {
+    tauri::async_runtime::spawn_blocking(move || engine::arcgis::describe_service(&url)).await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn arcgis_import(engine: Eng<'_>, spec: engine::arcgis::Spec, bbox: [f64; 4], label: String) -> Res<Vec<LayerInfo>> {
+    let layers = blocking(&engine, move |e| e.arcgis_import(&spec, bbox, &label)).await?;
+    prewarm(&engine, layers.iter().map(|l| l.id.clone()).collect());
+    Ok(layers)
+}

@@ -188,6 +188,16 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             engine::progress::cancel(a["id"].as_u64().unwrap_or(0));
             json!(null)
         }
+        "arcgis_catalog" => json!(engine::arcgis::catalog()),
+        "arcgis_layers" => json!(engine::arcgis::describe_service(&s(a, "url")?)?),
+        "arcgis_import" => {
+            let spec: engine::arcgis::Spec = de(a, "spec")?;
+            let l = e.arcgis_import(&spec, de(a, "bbox")?, &s(a, "label")?)?;
+            for x in &l {
+                let _ = e.prewarm(&x.id, 8, &[]);
+            }
+            json!(l)
+        }
         "plan_elevation" => json!(e.plan_elevation(de(a, "bbox")?, f(a, "resolution")?)?),
         "download_elevation" => {
             let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?, a["confirmed"].as_bool().unwrap_or(false))?;

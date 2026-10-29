@@ -146,6 +146,32 @@ export interface ElevationPlan {
   notes: string[];
 }
 
+export interface ArcgisEntry {
+  id: string;
+  group: string;
+  label: string;
+  service: string;
+  layers: string[];
+  author: string;
+  year: string;
+  title: string;
+  publisher: string;
+  url: string;
+  license: string;
+  annotation: string;
+}
+export interface ArcgisServiceLayer {
+  id: number;
+  name: string;
+  geometryType: string | null;
+}
+export interface ArcgisSpec {
+  entryId?: string;
+  url?: string;
+  layer?: string;
+  label?: string;
+}
+
 export interface CrsInfo {
   name: string;
   code: string | null;
@@ -394,6 +420,9 @@ export const api = {
   measureFeature: (id: string, fid: number) =>
     invoke<{ area: number | null; perimeter: number | null; length: number | null; centroid: [number, number] | null }>("measure_feature", { id, fid }),
   createFeatures: (name: string, features: { wkt: string; props?: Record<string, unknown> }[]) => invoke<LayerInfo>("create_features", { name, features }),
+  arcgisCatalog: () => invoke<ArcgisEntry[]>("arcgis_catalog"),
+  arcgisLayers: (url: string) => invoke<ArcgisServiceLayer[]>("arcgis_layers", { url }),
+  arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),
   planElevation: (bbox: Extent, resolution: number) => invoke<ElevationPlan>("plan_elevation", { bbox, resolution }),
   downloadElevation: (bbox: Extent, resolution: number, label: string, confirmed = false) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label, confirmed })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
