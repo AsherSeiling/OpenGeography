@@ -550,6 +550,8 @@ export const api = {
   rasterUniqueValues: (id: string, band: number, max: number) => invoke<RasterUniqueValues>("raster_unique_values", { id, band, max }),
   saveRasterStyle: (path: string, style: RasterStyle) => invoke<void>("save_raster_style", { path, style }),
   loadRasterStyle: (path: string) => invoke<RasterStyle>("load_raster_style", { path }),
+  /** A PNG/JPEG/SVG file as the data URI a layout Picture stores. */
+  readPicture: (path: string) => invoke<string>("read_picture", { path }),
   rasterHistogram: (id: string, band: number, bins: number) => invoke<RasterHistogram>("raster_histogram", { id, band, bins }),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),

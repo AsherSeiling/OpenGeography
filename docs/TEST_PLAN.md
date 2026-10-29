@@ -939,3 +939,10 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | CA-5 | Export Table note | the `.crs.txt` sidecar has a "Transformation:" line; Strict refuses an approximate shift | auto: export_table tests (note line), datum_policy (refusal path shared) |
 | CA-6 | Coverage table | 9 regions, each with a level; the packaged app's `--self-test` fails if a US region is approximate | auto: transform_report::coverage…, e2e/datum.spec.ts; self-test on the Mac app |
 | CA-7 | Not yet | Datum Grids menu, downloads, bundled Canada/Mexico/Australia grids (B1/B2), vertical datums (C1/C2), planar-tool warnings (C3), foot units (C4), responsible-use page (D3) | planned |
+
+## CG — Cartography suite (2026-10-29, `docs/CARTOGRAPHY_PLAN.md`)
+| ID | What | Expect | Status |
+|---|---|---|---|
+| CG1-1 | Shapes: rectangle (rounded), ellipse, triangle, line, arrow; fill and opacity, outline width, solid/dashed/dotted, rotation | drawn in the preview, PNG, SVG and PDF; unknown shape = readable error | auto: layout_shapes.rs, shapes.rs tests, e2e layout-graphics |
+| CG1-2 | Picture/logo frame: PNG, JPEG, SVG from a file, stored in the layout; contain / cover / stretch; opacity | file type from the content; other files refused with a message; empty frame warns | auto: layout_shapes.rs, shapes.rs read_picture_*; the native file dialog needs a manual check |
+| CG1-3 | Background, frame, rounded corners and drop shadow on any element (Properties › Background, frame and shadow) | drawn under the element, same rotation; shadow is a solid offset copy (no blur: blur is not reliable in PDF) | auto: shapes.rs decor_*, e2e layout-graphics |

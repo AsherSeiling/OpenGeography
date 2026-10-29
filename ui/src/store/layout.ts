@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
-import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type SeriesSpec, type SurroundElement, type TextElement } from "../layout/types";
+import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type SurroundElement, type TextElement } from "../layout/types";
 import { reportError } from "../errors/store";
 import { useApp, type Basemap } from "./store";
 
@@ -335,6 +335,42 @@ export function addSurround(kind: SurroundElement["kind"], frameId: string): str
       el = { ...base, kind, x: f.x, y: f.y + f.h + 1.5, w: f.w, h: 8, size: 6 };
       break;
   }
+  s.addElement(el);
+  return el.id;
+}
+
+/** Insert a shape (or an arrow/line) at the page centre. */
+export function addShape(shape: ShapeElement["shape"]): string | null {
+  const s = useLayouts.getState();
+  if (!s.doc) return null;
+  const p = s.doc.page;
+  const line = shape === "line" || shape === "arrow";
+  const [w, h] = line ? [40, 1] : [40, 25];
+  const el: ShapeElement = {
+    kind: "shape",
+    id: nextId(s.doc, "s"),
+    x: (p.width - w) / 2,
+    y: (p.height - h) / 2,
+    w,
+    h,
+    rotation: 0,
+    locked: false,
+    visible: true,
+    shape,
+    fill: line ? "none" : "#ffffff",
+    stroke: "#000000",
+    strokeWidth: line ? 0.6 : 0.35,
+  };
+  s.addElement(el);
+  return el.id;
+}
+
+/** Insert a picture frame, filled when `source` (a data URI) is given. */
+export function addPicture(source = ""): string | null {
+  const s = useLayouts.getState();
+  if (!s.doc) return null;
+  const p = s.doc.page;
+  const el: PictureElement = { kind: "picture", id: nextId(s.doc, "p"), x: p.margin, y: p.margin, w: 40, h: 30, rotation: 0, locked: false, visible: true, source, fit: "contain" };
   s.addElement(el);
   return el.id;
 }

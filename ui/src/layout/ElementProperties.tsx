@@ -6,8 +6,8 @@ import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { displayInfo, useApp } from "../store/store";
 import { withStyleOverride } from "./labelEdits";
-import { pickFrameCrs, setFrameFromMapView } from "./actions";
-import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type ScaleBarElement, type SourcesElement, type TextElement } from "./types";
+import { choosePicture, pickFrameCrs, setFrameFromMapView } from "./actions";
+import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -37,7 +37,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
   const set = (patch: Record<string, unknown>, burst?: string) => useLayouts.getState().update(id, patch, burst);
   useEffect(() => void loadCatalog().catch(() => {}), []);
   if (!el) return <div className="empty-hint pad">Element not found.</div>;
-  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", sources: "Sources" }[el.kind];
+  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", sources: "Sources", shape: "Shape", picture: "Picture" }[el.kind];
   return (
     <div className="props">
       <div className="props-title">{title} <span className="muted">({el.id})</span></div>
@@ -48,6 +48,8 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
         {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
         {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
         {el.kind === "sources" && <SourcesFields el={el} set={set} />}
+        {el.kind === "shape" && <ShapeFields el={el} set={set} />}
+        {el.kind === "picture" && <PictureFields el={el} set={set} />}
         <div className="props-grid">
           <Num label="X (mm)" value={el.x} step={0.5} decimals={1} onChange={(x) => set({ x }, "x")} />
           <Num label="Y (mm)" value={el.y} step={0.5} decimals={1} onChange={(y) => set({ y }, "y")} />
@@ -55,6 +57,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
           <Num label="Height (mm)" value={el.h} min={1} step={0.5} decimals={1} onChange={(h) => set({ h }, "h")} />
           <Num label="Rotation (°)" value={el.rotation} decimals={2} onChange={(rotation) => set({ rotation }, "rotation")} />
         </div>
+        <DecorFields el={el} set={set} />
         <Checkbox label="Locked" checked={el.locked} onChange={(_, d) => set({ locked: !!d.checked })} />
         <Checkbox label="Visible" checked={el.visible} onChange={(_, d) => set({ visible: !!d.checked })} />
       </div>
@@ -256,3 +259,93 @@ function TextFields({ el, set }: { el: TextElement; set: Set }) {
 }
 
 export type { LayoutElement };
+
+type SetFn = (patch: Record<string, unknown>, burst?: string) => void;
+
+function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (c: string) => void }) {
+  return (
+    <Field label={label} size="small">
+      <input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : "#000000"} onChange={(e) => onChange(e.target.value)} aria-label={label} />
+    </Field>
+  );
+}
+
+function ShapeFields({ el, set }: { el: ShapeElement; set: SetFn }) {
+  const line = el.shape === "line" || el.shape === "arrow";
+  return (
+    <>
+      <Field label="Shape" size="small">
+        <Dropdown value={el.shape} selectedOptions={[el.shape]} onOptionSelect={(_, d) => set({ shape: d.optionValue })}>
+          {["rectangle", "ellipse", "triangle", "line", "arrow"].map((k) => (
+            <Option key={k} value={k}>
+              {k}
+            </Option>
+          ))}
+        </Dropdown>
+      </Field>
+      {!line && (
+        <>
+          <Checkbox label="Filled" checked={el.fill !== "none"} onChange={(_, d) => set({ fill: d.checked ? "#ffffff" : "none" })} />
+          {el.fill !== "none" && <ColorInput label="Fill" value={el.fill} onChange={(fill) => set({ fill }, "fill")} />}
+          {el.fill !== "none" && <Num label="Fill opacity (0–1)" value={el.fillOpacity ?? 1} min={0} max={1} step={0.05} decimals={2} onChange={(fillOpacity) => set({ fillOpacity }, "fillOpacity")} />}
+        </>
+      )}
+      <ColorInput label={line ? "Colour" : "Outline"} value={el.stroke} onChange={(stroke) => set({ stroke }, "stroke")} />
+      <Num label="Line width (mm)" value={el.strokeWidth} min={0} step={0.05} decimals={2} onChange={(strokeWidth) => set({ strokeWidth }, "strokeWidth")} />
+      <Field label="Line style" size="small">
+        <Dropdown value={el.dash || "solid"} selectedOptions={[el.dash || "solid"]} onOptionSelect={(_, d) => set({ dash: d.optionValue })}>
+          {["solid", "dashed", "dotted"].map((k) => (
+            <Option key={k} value={k}>
+              {k}
+            </Option>
+          ))}
+        </Dropdown>
+      </Field>
+      {el.shape === "rectangle" && <Num label="Corner radius (mm)" value={el.cornerRadius ?? 0} min={0} step={0.5} decimals={1} onChange={(cornerRadius) => set({ cornerRadius }, "cornerRadius")} />}
+    </>
+  );
+}
+
+function PictureFields({ el, set }: { el: PictureElement; set: SetFn }) {
+  return (
+    <>
+      <Button onClick={() => void choosePicture(el.id)}>{el.source ? "Replace picture…" : "Choose picture…"}</Button>
+      <div className="props-hint">PNG, JPEG or SVG; stored inside the layout, so the project stays self-contained.</div>
+      <Field label="Fit" size="small">
+        <Dropdown value={el.fit || "contain"} selectedOptions={[el.fit || "contain"]} onOptionSelect={(_, d) => set({ fit: d.optionValue })}>
+          {[["contain", "Whole picture inside"], ["cover", "Fill the frame (crop)"], ["stretch", "Stretch"]].map(([k, v]) => (
+            <Option key={k} value={k} text={v}>
+              {v}
+            </Option>
+          ))}
+        </Dropdown>
+      </Field>
+      <Num label="Opacity (0–1)" value={el.opacity ?? 1} min={0} max={1} step={0.05} decimals={2} onChange={(opacity) => set({ opacity }, "opacity")} />
+    </>
+  );
+}
+
+/** Background, frame and drop shadow, for any element. */
+function DecorFields({ el, set }: { el: LayoutElement; set: SetFn }) {
+  const d = el.decor ?? {};
+  const patch = (p: Record<string, unknown>) => set({ decor: { ...d, ...p } }, "decor");
+  return (
+    <details>
+      <summary>Background, frame and shadow</summary>
+      <div className="stack">
+        <Checkbox label="Background" checked={!!d.background} onChange={(_, c) => patch({ background: c.checked ? "#ffffff" : null })} />
+        {d.background && <ColorInput label="Background colour" value={d.background} onChange={(background) => patch({ background })} />}
+        <Checkbox label="Frame" checked={(d.frameWidth ?? 0) > 0} onChange={(_, c) => patch({ frameWidth: c.checked ? 0.35 : 0, frameColor: d.frameColor ?? "#000000" })} />
+        {(d.frameWidth ?? 0) > 0 && (
+          <>
+            <ColorInput label="Frame colour" value={d.frameColor ?? "#000000"} onChange={(frameColor) => patch({ frameColor })} />
+            <Num label="Frame width (mm)" value={d.frameWidth ?? 0.35} min={0.05} step={0.05} decimals={2} onChange={(frameWidth) => patch({ frameWidth })} />
+          </>
+        )}
+        <Num label="Corner radius (mm)" value={d.cornerRadius ?? 0} min={0} step={0.5} decimals={1} onChange={(cornerRadius) => patch({ cornerRadius })} />
+        <Checkbox label="Drop shadow" checked={!!d.shadow} onChange={(_, c) => patch({ shadow: !!c.checked, shadowOffset: d.shadowOffset ?? 1.5 })} />
+        {d.shadow && <Num label="Shadow offset (mm)" value={d.shadowOffset ?? 1.5} min={0} step={0.25} decimals={2} onChange={(shadowOffset) => patch({ shadowOffset })} />}
+      </div>
+    </details>
+  );
+}

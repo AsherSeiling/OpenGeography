@@ -13,6 +13,15 @@ fn one() -> u32 {
 fn earth() -> String {
     "earth".into()
 }
+fn rectangle() -> String {
+    "rectangle".into()
+}
+fn one_f() -> f64 {
+    1.0
+}
+fn half() -> f64 {
+    0.5
+}
 fn yes() -> bool {
     true
 }
@@ -86,6 +95,23 @@ pub struct Placement {
     pub locked: bool,
     #[serde(default = "yes")]
     pub visible: bool,
+    /// Background, frame and drop shadow under the element.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decor: Option<Decor>,
+}
+
+/// Background, frame and shadow of any layout element (QGIS item "Background / Frame / Drop shadow"; ArcGIS Pro element background, border, shadow).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Decor {
+    pub background: Option<String>,
+    pub frame_color: Option<String>,
+    /// Frame line width, mm; 0 = no frame.
+    pub frame_width: f64,
+    pub corner_radius: f64,
+    pub shadow: bool,
+    /// Shadow offset right and down, mm.
+    pub shadow_offset: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -240,6 +266,41 @@ pub enum Element {
         #[serde(default)]
         size: f64,
     },
+    /// A rectangle, ellipse, triangle, line or arrow.
+    Shape {
+        #[serde(flatten)]
+        at: Placement,
+        /// "rectangle" | "ellipse" | "triangle" | "line" | "arrow".
+        #[serde(default = "rectangle")]
+        shape: String,
+        #[serde(default = "white")]
+        fill: String,
+        #[serde(default = "one_f", rename = "fillOpacity")]
+        fill_opacity: f64,
+        #[serde(default = "black")]
+        stroke: String,
+        /// Line width, mm.
+        #[serde(default = "half", rename = "strokeWidth")]
+        stroke_width: f64,
+        /// "solid" | "dashed" | "dotted".
+        #[serde(default)]
+        dash: String,
+        #[serde(default, rename = "cornerRadius")]
+        corner_radius: f64,
+    },
+    /// A logo or picture (PNG, JPEG or SVG), embedded in the layout as a data URI.
+    Picture {
+        #[serde(flatten)]
+        at: Placement,
+        /// `data:image/png|jpeg|svg+xml;base64,…`; empty = placeholder.
+        #[serde(default)]
+        source: String,
+        /// "contain" | "cover" | "stretch".
+        #[serde(default)]
+        fit: String,
+        #[serde(default = "one_f")]
+        opacity: f64,
+    },
 }
 
 impl Element {
@@ -250,7 +311,9 @@ impl Element {
             | Element::Legend { at, .. }
             | Element::ScaleBar { at, .. }
             | Element::NorthArrow { at, .. }
-            | Element::Sources { at, .. } => at,
+            | Element::Sources { at, .. }
+            | Element::Shape { at, .. }
+            | Element::Picture { at, .. } => at,
         }
     }
 
@@ -262,6 +325,8 @@ impl Element {
             Element::ScaleBar { .. } => "scale_bar",
             Element::NorthArrow { .. } => "north_arrow",
             Element::Sources { .. } => "sources",
+            Element::Shape { .. } => "shape",
+            Element::Picture { .. } => "picture",
         }
     }
 }
@@ -297,6 +362,12 @@ impl Layout {
             }
             if ![a.x, a.y, a.w, a.h, a.rotation].iter().all(|v| v.is_finite()) || a.w <= 0.0 || a.h <= 0.0 {
                 bail!("Element '{}' needs a finite position and a positive size", a.id);
+            }
+            if let Element::Shape { shape, .. } = e {
+                super::shapes::check_shape(shape)?;
+            }
+            if let Element::Picture { source, .. } = e {
+                super::shapes::check_picture(source)?;
             }
             if let Element::MapFrame { scale, center, layers, basemap, graticule, grid, .. } = e {
                 super::basemap::check(basemap)?;

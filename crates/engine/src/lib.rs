@@ -313,6 +313,11 @@ impl Engine {
         raster_style::unique_values(r, band, max.clamp(1, 2000))
     }
 
+    /// A picture file as the data URI a layout Picture element stores.
+    pub fn read_picture(&self, path: &Path) -> Result<String> {
+        layout::shapes::read_picture(path)
+    }
+
     pub fn save_raster_style(&self, path: &Path, style: &raster_style::RasterStyle) -> Result<()> {
         raster_style::save_file(path, style)
     }

@@ -75,6 +75,7 @@ const TABS: Record<string, Group[]> = {
     { label: "Page", items: [{ custom: <PageMenu /> }] },
     { label: "Template", items: [{ custom: <TemplateGroup /> }] },
     { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutText" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
+    { label: "Graphics", items: [{ cmd: "layoutRect" }, { cmd: "layoutEllipse" }, { cmd: "layoutTriangle" }, { cmd: "layoutLine" }, { cmd: "layoutArrow" }, { cmd: "layoutPicture" }] },
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
     { label: "Arrange", items: [{ custom: <ArrangeMenu /> }] },
     { label: "Map Series", items: [{ custom: <SeriesGroup /> }] },
