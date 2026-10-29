@@ -41,9 +41,11 @@ jobs:
           miniforge-version: latest
           activate-environment: gdal
           conda-remove-defaults: "true"
+      # proj-data holds PROJ's datum-shift grids; the datum reference tests compare with cs2cs and need them (the installers still ship only
+      # proj.db and the grids in crates/engine/assets/proj-grids, see scripts/stage-resources.sh).
       # The "lgpl" SpatiaLite build has no GPL librttopo; libgdal-core has no
       # poppler or libheif/x265 — so the installer stays permissively licensed.
-      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj pkg-config "libspatialite=*=lgpl*"
+      - run: conda install -y -c conda-forge "libgdal-core=3.12" proj proj-data pkg-config "libspatialite=*=lgpl*"
       - run: brew install dylibbundler
       - name: Point the build at conda's GDAL and a prebuilt libduckdb
         run: |
@@ -112,6 +114,7 @@ jobs:
           create-args: >-
             libgdal-core=3.12
             proj
+            proj-data
             libspatialite=*=lgpl*
           condarc: |
             channels:
@@ -194,6 +197,7 @@ jobs:
           create-args: >-
             libgdal-core=3.12
             proj
+            proj-data
             libspatialite=*=lgpl*
           condarc: |
             channels:
