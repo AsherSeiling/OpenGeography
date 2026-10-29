@@ -10,6 +10,7 @@ test("A2/A3 the layer's Properties show the datum shift to the map CRS, and the 
     return l;
   }) as any;
   await gis(app, (g, id) => { const s = g.useApp.getState(); s.setActiveLayer(id); s.setProperties({ kind: "layer", id }); }, layer.id);
+  await app.getByRole("tab", { name: "Coordinate System" }).click();
   const pane = app.locator(".kv", { hasText: "Datum shift" });
   await expect(pane).toContainText(/Datum shift/, { timeout: 10_000 });
   await expect(pane).toContainText(/error up to about|not installed|No accurate/);
