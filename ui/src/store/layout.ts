@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
-import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type SurroundElement, type TextElement } from "../layout/types";
+import { cleanPatch, nextId, normalizeLayout, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
 import { reportError } from "../errors/store";
 import { useApp, type Basemap } from "./store";
 
@@ -364,6 +364,26 @@ export function addShape(shape: ShapeElement["shape"]): string | null {
     stroke: "#000000",
     strokeWidth: line ? 0.6 : 0.35,
   };
+  s.addElement(el);
+  return el.id;
+}
+
+/** Insert a table of the active layer's attributes (or leave the layer for Properties). */
+export function addTable(layer = ""): string | null {
+  const s = useLayouts.getState();
+  if (!s.doc) return null;
+  const p = s.doc.page;
+  const el: TableElement = { kind: "table", id: nextId(s.doc, "tb"), x: p.margin, y: p.height / 2, w: 90, h: 50, rotation: 0, locked: false, visible: true, layer, fields: [], maxRows: 20, zebra: true };
+  s.addElement(el);
+  return el.id;
+}
+
+/** Insert a bar chart of a layer's categories. */
+export function addChart(layer = ""): string | null {
+  const s = useLayouts.getState();
+  if (!s.doc) return null;
+  const p = s.doc.page;
+  const el: ChartElement = { kind: "chart", id: nextId(s.doc, "ch"), x: p.margin, y: p.height / 2, w: 80, h: 50, rotation: 0, locked: false, visible: true, layer, chartType: "bar", category: "", topN: 8 };
   s.addElement(el);
   return el.id;
 }

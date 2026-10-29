@@ -8,7 +8,7 @@ import { displayInfo, useApp } from "../store/store";
 import { withStyleOverride } from "./labelEdits";
 import { useLegendRows, withOverride } from "./legendRows";
 import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
-import { rounded, type GridSpec, type LayoutElement, type LegendElement, type MapFrame, type NorthArrowElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
+import { rounded, type GridSpec, type LayoutElement, type LegendElement, type ChartElement, type MapFrame, type NorthArrowElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -38,7 +38,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
   const set = (patch: Record<string, unknown>, burst?: string) => useLayouts.getState().update(id, patch, burst);
   useEffect(() => void loadCatalog().catch(() => {}), []);
   if (!el) return <div className="empty-hint pad">Element not found.</div>;
-  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", sources: "Sources", shape: "Shape", picture: "Picture" }[el.kind];
+  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart" }[el.kind];
   return (
     <div className="props">
       <div className="props-title">{title} <span className="muted">({el.id})</span></div>
@@ -49,6 +49,8 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
         {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
         {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
         {el.kind === "sources" && <SourcesFields el={el} set={set} />}
+        {el.kind === "table" && <TableFields el={el} set={set} />}
+        {el.kind === "chart" && <ChartFields el={el} set={set} />}
         {el.kind === "shape" && <ShapeFields el={el} set={set} />}
         {el.kind === "picture" && <PictureFields el={el} set={set} />}
         <div className="props-grid">
@@ -311,7 +313,7 @@ function TextFields({ el, set }: { el: TextElement; set: Set }) {
   const aligns: TextElement["align"][] = ["left", "center", "right"];
   return (
     <>
-      <Field label="Text (tokens: {layout_name} {project} {date} {scale} {crs} {datum} {units})" size="small">
+      <Field label="Text (tokens: {layout_name} {project} {author} {date} {scale} {crs} {datum} {units} {layer_count} {layer_names}; **bold** and *italic*)" size="small">
         <Textarea size="small" value={el.text} rows={3} onChange={(_, d) => set({ text: d.value }, "text")} />
       </Field>
       <FontPicker value={el.family} onChange={(family) => set({ family })} />
@@ -342,6 +344,64 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
     <Field label={label} size="small">
       <input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : "#000000"} onChange={(e) => onChange(e.target.value)} aria-label={label} />
     </Field>
+  );
+}
+
+/** A dropdown of the project's layers that have attribute fields. */
+function LayerPick({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+  const layers = useApp((s) => s.layers);
+  const options: [string, string][] = Object.values(layers).filter((l) => l.fields.length > 0).map((l) => [l.id, l.name]);
+  return <Choice label="Layer" value={value} options={[["", "Choose a layer…"], ...options]} onPick={onPick} />;
+}
+
+const isNum = (t: string) => /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/i.test(t);
+
+function TableFields({ el, set }: { el: TableElement; set: Set }) {
+  const layer = useApp((s) => s.layers[el.layer]);
+  const names = (layer?.fields ?? []).map((f) => f.name).filter((n) => !n.startsWith("__"));
+  return (
+    <>
+      <LayerPick value={el.layer} onPick={(layer) => set({ layer, fields: [], sortField: "" })} />
+      {layer && (
+        <>
+          <Field label="Fields (none chosen = the first five)" size="small">
+            <Dropdown multiselect size="small" value={el.fields.join(", ")} selectedOptions={el.fields} onOptionSelect={(_, d) => set({ fields: names.filter((n) => d.selectedOptions.includes(n)) })}>
+              {names.map((n) => <Option key={n} value={n}>{n}</Option>)}
+            </Dropdown>
+          </Field>
+          <Choice label="Sort by" value={el.sortField ?? ""} options={[["", "Layer order"], ...names.map((n): [string, string] => [n, n])]} onPick={(sortField) => set({ sortField })} />
+          <Checkbox label="Largest first" checked={!!el.descending} onChange={(_, d) => set({ descending: !!d.checked })} />
+        </>
+      )}
+      <Num label="Most rows" value={el.maxRows ?? 20} min={1} max={500} step={1} onChange={(maxRows) => set({ maxRows: Math.round(maxRows) }, "maxRows")} />
+      <Num label="Text size (pt, 0 = 7)" value={el.size ?? 0} min={0} max={24} step={0.5} decimals={1} onChange={(size) => set({ size }, "size")} />
+      <Checkbox label="Striped rows" checked={el.zebra !== false} onChange={(_, d) => set({ zebra: !!d.checked })} />
+    </>
+  );
+}
+
+function ChartFields({ el, set }: { el: ChartElement; set: Set }) {
+  const layer = useApp((s) => s.layers[el.layer]);
+  const names = (layer?.fields ?? []).map((f) => f.name).filter((n) => !n.startsWith("__"));
+  const numeric = (layer?.fields ?? []).filter((f) => isNum(f.type) && !f.name.startsWith("__")).map((f) => f.name);
+  return (
+    <>
+      <LayerPick value={el.layer} onPick={(layer) => set({ layer, category: "", value: "" })} />
+      <Choice label="Type" value={el.chartType} options={[["bar", "Bar"], ["pie", "Pie"]]} onPick={(chartType) => set({ chartType })} />
+      {layer && (
+        <>
+          <Choice label="Category field" value={el.category} options={[["", "Choose a field…"], ...names.map((n): [string, string] => [n, n])]} onPick={(category) => set({ category })} />
+          <Choice label="Value" value={el.value ?? ""} options={[["", "Number of features"], ...numeric.map((n): [string, string] => [n, n])]} onPick={(value) => set({ value })} />
+          {el.value && <Choice label="Combine as" value={el.agg || "sum"} options={[["sum", "Sum"], ["avg", "Average"]]} onPick={(agg) => set({ agg })} />}
+        </>
+      )}
+      <Field label="Title" size="small">
+        <Input size="small" value={el.title ?? ""} onChange={(_, d) => set({ title: d.value }, "title")} />
+      </Field>
+      <Num label="Largest categories shown" value={el.topN ?? 8} min={1} max={12} step={1} onChange={(topN) => set({ topN: Math.round(topN) }, "topN")} />
+      <Num label="Text size (pt, 0 = 7)" value={el.size ?? 0} min={0} max={24} step={0.5} decimals={1} onChange={(size) => set({ size }, "size")} />
+      <div className="props-hint">Colours are colour-blind-safe (Okabe–Ito).</div>
+    </>
   );
 }
 

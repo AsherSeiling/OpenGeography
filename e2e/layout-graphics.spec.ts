@@ -105,3 +105,24 @@ test("CG4 overview map outlines the main frame's extent", async ({ app }) => {
   const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
   expect(out.warnings.filter((w: string) => /overview rectangle/.test(w))).toEqual([]);
 });
+
+test("CG5 table and chart elements from a layer's attributes", async ({ app }) => {
+  const layer = await addTestLayer(app, "polygons", 6, [-93.1, 45.0, -92.9, 45.1]);
+  await gis(app, (g, a: any) => g.useApp.setState({ activeLayer: a.id }), { id: layer.id });
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  await ribbon(app, "Layout", /^Table$/);
+  const state = () => gis(app, (g) => g.useLayouts.getState().doc.elements) as Promise<any[]>;
+  expect((await state()).find((e) => e.kind === "table").layer).toBe(layer.id);
+  await app.getByRole("checkbox", { name: "Striped rows" }).uncheck();
+  expect((await state()).find((e) => e.kind === "table").zebra).toBe(false);
+  await ribbon(app, "Layout", /^Chart$/);
+  const field = layer.fields.find((f: any) => /INT|VARCHAR/i.test(f.type) && !f.name.startsWith("__"))?.name ?? layer.fields[0].name;
+  await app.getByRole("combobox", { name: "Category field" }).click();
+  await app.getByRole("option", { name: field, exact: true }).click();
+  expect((await state()).find((e) => e.kind === "chart").category).toBe(field);
+  const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); return g.api.renderLayoutPreview({ layout: { ...s.doc, author: "Me" }, styles: {}, order: [], visible: {}, project: "p", date: "2026-01-01" }, 96); }) as any;
+  expect(out.warnings.filter((w: string) => /Table|Chart/.test(w))).toEqual([]);
+});

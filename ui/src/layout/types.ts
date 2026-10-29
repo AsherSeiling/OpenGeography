@@ -216,9 +216,36 @@ export interface PictureElement extends Placement {
   opacity?: number;
 }
 
+export interface TableElement extends Placement {
+  kind: "table";
+  /** Layer id. */
+  layer: string;
+  /** Fields in order; empty = the first five. */
+  fields: string[];
+  sortField?: string;
+  descending?: boolean;
+  maxRows?: number;
+  /** pt; 0/unset = 7 */
+  size?: number;
+  zebra?: boolean;
+}
+
+export interface ChartElement extends Placement {
+  kind: "chart";
+  layer: string;
+  chartType: "bar" | "pie";
+  category: string;
+  /** Numeric field to add up; empty = count features. */
+  value?: string;
+  agg?: "sum" | "avg" | "count";
+  topN?: number;
+  title?: string;
+  size?: number;
+}
+
 export type SurroundElement = LegendElement | ScaleBarElement | NorthArrowElement | SourcesElement;
 
-export type LayoutElement = MapFrame | TextElement | SurroundElement | ShapeElement | PictureElement;
+export type LayoutElement = MapFrame | TextElement | SurroundElement | ShapeElement | PictureElement | TableElement | ChartElement;
 
 /** Value rounded for display (stored values stay as they are). */
 export function rounded(v: number, decimals: number): number {
@@ -232,6 +259,8 @@ export interface Layout {
   version: number;
   body: "earth";
   page: Page;
+  /** Text token {author}. */
+  author?: string;
   elements: LayoutElement[];
   series: SeriesSpec | null;
 }

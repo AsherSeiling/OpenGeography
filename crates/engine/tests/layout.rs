@@ -1450,3 +1450,82 @@ fn lb3_index_contours_only_are_labelled_with_elevation_like_the_contour_nodes_ou
     assert!(svg.matches(">300 m</text>").count() >= 2, "the index contour is labelled more than once");
     assert_eq!(svg.matches(">260 m</text>").count() + svg.matches(">280 m</text>").count(), 0, "other contours are not labelled");
 }
+
+// ---------- CG5: tables, charts, rich text, tokens ----------
+
+fn add_element(req: &mut RenderRequest, e: serde_json::Value) {
+    req.layout.elements.push(serde_json::from_value(e).unwrap());
+}
+
+fn group_of<'a>(svg: &'a str, id: &str) -> &'a str {
+    let start = svg.find(&format!("<g id=\"{id}\"")).unwrap_or_else(|| panic!("no group {id}"));
+    &svg[start..start + svg[start..].find("</g>").unwrap()]
+}
+
+fn text_of(g: &str) -> Vec<String> {
+    g.split("<text ").skip(1).map(|t| t.split_once('>').unwrap().1.split("</text>").next().unwrap().to_string()).collect()
+}
+
+#[test]
+fn cg5_table_shows_chosen_fields_sorted_with_a_truncation_warning() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    add_element(&mut req, json!({ "kind": "table", "id": "tb", "layer": ids[0], "fields": ["cls", "pop"], "sortField": "pop", "descending": true, "x": 12.7, "y": 195.0, "w": 80.0, "h": 40.0 }));
+    let out = render(&e, &req);
+    let t = text_of(group_of(&out.svg, "table-tb"));
+    assert_eq!(t, ["cls", "pop", "c", "50", "b", "30", "a", "10", "a", "5"], "header, then rows by pop descending; numbers without decimals");
+    assert!(group_of(&out.svg, "table-tb").contains("text-anchor=\"end\""), "numbers align right");
+    // Too small for all rows: says so and shows what fits.
+    if let engine::layout::model::Element::Table { at, .. } = req.layout.elements.last_mut().unwrap() {
+        at.h = 9.0;
+    }
+    let out = render(&e, &req);
+    assert!(out.warnings.iter().any(|w| w.contains("Table 'tb' shows 1 of 4 rows")), "{:?}", out.warnings);
+    // Unknown field is skipped with a message; no layer is a prompt, not a crash.
+    add_element(&mut req, json!({ "kind": "table", "id": "t2", "layer": ids[0], "fields": ["nope", "cls"], "x": 12.7, "y": 150.0, "w": 40.0, "h": 40.0 }));
+    add_element(&mut req, json!({ "kind": "table", "id": "t3", "x": 100.0, "y": 150.0, "w": 40.0, "h": 40.0 }));
+    let out = render(&e, &req);
+    assert!(out.warnings.iter().any(|w| w.contains("no field 'nope'")) && out.warnings.iter().any(|w| w.contains("Table 't3' has no layer yet")), "{:?}", out.warnings);
+}
+
+#[test]
+fn cg5_chart_aggregates_by_category_in_colour_blind_safe_colours() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    add_element(&mut req, json!({ "kind": "chart", "id": "ch", "layer": ids[0], "chartType": "bar", "category": "cls", "value": "pop", "x": 12.7, "y": 195.0, "w": 80.0, "h": 40.0, "title": "Population" }));
+    let out = render(&e, &req);
+    let g = group_of(&out.svg, "chart-ch");
+    assert_eq!(text_of(g), ["Population", "c", "50", "b", "30", "a", "15"], "sum of pop per class, largest first");
+    assert!(g.contains("#0072b2"), "Okabe–Ito blue");
+    // Count when there is no value field; pie has a legend with percentages.
+    add_element(&mut req, json!({ "kind": "chart", "id": "pi", "layer": ids[0], "chartType": "pie", "category": "cls", "x": 100.0, "y": 195.0, "w": 80.0, "h": 40.0 }));
+    let out = render(&e, &req);
+    let g = group_of(&out.svg, "chart-pi");
+    assert_eq!(text_of(g), ["a (50%)", "b (25%)", "c (25%)"]);
+    assert_eq!(g.matches("<path").count(), 3);
+    // Bad inputs are words.
+    add_element(&mut req, json!({ "kind": "chart", "id": "bad", "layer": ids[0], "chartType": "bar", "category": "cls", "value": "cls", "x": 0.0, "y": 0.0, "w": 40.0, "h": 40.0 }));
+    assert!(render(&e, &req).warnings.iter().any(|w| w.contains("must be a numeric field")));
+    add_element(&mut req, json!({ "kind": "chart", "id": "bad2", "layer": ids[0], "chartType": "donut", "category": "cls", "x": 0.0, "y": 0.0, "w": 40.0, "h": 40.0 }));
+    assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("Unknown chart type"));
+}
+
+#[test]
+fn cg5_rich_text_and_new_tokens() {
+    use engine::layout::rich_runs;
+    assert_eq!(rich_runs("plain", false, false), [("plain".to_string(), false, false)]);
+    assert_eq!(rich_runs("a **b** *c* d", false, false), [("a ".into(), false, false), ("b".into(), true, false), (" ".into(), false, false), ("c".into(), false, true), (" d".into(), false, false)]);
+    assert_eq!(rich_runs(r"2 \* 3 \\ x", false, false), [(r"2 * 3 \ x".to_string(), false, false)]);
+    assert_eq!(rich_runs("**x**", true, false)[0], ("x".to_string(), false, false), "** toggles off inside a bold element");
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    req.author = "A. Geologist".into();
+    add_element(&mut req, json!({ "kind": "text", "id": "tx", "x": 12.7, "y": 195.0, "w": 150.0, "h": 10.0, "text": "By {author}: {layer_count} layers ({layer_names}) **bold**", "font": "sans" }));
+    let svg = render(&e, &req).svg;
+    let g = &svg[svg.find("By A. Geologist").unwrap()..];
+    assert!(g.starts_with("By A. Geologist: 3 layers (pts, lines, polys) </tspan>") || g.contains("3 layers (pts, lines, polys)"), "{}", &g[..120.min(g.len())]);
+    assert!(g.contains("font-weight=\"700\""), "bold run");
+}

@@ -26,7 +26,7 @@ pub struct FrameCtx {
     pub extra_cites: Vec<String>,
 }
 
-const PT_MM: f64 = 25.4 / 72.0;
+pub(super) const PT_MM: f64 = 25.4 / 72.0;
 
 // ---------------------------------------------------------------- text
 
@@ -97,7 +97,7 @@ fn font_attrs(font: &str) -> (&'static str, &'static str) {
 }
 
 /// One line of text with its baseline at `y`.
-fn text_line(out: &mut String, x: f64, y: f64, text: &str, font: &str, size_pt: f64, anchor: &str) {
+pub(super) fn text_line(out: &mut String, x: f64, y: f64, text: &str, font: &str, size_pt: f64, anchor: &str) {
     let (weight, style) = font_attrs(font);
     let _ = write!(
         out,
@@ -111,7 +111,7 @@ fn text_line(out: &mut String, x: f64, y: f64, text: &str, font: &str, size_pt: 
 }
 
 /// Opens the element's group, rotated about its centre when it has a rotation.
-fn open_group(out: &mut String, tag: &str, at: &Placement) {
+pub(super) fn open_group(out: &mut String, tag: &str, at: &Placement) {
     let rot = if at.rotation != 0.0 { format!(" transform=\"rotate({} {} {})\"", mm(at.rotation), mm(at.x + at.w / 2.0), mm(at.y + at.h / 2.0)) } else { String::new() };
     let _ = write!(out, "<g id=\"{tag}-{}\"{rot}>", esc(&at.id));
 }

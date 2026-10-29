@@ -15,6 +15,7 @@ pub mod shapes;
 pub mod surround;
 pub mod templates;
 pub mod svg;
+pub mod tabular;
 
 use crate::layers::LayerInfo;
 use crate::Engine;
@@ -53,7 +54,13 @@ fn grouped(n: f64) -> String {
     o
 }
 
-fn tokens(text: &str, req: &RenderRequest) -> String {
+/// What the first map frame drew, for `{layer_count}` and `{layer_names}`.
+#[derive(Default)]
+struct DrawnInfo {
+    names: Vec<String>,
+}
+
+fn tokens(text: &str, req: &RenderRequest, drawn: &DrawnInfo) -> String {
     let first = req.layout.elements.iter().find_map(|e| match e {
         Element::MapFrame { crs, scale, .. } => Some((crs.as_str(), *scale)),
         _ => None,
@@ -64,6 +71,9 @@ fn tokens(text: &str, req: &RenderRequest) -> String {
         .replace("{layout_name}", &req.layout.name)
         .replace("{project}", &req.project)
         .replace("{date}", &req.date)
+        .replace("{author}", if req.layout.author.is_empty() { &req.author } else { &req.layout.author })
+        .replace("{layer_count}", &drawn.names.len().to_string())
+        .replace("{layer_names}", &drawn.names.join(", "))
         .replace("{scale}", &if scale > 0.0 { format!("1:{}", grouped(scale)) } else { String::new() })
         .replace("{crs}", &described.crs)
         .replace("{datum}", &described.datum)
@@ -99,9 +109,52 @@ fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, fam
         if at.rotation != 0.0 { format!(" transform=\"rotate({} {} {})\"", svg::mm(at.rotation), svg::mm(at.x + at.w / 2.0), svg::mm(at.y + at.h / 2.0)) } else { String::new() }
     );
     for (i, line) in text.split('\n').enumerate() {
-        let _ = write!(out, "<tspan x=\"{}\" y=\"{}\">{}</tspan>", svg::mm(x), svg::mm(at.y + size_mm * (1.0 + 1.25 * i as f64)), svg::esc(line));
+        let y = svg::mm(at.y + size_mm * (1.0 + 1.25 * i as f64));
+        if !line.contains('*') && !line.contains('\\') {
+            let _ = write!(out, "<tspan x=\"{}\" y=\"{y}\">{}</tspan>", svg::mm(x), svg::esc(line));
+            continue;
+        }
+        for (k, (run, bold, italic)) in rich_runs(line, font == "sans-bold", font == "sans-italic").iter().enumerate() {
+            let pos = if k == 0 { format!(" x=\"{}\" y=\"{y}\"", svg::mm(x)) } else { String::new() };
+            let _ = write!(out, "<tspan{pos} font-weight=\"{}\" font-style=\"{}\">{}</tspan>", if *bold { "700" } else { "400" }, if *italic { "italic" } else { "normal" }, svg::esc(run));
+        }
     }
     out.push_str("</text>");
+}
+
+/// Split a line into runs: `**bold**` and `*italic*` toggle those styles; `\*` and `\\` are literal. `bold`/`italic` are the element's own style at the start.
+pub fn rich_runs(line: &str, mut bold: bool, mut italic: bool) -> Vec<(String, bool, bool)> {
+    let (mut runs, mut cur) = (Vec::new(), String::new());
+    let chars: Vec<char> = line.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        match chars[i] {
+            '\\' if i + 1 < chars.len() && (chars[i + 1] == '*' || chars[i + 1] == '\\') => {
+                cur.push(chars[i + 1]);
+                i += 2;
+            }
+            '*' => {
+                if !cur.is_empty() {
+                    runs.push((std::mem::take(&mut cur), bold, italic));
+                }
+                if chars.get(i + 1) == Some(&'*') {
+                    bold = !bold;
+                    i += 2;
+                } else {
+                    italic = !italic;
+                    i += 1;
+                }
+            }
+            c => {
+                cur.push(c);
+                i += 1;
+            }
+        }
+    }
+    if !cur.is_empty() || runs.is_empty() {
+        runs.push((cur, bold, italic));
+    }
+    runs
 }
 
 /// Render one page. `lookup` resolves a layer id (the UI sends ids of the
@@ -155,6 +208,15 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             frames.insert(at.id.as_str(), (out.svg, ctx));
         }
     }
+    // {layer_count} and {layer_names}: what the first map frame drew, top layer first.
+    let drawn_info = layout
+        .elements
+        .iter()
+        .find_map(|e| match e {
+            Element::MapFrame { at, .. } => frames.get(at.id.as_str()),
+            _ => None,
+        })
+        .map_or_else(DrawnInfo::default, |f| DrawnInfo { names: f.1.drawn.iter().filter_map(|id| lookup(id).map(|l| l.name)).collect() });
     for e in layout.elements.iter().filter(|e| e.at().visible) {
         check()?;
         let ctx_of = |frame: &str, warnings: &mut Vec<String>| {
@@ -171,9 +233,21 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             Element::Shape { at, shape, fill, fill_opacity, stroke, stroke_width, dash, corner_radius } => {
                 shapes::shape(&mut s, at, &shapes::ShapeStyle { shape, fill, fill_opacity: *fill_opacity, stroke, stroke_width: *stroke_width, dash, corner_radius: *corner_radius })
             }
+            Element::Table { at, layer, fields, sort_field, descending, max_rows, size, zebra } => {
+                tabular::table(&mut s, &mut warnings, conn, lookup, at, layer, &tabular::TableSpec { fields, sort_field, descending: *descending, max_rows: *max_rows, size: *size, zebra: *zebra })?
+            }
+            Element::Chart { at, layer, chart_type, category, value, agg, top_n, title, size } => tabular::chart(
+                &mut s,
+                &mut warnings,
+                conn,
+                lookup,
+                at,
+                layer,
+                &tabular::ChartSpec { kind: chart_type, category, value, agg, top_n: *top_n, title: &tokens(title, req, &drawn_info), size: *size },
+            )?,
             Element::Picture { at, source, fit, opacity } => shapes::picture(&mut s, &mut warnings, at, source, fit, *opacity),
             Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
-            Element::Text { at, text, font, family, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, family.as_deref(), *size, align, color),
+            Element::Text { at, text, font, family, size, align, color } => text_svg(&mut s, at, &tokens(text, req, &drawn_info), font, family.as_deref(), *size, align, color),
             Element::Legend { at, frame, title, columns, overrides, custom, patch, text_size } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
                     surround::legend(&mut s, &mut warnings, &mut legend_rows, at, &surround::LegendOpts { title, columns: *columns, overrides, custom, patch, text_pt: *text_size }, c, req, lookup);
