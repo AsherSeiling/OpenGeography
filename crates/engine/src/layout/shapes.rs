@@ -90,7 +90,7 @@ pub fn shape(out: &mut String, at: &Placement, s: &ShapeStyle) {
                 let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\" stroke-width=\"{}\"{}/>", mm(x), mm(ym), mm(x + w - head), mm(ym), mm(sw), dash(s.dash, sw));
                 let _ = write!(out, "<polygon points=\"{},{} {},{} {},{}\" fill=\"{stroke}\"/>", mm(x + w), mm(ym), mm(x + w - head), mm(ym - half), mm(x + w - head), mm(ym + half));
             } else {
-                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\" stroke-width=\"{}\" stroke-linecap=\"butt\"{}/>", mm(x), mm(ym), mm(x + w), mm(ym), mm(sw), dash(s.dash, sw));
+                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\" stroke-width=\"{}\"{}/>", mm(x), mm(ym), mm(x + w), mm(ym), mm(sw), dash(s.dash, sw));
             }
         }
         _ => {

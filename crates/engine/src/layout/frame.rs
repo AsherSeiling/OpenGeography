@@ -231,7 +231,7 @@ fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &
     let op = opacity(style.opacity);
     if !b.polys.is_empty() {
         let (s, w) = if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
-        let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
+        let dash = style.dash.as_deref().map_or(String::new(), |d| format!("{}{}", super::symbols::dash_attr(d, sw), super::symbols::cap_attr(d)));
         let fill = match style.pattern.as_deref().filter(|p| !p.is_empty()) {
             Some(kind) => {
                 let pid = format!("pat-{}-{i}", info.id);
@@ -461,7 +461,21 @@ fn clip_shape(conn: &Connection, _body: &Body, crs: &FrameCrs, f: &FrameInput, c
 fn indicator_path(body: &Body, crs: &FrameCrs, ind: &IndicatorInput, to_page: &dyn Fn(f64, f64) -> (f64, f64)) -> Result<String> {
     let other = FrameCrs::new(ind.crs, body)?;
     let e = geo::frame_extent(body, &other, ind.center, ind.scale, ind.w, ind.h)?;
-    let ring = densified(e);
+    // An ordered ring (`densified` is an unordered point set for bounds): along the bottom, up the right, back along the top, down the left.
+    const N: usize = 32;
+    let mut ring = Vec::with_capacity(4 * N + 1);
+    for i in 0..N {
+        ring.push((e[0] + (e[2] - e[0]) * i as f64 / N as f64, e[1]));
+    }
+    for i in 0..N {
+        ring.push((e[2], e[1] + (e[3] - e[1]) * i as f64 / N as f64));
+    }
+    for i in 0..N {
+        ring.push((e[2] - (e[2] - e[0]) * i as f64 / N as f64, e[3]));
+    }
+    for i in 0..N {
+        ring.push((e[0], e[3] - (e[3] - e[1]) * i as f64 / N as f64));
+    }
     let mut d = String::new();
     for (i, (x, y)) in ring.iter().enumerate() {
         let (lon, lat) = other.to_lonlat(*x, *y)?;

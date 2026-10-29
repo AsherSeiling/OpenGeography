@@ -135,3 +135,12 @@ Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e te
 
 ## W-1 — World outline temp file shared between simultaneous calls (fixed 2026-10-29)
 `world_outline` wrote its GeoJSON to a file named only by process id, so two calls at once overwrote and deleted each other's file (seen as intermittent `world_view` test failures under load). Each call now uses its own name.
+
+## RS-1 — Three-band 8-bit imagery was drawn with the elevation ramp (found by the raster pixel protocol, fixed 2026-10-29)
+`raster::describe` recognised imagery by looking for "UInt8" in `format!("{:?}", band_type())`. With the current `gdal` crate that prints a descriptor struct (`GdalTypeDescriptor { name: "Byte", … }`), so no raster was ever classed as RGB: aerial/satellite imagery was coloured as if it were a DEM (hypsometric ramp + hillshade) on the map and in layouts, and Properties showed the descriptor text as the data type. Now `data_type` is GDAL's own name ("Byte", "Float32", …) and 8-bit unsigned rasters with 3 or more bands are imagery. Test: `raster_style.rs::three_band_bytes_are_imagery`, e2e `raster-pixels.spec.ts` RP-3.
+
+## CG-1 — Dotted lines made the whole layout unreadable (found by the cartography pixel protocol, fixed 2026-10-29)
+A dotted line style (shape lines, and layer lines/outlines) added `stroke-linecap="round"` to an element that already had a `stroke-linecap`; the duplicate attribute made the renderer reject the page ("Layout SVG could not be read"), so the preview, PNG and PDF all failed. Dashes now carry only `stroke-dasharray`; round caps are added only where the element has none. Tests: `layout_shapes.rs::every_line_style_of_every_shape_renders_to_png_and_pdf`, `symbols.rs`, e2e `cartography-pixels.spec.ts` CP-2.
+
+## CG-2 — Overview extent rectangle drew as a zig-zag (found by looking at the rendered showcase page, fixed 2026-10-29)
+The CG4 extent indicator built its outline from `densified()`, an unordered point set meant for bounding boxes, so the path jumped between the four sides and, filled or stroked, drew a star-like blob instead of a rectangle. The unit test only checked the bounding box. The ring is now built side by side. Tests: `layout_shapes.rs::cg4_indicator_is_a_rectangle_not_a_zigzag`, e2e `cartography-pixels.spec.ts` CP-2 (outline, not a blob).

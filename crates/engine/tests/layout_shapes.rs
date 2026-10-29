@@ -304,3 +304,34 @@ fn cg10_png_export_writes_the_sidecars_only_when_asked() {
     e.export_layout(&r, engine::layout::ExportFormat::Pdf, 150.0, &pdf).unwrap();
     assert!(!dir.path().join("map.pgw.pdf").exists());
 }
+
+#[test]
+fn every_line_style_of_every_shape_renders_to_png_and_pdf() {
+    // Regression: a dotted line used to carry two stroke-linecap attributes, which made the whole page unreadable.
+    let e = Engine::new().unwrap();
+    for dash in ["solid", "dashed", "dotted"] {
+        for shape in ["rectangle", "ellipse", "triangle", "line", "arrow"] {
+            let r = req(json!([{ "kind": "shape", "id": "a", "shape": shape, "x": 10.0, "y": 10.0, "w": 60.0, "h": if shape == "line" || shape == "arrow" { 1.0 } else { 30.0 }, "dash": dash, "strokeWidth": 1.0 }]));
+            let out = render(&e, &r).unwrap();
+            assert!(e.render_layout_preview(&r, 96.0).is_ok(), "{shape} {dash}");
+            assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF"), "{shape} {dash}");
+        }
+    }
+}
+
+#[test]
+fn cg4_indicator_is_a_rectangle_not_a_zigzag() {
+    // Regression: the ring was built from an unordered point set, so the outline zig-zagged across the frame.
+    let e = Engine::new().unwrap();
+    let out = render(&e, &overview_req("EPSG:26915", json!({ "frame": "main" }))).unwrap();
+    let start = out.svg.find("<path id=\"extent-ov\" d=\"").unwrap() + 24;
+    let d = &out.svg[start..start + out.svg[start..].find('"').unwrap()];
+    let pts: Vec<(f64, f64)> = d.split(|c| c == 'M' || c == 'L' || c == 'Z').filter(|t| !t.trim().is_empty()).map(|t| { let mut n = t.split_whitespace().map(|x| x.parse::<f64>().unwrap()); (n.next().unwrap(), n.next().unwrap()) }).collect();
+    assert_eq!(pts.len(), 128);
+    // Consecutive points are one step apart (a side is 32 steps): no jumps across the rectangle.
+    let (w, h) = (1.2, 0.96);
+    for pair in pts.windows(2) {
+        let (dx, dy) = ((pair[1].0 - pair[0].0).abs(), (pair[1].1 - pair[0].1).abs());
+        assert!(dx <= w / 32.0 + 0.01 && dy <= h / 32.0 + 0.01, "jump {pair:?}");
+    }
+}

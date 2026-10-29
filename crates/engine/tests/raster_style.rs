@@ -162,3 +162,32 @@ fn shading_and_resampling_change_the_picture() {
     assert!(!png.is_empty());
     assert_eq!(near.len(), a.len());
 }
+
+#[test]
+fn three_band_bytes_are_imagery_and_floats_are_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let make = |name: &str, bands: usize, byte: bool| {
+        let p = dir.path().join(name);
+        let drv = gdal::DriverManager::get_driver_by_name("GTiff").unwrap();
+        if byte {
+            let mut ds = drv.create_with_band_type::<u8, _>(&p, 4, 4, bands).unwrap();
+            ds.set_geo_transform(&[0.0, 1.0, 0.0, 4.0, 0.0, -1.0]).unwrap();
+            for b in 1..=bands {
+                ds.rasterband(b).unwrap().write((0, 0), (4, 4), &mut gdal::raster::Buffer::new((4, 4), vec![(b * 40) as u8; 16])).unwrap();
+            }
+        } else {
+            let mut ds = drv.create_with_band_type::<f32, _>(&p, 4, 4, bands).unwrap();
+            ds.set_geo_transform(&[0.0, 1.0, 0.0, 4.0, 0.0, -1.0]).unwrap();
+            for b in 1..=bands {
+                ds.rasterband(b).unwrap().write((0, 0), (4, 4), &mut gdal::raster::Buffer::new((4, 4), vec![b as f32; 16])).unwrap();
+            }
+        }
+        raster::describe(&p).unwrap()
+    };
+    let rgb = make("rgb.tif", 3, true);
+    assert_eq!((rgb.kind.as_str(), rgb.data_type.as_str()), ("rgb", "Byte"));
+    assert_eq!(make("rgba.tif", 4, true).kind, "rgb");
+    assert_eq!(make("gray.tif", 1, true).kind, "elevation", "one byte band is not a colour image");
+    let f = make("f3.tif", 3, false);
+    assert_eq!((f.kind.as_str(), f.data_type.as_str()), ("elevation", "Float32"));
+}

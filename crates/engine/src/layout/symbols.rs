@@ -65,9 +65,18 @@ pub fn dash_attr(dash: &str, w_mm: f64) -> String {
     let w = w_mm.max(0.15);
     match dash {
         "dashed" => format!(" stroke-dasharray=\"{} {}\"", mm(w * 5.0), mm(w * 3.0)),
-        "dotted" => format!(" stroke-dasharray=\"{} {}\" stroke-linecap=\"round\"", mm(w * 0.01), mm(w * 2.2)),
+        "dotted" => format!(" stroke-dasharray=\"{} {}\"", mm(w * 0.01), mm(w * 2.2)),
         "dashdot" => format!(" stroke-dasharray=\"{} {} {} {}\"", mm(w * 6.0), mm(w * 2.5), mm(w * 0.01), mm(w * 2.5)),
         _ => String::new(),
+    }
+}
+
+/// Round caps, which dots need to be visible. Only for groups that don't already set `stroke-linecap` (a duplicate attribute makes the SVG unreadable).
+pub fn cap_attr(dash: &str) -> &'static str {
+    if dash == "dotted" {
+        " stroke-linecap=\"round\""
+    } else {
+        ""
     }
 }
 
@@ -143,7 +152,7 @@ mod tests {
     fn dashes_and_patterns() {
         assert_eq!(dash_attr("solid", 0.5), "");
         assert!(dash_attr("dashed", 0.5).contains("2.5 1.5"));
-        assert!(dash_attr("dotted", 0.5).contains("round"));
+        assert!(!dash_attr("dotted", 0.5).contains("linecap") && cap_attr("dotted").contains("round") && cap_attr("dashed").is_empty());
         for k in PATTERNS {
             let d = pattern_def("p1", k, "#ffcc00", "#333333", 2.0);
             assert!(d.starts_with("<pattern id=\"p1\"") && d.contains("#ffcc00") && d.ends_with("</pattern>"), "{k}");

@@ -288,7 +288,8 @@ pub fn describe(path: &Path) -> Result<RasterInfo> {
         bail!("{} has no raster bands", path.display());
     }
     let b = ds.rasterband(1)?;
-    let dt = format!("{:?}", b.band_type());
+    // GDAL names the 8-bit unsigned type "Byte" (older bindings printed "UInt8"; accept both).
+    let dt = b.band_type().name();
     // A raster with no valid cell has no statistics: GDAL calls that an error. It is still a raster the user may want to see listed.
     let (min, max, empty) = match b.get_statistics(true, true) {
         Ok(Some(s)) => (s.min, s.max, false),
@@ -297,7 +298,7 @@ pub fn describe(path: &Path) -> Result<RasterInfo> {
         Err(e) => return Err(e.into()),
     };
     let gt = ds.geo_transform()?;
-    let rgb = n >= 3 && dt.contains("UInt8");
+    let rgb = n >= 3 && (dt == "Byte" || dt == "UInt8");
     Ok(RasterInfo {
         path: path.display().to_string(),
         width: w,
