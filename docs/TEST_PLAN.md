@@ -762,3 +762,14 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | D3-5 | Clip refusals | box outside the image, too many cells (size named), missing file, unsupported address | auto: stac::d3_clip_refusals… |
 | D3-6 | Real services | Copernicus DEM near Norman, OK is 250–450 m | ignored network: stac::d3_real… |
 | D3-7 | Dialog | catalog listed, Download disabled until a scene is chosen, bad date explained | auto: e2e/stac.spec.ts |
+
+## D4. Overture Maps GeoParquet (phase D4)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| D4-1 | Themes and files | six themes, S3 glob per release/theme/type, citation with licence naming ODbL/CDLA | auto: overture::d4_themes… |
+| D4-2 | GeoParquet over HTTP | only the rows in the box; flat fields (id, name, class, height…); fields the file lacks left out; geometry as GEOMETRY or as WKB; cited | auto: overture::d4_a_geoparquet… |
+| D4-3 | Errors | empty area, empty box, unreadable file in words | auto: overture::d4_empty_areas… |
+| D4-4 | Real release | buildings in a few blocks of Norman, OK (257 s on the maintainer's machine) | ignored network: overture::d4_real… |
+| D4-5 | Dialog | themes, area, time and licence notice | auto: e2e/overture.spec.ts |
+| D4-6 | Local GeoParquet files | import by file (existing `parquet_source`) | covered in formats tests |

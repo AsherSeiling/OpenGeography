@@ -29,6 +29,24 @@ pub fn load_spatial(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Load DuckDB's httpfs extension (reading files over http and S3): the one shipped with the app, or installed on first use in a dev build.
+pub fn load_httpfs(conn: &Connection) -> Result<()> {
+    match crate::resources::bundled_extension("httpfs") {
+        Some(path) => conn.execute_batch(&format!("LOAD {};", lit(&path.display().to_string())))?,
+        None => {
+            static INSTALLED: Mutex<bool> = Mutex::new(false);
+            let mut done = INSTALLED.lock();
+            if !*done {
+                conn.execute_batch("INSTALL httpfs;").map_err(|e| anyhow::anyhow!("Reading remote files needs DuckDB's httpfs extension, which could not be installed (is there a network connection?): {e}"))?;
+                *done = true;
+            }
+            drop(done);
+            conn.execute_batch("LOAD httpfs;")?;
+        }
+    }
+    Ok(())
+}
+
 pub struct Pool {
     root: Mutex<Connection>,
     idle: Mutex<Vec<Connection>>,

@@ -114,6 +114,8 @@ fn main() {
             commands::fs_stat,
             commands::plan_elevation,
             commands::arcgis_catalog,
+            commands::overture_themes,
+            commands::overture_import,
             commands::stac_catalog,
             commands::stac_search,
             commands::stac_import,
