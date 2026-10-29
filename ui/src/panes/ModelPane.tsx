@@ -200,6 +200,8 @@ function ModelCanvas() {
   // activates it until you click elsewhere.
   const sawMove = useRef(false);
   const clickedIn = useRef(false);
+  // When a key last went into a text field: typing wins for a moment, then the pointer decides (see onKey).
+  const lastTyped = useRef(0);
   const [active, setActive] = useState<"off" | "on" | "editing">("off");
   const editorActive = (target?: Element | null) =>
     !!useModel.getState().layer && (sawMove.current ? overCanvas() || !!target?.closest?.(".model .react-flow__node") : clickedIn.current);
@@ -276,7 +278,9 @@ function ModelCanvas() {
     const temporal = useModel.temporal.getState();
     switch (a) {
       case "add": {
-        const m = mouse.current;
+        // At the pointer; if the window never reported one (some desktop webviews), at the middle of the canvas.
+        const r = wrap.current?.getBoundingClientRect();
+        const m = mouse.current ?? (r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null);
         if (m) openMenu(m.x, m.y);
         break;
       }
@@ -346,7 +350,24 @@ function ModelCanvas() {
         if (e.key === "Escape") e.preventDefault();
         return;
       }
-      if (typingField()) return; // the keys are for that field
+      const field = typingField();
+      if (field) {
+        // A text box outside the editor that still has focus must not swallow shortcuts while the pointer is over the canvas
+        // (Blender-style: the pointer decides). Typing wins while keys are going into it (the last 1.2 s).
+        const printable = e.key.length === 1 && !e.metaKey && !e.ctrlKey;
+        if (printable) lastTyped.current = Date.now();
+        const idle = Date.now() - lastTyped.current > 1200;
+        if (!field.closest(".model") && sawMove.current && overCanvas() && idle) {
+          field.blur();
+          setActive(editorState());
+        } else {
+          const combo = eventCombo(e);
+          if (combo && actionFor(useKeymap.getState().bindings, combo) === "add" && !field.closest(".model")) {
+            useApp.getState().setStatus("Shift+A: a text box has focus. Click the Model canvas (or move the pointer over it and wait a moment), then press Shift+A.");
+          }
+          return; // the keys are for that field
+        }
+      }
       if (!editorActive(target)) return;
       const combo = eventCombo(e);
       const action = combo && actionFor(useKeymap.getState().bindings, combo);
