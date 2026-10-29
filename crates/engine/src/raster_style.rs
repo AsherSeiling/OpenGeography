@@ -26,6 +26,8 @@ pub enum Renderer {
     Pseudocolor,
     /// Unique values: each listed cell value gets its own colour; other values are transparent (QGIS "Paletted/Unique values", ArcGIS "Unique Values"). Drawn with nearest-neighbour resampling.
     Paletted,
+    /// Three bands as red, green and blue, each stretched on its own (QGIS "Multiband color", ArcGIS "RGB Composite").
+    Multiband,
 }
 
 /// One class of a paletted raster.
@@ -106,6 +108,10 @@ pub struct RasterStyle {
     pub mode: ColorMode,
     /// Class upper bounds (ascending, n-1 for n classes). With `mode: "discrete"` and breaks, the ramp is sampled once per class (classified rendering); without, one class per ramp stop.
     pub breaks: Vec<f64>,
+    /// Multiband: the band drawn as red, green, blue (1-based).
+    pub rgb_bands: [usize; 3],
+    /// Multiband: a stretch per channel; empty = `stretch` applied to every channel with that band's own statistics.
+    pub channel_stretch: Vec<Stretch>,
     /// Classes of the paletted renderer.
     pub entries: Vec<PalEntry>,
     pub opacity: f32,
@@ -135,6 +141,8 @@ impl Default for RasterStyle {
             mode: ColorMode::Linear,
             breaks: Vec::new(),
             entries: Vec::new(),
+            rgb_bands: [1, 2, 3],
+            channel_stretch: Vec::new(),
             opacity: 1.0,
             nodata_transparent: true,
             transparent_ranges: Vec::new(),
@@ -172,6 +180,15 @@ impl RasterStyle {
         }
         if self.breaks.iter().any(|b| !b.is_finite()) || self.breaks.windows(2).any(|w| w[0] >= w[1]) {
             bail!("Class breaks must be numbers in increasing order");
+        }
+        if self.renderer == Renderer::Multiband {
+            if let Some(b) = self.rgb_bands.iter().find(|b| **b == 0 || **b > info.bands) {
+                bail!("Band {b} doesn't exist; this raster has {} band(s)", info.bands);
+            }
+            if !self.channel_stretch.is_empty() && self.channel_stretch.len() != 3 {
+                bail!("Give a stretch for each of the three colour channels");
+            }
+            return Ok(());
         }
         if self.renderer == Renderer::Paletted {
             if self.entries.is_empty() {
@@ -393,19 +410,27 @@ pub fn band_stats(info: &RasterInfo, band: usize) -> Result<Arc<BandStats>> {
 
 /// The data range the ramp is stretched over.
 pub fn stretch_range(info: &RasterInfo, style: &RasterStyle) -> Result<(f64, f64)> {
-    let st = &style.stretch;
+    range_of(info, style.band, &style.stretch)
+}
+
+/// Range of one multiband colour channel (0 = red, 1 = green, 2 = blue).
+pub fn channel_range(info: &RasterInfo, style: &RasterStyle, ch: usize) -> Result<(f64, f64)> {
+    range_of(info, style.rgb_bands[ch], style.channel_stretch.get(ch).unwrap_or(&style.stretch))
+}
+
+fn range_of(info: &RasterInfo, band: usize, st: &Stretch) -> Result<(f64, f64)> {
     let (lo, hi) = match st.mode {
         StretchMode::Manual => (st.min, st.max),
         StretchMode::MinMax => {
-            let s = band_stats(info, style.band)?;
+            let s = band_stats(info, band)?;
             (s.min, s.max)
         }
         StretchMode::Percentile => {
-            let s = band_stats(info, style.band)?;
+            let s = band_stats(info, band)?;
             (s.percentile(st.pct_low), s.percentile(st.pct_high))
         }
         StretchMode::StdDev => {
-            let s = band_stats(info, style.band)?;
+            let s = band_stats(info, band)?;
             ((s.mean - st.sigma * s.std).max(s.min), (s.mean + st.sigma * s.std).min(s.max))
         }
     };
@@ -545,6 +570,32 @@ pub fn colorize(values: &[f32], alpha: &[f32], info: &RasterInfo, style: &Raster
             out[i * 4 + c] = rgb[c].clamp(0.0, 255.0).round() as u8;
         }
         out[i * 4 + 3] = (a * style.opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
+    }
+    Ok(out)
+}
+
+/// RGBA pixels for a three-band composite; each channel is stretched over its own range.
+pub fn colorize_rgb(ch: [&[f32]; 3], alpha: &[f32], info: &RasterInfo, style: &RasterStyle, ranges: [(f64, f64); 3]) -> Result<Vec<u8>> {
+    let nodata = info.nodata.map(|n| n as f32);
+    let mut out = vec![0u8; alpha.len() * 4];
+    for i in 0..alpha.len() {
+        let v = [ch[0][i], ch[1][i], ch[2][i]];
+        if alpha[i] < 1.0 || v.iter().any(|x| !x.is_finite()) {
+            continue;
+        }
+        if style.nodata_transparent && nodata.map_or(false, |n| v.iter().all(|x| (*x - n).abs() < 1e-6)) {
+            continue;
+        }
+        let mut c = [0f32; 3];
+        for k in 0..3 {
+            let span = (ranges[k].1 - ranges[k].0).max(1e-12);
+            c[k] = (((v[k] as f64 - ranges[k].0) / span).clamp(0.0, 1.0) * 255.0) as f32;
+        }
+        let c = adjust(c, style);
+        for k in 0..3 {
+            out[i * 4 + k] = c[k].clamp(0.0, 255.0).round() as u8;
+        }
+        out[i * 4 + 3] = (style.opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
     }
     Ok(out)
 }
@@ -816,6 +867,25 @@ mod tests {
         assert_eq!(px[19], 0, "NoData");
         let empty = RasterStyle { renderer: Renderer::Paletted, ..Default::default() };
         assert!(empty.validate(&info()).unwrap_err().to_string().contains("at least one class"));
+    }
+
+    #[test]
+    fn multiband_stretches_each_channel_and_validates_bands() {
+        let mut i3 = info();
+        i3.bands = 3;
+        let s = RasterStyle { renderer: Renderer::Multiband, rgb_bands: [3, 2, 1], ..Default::default() };
+        s.validate(&i3).unwrap();
+        let (r, g, b) = ([0.0f32, 10.0], [10.0f32, 0.0], [5.0f32, 5.0]);
+        let px = colorize_rgb([&r, &g, &b], &[255.0; 2], &i3, &s, [(0.0, 10.0); 3]).unwrap();
+        assert_eq!(&px[0..4], &[0, 255, 128, 255]);
+        assert_eq!(&px[4..8], &[255, 0, 128, 255]);
+        // Different range per channel.
+        let px = colorize_rgb([&r, &g, &b], &[255.0; 2], &i3, &s, [(0.0, 20.0), (0.0, 10.0), (0.0, 10.0)]).unwrap();
+        assert_eq!(px[4], 128);
+        let bad = RasterStyle { renderer: Renderer::Multiband, rgb_bands: [1, 2, 4], ..Default::default() };
+        assert!(bad.validate(&i3).unwrap_err().to_string().contains("Band 4"));
+        let bad = RasterStyle { renderer: Renderer::Multiband, channel_stretch: vec![Stretch::default()], ..Default::default() };
+        assert!(bad.validate(&i3).is_err());
     }
 
     #[test]

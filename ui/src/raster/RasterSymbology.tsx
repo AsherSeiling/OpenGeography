@@ -6,10 +6,20 @@ import { api, errorText, type RampInfo, type RasterHistogram, type RasterUniqueV
 import { displayInfo, useApp, type LayerStyle, type RasterStyle } from "../store/store";
 import { barHeights, dragHandle, fmtValue, rampCss, valueToX } from "./histogram";
 
-const RENDERERS = { default: "Default (elevation + hillshade / RGB)", gray: "Singleband gray", pseudocolor: "Singleband pseudocolor", paletted: "Paletted / Unique values" } as const;
+const RENDERERS = { default: "Default (elevation + hillshade / RGB)", gray: "Singleband gray", pseudocolor: "Singleband pseudocolor", paletted: "Paletted / Unique values", multiband: "Multiband colour" } as const;
 const STRETCH = { minmax: "Min – Max", percentile: "Percentile clip", stddev: "Standard deviations", manual: "Manual" } as const;
 const METHODS = { equal: "Equal interval", quantile: "Quantile", jenks: "Natural breaks (Jenks)", stddev: "Standard deviation" } as const;
 const GROUPS = ["Scientific", "Terrain", "Sequential", "Diverging", "Qualitative", "Gray"] as const;
+
+// Band numbers for common composites. They assume the usual band order of the product; check it against your file.
+const PRESETS: Record<string, [number, number, number]> = {
+  "Natural colour (bands 1, 2, 3)": [1, 2, 3],
+  "Landsat 8/9 natural colour (4, 3, 2)": [4, 3, 2],
+  "Landsat 8/9 colour infrared (5, 4, 3)": [5, 4, 3],
+  "Landsat 8/9 SWIR (7, 6, 4)": [7, 6, 4],
+  "Landsat 8/9 agriculture (6, 5, 2)": [6, 5, 2],
+  "NAIP colour infrared (4, 1, 2)": [4, 1, 2],
+};
 
 const W = 280;
 const H = 70;
@@ -70,7 +80,7 @@ export function RasterSymbology({ id }: { id: string }) {
     api.rasterRamps().then(setRamps).catch((e) => setErr(errorText(e)));
   }, []);
   useEffect(() => {
-    if (r.renderer === "default" || r.renderer === "paletted") return;
+    if (r.renderer === "default" || r.renderer === "paletted" || r.renderer === "multiband") return;
     setHist(null);
     api.rasterHistogram(info.id, band, 64).then(setHist).catch((e) => setErr(errorText(e)));
   }, [info.id, info.version, band, r.renderer]);
@@ -155,7 +165,42 @@ export function RasterSymbology({ id }: { id: string }) {
       )}
       {r.renderer !== "default" && r.renderer !== "paletted" && (
         <>
-          {bands > 1 && (
+          {r.renderer === "multiband" && (
+            <>
+              <Field label="Preset">
+                <Dropdown placeholder="Choose a band combination" onOptionSelect={(_, d) => set({ rgbBands: PRESETS[d.optionValue!] })}>
+                  {Object.keys(PRESETS)
+                    .filter((k) => Math.max(...PRESETS[k]) <= bands)
+                    .map((k) => (
+                      <Option key={k} value={k}>
+                        {k}
+                      </Option>
+                    ))}
+                </Dropdown>
+              </Field>
+              <div className="class-row">
+                {(["Red", "Green", "Blue"] as const).map((c, k) => (
+                  <Field key={c} label={c}>
+                    <Dropdown
+                      value={`Band ${(r.rgbBands ?? [1, 2, 3])[k]}`}
+                      selectedOptions={[String((r.rgbBands ?? [1, 2, 3])[k])]}
+                      onOptionSelect={(_, d) => {
+                        const b = [...(r.rgbBands ?? [1, 2, 3])] as [number, number, number];
+                        b[k] = Number(d.optionValue);
+                        set({ rgbBands: b });
+                      }}
+                    >
+                      {Array.from({ length: bands }, (_, i) => (
+                        <Option key={i} value={String(i + 1)}>{`Band ${i + 1}`}</Option>
+                      ))}
+                    </Dropdown>
+                  </Field>
+                ))}
+              </div>
+              <div className="props-hint">Each channel is stretched with its own band statistics.</div>
+            </>
+          )}
+          {r.renderer !== "multiband" && bands > 1 && (
             <Field label="Band">
               <Dropdown value={`Band ${band}`} selectedOptions={[String(band)]} onOptionSelect={(_, d) => set({ band: Number(d.optionValue) })}>
                 {Array.from({ length: bands }, (_, i) => (
@@ -166,14 +211,14 @@ export function RasterSymbology({ id }: { id: string }) {
           )}
           <Field label="Stretch">
             <Dropdown value={STRETCH[sm]} selectedOptions={[sm]} onOptionSelect={(_, d) => set({ stretch: { ...r.stretch, mode: d.optionValue as keyof typeof STRETCH } })}>
-              {Object.entries(STRETCH).map(([k, v]) => (
+              {Object.entries(STRETCH).filter(([k]) => r.renderer !== "multiband" || k !== "manual").map(([k, v]) => (
                 <Option key={k} value={k}>
                   {v}
                 </Option>
               ))}
             </Dropdown>
           </Field>
-          {hist && (
+          {hist && r.renderer !== "multiband" && (
             <>
               <Histogram hist={hist} lo={lo} hi={hi} onChange={(a, b) => set({ stretch: { ...r.stretch, mode: "manual", min: a, max: b } })} />
               <div className="class-row">

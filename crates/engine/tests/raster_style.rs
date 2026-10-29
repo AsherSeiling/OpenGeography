@@ -132,3 +132,18 @@ fn unique_values_and_paletted_rendering() {
     assert_eq!(at(6)[3], 0, "other values transparent");
     assert_eq!(at(4)[3], 0);
 }
+
+#[test]
+fn multiband_composite_uses_chosen_bands() {
+    let (_d, info) = setup();
+    // Bands 1 and 2 are opposites: R = band 2, G = band 1, B = band 1.
+    let s = RasterStyle { renderer: Renderer::Multiband, rgb_bands: [2, 1, 1], ..Default::default() };
+    let b = render(&info, &s);
+    let px = &b[(5 * 20) * 4..(5 * 20) * 4 + 4];
+    assert_eq!(px[3], 255);
+    assert!(px[0] > 200 && px[1] < 5, "column 0: band 2 high, band 1 low: {px:?}");
+    let px = &b[(5 * 20 + 19) * 4..(5 * 20 + 19) * 4 + 4];
+    assert!(px[0] < 5 && px[1] > 250);
+    let err = raster::render_extent_styled(&info, &RasterStyle { renderer: Renderer::Multiband, rgb_bands: [1, 2, 3], ..Default::default() }, "EPSG:32614", EXTENT, 20, 20).unwrap_err();
+    assert!(err.to_string().contains("Band 3"), "{err}");
+}

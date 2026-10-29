@@ -76,7 +76,7 @@ export function defaultLabel(field: string): LabelStyle {
 
 /** Raster symbology (`raster_style.rs`). Every field is optional; the engine fills defaults. "default" = elevation ramp + hillshade / RGB as before. */
 export interface RasterStyle {
-  renderer: "default" | "gray" | "pseudocolor" | "paletted";
+  renderer: "default" | "gray" | "pseudocolor" | "paletted" | "multiband";
   /** 1-based band for gray and pseudocolour. */
   band?: number;
   stretch?: { mode: "minmax" | "percentile" | "stddev" | "manual"; pctLow?: number; pctHigh?: number; sigma?: number; min?: number; max?: number };
@@ -88,6 +88,9 @@ export interface RasterStyle {
   /** Class upper bounds; with mode "discrete" the ramp is sampled once per class. */
   breaks?: number[];
   /** 0–1, on top of the layer opacity. */
+  /** Multiband: bands drawn as red, green, blue (1-based), and optionally a stretch per channel. */
+  rgbBands?: [number, number, number];
+  channelStretch?: NonNullable<RasterStyle["stretch"]>[];
   /** Paletted: one entry per cell value. */
   entries?: { value: number; color: string; label?: string; hidden?: boolean }[];
   opacity?: number;

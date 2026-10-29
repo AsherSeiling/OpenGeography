@@ -57,4 +57,10 @@ test("RS3 raster symbology pane: render type, ramp library, histogram handles, c
   await expect(app.getByText(/more than 200 distinct values/)).toBeVisible();
   await app.getByRole("checkbox", { name: "Show class 0" }).uncheck();
   expect((await style()).entries[0].hidden).toBe(true);
+
+  // Multiband: a one-band file offers no presets but the channel pickers exist.
+  await app.getByRole("combobox", { name: "Render type" }).click();
+  await app.getByRole("option", { name: "Multiband colour" }).click();
+  expect((await style()).renderer).toBe("multiband");
+  await expect(app.getByRole("combobox", { name: "Red" })).toBeVisible();
 });
