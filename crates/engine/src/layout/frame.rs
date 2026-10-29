@@ -231,11 +231,22 @@ fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &
     let op = opacity(style.opacity);
     if !b.polys.is_empty() {
         let (s, w) = if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
-        let _ = write!(out, "<g fill=\"{color}\" fill-opacity=\"{op}\" fill-rule=\"evenodd\" stroke=\"{s}\" stroke-width=\"{w}\" stroke-linejoin=\"round\">{}</g>", b.polys);
+        let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
+        let fill = match style.pattern.as_deref().filter(|p| !p.is_empty()) {
+            Some(kind) => {
+                let pid = format!("pat-{}-{i}", info.id);
+                let spacing = style.pattern_spacing.unwrap_or(6.0).clamp(2.0, 40.0) * PX_MM;
+                let _ = write!(out, "<defs>{}</defs>", super::symbols::pattern_def(&pid, kind, &color, &stroke, spacing));
+                format!("url(#{})", esc(&pid))
+            }
+            None => color.clone(),
+        };
+        let _ = write!(out, "<g fill=\"{fill}\" fill-opacity=\"{op}\" fill-rule=\"evenodd\" stroke=\"{s}\" stroke-width=\"{w}\" stroke-linejoin=\"round\"{dash}>{}</g>", b.polys);
     }
     if !b.lines.is_empty() {
         let (c, o) = if info.geom_type == "Line" { (color.as_str(), op.as_str()) } else { (stroke.as_str(), "1") };
-        let _ = write!(out, "<g fill=\"none\" stroke=\"{c}\" stroke-opacity=\"{o}\" stroke-width=\"{}\" stroke-linecap=\"round\" stroke-linejoin=\"round\">{}</g>", mm(sw), b.lines);
+        let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
+        let _ = write!(out, "<g fill=\"none\" stroke=\"{c}\" stroke-opacity=\"{o}\" stroke-width=\"{}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}>{}</g>", mm(sw), b.lines);
     }
     if !b.points.is_empty() {
         let ring = if style.radius > 2.0 { format!(" stroke=\"#333333\" stroke-width=\"{}\"", mm(0.6 * PX_MM)) } else { String::new() };
@@ -317,7 +328,7 @@ fn draw_layer(conn: &Connection, info: &LayerInfo, style: &LayerStyle, frame_crs
             let _ = write!(b.lines, "<path d=\"{}\"/>", s.lines);
         }
         for p in s.points {
-            let _ = write!(b.points, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\"/>", mm(p.0), mm(p.1), mm(radius_mm));
+            super::symbols::marker(&mut b.points, style.marker.as_deref().unwrap_or(""), style.marker_svg.as_deref().unwrap_or(""), p.0, p.1, radius_mm);
         }
     }
     let mut out = String::new();

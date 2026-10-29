@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
 import { api, errorText, type CrsInfo as CrsInfoT, type ToolParam, type TransformReport } from "../ipc/api";
+import { pickPicture } from "../layout/actions";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
@@ -325,6 +326,68 @@ export function Symbology({ id }: { id: string }) {
           <Slider min={1} max={14} step={0.5} value={style.radius} onChange={(_, d) => setStyle({ radius: d.value })} />
         </Field>
       )}
+      <details>
+        <summary>Print layout symbols</summary>
+        <div className="stack">
+          <div className="props-hint">Layouts and exports draw these; the map view keeps plain symbols.</div>
+          {info.geomType === "Point" && (
+            <>
+              <Field label="Point symbol">
+                <Dropdown value={style.marker ?? "circle"} selectedOptions={[style.marker ?? "circle"]} onOptionSelect={(_, d) => setStyle({ marker: d.optionValue as LayerStyle["marker"] })}>
+                  {["circle", "square", "triangle", "diamond", "star", "cross", "x", "svg"].map((k) => (
+                    <Option key={k} value={k} text={k === "svg" ? "SVG file" : k}>
+                      {k === "svg" ? "SVG file" : k}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+              {style.marker === "svg" && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      const path = await pickPicture("Choose an SVG point symbol");
+                      if (path) setStyle({ markerSvg: await api.readPicture(path) });
+                    } catch (e) {
+                      setErr(errorText(e));
+                    }
+                  }}
+                >
+                  {style.markerSvg ? "Replace SVG…" : "Choose SVG…"}
+                </Button>
+              )}
+            </>
+          )}
+          {info.geomType !== "Point" && (
+            <Field label={info.geomType === "Line" ? "Line style" : "Outline style"}>
+              <Dropdown value={style.dash ?? "solid"} selectedOptions={[style.dash ?? "solid"]} onOptionSelect={(_, d) => setStyle({ dash: d.optionValue as LayerStyle["dash"] })}>
+                {["solid", "dashed", "dotted", "dashdot"].map((k) => (
+                  <Option key={k} value={k}>
+                    {k}
+                  </Option>
+                ))}
+              </Dropdown>
+            </Field>
+          )}
+          {info.geomType === "Polygon" && (
+            <>
+              <Field label="Fill pattern (marks in the outline colour)">
+                <Dropdown value={style.pattern ?? "none"} selectedOptions={[style.pattern ?? "none"]} onOptionSelect={(_, d) => setStyle({ pattern: d.optionValue === "none" ? undefined : (d.optionValue as LayerStyle["pattern"]) })}>
+                  {["none", "hatch", "hatch2", "cross", "horizontal", "vertical", "grid", "dots"].map((k) => (
+                    <Option key={k} value={k}>
+                      {k}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+              {style.pattern && (
+                <Field label={`Pattern spacing ${style.patternSpacing ?? 6} px`}>
+                  <Slider min={2} max={30} value={style.patternSpacing ?? 6} onChange={(_, d) => setStyle({ patternSpacing: d.value })} />
+                </Field>
+              )}
+            </>
+          )}
+        </div>
+      </details>
       <details>
         <summary>Print layout effect</summary>
         <div className="stack">

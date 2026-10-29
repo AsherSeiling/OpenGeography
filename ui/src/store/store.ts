@@ -121,6 +121,14 @@ export interface LayerStyle {
   colors?: string[];
   /** Feature labels; projects saved before L1 have none (off). */
   label?: LabelStyle;
+  /** Print layouts (the map keeps its plain symbols): point symbol, line style, polygon fill pattern. */
+  marker?: "circle" | "square" | "triangle" | "diamond" | "star" | "cross" | "x" | "svg";
+  /** For marker "svg": a `data:image/svg+xml;base64,…` file. */
+  markerSvg?: string;
+  dash?: "solid" | "dashed" | "dotted" | "dashdot";
+  pattern?: "hatch" | "hatch2" | "cross" | "horizontal" | "vertical" | "grid" | "dots";
+  /** CSS px between pattern repeats. */
+  patternSpacing?: number;
   /** Layout-only: a drop shadow behind the layer (print layouts). */
   effect?: { dx: number; dy: number; color: string; opacity: number };
   /** Raster layers only; projects saved before raster symbology have none (the default look). */

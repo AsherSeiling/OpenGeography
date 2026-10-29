@@ -21,6 +21,11 @@ const ALL_KEYS: Record<keyof LayerStyle, true> = {
   label: true,
   raster: true,
   effect: true,
+  marker: true,
+  markerSvg: true,
+  dash: true,
+  pattern: true,
+  patternSpacing: true,
 };
 
 describe("LayerStyle engine mirror", () => {

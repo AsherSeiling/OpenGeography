@@ -196,3 +196,23 @@ test("CG7 frame shape from Properties and a layer shadow in the layout", async (
   const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); const st = g.useApp.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: st.styles, order: st.order, visible: st.visible, project: "p", date: "2026-01-01" }, 96); }) as any;
   expect(out.warnings.filter((w: string) => /clip shape|polygon layer/.test(w))).toEqual([]);
 });
+
+test("CG8 symbol choices appear in the layer's Symbology and reach the layout renderer", async ({ app }) => {
+  const layer = await addTestLayer(app, "polygons", 4, [-93.1, 45.0, -92.9, 45.1]);
+  await gis(app, (g, a: any) => g.useApp.getState().setProperties({ kind: "layer", id: a.id }), { id: layer.id });
+  await app.getByText("Print layout symbols").click();
+  await app.getByRole("combobox", { name: /Fill pattern/ }).click();
+  await app.getByRole("option", { name: "hatch2" }).click();
+  await app.getByRole("combobox", { name: "Outline style" }).click();
+  await app.getByRole("option", { name: "dashed" }).click();
+  const st = await gis(app, (g, a: any) => g.useApp.getState().styles[a.id], { id: layer.id }) as any;
+  expect([st.pattern, st.dash]).toEqual(["hatch2", "dashed"]);
+  await gis(app, (g) => g.useApp.setState({ mapCrs: { id: "EPSG:26915", name: "NAD83 / UTM zone 15N" } }));
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { crs: "EPSG:26915", center: [490000, 4985000], scale: 100000, basemap: "none" }); });
+  const out = await gis(app, async (g) => { const s = g.useLayouts.getState(); const a = g.useApp.getState(); return g.api.renderLayoutPreview({ layout: s.doc, styles: a.styles, order: a.order, visible: a.visible, project: "p", date: "2026-01-01" }, 96); }) as any;
+  expect(out.warnings.filter((w: string) => /symbol|pattern|line style/i.test(w))).toEqual([]);
+});

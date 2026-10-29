@@ -359,3 +359,6 @@ A raster has no attribute fields, so the existing `fields` query parameter of th
 - **PROJ network off:** the app used to set `PROJ_NETWORK=ON`, which let GDAL's PROJ fetch grids silently. It is now OFF by default (still overridable with the environment variable), so every download is the user's decision and the transformation report is honest about what is installed.
 - **Not built:** a "covers the current map extent" marker (the catalog has area names but no boxes), and updating the catalog snapshot from the server (re-generate it from `https://cdn.proj.org/files.geojson` when PROJ-data changes).
 
+
+## CG8 — Symbol library draws in layouts first (2026-10-29)
+Point symbols, line dashes and fill patterns are drawn by the layout renderer (plain SVG, our own geometry, no third-party artwork, so no licence to carry). The map view keeps its plain symbols: giving MapLibre/OpenLayers patterns and markers needs a sprite pipeline, which is a separate piece of work. The layer's Symbology says so ("Layouts and exports draw these"). Legend swatches show the colour only.

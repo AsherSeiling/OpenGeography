@@ -15,6 +15,7 @@ pub mod shapes;
 pub mod surround;
 pub mod templates;
 pub mod svg;
+pub mod symbols;
 pub mod tabular;
 
 use crate::layers::LayerInfo;
@@ -165,6 +166,9 @@ pub fn rich_runs(line: &str, mut bold: bool, mut italic: bool) -> Vec<(String, b
 pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>, cites: &dyn Fn(&str) -> Vec<String>, open_basemap: &dyn Fn(&str) -> Result<gdal::Dataset>, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
     let layout = &req.layout;
     layout.validate()?;
+    for st in req.styles.values() {
+        symbols::check(st.marker.as_deref().unwrap_or(""), st.marker_svg.as_deref().unwrap_or(""), st.dash.as_deref().unwrap_or(""), st.pattern.as_deref().unwrap_or(""))?;
+    }
     let body = geo::Body::get(&layout.body)?;
     let p = &layout.page;
     let mut warnings = Vec::new();

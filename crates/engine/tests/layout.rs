@@ -1593,3 +1593,39 @@ fn cg7_a_layer_can_cast_a_shadow_in_layouts_only() {
     let v = serde_json::to_value(req.styles.get(&ids[1]).unwrap()).unwrap();
     assert!(v.get("effect").is_none());
 }
+
+// ---------- CG8: symbol library ----------
+
+#[test]
+fn cg8_point_markers_line_dashes_and_polygon_patterns_render_in_layouts() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    let base = render(&e, &req).svg;
+    // Defaults are unchanged.
+    assert!(base.contains("<circle") && !base.contains("stroke-dasharray") && !base.contains("<pattern"));
+    let mut put = |req: &mut RenderRequest, id: &str, extra: serde_json::Value| {
+        let mut v = serde_json::to_value(req.styles.get(id).cloned().unwrap_or_default()).unwrap();
+        v.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        req.styles.insert(id.to_string(), serde_json::from_value(v).unwrap());
+    };
+    put(&mut req, &ids[2], json!({ "marker": "star" }));
+    put(&mut req, &ids[1], json!({ "dash": "dashed" }));
+    put(&mut req, &ids[0], json!({ "pattern": "hatch", "patternSpacing": 8.0 }));
+    let out = render(&e, &req);
+    let svg = &out.svg;
+    let pts = &svg[svg.find(&format!("<g id=\"layer-{}\"", ids[2])).unwrap()..];
+    let pts = &pts[..pts.find("</g></g>").unwrap_or(pts.len())];
+    assert!(pts.contains("<polygon points=") && !pts.contains("<circle"), "{pts}");
+    assert!(svg.contains("stroke-dasharray"), "dashed line");
+    assert!(svg.matches("<pattern").count() == 3 && svg.contains(&format!("fill=\"url(#pat-{}-0)\"", ids[0])), "one pattern per class bucket");
+    assert_eq!(out.warnings, ["Layer nocrs skipped: no coordinate system"]);
+    // PNG and PDF still export.
+    assert!(e.render_layout_preview(&req, 96.0).is_ok());
+    assert!(export::svg_to_pdf(svg).unwrap().starts_with(b"%PDF"));
+    // Unknown names are readable errors.
+    put(&mut req, &ids[2], json!({ "marker": "pentagon" }));
+    assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("Unknown point symbol"));
+    put(&mut req, &ids[2], json!({ "marker": "svg" }));
+    assert!(e.render_layout_svg(&req, &|| Ok(())).is_err(), "an svg symbol needs a file");
+}
