@@ -237,11 +237,18 @@ impl<'a> Ctx<'a> {
             Ok(col)
         } else {
             self.reprojected.set(true);
-            if let Some(n) = crate::crs::datum_change_note(src, target) {
-                let mut notes = self.datum_notes.borrow_mut();
-                if !notes.contains(&n) {
-                    notes.push(n);
-                }
+            // The datum shift's accuracy over this layer's extent: noted on the result, or refused in Strict mode (CRS accuracy plan A3).
+            let extent: Option<[f64; 4]> = self
+                .conn
+                .query_row(
+                    &format!("SELECT min(ST_XMin(geom)), min(ST_YMin(geom)), max(ST_XMax(geom)), max(ST_YMax(geom)) FROM {} WHERE geom IS NOT NULL", ident(&rel.table)),
+                    [],
+                    |r| Ok([r.get::<_, Option<f64>>(0)?, r.get(1)?, r.get(2)?, r.get(3)?]),
+                )
+                .ok()
+                .and_then(|v| Some([v[0]?, v[1]?, v[2]?, v[3]?]));
+            if let Some(n) = crate::transform_report::datum_note(src, target, extent)? {
+                self.add_note(n);
             }
             // A point a projection can't show comes back from PROJ as (inf, inf) with no error (bug C-2): that becomes a null
             // geometry, never a non-finite number in a result (RD-6).

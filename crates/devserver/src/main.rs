@@ -280,6 +280,19 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "define_projection" => json!(e.define_projection(&s(a, "id")?, &s(a, "crs")?, a["crsName"].as_str().map(String::from))?),
         "suggest_crs" => json!(e.suggest_crs(&s(a, "id")?)?),
         "crs_info" => json!(e.crs_info(&s(a, "crs")?)?),
+        "transform_report" => {
+            let extent: Option<[f64; 4]> = match a.get("extent") {
+                Some(Value::Array(v)) if v.len() == 4 => Some([v[0].as_f64().unwrap_or(f64::NAN), v[1].as_f64().unwrap_or(f64::NAN), v[2].as_f64().unwrap_or(f64::NAN), v[3].as_f64().unwrap_or(f64::NAN)]),
+                _ => None,
+            };
+            json!(e.transform_report_extent(&s(a, "from")?, &s(a, "to")?, extent)?)
+        }
+        "datum_policy" => json!(e.datum_policy_strict()),
+        "set_datum_policy" => {
+            e.set_datum_policy(a["strict"].as_bool().unwrap_or(false));
+            json!(null)
+        }
+        "datum_coverage" => json!(e.datum_coverage()),
         "tissot_layer" => json!(e.tissot_layer(&s(a, "crs")?, f(a, "spacingDeg")?, f(a, "radiusKm")?)?),
         "same_crs" => json!(e.same_crs(&s(a, "a")?, &s(a, "b")?)),
         "world_outline" => json!(e.world_outline()?),

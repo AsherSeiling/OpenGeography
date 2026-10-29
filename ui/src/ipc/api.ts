@@ -274,6 +274,17 @@ export interface CrsInfo {
   areaOfUse: [number, number, number, number] | null;
 }
 
+/** How accurate moving coordinates between two coordinate systems is (CRS accuracy plan). */
+export interface TransformReport {
+  /** exact (projection only), precise (grid/published operation, up to 2 m), approximate (rougher), ballpark (no accurate shift exists). */
+  level: "exact" | "precise" | "approximate" | "ballpark";
+  accuracyM: number | null;
+  warn: boolean;
+  /** The precise shift for this area needs a datum grid that is not installed. */
+  gridMissing: boolean;
+  text: string;
+}
+
 export interface CrsDisplayInfo {
   /** "3857" for Web Mercator, else a 12-hex-digit key of the CRS. */
   crsKey: string;
@@ -563,6 +574,14 @@ export const api = {
     invoke<LayerInfo>("define_projection", { id, crs, crsName }),
   suggestCrs: (id: string) => invoke<{ crs: string; reason: string }[]>("suggest_crs", { id }),
   crsInfo: (crs: string) => invoke<CrsInfo>("crs_info", { crs }),
+  /** Accuracy of moving coordinates from `from` to `to` over a layer's extent (minx, miny, maxx, maxy in `from`). */
+  transformReport: (from: string, to: string, extent: [number, number, number, number] | null) =>
+    invoke<TransformReport>("transform_report", { from, to, extent }),
+  /** True when approximate datum shifts are refused (Strict); false warns and continues. */
+  datumPolicy: () => invoke<boolean>("datum_policy"),
+  setDatumPolicy: (strict: boolean) => invoke<null>("set_datum_policy", { strict }),
+  /** How well this installation moves coordinates in each checked region. */
+  datumCoverage: () => invoke<[string, TransformReport][]>("datum_coverage"),
   /** [k, convergence in degrees] of `crs` at (x, y) in that CRS. */
   mapFactors: (crs: string, x: number, y: number) => invoke<[number, number]>("map_factors", { crs, x, y }),
   /** Tissot circles for `crs` as a WGS 84 layer; [layer, grid points the CRS cannot represent]. */

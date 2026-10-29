@@ -813,6 +813,25 @@ impl Engine {
         transform_report::transform_report(from, to, aoi)
     }
 
+    /// The same for a layer's extent (minx, miny, maxx, maxy in `from`).
+    pub fn transform_report_extent(&self, from: &str, to: &str, extent: Option<[f64; 4]>) -> Result<transform_report::TransformReport> {
+        transform_report::report_for_extent(from, to, extent)
+    }
+
+    /// True when approximate datum shifts are refused (Strict); false (the default) warns and continues.
+    pub fn datum_policy_strict(&self) -> bool {
+        transform_report::is_strict()
+    }
+
+    pub fn set_datum_policy(&self, strict: bool) {
+        transform_report::set_strict(strict)
+    }
+
+    /// How well this installation moves coordinates in each checked region.
+    pub fn datum_coverage(&self) -> Vec<(String, transform_report::TransformReport)> {
+        transform_report::coverage()
+    }
+
     /// Scale factor k and meridian convergence (degrees) of `crs` at (x, y) in that CRS.
     pub fn map_factors(&self, crs: &str, x: f64, y: f64) -> Result<(f64, f64)> {
         let body = layout::geo::Body::get("earth")?;

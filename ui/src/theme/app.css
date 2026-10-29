@@ -624,3 +624,6 @@ select.qe-val { width: 160px; }
 .quad { width: 22px; height: 22px; border: 1px solid var(--border, #bbb); background: var(--panel, #fff); border-radius: 3px; cursor: pointer; padding: 0; }
 .quad.on { background: var(--accent, #0f6cbd); border-color: var(--accent, #0f6cbd); }
 .quadrants .quad:nth-child(5)::after { content: "•"; color: #777; }
+
+/* A datum shift that is only approximate (CRS accuracy plan): colour from the theme so it reads in light and dark. */
+.warn-text { color: var(--colorPaletteDarkOrangeForeground1); font-weight: 600; }

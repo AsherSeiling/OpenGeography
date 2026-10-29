@@ -35,6 +35,12 @@ fn check() -> anyhow::Result<String> {
     anyhow::ensure!(datum.ok, "datum data: {}", datum.problems.join("; "));
     out.push(format!("datum shifts match PROJ's best operation (PROJ_DATA = {:?})", datum.proj_data));
 
+    // Datum coverage by region (CRS accuracy plan A5): informational for the world, required for the United States, whose grids ship with the app.
+    for (name, r) in e.datum_coverage() {
+        out.push(format!("datum coverage, {name}: {}{}", r.level, r.accuracy_m.map(|a| format!(" (up to {a} m)")).unwrap_or_default()));
+        anyhow::ensure!(!(name.starts_with("United States") && r.warn), "datum coverage, {name}: {}", r.text);
+    }
+
     // Vector layer + tile.
     let l = e.generate_test_layer("polygons", 2000, [-98.0, 35.0, -97.0, 36.0])?;
     let tile = e.tile(&l.id, 6, 14, 25, &[])?;
