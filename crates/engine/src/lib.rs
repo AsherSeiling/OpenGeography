@@ -5,6 +5,7 @@ pub mod attrs;
 pub mod catalog;
 pub mod crs;
 pub mod arcgis;
+pub mod ogcapi;
 pub mod overture;
 pub mod stac;
 pub mod census;

@@ -201,6 +201,21 @@ export interface OvertureTheme {
   kind: string;
 }
 
+export interface OgcEntry {
+  id: string;
+  group: string;
+  label: string;
+  api: string;
+  collection: string;
+  author: string;
+  license: string;
+  annotation: string;
+}
+export interface OgcCollection {
+  id: string;
+  title: string;
+}
+
 export interface ArcgisEntry {
   id: string;
   group: string;
@@ -486,6 +501,9 @@ export const api = {
   stacImport: (spec: { href: string; bbox: Extent; label: string; collection: string; itemId: string; asset: string; areaLabel: string }) => track(invoke<LayerInfo>("stac_import", { spec })),
   overtureThemes: () => invoke<OvertureTheme[]>("overture_themes"),
   overtureImport: (theme: string, bbox: Extent, label: string) => track(invoke<LayerInfo>("overture_import", { theme, bbox, label })),
+  ogcCatalog: () => invoke<OgcEntry[]>("ogc_catalog"),
+  ogcCollections: (url: string) => invoke<OgcCollection[]>("ogc_collections", { url }),
+  ogcImport: (spec: { entryId?: string; api?: string; collection?: string; label?: string }, bbox: Extent, label: string) => track(invoke<LayerInfo | null>("ogc_import", { spec, bbox, label })),
   arcgisCatalog: () => invoke<ArcgisEntry[]>("arcgis_catalog"),
   arcgisLayers: (url: string) => invoke<ArcgisServiceLayer[]>("arcgis_layers", { url }),
   arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),
