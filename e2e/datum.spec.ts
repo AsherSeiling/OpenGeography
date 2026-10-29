@@ -1,5 +1,5 @@
 // CRS accuracy plan A2/A3: the Properties pane says how accurate the datum shift to the map is, and Strict mode can be switched on.
-import { test, expect, gis } from "./fixtures";
+import { test, expect, gis, ribbon } from "./fixtures";
 
 test("A2/A3 the layer's Properties show the datum shift to the map CRS, and the Strict checkbox is remembered by the engine", async ({ app }) => {
   const layer = await gis(app, async (g) => {
@@ -28,4 +28,32 @@ test("A5 the datum coverage table lists every checked region with a plain-words 
   expect(rows.length).toBeGreaterThanOrEqual(9);
   expect(rows.map((r) => r[0]).join(" ")).toMatch(/United States.*Canada.*Mexico.*Europe/);
   for (const [, r] of rows) expect(["exact", "precise", "approximate", "ballpark"]).toContain(r.level);
+});
+
+test("B2 the Datum Grids menu lists the catalog by region, filters it, and offers downloads", async ({ app }) => {
+  await ribbon(app, "Map", "Datum Grids");
+  const dlg = app.getByRole("dialog");
+  await expect(dlg).toContainText("Datum Grids");
+  const list = dlg.getByTestId("grid-list");
+  await expect(list.locator("[data-grid]").first()).toBeVisible({ timeout: 10_000 });
+  const total = await list.locator("[data-grid]").count();
+  expect(total).toBeGreaterThan(100);
+  // Regions come first, countries inside them: North America before Europe.
+  const text = await list.innerText();
+  expect(text.indexOf("North America")).toBeGreaterThanOrEqual(0);
+  expect(text.indexOf("North America")).toBeLessThan(text.indexOf("Europe"));
+  // Search narrows the list; the Canadian NAD27 grid is there with a way to get it or a note that it is installed.
+  await dlg.getByLabel("Search grids").fill("ntv2_0");
+  await expect(list.locator("[data-grid]")).toHaveCount(1);
+  await expect(list.locator('[data-grid="ca_nrc_ntv2_0.tif"]')).toContainText(/Download|Installed|Included with the app/);
+  await dlg.getByLabel("Search grids").fill("zzzz-no-such-grid");
+  await expect(list).toContainText("No grids match.");
+  await dlg.getByLabel("Search grids").fill("");
+  // Purpose filter.
+  await dlg.getByRole("combobox", { name: "Purpose" }).click();
+  await app.getByRole("option", { name: /Heights/ }).click();
+  const kinds = await list.locator("[data-grid]").count();
+  expect(kinds).toBeGreaterThan(20);
+  expect(kinds).toBeLessThan(total);
+  await dlg.getByRole("button", { name: "Close" }).click();
 });

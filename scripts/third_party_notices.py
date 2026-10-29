@@ -111,6 +111,7 @@ def main():
     w("| WhiteboxTools program (hydrology tools), © John Lindsay; built from release v2.4.0 and shipped as a separate program | MIT | https://github.com/jblindsay/whitebox-tools |")
     w("| World Magnetic Model 2025 coefficients (via `geomagnetism`) | Public domain (NOAA NCEI / British Geological Survey) | https://www.ncei.noaa.gov/products/world-magnetic-model |")
     w("| Noto Sans Regular, Bold, Italic (`crates/engine/assets/fonts/`, embedded in print layouts; license text in `OFL.txt` there) | SIL Open Font License 1.1, © The Noto Project Authors | https://github.com/notofonts/latin-greek-cyrillic |")
+    w("| Datum-shift grids shipped with the installers (Canada, Australia, New Zealand, UK, Austria, Belgium, France, Germany, Netherlands, Portugal, Spain, Switzerland; list in `crates/engine/assets/bundled_grids.txt`) | Per provider: Open Government Licence – Canada, CC BY 4.0, CC0, BSD-2-Clause, Licence Ouverte, Data licence Germany – attribution 2.0; attribution texts are the providers' README files on cdn.proj.org | https://cdn.proj.org/ |")
     w("| Extra CRS definitions (`crates/engine/assets/extra_crs.json`) | Derived from PROJ / EPSG (terms above) | https://proj.org/ |")
     w("")
 

@@ -300,6 +300,12 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             json!(null)
         }
         "datum_coverage" => json!(e.datum_coverage()),
+        "list_datum_grids" => json!(e.list_datum_grids()),
+        "download_datum_grid" => json!(e.download_datum_grid(&s(a, "name")?, a["confirmed"].as_bool().unwrap_or(false))?),
+        "remove_datum_grid" => {
+            e.remove_datum_grid(&s(a, "name")?)?;
+            json!(null)
+        }
         "tissot_layer" => json!(e.tissot_layer(&s(a, "crs")?, f(a, "spacingDeg")?, f(a, "radiusKm")?)?),
         "same_crs" => json!(e.same_crs(&s(a, "a")?, &s(a, "b")?)),
         "world_outline" => json!(e.world_outline()?),

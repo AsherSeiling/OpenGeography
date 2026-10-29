@@ -33,6 +33,7 @@ import { ArcGisDialog } from "./ArcGisDialog";
 import { StacDialog } from "./StacDialog";
 import { HazardsSoilsDialog } from "./HazardsSoilsDialog";
 import { OgcDialog } from "./OgcDialog";
+import { DatumGridsDialog } from "./DatumGridsDialog";
 import { OvertureDialog } from "./OvertureDialog";
 import { CensusDialog } from "./CensusDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
@@ -61,6 +62,8 @@ export function Dialogs() {
       return <OvertureDialog onClose={close} />;
     case "ogc":
       return <OgcDialog onClose={close} />;
+    case "datumGrids":
+      return <DatumGridsDialog onClose={close} />;
     case "hazardsSoils":
       return <HazardsSoilsDialog onClose={close} />;
     case "stac":

@@ -46,13 +46,16 @@ Build and test tooling (not shipped): Vite (MIT), Vitest (MIT), TypeScript (Apac
 | Data | Licence / terms | Where |
 |---|---|---|
 | Natural Earth 110m land | Public domain | `crates/engine/assets/ne_110m_land.geojson`, world outline layer |
-| NOAA NADCON and state HPGN datum grids (58 files, GeoTIFF via PROJ-data) | Public domain | `crates/engine/assets/proj-grids/` (README there) |
+| NOAA NADCON and state HPGN datum grids (58 files, GeoTIFF via PROJ-data) | Public domain | `crates/engine/assets/proj-grids/` (README there); more grids: see below |
 | EPSG dataset inside `proj.db`; extra CRS definitions | EPSG terms of use, © IOGP; PROJ | `crates/engine/assets/extra_crs.json` |
 | World Magnetic Model coefficients | Public domain (NOAA NCEI / BGS) | through `geomagnetism` |
 | Noto Sans Regular, Bold, Italic | SIL OFL 1.1 | `crates/engine/assets/fonts/` |
 | Viridis, magma, inferno, plasma colour maps (matplotlib; cividis: Nuñez et al.) | CC0 (public domain) | `raster_style.rs` ramp library (hex stops typed in) |
 | ColorBrewer 2.0 sequential, diverging and qualitative palettes (C. Brewer, M. Harrower) | Apache-2.0 | `raster_style.rs` ramp library (hex stops typed in) |
 | Catalogs of public services (ArcGIS, STAC, OGC API) | facts about public endpoints | `crates/engine/assets/*_catalog.json` |
+| PROJ-data grid catalog snapshot (458 files: name, area, datums, size, SHA-256) | list of facts from `https://cdn.proj.org/files.geojson` (PROJ-data project, grids under their providers' licences) | `crates/engine/assets/proj_grids_catalog.json`; the Datum Grids menu |
+| 41 datum-shift grids shipped in the installers (about 46 MB): Canada (NRC NTv2 and provincial, Québec MERN), Australia (ICSM), New Zealand (LINZ), United Kingdom (Ordnance Survey OSTN15), Austria, Belgium, France, Germany (ADV, Hessen), Netherlands, Portugal, Spain, Switzerland | Open Government Licence – Canada; CC BY 4.0 (Québec, Australia ICSM, New Zealand LINZ, Austria, Belgium, Spain, Netherlands, Portugal); CC0 (Switzerland swisstopo); BSD-2-Clause (Ordnance Survey); Licence Ouverte (France IGN); "free redistribution" (Germany ADV); Data licence Germany – attribution 2.0 (Hessen). Each provider's `<source>_README.txt` on cdn.proj.org states its terms and attribution | list and checksums in `crates/engine/assets/bundled_grids.txt`; fetched by `scripts/fetch-bundled-grids.sh` at packaging time, not stored in git |
+| Other PROJ-data grids (Brazil CC BY-SA 4.0, Germany Baden-Württemberg, geoids, deformation models, …) | per provider; not shipped | downloaded only when the user clicks in the Datum Grids menu, kept in the user's grid folder |
 
 ## 4. Public data the user can download (recorded in Sources on import)
 

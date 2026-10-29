@@ -938,7 +938,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | CA-4 | Properties pane | "Datum shift" line for a layer whose CRS differs from the map CRS; Strict checkbox toggles the engine policy | auto: e2e/datum.spec.ts |
 | CA-5 | Export Table note | the `.crs.txt` sidecar has a "Transformation:" line; Strict refuses an approximate shift | auto: export_table tests (note line), datum_policy (refusal path shared) |
 | CA-6 | Coverage table | 9 regions, each with a level; the packaged app's `--self-test` fails if a US region is approximate | auto: transform_report::coverage…, e2e/datum.spec.ts; self-test on the Mac app |
-| CA-7 | Not yet | Datum Grids menu, downloads, bundled Canada/Mexico/Australia grids (B1/B2), vertical datums (C1/C2), planar-tool warnings (C3), foot units (C4), responsible-use page (D3) | planned |
+| CA-7 | Catalog and shipped set | 458 grids with SHA-256, https URL, size; the shipped list is under 50 MB and every manifest entry is in the catalog with the same checksum | auto: grids::the_catalog_is_sorted_complete… |
+| CA-8 | Download is verified | a correct file appears; a wrong checksum or size leaves nothing behind; unknown names, grids above 50 MB without confirmation, and removing a shipped grid are refused in words | auto: grids::a_download_is_checked…, grids::unknown_names… (local mock server) |
+| CA-9 | A downloaded grid works at once | with no grids installed the US shift is flagged missing; after a grid is copied into the user folder both DuckDB's and GDAL's PROJ use it, with no restart | auto: tests/grid_folder.rs |
+| CA-10 | Datum Grids menu | opens from Map → Coordinate System; regions in order (North America before Europe), search and purpose filter work, a row offers Download / Installed / Included | auto: e2e/datum.spec.ts; list sorting and filters: ui/src/dialogs/datumGrids.test.ts |
+| CA-11 | Packaged app | `proj/` holds the 58 repository grids plus the 41 fetched ones; `--self-test` passes; a real download from the menu works | manual M-33 on the Mac app (needs the network) |
+| CA-12 | Not yet | vertical datums (C1/C2), planar-tool warnings (C3), foot units (C4), responsible-use page (D3), Strict mode for rasters | planned |
 
 ## CG — Cartography suite (2026-10-29, `docs/CARTOGRAPHY_PLAN.md`)
 | ID | What | Expect | Status |
