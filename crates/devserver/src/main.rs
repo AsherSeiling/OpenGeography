@@ -264,6 +264,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let fids: Option<Vec<i64>> = de(a, "fids")?;
             json!(e.copy_layer(&s(a, "id")?, &s(a, "name")?, fids.as_deref())?)
         }
+        "export_table" => json!(e.export_table(&s(a, "id")?, &de(a, "spec")?)?),
         "split_groups" => json!(e.split_groups(&s(a, "id")?, &s(a, "field")?)?),
         "split_by_attribute" => {
             let target: engine::split::SplitTarget = de(a, "target")?;

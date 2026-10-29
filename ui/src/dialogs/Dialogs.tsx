@@ -37,6 +37,7 @@ import { OvertureDialog } from "./OvertureDialog";
 import { CensusDialog } from "./CensusDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
 import { ExportDialog } from "./ExportDialog";
+import { ExportTableDialog } from "./ExportTableDialog";
 import { SeriesDialog } from "./SeriesDialog";
 import { SplitDialog } from "./SplitDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
@@ -93,6 +94,8 @@ export function Dialogs() {
       return <ExportDialog owner={dialog.owner} onClose={close} />;
     case "layoutSeries":
       return <SeriesDialog onClose={close} />;
+    case "exportTable":
+      return <ExportTableDialog owner={dialog.owner} onClose={close} />;
     case "splitByAttribute":
       return <SplitDialog owner={dialog.owner} onClose={close} />;
     case "elevation":

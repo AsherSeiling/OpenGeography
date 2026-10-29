@@ -5,7 +5,7 @@ import { track } from "./progress/progress";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { create } from "zustand";
 import { reportError } from "./errors/store";
-import { api, errorText, type SplitTarget, type LayerInfo } from "./ipc/api";
+import { api, errorText, type TableExportSpec, type SplitTarget, type LayerInfo } from "./ipc/api";
 import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent } from "./map/mapController";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
@@ -32,6 +32,7 @@ export type DialogState =
   | { kind: "tiger" }
   | { kind: "export"; owner: string }
   | { kind: "splitByAttribute"; owner: string }
+  | { kind: "exportTable"; owner: string }
   | { kind: "layoutSeries" }
   | { kind: "nodeQuery"; nodeId: string; param: string }
   | { kind: "elevation" }
@@ -228,6 +229,26 @@ export async function runSplit(owner: string, field: string, target: SplitTarget
   if (r.layers.length) useApp.getState().addLayers(r.layers);
   const n = r.outputs.length;
   status(target.kind === "files" ? `Wrote ${n} file${n === 1 ? "" : "s"} to ${target.dir}` : `Created ${n} layer${n === 1 ? "" : "s"} from ${info.name} by ${field}`);
+  return true;
+}
+
+/** Open the Export Table dialog (point layers: attributes plus coordinates in a chosen CRS). */
+export function exportTable(owner: string) {
+  const info = shown(owner);
+  if (!info || info.geomType !== "Point") {
+    status("Export Table works on point layers. For other layers use Export Features.");
+    return;
+  }
+  useDialog.getState().show({ kind: "exportTable", owner });
+}
+
+/** Write the table from the dialog. Returns false on failure (the error pop-up has the details). */
+export async function runExportTable(owner: string, spec: TableExportSpec): Promise<boolean> {
+  const info = shown(owner);
+  if (!info) return false;
+  const r = await busy(`Exporting the table of ${info.name}`, () => api.exportTable(info.id, spec));
+  if (!r) return false;
+  status(`Exported ${r.rows.toLocaleString()} row(s) to ${r.path} with ${r.xColumn}/${r.yColumn} in ${r.crsName} (${r.unit}); the coordinate system is described in ${r.sidecar}`);
   return true;
 }
 

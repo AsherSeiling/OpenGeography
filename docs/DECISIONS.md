@@ -306,3 +306,8 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 ## H5 — Remote sensing (2026-10-29)
 - Two nodes (Raster tab): Spectral Index (NDVI, NDWI, MNDWI, NBR, NDBI, SAVI; two bands chosen by number; arithmetic through the raster calculator, so no-data and zero denominators become no data) and Unsupervised Classification (K-means; Lloyd with k-means++ seeding, fixed seed, so repeated runs match; bands standardised; clusters fitted on an even sample of up to 50 000 cells, then every cell assigned; classes 1…k ordered by the first band; 0 = no data; centres written to `CLASS_CENTRES`). Formulas from the papers, no library code.
 - Not built: EVI (needs three bands; the calculator takes two), supervised classification (needs training areas — a design decision for the user), accuracy assessment, PCA, band-set presets per sensor (band numbers are the user's).
+
+## ET — Export Table (2026-10-29)
+- New command `export_table` (engine `export_table.rs`; Tauri, devserver, `api.exportTable`). Point layers only; the target CRS is required (the dialog preselects nothing, offers "the layer's" and WGS 84 as one-click choices), coordinates are written with `ST_Transform(..., always_xy)` as lon/lat (geographic) or x/y (projected). CRS name, code, units and datum go to a sidecar `<file>.crs.txt`, because CSV has no place for them; Parquet gets the same sidecar.
+- A path equal to any layer's source file (or its sidecar) is refused; other existing files are replaced, as with Export Features after the OS save dialog.
+- XLSX not built: it needs a new writer dependency for a format Excel already opens as CSV. Revisit if users ask.
