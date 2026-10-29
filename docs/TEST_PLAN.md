@@ -750,3 +750,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | D2-6 | Real API | Oklahoma County population > 600 000 | ignored network: census::d2_real_api… |
 | D2-7 | Dialog | GEOID field guessed, presets per dataset, bad codes block Join, years per dataset, the browser build says it has no keychain | auto: e2e/census.spec.ts |
 | D2-8 | Keychain (manual, per OS) | Save a key; restart the app; the dialog says a key is saved and a join uses it (no key in the request log, project file or error text); Remove deletes it | manual M-31 (macOS, Windows, Linux); not verified on any OS yet |
+
+## D3. STAC search and COG clip (phase D3)
+
+| Case | What | Expected | Status |
+|---|---|---|---|
+| D3-1 | Addresses, dates, catalog | `s3://` public buckets → https; `gs://` refused; date forms checked; catalog citations complete | auto: stac::d3_hrefs_dates… |
+| D3-2 | Search request and result | collection, dates, cloud limit, newest first sent; only GeoTIFF assets with a readable address listed | auto: stac::d3_search_sends… |
+| D3-3 | Search errors | HTTP 400 with the service's message, not a STAC answer, unreachable, bad area/date/collection | auto: stac::d3_search_errors… |
+| D3-4 | Clip | reads only the area through HTTP Range, in the image's CRS, cell values and bands intact, cited with the scene id | auto: stac::d3_a_clip_reads… |
+| D3-5 | Clip refusals | box outside the image, too many cells (size named), missing file, unsupported address | auto: stac::d3_clip_refusals… |
+| D3-6 | Real services | Copernicus DEM near Norman, OK is 250–450 m | ignored network: stac::d3_real… |
+| D3-7 | Dialog | catalog listed, Download disabled until a scene is chosen, bad date explained | auto: e2e/stac.spec.ts |

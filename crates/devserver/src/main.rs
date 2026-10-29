@@ -199,6 +199,13 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let _ = e.prewarm(&r.layer.id, 8, &[]);
             json!(r)
         }
+        "stac_catalog" => json!(engine::stac::catalog()),
+        "stac_search" => json!(engine::stac::search(&de(a, "spec")?)?),
+        "stac_import" => {
+            let l = e.stac_import(&de(a, "spec")?)?;
+            let _ = e.prewarm(&l.id, 8, &[]);
+            json!(l)
+        }
         "arcgis_catalog" => json!(engine::arcgis::catalog()),
         "arcgis_layers" => json!(engine::arcgis::describe_service(&s(a, "url")?)?),
         "arcgis_import" => {

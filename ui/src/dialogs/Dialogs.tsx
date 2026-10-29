@@ -30,6 +30,7 @@ import { ElevationDialog } from "./ElevationDialog";
 import { ShortcutsDialog } from "../nodes/ShortcutsDialog";
 import { ProjectionBuilderDialog } from "./ProjectionBuilderDialog";
 import { ArcGisDialog } from "./ArcGisDialog";
+import { StacDialog } from "./StacDialog";
 import { CensusDialog } from "./CensusDialog";
 import { NationalMapDialog } from "./NationalMapDialog";
 import { ExportDialog } from "./ExportDialog";
@@ -51,6 +52,8 @@ export function Dialogs() {
       return <CrsPickerDialog title={dialog.title} initial={dialog.initial ?? null} onPick={(id, n) => { dialog.onPick(id, n); close(); }} onClose={close} />;
     case "census":
       return <CensusDialog layer={dialog.layer} onClose={close} />;
+    case "stac":
+      return <StacDialog onClose={close} />;
     case "arcgis":
       return <ArcGisDialog onClose={close} />;
     case "projectionBuilder":

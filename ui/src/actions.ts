@@ -37,6 +37,7 @@ export type DialogState =
   | { kind: "elevation" }
   | { kind: "nationalMap" }
   | { kind: "arcgis" }
+  | { kind: "stac" }
   | { kind: "census"; layer: string }
   | { kind: "projectionBuilder" }
   | { kind: "nodeShortcuts" };

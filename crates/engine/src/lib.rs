@@ -5,6 +5,7 @@ pub mod attrs;
 pub mod catalog;
 pub mod crs;
 pub mod arcgis;
+pub mod stac;
 pub mod census;
 pub mod tissot;
 pub mod world;
@@ -379,6 +380,33 @@ impl Engine {
 
     /// Download The National Map vector datasets for a lon/lat box and add them
     /// as layers, clipped to the box or to a polygon layer's shape when `clip`.
+    /// Clip one asset of one STAC scene to the area and add it as a raster layer, cited.
+    pub fn stac_import(&self, spec: &stac::ImportSpec) -> Result<LayerInfo> {
+        let task = Task::start(format!("Downloading {} for {}", spec.label, spec.area_label)).cancellable();
+        task.set(0.1, Some("Reading the image from the cloud…".to_string()));
+        let clipped = stac::clip(&spec.href, spec.bbox, stac::MAX_CELLS)?;
+        task.check()?;
+        task.set(0.8, Some("Building overviews…".to_string()));
+        let stored = raster::import(&clipped)?;
+        let _ = std::fs::remove_file(&clipped);
+        let id = self.alloc_id();
+        let info = layers::raster_layer(&id, &spec.label, &stored, Some(spec.href.clone()))?;
+        self.with_conn(|c| {
+            self.save_meta(c, &info)?;
+            if let Some(cite) = stac::citation(&spec.collection, &spec.item_id, &spec.asset) {
+                sources::record(c, &cite, &info.id, &info.name)?;
+            } else {
+                let mut cite = sources::for_file(std::path::Path::new(&spec.href), "STAC asset", 0, info.crs.as_deref());
+                cite.key = format!("stac-asset:{}", spec.href);
+                cite.kind = "Web service".into();
+                cite.title = spec.label.clone();
+                sources::record(c, &cite, &info.id, &info.name)?;
+            }
+            Ok(())
+        })?;
+        Ok(info)
+    }
+
     /// Download one ArcGIS REST layer (catalog entry or pasted URL) for a lon/lat box and add it, cited. An area with no features adds nothing
     /// and returns an empty list.
     pub fn arcgis_import(&self, spec: &arcgis::Spec, bbox: [f64; 4], area_label: &str) -> Result<Vec<LayerInfo>> {
