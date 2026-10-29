@@ -209,6 +209,9 @@ pub enum Element {
         /// Label edits made in this layout only, by layer id (L3).
         #[serde(default, rename = "labelOverrides", skip_serializing_if = "BTreeMap::is_empty")]
         label_overrides: BTreeMap<String, LabelOverrides>,
+        /// Overview/inset: draw the extent of another map frame on this one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        indicator: Option<ExtentIndicator>,
         /// The layout's map series moves this frame to each index feature (C3.2).
         #[serde(default, rename = "followsSeries", skip_serializing_if = "std::ops::Not::not")]
         follows_series: bool,
@@ -415,6 +418,14 @@ impl Layout {
                 }
                 super::shapes::check_picture(source)?;
             }
+            if let Element::MapFrame { indicator: Some(ind), .. } = e {
+                if ind.frame == a.id {
+                    bail!("Map frame '{}' cannot show its own extent; choose another frame", a.id);
+                }
+                if !self.elements.iter().any(|f| matches!(f, Element::MapFrame { at, .. } if at.id == ind.frame)) {
+                    bail!("Map frame '{}' shows the extent of '{}', which is not a map frame", a.id, ind.frame);
+                }
+            }
             if let Element::Legend { patch, .. } = e {
                 if !matches!(patch.as_str(), "" | "square" | "rounded" | "circle") {
                     bail!("Unknown legend patch '{patch}' (square, rounded or circle)");
@@ -501,6 +512,29 @@ pub struct LayerStyle {
     /// Raster symbology; the layout draws rasters exactly as the map does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raster: Option<crate::raster_style::RasterStyle>,
+}
+
+/// An overview map's rectangle showing where another frame looks (QGIS "Overview", ArcGIS "Extent indicator").
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtentIndicator {
+    /// Id of the map frame whose extent is drawn.
+    pub frame: String,
+    #[serde(default = "indicator_color")]
+    pub color: String,
+    /// Outline width, mm.
+    #[serde(default = "indicator_width")]
+    pub width: f64,
+    /// Fill opacity 0–1 (0 = outline only).
+    #[serde(default)]
+    pub fill_opacity: f64,
+}
+
+fn indicator_color() -> String {
+    "#d95f02".into()
+}
+fn indicator_width() -> f64 {
+    0.6
 }
 
 /// A legend entry the user renamed or hid.

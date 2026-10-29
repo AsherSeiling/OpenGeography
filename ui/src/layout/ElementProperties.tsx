@@ -43,7 +43,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
     <div className="props">
       <div className="props-title">{title} <span className="muted">({el.id})</span></div>
       <div className="props-body stack">
-        {el.kind === "map_frame" && <FrameFields el={el} set={set} />}
+        {el.kind === "map_frame" && <FrameFields el={el} set={set} layout={layout} />}
         {el.kind === "text" && <TextFields el={el} set={set} />}
         {el.kind === "legend" && <LegendFields el={el} set={set} layout={layout} />}
         {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
@@ -68,7 +68,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
 
 type Set = (patch: Record<string, unknown>, burst?: string) => void;
 
-function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
+function FrameFields({ el, set, layout }: { el: MapFrame; set: Set; layout: string }) {
   return (
     <>
       <Field label="Coordinate system" size="small">
@@ -78,6 +78,7 @@ function FrameFields({ el, set }: { el: MapFrame; set: Set }) {
         </div>
       </Field>
       <Num label="Scale 1 :" value={el.scale} min={1} step={1000} onChange={(scale) => set({ scale }, "scale")} />
+      <OverviewFields el={el} set={set} layout={layout} />
       <div className="props-grid">
         <Num label="Centre X" value={el.center?.[0] ?? 0} decimals={2} onChange={(v) => set({ center: [v, el.center?.[1] ?? 0] }, "cx")} />
         <Num label="Centre Y" value={el.center?.[1] ?? 0} decimals={2} onChange={(v) => set({ center: [el.center?.[0] ?? 0, v] }, "cy")} />
@@ -241,6 +242,29 @@ function LegendFields({ el, set, layout }: { el: LegendElement; set: Set; layout
         </div>
       </details>
     </>
+  );
+}
+
+/** Overview/inset map: show where another frame looks. */
+function OverviewFields({ el, set, layout }: { el: MapFrame; set: Set; layout: string }) {
+  const all = useLayouts((s) => (s.id === layout ? s.doc : s.docs[layout])?.elements);
+  const others = (all ?? []).filter((e): e is MapFrame => e.kind === "map_frame" && e.id !== el.id);
+  if (!others.length) return null;
+  const ind = el.indicator;
+  return (
+    <details open={!!ind}>
+      <summary>Overview map (show another frame's extent)</summary>
+      <div className="stack">
+        <Choice label="Show the extent of" value={ind?.frame ?? ""} options={[["", "Nothing"], ...others.map((o): [string, string] => [o.id, `Frame ${o.id}`])]} onPick={(frame) => set({ indicator: frame ? { ...(ind ?? {}), frame } : null })} />
+        {ind && (
+          <>
+            <ColorInput label="Outline colour" value={ind.color ?? "#d95f02"} onChange={(color) => set({ indicator: { ...ind, color } }, "indColor")} />
+            <Num label="Outline width (mm)" value={ind.width ?? 0.6} min={0.05} step={0.05} decimals={2} onChange={(width) => set({ indicator: { ...ind, width } }, "indWidth")} />
+            <Num label="Fill opacity (0–1)" value={ind.fillOpacity ?? 0} min={0} max={1} step={0.05} decimals={2} onChange={(fillOpacity) => set({ indicator: { ...ind, fillOpacity } }, "indFill")} />
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 

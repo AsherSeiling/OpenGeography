@@ -79,7 +79,7 @@ import {
 import { zoomToExtent } from "../map/mapController";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
-import { exportLayout, insertMapFrame, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
+import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
 import { addShape, addText, useLayouts } from "../store/layout";
 import { addToolToModel } from "../panes/ModelPane";
 import { defaultLayout, showPane, togglePane } from "../panes/panes";
@@ -175,6 +175,7 @@ const list: Command[] = [
 
   // Layout contextual tab (shown while a layout tab is active)
   { id: "layoutMapFrame", label: "Map Frame", icon: <MapRegular />, run: insertMapFrame, enabled: inLayout, tip: "Insert a map frame in the map's coordinate system, centred on the map view" },
+  { id: "layoutOverview", label: "Overview Map", icon: <MapRegular />, run: insertOverview, enabled: hasFrame, tip: "Insert a small overview map of the selected frame with its extent outlined" },
   { id: "layoutText", label: "Text", icon: <TextTRegular />, run: () => void addText(), enabled: inLayout, tip: "Insert a text box ({layout_name}, {scale}, {date} … are replaced when drawn)" },
   { id: "layoutRect", label: "Rectangle", icon: <RectangleLandscapeRegular />, run: () => void addShape("rectangle"), enabled: inLayout, tip: "Insert a rectangle (fill, outline, rounded corners)" },
   { id: "layoutEllipse", label: "Ellipse", icon: <CircleRegular />, run: () => void addShape("ellipse"), enabled: inLayout, tip: "Insert an ellipse" },

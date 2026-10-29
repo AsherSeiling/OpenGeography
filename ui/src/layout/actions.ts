@@ -338,3 +338,13 @@ export async function choosePictureFor(id: string) {
     reportError(e, "action:Choose picture", { title: "The picture could not be added" });
   }
 }
+
+/** Insert a small overview map of the selected frame: same CRS and centre, about 10× smaller scale, with the frame's extent outlined. */
+export function insertOverview() {
+  const frame = targetFrame();
+  const s = useLayouts.getState();
+  if (!frame || !s.doc) return status("Insert a map frame first (Layout tab → Map Frame), then its overview map.");
+  const w = Math.min(60, frame.w / 3);
+  const id = addMapFrame({ x: frame.x + frame.w - w - 3, y: frame.y + 3, w, h: w, crs: frame.crs, center: frame.center, scale: roundScaleUp(frame.scale * 10), indicator: { frame: frame.id }, border: { width: 0.35, color: "#000000" }, decor: { background: "#ffffff" }, sources: false });
+  if (id) s.select([id]);
+}
