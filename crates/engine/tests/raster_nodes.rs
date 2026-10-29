@@ -191,3 +191,36 @@ fn h1_interpolate_reports_readable_errors() {
     let r = run(&e, "interpolate", json!({"field": "val", "method": "idw", "cell": 0}), &[&id]);
     assert!(r.error.as_deref().unwrap_or("").contains("cell size"), "{:?}", r.error);
 }
+
+#[test]
+fn h5_spectral_index_and_classification_nodes_keep_grid_and_crs() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    // 20 × 20, two bands: red (1) low on the left, high on the right; near infrared (2) the opposite.
+    let p = dir.path().join("img.tif");
+    let drv = gdal::DriverManager::get_driver_by_name("GTiff").unwrap();
+    let mut ds = drv.create_with_band_type::<f32, _>(&p, 20, 20, 2).unwrap();
+    ds.set_geo_transform(&[X0, 30.0, 0.0, Y0, 0.0, -30.0]).unwrap();
+    ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(32614).unwrap()).unwrap();
+    for (b, (lo, hi)) in [(0.05f32, 0.4f32), (0.5, 0.1)].into_iter().enumerate() {
+        let data: Vec<f32> = (0..400).map(|i| if i % 20 < 10 { lo } else { hi }).collect();
+        ds.rasterband(b + 1).unwrap().write((0, 0), (20, 20), &mut gdal::raster::Buffer::new((20, 20), data)).unwrap();
+    }
+    drop(ds);
+    let id = import(&e, &p);
+    let r = ok(&e, "spectral_index", json!({"index": "ndvi", "band_a": 2, "band_b": 1}), &[&id]);
+    assert_eq!(r.crs.as_deref(), Some("EPSG:32614"));
+    let out = r.output.as_ref().unwrap();
+    assert_eq!(size(out), (20, 20));
+    assert!((pixel(out, 2, 2) - (0.5 - 0.05) / (0.5 + 0.05)).abs() < 1e-5);
+    assert!(pixel(out, 15, 2) < 0.0);
+    let c = ok(&e, "classify_kmeans", json!({"classes": 2, "sample": 1000}), &[&id]);
+    let co = c.output.as_ref().unwrap();
+    assert_eq!(size(co), (20, 20));
+    assert_ne!(pixel(co, 2, 2), pixel(co, 15, 2));
+    assert_eq!(c.crs.as_deref(), Some("EPSG:32614"));
+    let bad = run(&e, "spectral_index", json!({"index": "ndvi", "band_a": 1, "band_b": 1}), &[&id]);
+    assert!(bad.error.as_deref().unwrap_or("").contains("different"), "{:?}", bad.error);
+    let bad = run(&e, "classify_kmeans", json!({"classes": 1}), &[&id]);
+    assert!(bad.error.as_deref().unwrap_or("").contains("between 2 and 20"), "{:?}", bad.error);
+}

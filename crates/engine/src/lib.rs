@@ -9,6 +9,7 @@ pub mod raster_ops;
 pub mod spatial_stats;
 pub mod kriging;
 pub mod whitebox;
+pub mod remote_sensing;
 pub mod jsonapis;
 pub mod ogcapi;
 pub mod overture;

@@ -845,3 +845,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | H4-4 | Refusals and robustness | threshold ≤ 0 refused; WhiteboxTools missing → says how to fix; 40 repeated FillDepressions runs all succeed (retry of the program's own thread race) | auto: hydrology::h4_refusals…, h4_fill_depressions_survives… |
 | H4-5 | Packaged app | `Resources/resources/whitebox/whitebox_tools` is present and found; a hydrology node runs in the installed app | manual on the Mac app (M-32); Windows and Linux builds at R7 |
 | H4-6 | Cancel | killing the child stops the step, no partial file | to automate |
+| H5-1 | Spectral indices | NDVI = (NIR - R)/(NIR + R) exactly; equal bands → 0; 0/0 and no-data inputs → no data; NBR as hand-computed; SAVI with a 0.0001 scale equals the 0–1 result | auto: remote_sensing::ndvi_and_friends… |
+| H5-2 | Index refusals | same band twice, band that does not exist, scale ≤ 0, unknown index → readable sentence | auto: remote_sensing::index_refusals… |
+| H5-3 | K-means | two clean clusters separate perfectly; classes numbered by first band low→high; centres in CLASS_CENTRES; same run twice gives the same map | auto: remote_sensing::kmeans_separates… |
+| H5-4 | Classification edge cases | no data stays 0; classes outside 2–20, a band that does not exist, sample < 1000, too few valid cells → readable sentence | auto: remote_sensing::classify_keeps_no_data… |
+| H5-5 | Nodes | grid and CRS kept, NDVI value in a node run, classification differs between halves | auto: raster_nodes::h5_… |
+| H5-6 | Cancel | stops between blocks, no partial file | to automate (same per-block check as the calculator) |

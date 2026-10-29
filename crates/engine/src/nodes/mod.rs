@@ -24,6 +24,7 @@ mod qgis_raster;
 mod raster_ops_tools;
 mod stats_tools;
 mod hydrology_tools;
+mod remote_sensing_tools;
 mod project;
 mod spatial_join;
 mod collect;
@@ -547,6 +548,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(hydrology_tools::Basins),
         Box::new(hydrology_tools::ExtractStreams),
         Box::new(hydrology_tools::Watersheds),
+        Box::new(remote_sensing_tools::SpectralIndex),
+        Box::new(remote_sensing_tools::UnsupervisedClassification),
         Box::new(qgis_raster::SampleRaster),
         Box::new(qgis_raster::ZonalStatistics),
         Box::new(layer_output::LayerOutput),
