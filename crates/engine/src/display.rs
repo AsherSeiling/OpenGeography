@@ -76,6 +76,110 @@ pub struct DisplayInfo {
     /// Metres PROJ's datum shift to WGS 84 moves the middle of the area of use: how far an online
     /// (proj4-reprojected) basemap can sit from data shown in this CRS. `None` when unknown.
     pub basemap_offset_m: Option<f64>,
+    /// Set in world view (RD-10): the whole Earth cut at `lon_0 ± 180°`, between the stated latitudes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub world: Option<WorldInfo>,
+}
+
+/// What the world view of a CRS shows.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorldInfo {
+    /// Central meridian; the cut is at `lon0 ± 180`.
+    pub lon0: f64,
+    pub lat_south: f64,
+    pub lat_north: f64,
+    /// Why the view stops short of a pole, when it does.
+    pub note: Option<String>,
+}
+
+/// Prefix that asks for the world view of a CRS (`world:EPSG:5070`). `crs::resolve` strips it, so every other use of the CRS is unchanged.
+pub const WORLD_PREFIX: &str = "world:";
+
+/// Tiny inset of the world window so the cut meridian is seen from the same side by both edges.
+const CUT_EPS: f64 = 1e-6;
+
+fn proj_param(proj4: &str, name: &str) -> Option<f64> {
+    proj4.split_whitespace().find_map(|t| t.strip_prefix(&format!("+{name}=")).and_then(|v| v.parse::<f64>().ok()))
+}
+
+/// Latitude range and central meridian of the world view of a projection, or why it has none.
+pub fn world_window(proj4: &str) -> Result<WorldInfo> {
+    let proj = proj4.split_whitespace().find_map(|t| t.strip_prefix("+proj=")).unwrap_or("");
+    let lon0 = proj_param(proj4, "lon_0").unwrap_or(0.0);
+    let (mut s, mut n, mut note) = (-90.0, 90.0, None);
+    match proj {
+        "tmerc" | "etmerc" | "utm" => bail!("Transverse Mercator and UTM describe a narrow band, not the whole Earth. Choose a world projection (a conic, cylindrical, pseudo-cylindrical or azimuthal one) for the world view."),
+        "ortho" | "geos" | "nsper" | "tpers" | "gnom" => bail!("This projection shows one side of the Earth only, so it has no world view."),
+        "merc" => {
+            s = -85.0;
+            n = 85.0;
+            note = Some("Mercator stretches without limit toward the poles; the view stops at 85°.".into());
+        }
+        "lcc" => {
+            let l1 = proj_param(proj4, "lat_1").unwrap_or(0.0);
+            let l2 = proj_param(proj4, "lat_2").unwrap_or(l1);
+            let mid = (l1 + l2) / 2.0;
+            let far = (90.0 - mid.abs()).clamp(30.0, 85.0);
+            if mid >= 0.0 {
+                s = -far;
+            } else {
+                n = far;
+            }
+            note = Some(format!("A Lambert conformal conic stretches without limit toward the pole it is not centred on; the view stops at {:.0}°{}.", if mid >= 0.0 { -far } else { far }, if mid >= 0.0 { "S" } else { "N" }));
+        }
+        "stere" | "sterea" => {
+            let lat0 = proj_param(proj4, "lat_0").unwrap_or(0.0);
+            if lat0.abs() > 89.9 {
+                if lat0 > 0.0 {
+                    s = -30.0;
+                } else {
+                    n = 30.0;
+                }
+                note = Some("A polar stereographic projection stretches without limit toward the opposite pole; the view stops 30° past the equator.".into());
+            }
+        }
+        _ => {}
+    }
+    Ok(WorldInfo { lon0, lat_south: s, lat_north: n, note })
+}
+
+/// World view only: geometries spanning more than 10° get a vertex every degree, so an edge that is a straight line in
+/// lon/lat (a polygon's edge along a parallel, Antarctica's along -90°) curves in a conic instead of becoming a chord. Returns the
+/// name of a temporary table `(fid, wkb)` of the densified geometries.
+fn densify_large(conn: &Connection, layer: &str, to_ll: &str, tag: &str) -> Result<String> {
+    let dense = ident(&format!("__w_dense_{tag}"));
+    conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE {dense} (fid BIGINT, wkb BLOB)"))?;
+    let mut st = conn.prepare(&format!(
+        "SELECT __fid, ST_AsWKB(g) FROM (SELECT __fid, {to_ll} AS g FROM {layer} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom))
+         WHERE ST_XMax(g) - ST_XMin(g) > 10 OR ST_YMax(g) - ST_YMin(g) > 10"
+    ))?;
+    let rows: Vec<(i64, Vec<u8>)> = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let mut ins = conn.prepare(&format!("INSERT INTO {dense} VALUES (?, ?)"))?;
+    for (fid, wkb) in rows {
+        let Ok(g) = gdal::vector::Geometry::from_wkb(&wkb) else { continue };
+        // SAFETY: `g` owns a valid OGR geometry for the call.
+        unsafe { gdal_sys::OGR_G_Segmentize(g.c_geometry(), 1.0) };
+        if let Ok(out) = g.wkb() {
+            ins.execute(duckdb::params![fid, out])?;
+        }
+    }
+    Ok(dense)
+}
+
+/// SQL for the part of lon/lat geometry `g` (longitudes in -180..180) inside the world window, as one collection: the geometry
+/// is also tried shifted by ±360° so a window that reaches past ±180° (a cut meridian away from 180°) is filled from both sides.
+fn world_clip_sql(w: &WorldInfo, g: &str) -> String {
+    let (lo, hi) = (w.lon0 - 180.0 + CUT_EPS, w.lon0 + 180.0 - CUT_EPS);
+    let env = format!("ST_MakeEnvelope({lo}, {}, {hi}, {})", w.lat_south, w.lat_north);
+    let mut parts = vec![format!("ST_Intersection({g}, {env})")];
+    if hi > 180.0 {
+        parts.push(format!("ST_Intersection(ST_Translate({g}, 360, 0), {env})"));
+    }
+    if lo < -180.0 {
+        parts.push(format!("ST_Intersection(ST_Translate({g}, -360, 0), {env})"));
+    }
+    format!("ST_Collect([{}])", parts.join(", "))
 }
 
 fn srs(def: &str) -> Result<SpatialRef> {
@@ -99,6 +203,7 @@ fn mercator_key() -> &'static str {
 /// Grid, proj4 string and key for a CRS. `fallback` ([w, s, e, n] degrees) is
 /// used only when PROJ has no area of use for a projected CRS.
 pub fn display_info(crs: &str, fallback: Option<[f64; 4]>) -> Result<DisplayInfo> {
+    let want_world = crs.trim_start().starts_with(WORLD_PREFIX);
     let s = srs(&crs::resolve(crs))?;
     let json = normalized_projjson(&s)?;
     let proj4 = s.to_proj4().map_err(|e| anyhow!("The map view can't draw '{crs}': its definition can't be written as a proj4 string ({e})."))?;
@@ -121,9 +226,20 @@ pub fn display_info(crs: &str, fallback: Option<[f64; 4]>) -> Result<DisplayInfo
             hash_in.push_str(&format!("|fallback:{:.3},{:.3},{:.3},{:.3}", e[0], e[1], e[2], e[3]));
             (e, false)
         }
+        (None, None) if want_world => ([-180.0, -90.0, 180.0, 90.0], false),
         (None, None) => bail!("'{crs}' has no known area of use, so the map grid can't be worked out. Pass the extent of the visible layers as a fallback."),
     };
-    let key = if hash12(&json) == mercator_key() { MERCATOR_KEY.to_string() } else { hash12(&hash_in) };
+    let is_mercator = hash12(&json) == mercator_key();
+    // World view: Web Mercator and geographic CRSs already show the whole Earth; any other projection gets the globe cut at lon_0 ± 180°.
+    let world = if want_world && !geographic && !is_mercator { Some(world_window(&proj4)?) } else { None };
+    let (aou, area_of_use_known) = match &world {
+        Some(w) => ([w.lon0 - 180.0 + CUT_EPS, w.lat_south, w.lon0 + 180.0 - CUT_EPS, w.lat_north], true),
+        None => (aou, area_of_use_known),
+    };
+    if let Some(w) = &world {
+        hash_in.push_str(&format!("|world:{:.6},{},{}", w.lon0, w.lat_south, w.lat_north));
+    }
+    let key = if is_mercator { MERCATOR_KEY.to_string() } else { hash12(&hash_in) };
 
     let (grid, unit_m) = if key == MERCATOR_KEY {
         let half = std::f64::consts::PI * MERC_R;
@@ -152,7 +268,7 @@ pub fn display_info(crs: &str, fallback: Option<[f64; 4]>) -> Result<DisplayInfo
         (projected_grid(&s, aou)?, s.linear_units())
     };
     let basemap_offset_m = basemap_offset(&s, aou);
-    Ok(DisplayInfo { crs_key: key, proj4, geographic, unit_m, grid, area_of_use: aou, area_of_use_known, basemap_offset_m })
+    Ok(DisplayInfo { crs_key: key, proj4, geographic, unit_m, grid, area_of_use: aou, area_of_use_known, basemap_offset_m, world })
 }
 
 /// How far (m) PROJ's best transform to WGS 84 moves the centre of the CRS's area of use, compared
@@ -179,6 +295,7 @@ fn projected_grid(s: &SpatialRef, aou: [f64; 4]) -> Result<Grid> {
     geog.set_axis_mapping_strategy(AxisMappingStrategy::TraditionalGisOrder);
     let t = CoordTransform::new(&geog, s).map_err(|e| anyhow!("Cannot project lon/lat into this coordinate system: {e}"))?;
     let [w, so, mut e, n] = aou;
+    let world_window_wraps = (e - w) > 359.0; // world view: keep longitudes as given
     if e < w {
         e += 360.0; // area of use crosses the antimeridian
     }
@@ -194,7 +311,8 @@ fn projected_grid(s: &SpatialRef, aou: [f64; 4]) -> Result<Grid> {
     let mut b = [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY];
     let mut kept = 0;
     for (lon, lat) in ring {
-        let lon = if lon > 180.0 { lon - 360.0 } else { lon };
+        // (PROJ takes longitudes outside -180..180 and measures them from lon_0, so a window cut at lon_0 ± 180° is not wrapped.)
+        let lon = if world_window_wraps { lon } else if lon > 180.0 { lon - 360.0 } else { lon };
         let (mut xs, mut ys) = ([lon], [lat]);
         // Points PROJ can't project (outside the projection's domain) are skipped.
         if t.transform_coords(&mut xs, &mut ys, &mut []).is_ok() && xs[0].abs() < MAX_COORD && ys[0].abs() < MAX_COORD {
@@ -359,6 +477,7 @@ pub fn build(conn: &Connection, info: &LayerInfo, crs_def: &str, di: &DisplayInf
     let (layer, table) = (ident(&info.table), table_name(&info.id, &di.crs_key));
     let disp = ident(&table);
     let dst = lit(&crs::resolve(crs_def));
+    let world = di.world.clone();
     let src = crs::resolve(src);
     let to_ll = if src == WGS84 { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, true)", lit(&src), lit(WGS84)) };
     let rect = clip_polygon_sql(di.area_of_use);
@@ -369,6 +488,13 @@ pub fn build(conn: &Connection, info: &LayerInfo, crs_def: &str, di: &DisplayInf
             task.check()?;
             task.set(0.05, Some("Clipping to the area of use and projecting"));
             let total: i64 = conn.query_row(&format!("SELECT count(*) FROM {layer} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom)"), [], |r| r.get(0))?;
+            // The source rows as lon/lat; in world view the large ones are densified first.
+            let from_src = if world.is_some() {
+                let dense = densify_large(conn, &layer, &to_ll, &info.id)?;
+                format!("(SELECT t.__fid, t.geom, coalesce(ST_GeomFromWKB(d.wkb), {to_ll}) AS g FROM {layer} t LEFT JOIN {dense} d ON d.fid = t.__fid WHERE t.geom IS NOT NULL AND NOT ST_IsEmpty(t.geom))")
+            } else {
+                format!("(SELECT __fid, geom, {to_ll} AS g FROM {layer} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom))")
+            };
             // x: the part inside the area of use; c: only the source's kind of
             // geometry (a polygon touching the edge must not become a line).
             conn.execute_batch(&format!(
@@ -379,14 +505,18 @@ pub fn build(conn: &Connection, info: &LayerInfo, crs_def: &str, di: &DisplayInf
                        FROM (SELECT __fid, CASE WHEN ST_GeometryType(x)::VARCHAR = 'GEOMETRYCOLLECTION' OR ST_Dimension(x) < dim
                                                 THEN ST_CollectionExtract(x, dim + 1) ELSE x END AS c
                              FROM (SELECT __fid, ST_Dimension(geom) AS dim,
-                                          CASE WHEN ST_Within(g, {rect}) THEN g ELSE ST_Intersection(g, {rect}) END AS x
-                                   FROM (SELECT __fid, geom, {to_ll} AS g FROM {layer} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom)))
+                                          {clip} AS x
+                                   FROM {from_src})
                              WHERE x IS NOT NULL AND NOT ST_IsEmpty(x))
                        WHERE c IS NOT NULL AND NOT ST_IsEmpty(c))
                  WHERE isfinite(ST_XMin(__d)) AND isfinite(ST_YMin(__d)) AND isfinite(ST_XMax(__d)) AND isfinite(ST_YMax(__d))
                    AND abs(ST_XMin(__d)) < {MAX_COORD} AND abs(ST_YMin(__d)) < {MAX_COORD}
                    AND abs(ST_XMax(__d)) < {MAX_COORD} AND abs(ST_YMax(__d)) < {MAX_COORD}",
                 wgs = lit(WGS84),
+                clip = match &world {
+                    Some(w) => world_clip_sql(w, "g"),
+                    None => format!("CASE WHEN ST_Within(g, {rect}) THEN g ELSE ST_Intersection(g, {rect}) END"),
+                },
             ))?;
             task.check()?;
             task.set(0.6, Some("Indexing"));

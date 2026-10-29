@@ -5,6 +5,7 @@ pub mod attrs;
 pub mod catalog;
 pub mod crs;
 pub mod tissot;
+pub mod world;
 pub mod db;
 pub mod display;
 pub mod graph;
@@ -193,6 +194,11 @@ impl Engine {
             Ok(())
         })?;
         Ok(out)
+    }
+
+    /// `import_with` for the world module (no file citation is recorded).
+    pub(crate) fn import_with_public(&self, path: &Path, task: &mut Task) -> Result<Vec<LayerInfo>> {
+        self.import_with(path, task)
     }
 
     /// Import, reporting each layer of the file as a part of `task`.

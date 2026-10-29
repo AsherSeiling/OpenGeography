@@ -18,7 +18,7 @@ import { create } from "zustand";
 import { api, errorText, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
-import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, registerCrs, scaleOf, tileGridFor } from "../map/crs";
+import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, scaleOf, tileGridFor } from "../map/crs";
 import { serialQueue } from "../map/serialQueue";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
 import { labelStyleFunction, labelTileFields } from "../map/labels";
@@ -152,11 +152,12 @@ export function MapView() {
 
   // ---------- coordinate system (M-D7) ----------
   const switching = useRef(0);
+  const worldView = useApp((s) => s.worldView);
   const prevCrs = useRef<{ id: string; name: string } | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const id = mapCrs?.id ?? WEB_MERCATOR;
+    const id = displayCrsId(mapCrs?.id ?? WEB_MERCATOR, worldView);
     if (getActiveCrs()?.id === id) return;
     const my = ++switching.current;
     void (async () => {
@@ -176,7 +177,13 @@ export function MapView() {
         const oldRes = view.getResolution();
         let center: [number, number];
         let resolution: number;
-        if (prev && oldCenter && oldRes) {
+        if (info.world) {
+          // World view: frame the whole Earth.
+          const ex = info.grid.extent;
+          center = [(ex[0] + ex[2]) / 2, (ex[1] + ex[3]) / 2];
+          const size = map.getSize() ?? [800, 600];
+          resolution = (ex[2] - ex[0]) / Math.min(size[0], size[1]) * 1.05;
+        } else if (prev && oldCenter && oldRes) {
           // Keep the centre and the ground scale at the centre.
           center = (await api.transformPoint(oldCenter[0], oldCenter[1], prev.id, id)) as [number, number];
           const [kOld, kNew] = await Promise.all([scaleFactorAt(prev, oldCenter[0], oldCenter[1]), scaleFactorAt(next, center[0], center[1])]);
@@ -205,11 +212,12 @@ export function MapView() {
         if (my !== switching.current) return;
         const s = useApp.getState();
         s.setStatus(`The map can't be drawn in ${mapCrs?.name ?? id}: ${errorText(e)}`);
-        // Keep the previous coordinate system.
-        if (prevCrs.current && prevCrs.current.id !== id) s.setMapCrs(prevCrs.current);
+        // Keep the previous coordinate system (a world view that cannot be made just goes back to the normal view).
+        if (worldView) s.setWorldView(false);
+        else if (prevCrs.current && prevCrs.current.id !== id) s.setMapCrs(prevCrs.current);
       }
     })();
-  }, [mapCrs, refreshScale]);
+  }, [mapCrs, worldView, refreshScale]);
 
   // ---------- basemap ----------
   const basemap = useApp((s) => s.basemap);

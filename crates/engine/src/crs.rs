@@ -24,6 +24,8 @@ fn extra_defs() -> &'static std::collections::HashMap<String, String> {
 /// A CRS string PROJ can use: the code itself, or its full definition when
 /// the built-in database doesn't know the code.
 pub fn resolve(crs: &str) -> String {
+    // "world:EPSG:5070" asks the map for the world view of EPSG:5070 (display.rs); everywhere else it is that CRS.
+    let crs = crs.trim_start().strip_prefix(crate::display::WORLD_PREFIX).unwrap_or(crs);
     extra_defs().get(&crs.trim().to_uppercase()).cloned().unwrap_or_else(|| crs.to_string())
 }
 

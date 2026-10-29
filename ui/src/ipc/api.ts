@@ -153,6 +153,8 @@ export interface CrsDisplayInfo {
   areaOfUseKnown: boolean;
   /** Accuracy (m) of PROJ's best transform to WGS 84: how far an online basemap can sit from data in this CRS. Null when unknown. */
   basemapOffsetM: number | null;
+  /** Present in world view (crs id prefixed "world:"): the whole Earth cut at lon0 ± 180°. */
+  world?: { lon0: number; latSouth: number; latNorth: number; note: string | null };
 }
 
 export interface DisplayStatus {
@@ -406,6 +408,10 @@ export const api = {
   /** Tissot circles for `crs` as a WGS 84 layer; [layer, grid points the CRS cannot represent]. */
   tissotLayer: (crs: string, spacingDeg: number, radiusKm: number) => invoke<[LayerInfo, number]>("tissot_layer", { crs, spacingDeg, radiusKm }),
   sameCrs: (a: string, b: string) => invoke<boolean>("same_crs", { a, b }),
+  /** The bundled Natural Earth 110m land polygons as a layer (cited in Sources). */
+  worldOutline: () => invoke<LayerInfo>("world_outline"),
+  /** [graticule, reference lines] layers for `crs`. */
+  worldReference: (crs: string, spacingDeg: number) => invoke<LayerInfo[]>("world_reference", { crs, spacingDeg }),
   validateCrs: (crs: string) => invoke<void>("validate_crs", { crs }),
   transformPoint: (x: number, y: number, from: string, to: string) =>
     invoke<[number, number]>("transform_point", { x, y, from, to }),
