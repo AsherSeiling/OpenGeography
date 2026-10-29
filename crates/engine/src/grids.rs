@@ -171,7 +171,7 @@ pub fn remove(name: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{BufRead, BufReader, Write as _};
+    use std::io::{BufRead, BufReader};
     use std::net::TcpListener;
 
     /// Serve `body` once on a local port; returns the URL.
