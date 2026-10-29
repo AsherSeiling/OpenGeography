@@ -36,6 +36,8 @@ pub struct LayoutSvg {
     pub labels: Vec<labels::PlacedLabel>,
     /// Label edits whose feature no longer exists; the UI removes them.
     pub dropped_label_edits: Vec<labels::DroppedEdit>,
+    /// The legends' generated entries, for the editing list.
+    pub legend_rows: Vec<surround::LegendRowInfo>,
 }
 
 /// "24000" → "24,000".
@@ -116,6 +118,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
     let mut basemaps: Vec<String> = Vec::new();
     let mut placed_labels = Vec::new();
     let mut dropped_label_edits = Vec::new();
+    let mut legend_rows = Vec::new();
     let mut s = String::new();
     let _ = write!(
         s,
@@ -165,9 +168,9 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             Element::Picture { at, source, fit, opacity } => shapes::picture(&mut s, &mut warnings, at, source, fit, *opacity),
             Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
             Element::Text { at, text, font, family, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, family.as_deref(), *size, align, color),
-            Element::Legend { at, frame, title, columns } => {
+            Element::Legend { at, frame, title, columns, overrides, custom, patch, text_size } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::legend(&mut s, &mut warnings, at, title, *columns, c, req, lookup);
+                    surround::legend(&mut s, &mut warnings, &mut legend_rows, at, &surround::LegendOpts { title, columns: *columns, overrides, custom, patch, text_pt: *text_size }, c, req, lookup);
                 }
             }
             Element::ScaleBar { at, frame, units, segments, ratio, style, units2, verbal, color } => {
@@ -188,7 +191,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
         }
     }
     s.push_str("</svg>");
-    Ok(LayoutSvg { svg: s, warnings, basemaps, labels: placed_labels, dropped_label_edits })
+    Ok(LayoutSvg { svg: s, warnings, basemaps, labels: placed_labels, dropped_label_edits, legend_rows })
 }
 
 /// "U.S. Census Bureau, TIGER/Line Shapefiles (2024)" for the Sources element.
@@ -227,6 +230,7 @@ pub struct LayoutPreview {
     /// Labels as placed, for hit boxes in the Layout view (L3).
     pub labels: Vec<labels::PlacedLabel>,
     pub dropped_label_edits: Vec<labels::DroppedEdit>,
+    pub legend_rows: Vec<surround::LegendRowInfo>,
 }
 
 /// Output formats of [`Engine::export_layout`].
@@ -301,7 +305,7 @@ impl Engine {
         req.raster_dpi.get_or_insert(dpi); // a screen preview needn't carry 300 dpi images
         let out = self.render_layout_svg(&req, &|| Ok(()))?;
         let png = export::svg_to_png(&out.svg, dpi)?;
-        Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings, labels: out.labels, dropped_label_edits: out.dropped_label_edits })
+        Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings, labels: out.labels, dropped_label_edits: out.dropped_label_edits, legend_rows: out.legend_rows })
     }
 
     /// Export a layout page to `path` as a cancellable task ("Exporting

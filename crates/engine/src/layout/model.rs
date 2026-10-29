@@ -239,6 +239,18 @@ pub enum Element {
         title: String,
         #[serde(default)]
         columns: u32,
+        /// Renamed or hidden entries, by generated key (see `LegendRowInfo`).
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        overrides: BTreeMap<String, LegendOverride>,
+        /// Extra hand-made entries at the end.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        custom: Vec<LegendCustom>,
+        /// Area swatch shape: "" / "square" | "rounded" | "circle".
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        patch: String,
+        /// Entry text size in points; 0 = default (8).
+        #[serde(default, rename = "textSize", skip_serializing_if = "is_zero")]
+        text_size: f64,
     },
     ScaleBar {
         #[serde(flatten)]
@@ -403,6 +415,11 @@ impl Layout {
                 }
                 super::shapes::check_picture(source)?;
             }
+            if let Element::Legend { patch, .. } = e {
+                if !matches!(patch.as_str(), "" | "square" | "rounded" | "circle") {
+                    bail!("Unknown legend patch '{patch}' (square, rounded or circle)");
+                }
+            }
             if let Element::Picture { source, .. } = e {
                 super::shapes::check_picture(source)?;
             }
@@ -484,6 +501,23 @@ pub struct LayerStyle {
     /// Raster symbology; the layout draws rasters exactly as the map does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raster: Option<crate::raster_style::RasterStyle>,
+}
+
+/// A legend entry the user renamed or hid.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+pub struct LegendOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub hidden: bool,
+}
+
+/// A hand-made legend entry.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct LegendCustom {
+    pub label: String,
+    #[serde(default)]
+    pub color: String,
 }
 
 /// Label edits of one layer in one map frame (L3): a partial style for this layout only, and per-feature edits keyed by `__fid`.

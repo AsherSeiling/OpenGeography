@@ -492,6 +492,43 @@ mod surround {
     }
 
     #[test]
+    fn cg3_legend_entries_can_be_renamed_hidden_added_and_reshaped() {
+        let dir = tempfile::tempdir().unwrap();
+        let (e, ids) = fixture(dir.path());
+        let mut req = with_surround(&ids, categorized());
+        let set = |req: &mut RenderRequest, patch: serde_json::Value| {
+            let cur = serde_json::to_value(&req.layout.elements[2]).unwrap();
+            let mut m = cur.as_object().unwrap().clone();
+            m.extend(patch.as_object().unwrap().clone());
+            req.layout.elements[2] = serde_json::from_value(serde_json::Value::Object(m)).unwrap();
+        };
+        let legend = |req: &RenderRequest| texts(group(&render(&e, req).svg, "legend-lg"));
+        // The generated rows are reported with stable keys.
+        let rows = render(&e, &req).legend_rows;
+        let keys: Vec<&str> = rows.iter().map(|r| r.key.as_str()).collect();
+        assert_eq!(keys, [ids[2].as_str(), ids[1].as_str(), ids[0].as_str(), &format!("{}#0", ids[0]), &format!("{}#1", ids[0]), &format!("{}#2", ids[0])].map(|s| s));
+        assert!(rows.iter().find(|r| r.key == ids[0]).unwrap().layer_row);
+        assert!(!rows.iter().find(|r| r.key.ends_with("#0")).unwrap().layer_row);
+        // Rename a class and a layer, hide a class and a whole layer.
+        set(&mut req, json!({ "overrides": {
+            (format!("{}#0", ids[0])): { "label": "Alpha" },
+            (format!("{}#1", ids[0])): { "hidden": true },
+            (ids[2].clone()): { "label": "Points of interest" },
+            (ids[1].clone()): { "hidden": true } } }));
+        assert_eq!(legend(&req), ["Legend", "Points of interest", "polys", "Alpha", "Other"]);
+        // Hiding a layer's heading hides its classes too.
+        set(&mut req, json!({ "overrides": { (ids[0].clone()): { "hidden": true } } }));
+        assert_eq!(legend(&req), ["Legend", "pts", "lines"]);
+        // Hand-made entries go last; patch and text size are applied.
+        set(&mut req, json!({ "overrides": {}, "custom": [{ "label": "Study area", "color": "#ff00ff" }], "patch": "circle", "textSize": 10.0 }));
+        let svg = render(&e, &req).svg;
+        let g = group(&svg, "legend-lg");
+        assert!(g.contains(">Study area<") && g.contains("#ff00ff") && g.contains("<ellipse") && g.contains("font-size=\"3.528\""), "{g}");
+        set(&mut req, json!({ "patch": "hexagon" }));
+        assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("Unknown legend patch"));
+    }
+
+    #[test]
     fn legend_reports_when_it_does_not_fit() {
         let dir = tempfile::tempdir().unwrap();
         let (e, ids) = fixture(dir.path());

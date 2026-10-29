@@ -396,11 +396,14 @@ struct Row {
     bar: Option<Vec<String>>,
     /// Low and high value printed under a colour bar.
     ends: Option<(String, String)>,
+    /// Stable id for editing: the layer id (heading or single swatch) or `layer#i` (class i).
+    key: String,
+    layer: String,
 }
 
 impl Row {
     fn new(swatch: Option<(Sym, String)>, label: String, style: &LayerStyle) -> Row {
-        Row { swatch, label, style: style.clone(), bar: None, ends: None }
+        Row { swatch, label, style: style.clone(), bar: None, ends: None, key: String::new(), layer: String::new() }
     }
 }
 
@@ -469,15 +472,26 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
     rows
 }
 
-fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &LayerStyle) {
+fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &LayerStyle, row_mm: f64, patch: &str) {
     let sw = style.stroke_width.max(0.0) * PX_MM;
     let stroke = svg::color(&style.stroke, "#4d4d4d");
     let op = opacity(style.opacity);
-    let ymid = y + ROW_MM / 2.0;
+    let ymid = y + row_mm / 2.0;
     match sym {
         Sym::Poly => {
             let (s, w) = if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
-            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x), mm(y + 0.75), mm(SWATCH_W));
+            let (yy, h) = (ymid - 1.75, 3.5);
+            match patch {
+                "circle" => {
+                    let _ = write!(out, "<ellipse cx=\"{}\" cy=\"{}\" rx=\"{}\" ry=\"1.75\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(SWATCH_W / 2.0));
+                }
+                "rounded" => {
+                    let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" rx=\"1.2\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
+                }
+                _ => {
+                    let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
+                }
+            }
         }
         Sym::Line => {
             let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{color}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"round\"/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), mm(sw.max(0.3)));
@@ -490,9 +504,9 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
             };
             let w = SWATCH_W / chips.len() as f64;
             for (i, c) in chips.iter().enumerate() {
-                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{c}\"/>", mm(x + w * i as f64), mm(y + 0.75), mm(w));
+                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{c}\"/>", mm(x + w * i as f64), mm(ymid - 1.75), mm(w));
             }
-            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.2\"/>", mm(x), mm(y + 0.75), mm(SWATCH_W));
+            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.2\"/>", mm(x), mm(ymid - 1.75), mm(SWATCH_W));
         }
         Sym::Point => {
             let r = (style.radius.max(0.0) * PX_MM).min(1.8);
@@ -501,58 +515,117 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
     }
 }
 
-pub fn legend(out: &mut String, warnings: &mut Vec<String>, at: &Placement, title: &str, columns: u32, ctx: &FrameCtx, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>) {
+/// Settings of a legend beyond its position.
+pub struct LegendOpts<'a> {
+    pub title: &'a str,
+    pub columns: u32,
+    pub overrides: &'a std::collections::BTreeMap<String, super::model::LegendOverride>,
+    pub custom: &'a [super::model::LegendCustom],
+    /// "square" (default) | "rounded" | "circle" for area swatches.
+    pub patch: &'a str,
+    /// Text size in points; 0 = 8 (title 10).
+    pub text_pt: f64,
+}
+
+/// One row of the legend as generated, for the editing list in Properties.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LegendRowInfo {
+    pub legend: String,
+    pub key: String,
+    pub layer: String,
+    /// The generated text, before any rename.
+    pub label: String,
+    /// A layer heading or single entry: hiding it hides the layer's whole block.
+    pub layer_row: bool,
+    pub hidden: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<LegendRowInfo>, at: &Placement, o: &LegendOpts, ctx: &FrameCtx, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>) {
+    let text_pt = if o.text_pt > 0.0 { o.text_pt } else { LEGEND_PT };
+    let title_pt = if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT };
+    let row_mm = ROW_MM.max(text_pt * PT_MM * 1.7);
     let mut rows: Vec<Row> = Vec::new();
     for id in &ctx.drawn {
         if let Some(info) = lookup(id) {
             let style = req.styles.get(id).cloned().unwrap_or_default();
+            let start = rows.len();
             rows.extend(layer_rows(&info, &style));
+            let mut ci = 0;
+            for (j, r) in rows[start..].iter_mut().enumerate() {
+                r.layer = id.clone();
+                if j == 0 {
+                    r.key = id.clone();
+                } else if r.bar.is_none() && r.ends.is_none() {
+                    r.key = format!("{id}#{ci}");
+                    ci += 1;
+                }
+            }
         }
+    }
+    let hidden_layer = |layer: &str| o.overrides.get(layer).is_some_and(|v| v.hidden);
+    for r in rows.iter().filter(|r| !r.key.is_empty()) {
+        infos.push(LegendRowInfo { legend: at.id.clone(), key: r.key.clone(), layer: r.layer.clone(), label: r.label.clone(), layer_row: r.key == r.layer, hidden: o.overrides.get(&r.key).is_some_and(|v| v.hidden) });
+    }
+    let mut rows: Vec<Row> = rows
+        .into_iter()
+        .filter(|r| !hidden_layer(&r.layer) && !(r.key != r.layer && o.overrides.get(&r.key).is_some_and(|v| v.hidden)))
+        .map(|mut r| {
+            if let Some(l) = o.overrides.get(&r.key).and_then(|v| v.label.as_ref()).filter(|l| !l.trim().is_empty()) {
+                r.label = l.clone();
+            }
+            r
+        })
+        .collect();
+    for c in o.custom {
+        rows.push(Row::new(Some((Sym::Poly, svg::color(&c.color, "#888888"))), c.label.clone(), &LayerStyle::default()));
     }
     open_group(out, "legend", at);
     let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"#ffffff\" stroke=\"#999999\" stroke-width=\"0.25\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h));
     let mut top = at.y + LEGEND_PAD;
-    if !title.trim().is_empty() {
-        let t = ellipsize(title, "sans-bold", TITLE_PT, at.w - 2.0 * LEGEND_PAD);
-        text_line(out, at.x + LEGEND_PAD, top + TITLE_PT * PT_MM * 0.85, &t, "sans-bold", TITLE_PT, "start");
-        top += TITLE_PT * PT_MM + 3.0;
+    if !o.title.trim().is_empty() {
+        let t = ellipsize(o.title, "sans-bold", title_pt, at.w - 2.0 * LEGEND_PAD);
+        text_line(out, at.x + LEGEND_PAD, top + title_pt * PT_MM * 0.85, &t, "sans-bold", title_pt, "start");
+        top += title_pt * PT_MM + 3.0;
     }
-    let ncols = columns.clamp(1, 6) as usize;
+    let ncols = o.columns.clamp(1, 6) as usize;
     let per_col = rows.len().div_ceil(ncols).max(1);
     let col_w = (at.w - 2.0 * LEGEND_PAD) / ncols as f64;
-    if top + per_col as f64 * ROW_MM + LEGEND_PAD > at.y + at.h + 1e-6 {
+    if top + per_col as f64 * row_mm + LEGEND_PAD > at.y + at.h + 1e-6 {
         warnings.push(format!("Legend '{}' does not fit its height; enlarge it or use more columns", at.id));
     }
     for (i, row) in rows.iter().enumerate() {
         let (c, r) = (i / per_col, i % per_col);
-        let (cx, ry) = (at.x + LEGEND_PAD + c as f64 * col_w, top + r as f64 * ROW_MM);
-        let base = ry + ROW_MM / 2.0 + LEGEND_PT * PT_MM * 0.35;
+        let (cx, ry) = (at.x + LEGEND_PAD + c as f64 * col_w, top + r as f64 * row_mm);
+        let base = ry + row_mm / 2.0 + text_pt * PT_MM * 0.35;
         if let Some(cols) = &row.bar {
             let w = (col_w - 1.0).min(SWATCH_W * 3.0);
             let sw = w / cols.len() as f64;
+            let by = ry + row_mm / 2.0 - 1.75;
             for (k, c) in cols.iter().enumerate() {
-                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{c}\"/>", mm(cx + sw * k as f64), mm(ry + 0.75), mm(sw + 0.05));
+                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"{c}\"/>", mm(cx + sw * k as f64), mm(by), mm(sw + 0.05));
             }
-            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.2\"/>", mm(cx), mm(ry + 0.75), mm(w));
+            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"3.5\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.2\"/>", mm(cx), mm(by), mm(w));
             continue;
         }
         if let Some((lo, hi)) = &row.ends {
             let w = (col_w - 1.0).min(SWATCH_W * 3.0);
             if hi.is_empty() {
-                text_line(out, cx, base, &ellipsize(lo, "sans", LEGEND_PT, col_w - 1.0), "sans", LEGEND_PT, "start");
+                text_line(out, cx, base, &ellipsize(lo, "sans", text_pt, col_w - 1.0), "sans", text_pt, "start");
             } else {
-                text_line(out, cx, base, lo, "sans", LEGEND_PT, "start");
-                text_line(out, cx + w, base, hi, "sans", LEGEND_PT, "end");
+                text_line(out, cx, base, lo, "sans", text_pt, "start");
+                text_line(out, cx + w, base, hi, "sans", text_pt, "end");
             }
             continue;
         }
         match &row.swatch {
             Some((sym, color)) => {
-                swatch(out, cx, ry, *sym, color, &row.style);
+                swatch(out, cx, ry, *sym, color, &row.style, row_mm, o.patch);
                 let tx = cx + SWATCH_W + SWATCH_GAP;
-                text_line(out, tx, base, &ellipsize(&row.label, "sans", LEGEND_PT, col_w - SWATCH_W - SWATCH_GAP - 1.0), "sans", LEGEND_PT, "start");
+                text_line(out, tx, base, &ellipsize(&row.label, "sans", text_pt, col_w - SWATCH_W - SWATCH_GAP - 1.0), "sans", text_pt, "start");
             }
-            None => text_line(out, cx, base, &ellipsize(&row.label, "sans-bold", LEGEND_PT, col_w - 1.0), "sans-bold", LEGEND_PT, "start"),
+            None => text_line(out, cx, base, &ellipsize(&row.label, "sans-bold", text_pt, col_w - 1.0), "sans-bold", text_pt, "start"),
         }
     }
     out.push_str("</g>");

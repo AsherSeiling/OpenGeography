@@ -131,6 +131,24 @@ export interface LegendElement extends Placement {
   frame: string;
   title: string;
   columns: number;
+  /** Renamed or hidden entries, by generated key (`LegendRow.key`). */
+  overrides?: Record<string, { label?: string; hidden?: boolean }>;
+  /** Hand-made entries at the end. */
+  custom?: { label: string; color: string }[];
+  patch?: "square" | "rounded" | "circle";
+  /** Entry text size, pt; 0/unset = 8. */
+  textSize?: number;
+}
+
+/** A legend entry as the engine generated it (for the editing list). */
+export interface LegendRow {
+  legend: string;
+  key: string;
+  layer: string;
+  label: string;
+  /** A layer heading or single entry: hiding it hides the layer's whole block. */
+  layerRow: boolean;
+  hidden: boolean;
 }
 
 export interface ScaleBarElement extends Placement {
@@ -236,6 +254,7 @@ export interface LayoutPreview {
   warnings: string[];
   labels: PlacedLabel[];
   droppedLabelEdits: DroppedLabelEdit[];
+  legendRows?: LegendRow[];
 }
 
 /** Page sizes in millimetres, portrait (width < height). */
