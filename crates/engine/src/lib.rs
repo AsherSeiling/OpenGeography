@@ -11,6 +11,7 @@ pub mod raster_ops;
 pub mod spatial_stats;
 pub mod kriging;
 pub mod whitebox;
+pub mod transform_report;
 pub mod remote_sensing;
 pub mod jsonapis;
 pub mod ogcapi;
@@ -805,6 +806,11 @@ impl Engine {
     /// Name, code, kind, unit, datum and area of use of a definition (the picker's preview).
     pub fn crs_info(&self, crs: &str) -> Result<crs::CrsInfo> {
         crs::info(crs)
+    }
+
+    /// How accurate moving coordinates from `from` to `to` is over an area (west, south, east, north in degrees).
+    pub fn transform_report(&self, from: &str, to: &str, aoi: Option<[f64; 4]>) -> Result<transform_report::TransformReport> {
+        transform_report::transform_report(from, to, aoi)
     }
 
     /// Scale factor k and meridian convergence (degrees) of `crs` at (x, y) in that CRS.
