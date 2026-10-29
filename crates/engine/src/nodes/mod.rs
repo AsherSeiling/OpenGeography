@@ -22,6 +22,7 @@ mod raster_tools;
 mod qgis_vector;
 mod qgis_raster;
 mod raster_ops_tools;
+mod stats_tools;
 mod project;
 mod spatial_join;
 mod collect;
@@ -536,6 +537,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(raster_ops_tools::MosaicRasters),
         Box::new(raster_ops_tools::Rasterize),
         Box::new(raster_ops_tools::Interpolate),
+        Box::new(stats_tools::MoransI),
+        Box::new(stats_tools::HotSpots),
         Box::new(qgis_raster::SampleRaster),
         Box::new(qgis_raster::ZonalStatistics),
         Box::new(layer_output::LayerOutput),

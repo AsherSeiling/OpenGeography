@@ -824,3 +824,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | H1-3 | Refusals | linear with < 3 points, average without radius, cell size 0, no numeric values → readable sentence | auto: raster_nodes::h1_interpolate_reports… |
 | H1-4 | Cancel and progress | stops on Cancel, no partial file | to automate (uses the shared GDAL progress hook) |
 | H1-5 | Raster store names are unique when two threads write at once | no "already exists" collisions | covered by the parallel raster_nodes tests |
+| H3-1 | Moran's I, hand-worked example (4 points on a line, k = 1) | I = 0.4, expected -1/3 exactly | auto: spatial_stats::morans_i_hand_worked_example |
+| H3-2 | Moran's I on a 12 × 12 lattice | half-and-half → I > 0.6, p < 0.001; checkerboard (k = 4) → negative, z < -2; pseudo-random → p > 0.01 | auto: spatial_stats::morans_i_separates… |
+| H3-3 | Nearest-neighbour search | identical to brute force on 300 irregular points; k = 0 or ≥ n refused; stops on Cancel | auto: spatial_stats::knn_* |
+| H3-4 | Hot Spot (Gi*) | high corner class 3, low corner class -3, middle 0; every input row kept, CRS kept | auto: spatial_stats::gi_star…, tests/spatial_stats.rs |
+| H3-5 | Refusals | geographic layer ("projected coordinate system"), k not a whole number, constant values, < 4 features, > 200 000 features | auto: tests/spatial_stats.rs, unit tests |
+| H3-6 | Normal CDF / p-values | Φ(1.96) = 0.975, two-sided p(2.5758) = 0.01 | auto: spatial_stats::normal_cdf_known_values |
