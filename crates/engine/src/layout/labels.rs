@@ -96,7 +96,7 @@ pub struct DroppedEdit {
 /// What a layer's labels look like in this frame: the map's setting with this layout's edits on top.
 /// `None` when labels are off or have no field.
 pub fn effective(base: Option<&LabelStyle>, patch: Option<&LabelPatch>, fields: &[String]) -> Option<LabelStyle> {
-    let mut l = base.cloned().unwrap_or(LabelStyle { enabled: false, field: String::new(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false });
+    let mut l = base.cloned().unwrap_or(LabelStyle { enabled: false, field: String::new(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false, font_family: None, bold: false, italic: false });
     if let Some(p) = patch {
         if let Some(v) = p.enabled {
             l.enabled = v;
@@ -272,6 +272,8 @@ pub struct Placed {
     pub labels: Vec<PlacedLabel>,
     /// Automatic labels that did not fit, by layer name (in first-seen order).
     pub skipped: Vec<(String, usize)>,
+    /// Chosen font families that are not installed (Noto Sans was used instead).
+    pub missing_fonts: Vec<String>,
 }
 
 /// Place everything: edited (pinned) labels first, wherever the user put them, then the automatic ones in `cands` order
@@ -286,7 +288,8 @@ pub fn place(cands: &[Candidate], frame: [f64; 4], placer: &mut Placer) -> Place
         let text = e.and_then(|e| e.text.clone()).filter(|t| !t.trim().is_empty()).unwrap_or_else(|| c.text.clone());
         let size_mm = size_pt * PT_MM;
         let h = size_mm * LINE_HEIGHT + 2.0 * PAD_MM;
-        let w = text_width(&text, "sans", size_pt) + 2.0 * PAD_MM;
+        let face = if c.label.bold { "sans-bold" } else if c.label.italic { "sans-italic" } else { "sans" };
+        let w = c.label.font_family.as_deref().and_then(|f| crate::fonts::text_width(&text, f, c.label.bold, c.label.italic, size_pt)).unwrap_or_else(|| text_width(&text, face, size_pt)) + 2.0 * PAD_MM;
         let deg = e.and_then(|e| e.rotation).unwrap_or(c.deg);
         let (px, py) = (c.px + e.and_then(|e| e.dx_mm).unwrap_or(0.0), c.py + e.and_then(|e| e.dy_mm).unwrap_or(0.0));
         let (bx, anchor, tx) = match c.kind {
@@ -304,7 +307,9 @@ pub fn place(cands: &[Candidate], frame: [f64; 4], placer: &mut Placer) -> Place
         let halo = c.label.halo_width.max(0.0) * PX_MM;
         let (fill, halo_color) = (super::svg::color(&c.label.color, "#222222"), super::svg::color(&c.label.halo_color, "#ffffff"));
         let rot = if *deg != 0.0 { format!(" transform=\"rotate({} {} {})\"", mm(*deg), mm(*px), mm(*py)) } else { String::new() };
-        let attrs = format!("font-family=\"{}\" font-size=\"{}\" text-anchor=\"{anchor}\" x=\"{}\" y=\"{}\"{rot}", export::font_family(), mm(*size_mm), mm(*tx), mm(py + size_mm * 0.35));
+        let weight = if c.label.bold { " font-weight=\"700\"" } else { "" };
+        let style = if c.label.italic { " font-style=\"italic\"" } else { "" };
+        let attrs = format!("font-family=\"{}\"{weight}{style} font-size=\"{}\" text-anchor=\"{anchor}\" x=\"{}\" y=\"{}\"{rot}", export::font_stack(c.label.font_family.as_deref()), mm(*size_mm), mm(*tx), mm(py + size_mm * 0.35));
         let mut s = String::new();
         if halo > 0.0 {
             let _ = write!(s, "<text {attrs} fill=\"{halo_color}\" stroke=\"{halo_color}\" stroke-width=\"{}\" stroke-linejoin=\"round\">{}</text>", mm(halo * 2.0), esc(text));
@@ -358,5 +363,12 @@ pub fn place(cands: &[Candidate], frame: [f64; 4], placer: &mut Placer) -> Place
         out.svg.push_str(&s);
     }
     out.skipped = skipped;
+    for c in cands {
+        if let Some(f) = c.label.font_family.as_deref().filter(|f| !f.is_empty() && *f != "Noto Sans" && !crate::fonts::has_family(f)) {
+            if !out.missing_fonts.iter().any(|m| m == f) {
+                out.missing_fonts.push(f.to_string());
+            }
+        }
+    }
     out
 }

@@ -194,6 +194,9 @@ pub enum Element {
         /// "sans" | "sans-bold" | "sans-italic".
         #[serde(default = "sans")]
         font: String,
+        /// An installed font family (`fonts::list`) used in place of the bundled face; the weight/style of `font` still applies. Missing → Noto Sans.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        family: Option<String>,
         #[serde(default = "size_pt")]
         size: f64,
         /// "left" | "center" | "right".
@@ -446,6 +449,13 @@ pub struct LabelStyle {
     /// Only features with INDEX = 1 (index contours) are labelled.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub index_only: bool,
+    /// An installed font family (`fonts::list`); None = the bundled Noto Sans. A family that is missing falls back to Noto Sans and the layout says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_family: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub bold: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub italic: bool,
 }
 
 impl Default for LayerStyle {

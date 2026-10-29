@@ -455,6 +455,9 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
     for (name, n) in &placed.skipped {
         warnings.push(format!("{n} label{} of {name} didn't fit", if *n == 1 { "" } else { "s" }));
     }
+    for f in &placed.missing_fonts {
+        warnings.push(format!("Font \"{f}\" is not installed on this computer; labels use Noto Sans instead"));
+    }
     let mut placed_labels = placed.labels;
     for l in &mut placed_labels {
         l.frame = at.id.clone();

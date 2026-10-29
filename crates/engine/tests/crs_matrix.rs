@@ -127,6 +127,7 @@ const EXCLUDED: [(&str, &str); 43] = [
     ("remove_null", "attribute filter"),
     ("lines_to_polygons", "needs closed line work; covered by polygons_to_lines round trip in tools tests"),
     ("random_points", "random positions: count only, in tools tests"),
+    ("symbology", "styling only: passes the data through unchanged (engine.rs symbology_node_passes_contours_through_and_validates)"),
     ("contours", "raster tool: R5"),
     ("hillshade", "raster tool: R5"),
     ("slope", "raster tool: R5"),

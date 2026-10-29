@@ -75,7 +75,7 @@ fn tokens(text: &str, req: &RenderRequest) -> String {
     }
 }
 
-fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, size: f64, align: &str, color: &str) {
+fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, family: Option<&str>, size: f64, align: &str, color: &str) {
     let size_mm = size.max(0.1) * 25.4 / 72.0;
     let (weight, style) = match font {
         "sans-bold" => ("700", "normal"),
@@ -90,7 +90,7 @@ fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, siz
     let _ = write!(
         out,
         "<text font-family=\"{}\" font-weight=\"{weight}\" font-style=\"{style}\" font-size=\"{}\" fill=\"{}\" text-anchor=\"{anchor}\"{}>",
-        export::font_family(),
+        export::font_stack(family),
         svg::mm(size_mm),
         svg::color(color, "#000000"),
         if at.rotation != 0.0 { format!(" transform=\"rotate({} {} {})\"", svg::mm(at.rotation), svg::mm(at.x + at.w / 2.0), svg::mm(at.y + at.h / 2.0)) } else { String::new() }
@@ -156,7 +156,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
         };
         match e {
             Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
-            Element::Text { at, text, font, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, *size, align, color),
+            Element::Text { at, text, font, family, size, align, color } => text_svg(&mut s, at, &tokens(text, req), font, family.as_deref(), *size, align, color),
             Element::Legend { at, frame, title, columns } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
                     surround::legend(&mut s, &mut warnings, at, title, *columns, c, req, lookup);

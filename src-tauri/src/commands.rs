@@ -61,6 +61,12 @@ pub async fn remove_layer(engine: Eng<'_>, id: String) -> Res<()> {
     blocking(&engine, move |e| e.remove_layer(&id)).await
 }
 
+/// Font families installed on this computer, for the label font picker.
+#[tauri::command]
+pub async fn list_fonts(engine: Eng<'_>) -> Res<Vec<engine::fonts::FontFamily>> {
+    blocking(&engine, |_| Ok(engine::fonts::list())).await
+}
+
 /// Export a point layer's attributes and coordinates (in the chosen CRS) as CSV or Parquet.
 #[tauri::command]
 pub async fn export_table(engine: Eng<'_>, id: String, spec: engine::export_table::TableExportSpec) -> Res<engine::export_table::TableExportResult> {

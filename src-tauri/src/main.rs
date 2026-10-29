@@ -34,6 +34,7 @@ fn main() {
             commands::rename_layer,
             commands::copy_layer,
             commands::export_table,
+            commands::list_fonts,
             commands::datum_data_status,
             commands::layout_series_pages,
             commands::export_layout_series,

@@ -1,5 +1,6 @@
 // Properties pane for a layout element (target { kind: "layoutElement" }).
 import { Button, Checkbox, Dropdown, Field, Input, Option, Textarea } from "@fluentui/react-components";
+import { FontPicker } from "../panes/LabelSettings";
 import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
@@ -235,7 +236,8 @@ function TextFields({ el, set }: { el: TextElement; set: Set }) {
       <Field label="Text (tokens: {layout_name} {project} {date} {scale} {crs} {datum} {units})" size="small">
         <Textarea size="small" value={el.text} rows={3} onChange={(_, d) => set({ text: d.value }, "text")} />
       </Field>
-      <Field label="Font" size="small">
+      <FontPicker value={el.family} onChange={(family) => set({ family })} />
+      <Field label="Style" size="small">
         <Dropdown size="small" value={fonts.find((f) => f[0] === el.font)?.[1]} selectedOptions={[el.font]} onOptionSelect={(_, d) => set({ font: d.optionValue })}>
           {fonts.map(([v, l]) => <Option key={v} value={v}>{l}</Option>)}
         </Dropdown>
