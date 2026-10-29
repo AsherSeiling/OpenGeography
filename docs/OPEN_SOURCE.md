@@ -28,6 +28,7 @@ GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC
 | `geographiclib-geodesic` | MIT | geodesic measurements in the UI | `ui/src` |
 | `geomagnetism` | Apache-2.0 | magnetic declination (World Magnetic Model) | layouts (north arrow) |
 | `mgrs` | MIT | MGRS coordinates | status bar |
+| `fontdb` (a dependency of `resvg`/`usvg`, used directly) | MIT | lists the fonts installed on the computer (macOS, Windows, Linux system font folders) and copies the families a layout names into its render database | `fonts.rs`, `layout/export.rs` |
 | `zustand`, `zundo`, `@tanstack/react-virtual` | MIT | state, undo, long lists | `ui/src` |
 
 Build and test tooling (not shipped): Vite (MIT), Vitest (MIT), TypeScript (Apache-2.0), `@vitejs/plugin-react` (MIT), Playwright (Apache-2.0), `@tauri-apps/cli` (Apache-2.0 OR MIT), `@types/*` (MIT).
@@ -68,6 +69,9 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | Geodesics | Karney 2013, doi:10.1007/s00190-012-0578-z | `measure.rs`, planetary plan |
 | Tissot indicatrix, map-projection scale factors | Snyder 1987, Map Projections: A Working Manual | `tissot.rs`, `crs.rs` |
 | Planetary: crater digitising, size-frequency, production functions; geologic symbols | Kneissl et al. 2011 (CraterTools), Crater Analysis Techniques Working Group 1979, Neukum et al. 2001, FGDC-STD-013-2006 | `docs/PLANETARY_PLAN.md` (design only) |
+| Label settings of the QGIS Labels panel (Placement: around point / offset / cartographic quadrants, above/on/below line, Priority, Allow overlaps, Wrap on character, Buffer, Background, Shadow, data-defined rotation/size/colour) | QGIS user manual, "Labels"; GPL program, setting names and behaviour only, reimplemented | `layout/labels.rs`, `ui/src/map/labels.ts`, `docs/LABELS_PLAN.md` |
+| Contour label placement along lines (arc-length walk, near-straight chord test, upright text, index contours) | own algorithm; "index contour" convention from topographic mapping practice (USGS topographic map symbols) | `layout/labels.rs` (`along_line`), `ui/src/map/labels.ts` |
+| Export Table coordinate columns, reprojection with explicit CRS and a sidecar note | PROJ transformation via DuckDB Spatial `ST_Transform` (always x/y); no external method | `export_table.rs` |
 | QGIS Processing algorithm ids (about 30: `native:splitvectorlayer`, `native:union`, `gdal:slope`, …) | QGIS documentation, named in each tool's header comment so users can find the equivalent | `nodes/*.rs` |
 | ArcGIS Pro tool names (Spatial Autocorrelation, Hot Spot Analysis, Fill, Flow Direction, …) | proprietary software: names only, so users can find the equivalent; no code or documentation text | node descriptions |
 
