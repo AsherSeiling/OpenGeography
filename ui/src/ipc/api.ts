@@ -166,6 +166,34 @@ export interface CensusJoinResult {
   notes: string[];
 }
 
+export interface StacCollection {
+  id: string;
+  label: string;
+  cloud: boolean;
+  assets: [string, string][];
+  author: string;
+  license: string;
+  annotation: string;
+}
+export interface StacApi {
+  id: string;
+  label: string;
+  url: string;
+  collections: StacCollection[];
+}
+export interface StacAsset {
+  key: string;
+  title: string;
+  href: string;
+}
+export interface StacItem {
+  id: string;
+  collection: string;
+  datetime: string | null;
+  cloudCover: number | null;
+  assets: StacAsset[];
+}
+
 export interface ArcgisEntry {
   id: string;
   group: string;
@@ -446,6 +474,9 @@ export const api = {
   censusKeySet: (key: string) => invoke<void>("census_key_set", { key }),
   censusKeyDelete: () => invoke<void>("census_key_delete"),
   censusJoin: (layer: string, geoidField: string, spec: CensusSpec) => track(invoke<CensusJoinResult>("census_join", { layer, geoidField, spec })),
+  stacCatalog: () => invoke<StacApi[]>("stac_catalog"),
+  stacSearch: (spec: { collection: string; bbox: Extent; datetime?: string; maxCloud?: number; limit?: number }) => invoke<StacItem[]>("stac_search", { spec }),
+  stacImport: (spec: { href: string; bbox: Extent; label: string; collection: string; itemId: string; asset: string; areaLabel: string }) => track(invoke<LayerInfo>("stac_import", { spec })),
   arcgisCatalog: () => invoke<ArcgisEntry[]>("arcgis_catalog"),
   arcgisLayers: (url: string) => invoke<ArcgisServiceLayer[]>("arcgis_layers", { url }),
   arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),

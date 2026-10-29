@@ -661,3 +661,20 @@ pub async fn census_join(engine: Eng<'_>, layer: String, geoid_field: String, sp
     prewarm(&engine, vec![r.layer.id.clone()]);
     Ok(r)
 }
+
+#[tauri::command]
+pub async fn stac_catalog() -> Res<Vec<engine::stac::Api>> {
+    Ok(engine::stac::catalog().to_vec())
+}
+
+#[tauri::command]
+pub async fn stac_search(spec: engine::stac::SearchSpec) -> Res<Vec<engine::stac::Item>> {
+    tauri::async_runtime::spawn_blocking(move || engine::stac::search(&spec)).await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn stac_import(engine: Eng<'_>, spec: engine::stac::ImportSpec) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.stac_import(&spec)).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}

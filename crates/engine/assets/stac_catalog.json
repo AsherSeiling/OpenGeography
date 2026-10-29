@@ -1,0 +1,31 @@
+[
+  {
+    "id": "earth-search", "label": "Earth Search (Element 84, public AWS data)", "url": "https://earth-search.aws.element84.com/v1",
+    "collections": [
+      {
+        "id": "sentinel-2-l2a", "label": "Sentinel-2 surface reflectance (10 m, every ~5 days)", "cloud": true,
+        "assets": [["visual", "True colour (RGB, 10 m)"], ["red", "Red band"], ["green", "Green band"], ["blue", "Blue band"], ["nir", "Near infrared"], ["swir16", "Shortwave infrared 1"], ["scl", "Scene classification"]],
+        "author": "European Space Agency, Copernicus programme", "title": "Sentinel-2 Level-2A", "publisher": "European Space Agency; served by Element 84 Earth Search",
+        "url": "https://sentinels.copernicus.eu/web/sentinel/user-guides/sentinel-2-msi",
+        "license": "Free, full and open (Copernicus Sentinel data terms): use with the credit 'Contains modified Copernicus Sentinel data'.",
+        "annotation": "Atmospherically corrected Sentinel-2 imagery as cloud-optimised GeoTIFFs, clipped to the area."
+      },
+      {
+        "id": "cop-dem-glo-30", "label": "Copernicus DEM, 30 m (worldwide elevation)", "cloud": false,
+        "assets": [["data", "Elevation (metres above the EGM2008 geoid)"]],
+        "author": "European Space Agency, Copernicus programme", "title": "Copernicus DEM GLO-30", "publisher": "European Space Agency; served by Element 84 Earth Search",
+        "url": "https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model",
+        "license": "Free, full and open (Copernicus DEM licence): credit '© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved'.",
+        "annotation": "Global surface elevation (includes buildings and trees) at 1 arc-second, tiled; vertical datum EGM2008, not NAVD88."
+      },
+      {
+        "id": "cop-dem-glo-90", "label": "Copernicus DEM, 90 m (worldwide elevation)", "cloud": false,
+        "assets": [["data", "Elevation (metres above the EGM2008 geoid)"]],
+        "author": "European Space Agency, Copernicus programme", "title": "Copernicus DEM GLO-90", "publisher": "European Space Agency; served by Element 84 Earth Search",
+        "url": "https://spacedata.copernicus.eu/collections/copernicus-digital-elevation-model",
+        "license": "Free, full and open (Copernicus DEM licence): credit '© DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved'.",
+        "annotation": "Global surface elevation at 3 arc-seconds, tiled; vertical datum EGM2008, not NAVD88."
+      }
+    ]
+  }
+]

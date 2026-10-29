@@ -249,3 +249,8 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - The key lives in the OS keychain (`keyring` crate, only in the Tauri shell; Linux uses the Secret Service with the vendored dbus build). The UI can save, check for and delete it; nothing returns it. The shell reads it for one request and passes it to the engine, which never stores it and redacts it from messages. The browser test build has no keychain and says so (key from `GIS_CENSUS_KEY` for dev).
 - Level and states come from the GEOIDs (length after restoring leading zeros), so one request per state; the Bureau's "no value" markers become NULL and are counted.
 - `THIRD_PARTY_NOTICES.md` was NOT regenerated: the script reads the local Homebrew bundle, which links GPL-only poppler, x265 and librttopo (the CI conda/Windows builds do not). Regenerate it from a CI build at the final push, adding `keyring`.
+
+### D3 — STAC and COG
+- Catalog offers only anonymously readable public data: Sentinel-2 L2A (https), Copernicus DEM 30 m and 90 m (public S3, rewritten to https). Landsat C2 and NAIP on AWS are requester-pays (they need an AWS account); NAIP is available through Microsoft Planetary Computer with short-lived signed URLs, which is a different, later connector. Verified live 2026-10-28.
+- A clip uses GDAL `/vsicurl/` + `translate -projwin` (reads only the needed blocks), refuses over 60 million cells with the size named, and keeps the image's own CRS (no resampling). A scene is chosen first (search), then one asset.
+- Copernicus DEM heights are above the EGM2008 geoid, not NAVD88 like 3DEP; the citation annotation says so.
