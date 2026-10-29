@@ -784,7 +784,7 @@ mod c24 {
 // ---------- L2: labels in layouts (docs/LAYOUTS_PLAN.md) ----------
 
 fn label(field: &str) -> engine::layout::model::LabelStyle {
-    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, index_only: false, font_family: None, bold: false, italic: false }
+    engine::layout::model::LabelStyle { enabled: true, field: field.into(), size: 9.0, color: "#222222".into(), halo_color: "#ffffff".into(), halo_width: 1.5, min_scale: None, max_scale: None, ..Default::default() }
 }
 
 /// (text, x, y, size) of every label fill `<text>`; halo underlays carry a stroke and are skipped.
@@ -1185,4 +1185,116 @@ fn lb1_text_element_can_use_an_installed_family() {
     let out = render(&e, &req);
     assert!(out.svg.contains(&format!("font-family=\"'{}', Noto Sans\"", f.name)), "title uses the family");
     assert!(export::svg_to_pdf(&out.svg).unwrap().starts_with(b"%PDF-"));
+}
+
+// ---------- LB2: placement and rendering options ----------
+
+fn point_labels(e: &Engine, ids: &[String; 4], l: engine::layout::model::LabelStyle) -> engine::layout::LayoutSvg {
+    let mut req = request(ids, categorized());
+    req.styles.get_mut(&ids[2]).unwrap().label = Some(l);
+    render(e, &req)
+}
+
+#[test]
+fn lb2_point_positions_background_shadow_and_data_defined_rotation_and_size() {
+    use engine::layout::model::{LabelBackground, LabelShadow};
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = |l: &engine::layout::model::LabelStyle| label_texts(&point_labels(&e, &ids, l.clone()).svg);
+    let right = base(&label("id"));
+    assert_eq!(right.iter().filter(|x| x.4).count(), 5, "default: right of the symbol, start-anchored");
+
+    let anchors = |pos: &str| {
+        let mut l = label("id");
+        l.position = Some(pos.into());
+        let svg = point_labels(&e, &ids, l).svg;
+        (svg.matches("text-anchor=\"end\"").count(), svg.matches("text-anchor=\"middle\"").count(), label_texts(&svg))
+    };
+    let (end, _, left) = anchors("left");
+    assert_eq!(end, 10, "five labels, each a halo and a fill text");
+    assert!(left.iter().filter(|x| ["0", "1", "2", "3", "4"].contains(&x.0.as_str())).all(|x| !x.4));
+    let (_, mid_above, above) = anchors("above");
+    assert!(mid_above >= 5);
+    // Above is higher on the page (smaller y) than right; below is lower.
+    let y = |t: &Vec<(String, f64, f64, f64, bool)>| t.iter().find(|x| x.0 == "2").unwrap().2;
+    let (_, _, below) = anchors("below");
+    assert!(y(&above) < y(&right) && y(&right) < y(&below), "{} {} {}", y(&above), y(&right), y(&below));
+    // A larger distance moves the label further from the symbol.
+    let mut far = label("id");
+    far.distance = 20.0;
+    assert!(base(&far).iter().find(|x| x.0 == "2").unwrap().1 > right.iter().find(|x| x.0 == "2").unwrap().1 + 4.0);
+
+    // Background boxes and shadows add elements; the label text is still there once in its own colour.
+    let mut st = label("id");
+    st.background = Some(LabelBackground { fill: "#ffffcc".into(), stroke: Some("#000000".into()), padding: 2.0 });
+    st.shadow = Some(LabelShadow { color: "#888888".into(), dx: 2.0, dy: 2.0 });
+    let svg = point_labels(&e, &ids, st).svg;
+    assert_eq!(svg.matches("fill=\"#ffffcc\"").count(), 5);
+    assert_eq!(svg.matches("fill=\"#888888\"").count(), 5);
+
+    // Data-defined rotation and size from the id field.
+    let mut dd = label("id");
+    dd.rotation_field = Some("id".into());
+    dd.size_field = Some("id".into());
+    let svg = point_labels(&e, &ids, dd).svg;
+    assert!(svg.contains("rotate(3 "), "label of id 3 turned 3°");
+    let sizes: std::collections::BTreeSet<String> = label_texts(&svg).iter().map(|x| format!("{:.3}", x.3)).collect();
+    assert!(sizes.len() >= 3, "sizes follow the field: {sizes:?}");
+    assert!(export::svg_to_pdf(&svg).unwrap().starts_with(b"%PDF-"));
+}
+
+#[test]
+fn lb2_priority_decides_who_keeps_a_spot_and_allow_overlap_draws_everything() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    // A second copy of the point layer at the same places, with a red colour field and priority 9.
+    let copy = dir.path().join("copy.gpkg");
+    write_fixture(&copy, &format!("SELECT x AS id, '#ff0000' AS col, ST_Point({} + x * 400, {} + 700) AS geom FROM range(5) t(x)", CENTER[0] - 800.0, CENTER[1]), Some("EPSG:26915"));
+    let copy_id = e.import(&copy).unwrap()[0].id.clone();
+    let mut req = request(&ids, categorized());
+    req.order = vec![ids[2].clone(), copy_id.clone(), ids[1].clone(), ids[0].clone(), ids[3].clone()]; // the black layer is on top
+    let mut st = LayerStyle::default();
+    let mut red = label("id");
+    red.color_field = Some("col".into());
+    red.priority = Some(9);
+    st.label = Some(red);
+    req.styles.insert(copy_id.clone(), st);
+    req.styles.get_mut(&ids[2]).unwrap().label = Some(label("id"));
+    let svg = render(&e, &req).svg;
+    assert_eq!(svg.matches("fill=\"#ff0000\"").count(), 5, "the high-priority copy is drawn");
+    assert_eq!(svg.matches("fill=\"#222222\"").count(), 0, "the lower priority labels were displaced");
+
+    // Allow overlap on both: all ten are drawn.
+    req.styles.get_mut(&copy_id).unwrap().label.as_mut().unwrap().allow_overlap = true;
+    req.styles.get_mut(&ids[2]).unwrap().label.as_mut().unwrap().allow_overlap = true;
+    let svg = render(&e, &req).svg;
+    assert_eq!(svg.matches("fill=\"#ff0000\"").count() + svg.matches("fill=\"#222222\"").count(), 10);
+}
+
+#[test]
+fn lb2_wrap_breaks_at_spaces_keeps_long_words_and_newlines() {
+    use engine::layout::labels::wrap_text;
+    assert_eq!(wrap_text("North Fork Smith River", Some(10)), vec!["North Fork", "Smith", "River"]);
+    assert_eq!(wrap_text("Supercalifragilistic is long", Some(8)), vec!["Supercalifragilistic", "is long"]);
+    assert_eq!(wrap_text("one\ntwo three", None), vec!["one", "two three"]);
+    assert_eq!(wrap_text("", Some(5)), vec![""]);
+}
+
+#[test]
+fn lb2_line_labels_sit_above_or_below_the_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let at = |pos: Option<&str>| {
+        let mut req = request(&ids, categorized());
+        let mut l = label("id");
+        l.line_pos = pos.map(String::from);
+        req.styles.get_mut(&ids[1]).unwrap().label = Some(l);
+        let svg = render(&e, &req).svg;
+        // The line's label is the one with a rotation transform.
+        let t = svg.split("<text ").skip(1).find(|t| t.contains("rotate(") && t.contains(">1</text>")).unwrap_or_else(|| panic!("no rotated line label")).to_string();
+        let n = |k: &str| t.split(&format!(" {k}=\"")).nth(1).unwrap().split('"').next().unwrap().parse::<f64>().unwrap();
+        n("y")
+    };
+    let (on, above, below) = (at(None), at(Some("above")), at(Some("below")));
+    assert!(above < on && on < below, "{above} {on} {below}");
 }

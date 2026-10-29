@@ -895,3 +895,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LB1-3 | A font that is not installed: Noto Sans is used, the layout warns by name, export still works | | auto: same test |
 | LB1-4 | Font picker (searchable, each name in its own face, Bold/Italic) sets `fontFamily/bold/italic`; the map label font is `style weight size "Family", "Noto Sans", …` | | auto: vitest labels.test.ts, fonts.test.ts; e2e |
 | LB1-5 | Windows and Linux font lists and PDF embedding of a system font | R7 / manual on those systems | to do |
+| LB2-1 | Layouts: point positions (left/above/below/corners) change anchor and y; distance moves the label away; background rect and shadow copy are drawn; line labels above/on/below the line (offset along the normal) | | auto: layout.rs lb2_point_positions_*, lb2_line_labels_* |
+| LB2-2 | Data-defined rotation and size from fields (layout `rotate(n …)`, font sizes differ); colour from a field; PDF export of the result | | auto: layout.rs lb2_point_positions_*, lb2_priority_* |
+| LB2-3 | Priority: the higher-priority copy keeps its spot, lower is displaced; allow-overlap draws all | | auto: layout.rs lb2_priority_* |
+| LB2-4 | Wrap at N characters (spaces, long words kept, newlines kept) in the engine and the map | | auto: layout.rs lb2_wrap_*, vitest labels.test.ts |
+| LB2-5 | Map: positions, line above/on/below (text baseline), rotation/size/colour fields, priority as zIndex, shadow as a second text style, background fill/stroke/padding, allow overlap = no declutter | | auto: vitest labels.test.ts; e2e/label-placement.spec.ts |
+| LB2-6 | Not built: polygon outline/inside placement, curved text on a line ("curved" is the map's line placement; layouts draw straight text along the line), automatic around-point placement trying several positions | decision D-LB2 | — |

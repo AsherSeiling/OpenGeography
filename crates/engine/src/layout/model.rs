@@ -431,7 +431,7 @@ impl FeatureLabel {
 }
 
 /// Mirror of `LabelStyle` in ui/src/store/store.ts.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LabelStyle {
     pub enabled: bool,
@@ -456,6 +456,64 @@ pub struct LabelStyle {
     pub bold: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub italic: bool,
+    /// Point labels (QGIS "Placement › Around point / Offset / Cartographic"): "right" (default), "left", "above", "below", "center", "aboveRight", "aboveLeft", "belowRight", "belowLeft".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<String>,
+    /// Extra gap between the symbol and the label, px.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub distance: f64,
+    /// Line labels (QGIS "Above line / On line / Below line"): "above", "on" (default), "below".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line_pos: Option<String>,
+    /// QGIS "Rendering › Priority", 0 (lowest) to 10; labels with a higher number are placed first. Default 5.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<u32>,
+    /// QGIS "Allow overlaps": draw even where it covers another label.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub allow_overlap: bool,
+    /// QGIS "Formatting › Wrap on character", as a width in characters: lines are broken at spaces to fit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wrap_at: Option<u32>,
+    /// Multi-line alignment: "left", "center" (default), "right".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub align: Option<String>,
+    /// QGIS "Background".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<LabelBackground>,
+    /// QGIS "Shadow".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shadow: Option<LabelShadow>,
+    /// QGIS data-defined rotation (degrees clockwise), size (pt) and colour ("#rrggbb"), read from fields.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_field: Option<String>,
+}
+
+fn is_zero(v: &f64) -> bool {
+    *v == 0.0
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelBackground {
+    pub fill: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke: Option<String>,
+    /// Space between the text and the edge, px.
+    #[serde(default)]
+    pub padding: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelShadow {
+    pub color: String,
+    /// Offset right and down, px.
+    pub dx: f64,
+    pub dy: f64,
 }
 
 impl Default for LayerStyle {
