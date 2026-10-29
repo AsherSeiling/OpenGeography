@@ -327,7 +327,10 @@ export async function insertPicture() {
 }
 
 /** Replace the picture of an existing Picture element. */
-export async function choosePicture(id: string) {
+export const choosePicture = (id: string) => choosePictureFor(id);
+
+/** Choose a picture file and store it in the `source` field of an element (Picture, custom North Arrow). */
+export async function choosePictureFor(id: string) {
   try {
     const path = await pickPicture("Choose picture or logo");
     if (path) useLayouts.getState().update(id, { source: await api.readPicture(path) });
