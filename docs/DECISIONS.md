@@ -254,3 +254,9 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 - Catalog offers only anonymously readable public data: Sentinel-2 L2A (https), Copernicus DEM 30 m and 90 m (public S3, rewritten to https). Landsat C2 and NAIP on AWS are requester-pays (they need an AWS account); NAIP is available through Microsoft Planetary Computer with short-lived signed URLs, which is a different, later connector. Verified live 2026-10-28.
 - A clip uses GDAL `/vsicurl/` + `translate -projwin` (reads only the needed blocks), refuses over 60 million cells with the size named, and keeps the image's own CRS (no resampling). A scene is chosen first (search), then one asset.
 - Copernicus DEM heights are above the EGM2008 geoid, not NAVD88 like 3DEP; the citation annotation says so.
+
+### D4 — Overture GeoParquet
+- DuckDB reads Overture's public S3 files through the httpfs extension, which now ships with the app like spatial (`scripts/stage-resources.sh`, `resources::bundled_extension`); a dev build installs it on first use. The release is pinned (`overture::RELEASE`, 2026-10-21.0) because Overture drops old ones.
+- One pass: the rows in the box go into a scratch table (not TEMP, the next step may use another pooled connection), counted (limit 500 000), turned into the layer, dropped. Cancel interrupts the query.
+- Honest speed: the files are not spatially partitioned, so DuckDB reads every file's footer: a few city blocks of buildings took about 4 minutes on a home connection. The dialog says so; a faster path (an index per area, or Overture's own bbox-partitioned release) is a later improvement.
+- Nested columns are flattened to a per-theme list of plain fields; GeoParquet already on disk imports through the existing Parquet importer.

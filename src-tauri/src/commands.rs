@@ -678,3 +678,15 @@ pub async fn stac_import(engine: Eng<'_>, spec: engine::stac::ImportSpec) -> Res
     prewarm(&engine, vec![info.id.clone()]);
     Ok(info)
 }
+
+#[tauri::command]
+pub async fn overture_themes() -> Res<Vec<engine::overture::Theme>> {
+    Ok(engine::overture::THEMES.to_vec())
+}
+
+#[tauri::command]
+pub async fn overture_import(engine: Eng<'_>, theme: String, bbox: [f64; 4], label: String) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.overture_import(&theme, bbox, &label)).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}

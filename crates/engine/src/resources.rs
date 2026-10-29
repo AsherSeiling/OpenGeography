@@ -70,15 +70,21 @@ pub fn templates_dir() -> Option<PathBuf> {
 /// library they find, which corrupts the metadata DuckDB appends to an
 /// extension. It is unpacked once into a per-user cache and loaded from there.
 pub fn spatial_extension() -> Option<PathBuf> {
+    bundled_extension("spatial")
+}
+
+/// A DuckDB extension shipped with the app (`spatial`, `httpfs`), unpacked once; None in a dev build, where DuckDB installs it itself.
+pub fn bundled_extension(name: &str) -> Option<PathBuf> {
     let dir = dir()?.join("duckdb");
-    let plain = dir.join("spatial.duckdb_extension");
+    let file = format!("{name}.duckdb_extension");
+    let plain = dir.join(&file);
     if plain.is_file() {
         return Some(plain);
     }
-    let gz = dir.join("spatial.duckdb_extension.gz");
+    let gz = dir.join(format!("{file}.gz"));
     let size = std::fs::metadata(&gz).ok()?.len();
     // Keyed by the archive's size so an updated app unpacks its own copy.
-    let out = std::env::temp_dir().join(format!("gis-studio-{size}")).join("spatial.duckdb_extension");
+    let out = std::env::temp_dir().join(format!("gis-studio-{size}")).join(&file);
     if out.is_file() {
         return Some(out);
     }
@@ -92,7 +98,7 @@ pub fn spatial_extension() -> Option<PathBuf> {
     match unpack() {
         Ok(()) => Some(out),
         Err(e) => {
-            eprintln!("Could not unpack the DuckDB spatial extension: {e}");
+            eprintln!("Could not unpack the DuckDB {name} extension: {e}");
             None
         }
     }

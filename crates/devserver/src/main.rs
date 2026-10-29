@@ -206,6 +206,12 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let _ = e.prewarm(&l.id, 8, &[]);
             json!(l)
         }
+        "overture_themes" => json!(engine::overture::THEMES),
+        "overture_import" => {
+            let l = e.overture_import(&s(a, "theme")?, de(a, "bbox")?, &s(a, "label")?)?;
+            let _ = e.prewarm(&l.id, 8, &[]);
+            json!(l)
+        }
         "arcgis_catalog" => json!(engine::arcgis::catalog()),
         "arcgis_layers" => json!(engine::arcgis::describe_service(&s(a, "url")?)?),
         "arcgis_import" => {

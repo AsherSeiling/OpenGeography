@@ -194,6 +194,13 @@ export interface StacItem {
   assets: StacAsset[];
 }
 
+export interface OvertureTheme {
+  id: string;
+  label: string;
+  theme: string;
+  kind: string;
+}
+
 export interface ArcgisEntry {
   id: string;
   group: string;
@@ -477,6 +484,8 @@ export const api = {
   stacCatalog: () => invoke<StacApi[]>("stac_catalog"),
   stacSearch: (spec: { collection: string; bbox: Extent; datetime?: string; maxCloud?: number; limit?: number }) => invoke<StacItem[]>("stac_search", { spec }),
   stacImport: (spec: { href: string; bbox: Extent; label: string; collection: string; itemId: string; asset: string; areaLabel: string }) => track(invoke<LayerInfo>("stac_import", { spec })),
+  overtureThemes: () => invoke<OvertureTheme[]>("overture_themes"),
+  overtureImport: (theme: string, bbox: Extent, label: string) => track(invoke<LayerInfo>("overture_import", { theme, bbox, label })),
   arcgisCatalog: () => invoke<ArcgisEntry[]>("arcgis_catalog"),
   arcgisLayers: (url: string) => invoke<ArcgisServiceLayer[]>("arcgis_layers", { url }),
   arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),
