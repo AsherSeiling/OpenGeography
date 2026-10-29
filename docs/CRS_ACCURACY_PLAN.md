@@ -65,12 +65,24 @@ Each step: one branch `claude/<id>`, acceptance criteria, focused tests, merge `
 | D3 | A "Limitations and responsible use" page in the app Help and in `docs/`: coverage table by region (accuracy, grids shipped, grids downloadable), what the tool is not suitable for (legal survey, emergency decisions without verification), how to read the transform report | page linked from the Coordinate System tab and About |
 | D4 | Release checklist item: before each release run the datum coverage table and fix any "missing" | listed in `docs/MASTER_PLAN.md` release steps |
 
-## 4. Decisions needed from the user
+## 4. Decisions (user, 2026-10-29)
 
-1. Default when a good grid is missing: **warn and continue** (recommended) or block until the user chooses?
-2. Bundle size budget for grids in the installer (suggest 50 MB), and which regions come first (suggest Canada, Mexico, Australia, then Europe).
-3. May the app download grids from the PROJ-data CDN when the user clicks (outward-facing, user-triggered, checksum-verified)?
-4. Wording of the responsible-use statement (draft in D3, for your review).
+1. **Missing grid: warn and continue** (default), with a Strict option that refuses. Every warning is recorded in the layer's Sources and in the node message.
+2. **Budget and regions: agreed (about 50 MB, Canada, Mexico, Australia, then Europe), and more:** the grids a user is likely to need ship **pre-installed**, and the app has a **Datum Grids menu** to download the rest. The manager **sorts grids better**: by region (continent → country → state/province), by purpose (horizontal datum shift, vertical/geoid, historical), with installed/available status, size, accuracy and licence, searchable, and showing which installed grid covers the current map extent.
+3. **Downloads from the PROJ-data CDN on the user's click: yes** (checksum-verified, stored in the per-user data folder).
+4. **Responsible-use statement: write the draft** (below, to be shown in Help and on the Coordinate System tab).
+
+### Draft: Limitations and responsible use
+
+> GIS Studio converts coordinates between coordinate systems and datums using the PROJ library and the datum grids installed on this computer. Where a precise grid is installed, shifts are accurate to a few centimetres. Where it is not, the program says so and uses a rougher method that can be off by metres, and for some older datums by tens of metres. Always read the transformation note shown with a reprojected layer or an export.
+>
+> Elevations carry a vertical datum (for example NAVD88 or EGM2008). Mixing datums changes heights by up to metres. Check the datum before comparing or combining elevation data.
+>
+> Areas and distances measured in a map projection are distorted; the program measures on the ellipsoid by default and warns when a tool uses map units in a projection that stretches them.
+>
+> GIS Studio is not a survey instrument. Do not use its output as the legal record of a boundary, for engineering design, or for emergency decisions unless a qualified person has verified it with the source data and the official transformation for your jurisdiction. Statistical and interpolated results (hot spots, kriging, classification) are estimates; read their uncertainty before acting on them.
+>
+> Coordinates you export can reveal sensitive locations. Remove, round or aggregate them before sharing when people, protected species or cultural sites could be harmed.
 
 ## 5. Order
 
