@@ -851,3 +851,13 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | H5-4 | Classification edge cases | no data stays 0; classes outside 2–20, a band that does not exist, sample < 1000, too few valid cells → readable sentence | auto: remote_sensing::classify_keeps_no_data… |
 | H5-5 | Nodes | grid and CRS kept, NDVI value in a node run, classification differs between halves | auto: raster_nodes::h5_… |
 | H5-6 | Cancel | stops between blocks, no partial file | to automate (same per-block check as the calculator) |
+
+## ET. Export Table (point layer → CSV / Parquet with coordinates)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| ET-1 | Coordinates reprojected to the chosen CRS: UTM 15N point (500000, 4400000) → lon ≈ -93.0, lat ≈ 39.75; geographic target names columns lon/lat, projected x/y; a name clash with a field adds `_` | as stated | auto: export_table::csv_in_lonlat_and_projected_with_sidecar |
+| ET-2 | Sidecar `<file>.crs.txt` states name, code, units, datum, source CRS, row count | contains `Units: degree` / `metre` | auto: same test |
+| ET-3 | Selected features only (empty selection = 0 rows); definition query honoured; rows in feature order | as stated | auto: same test (selection); definition query to add |
+| ET-4 | Parquet written; refusals: output = a layer's source file, no CRS chosen, unknown CRS, non-point layer, layer without CRS → readable sentence | as stated | auto: export_table::parquet_and_refusals (non-point and no-CRS cases to add) |
+| ET-5 | UI: Export is disabled until a CRS is chosen (none assumed); file written with the right header | | auto: e2e/export-table.spec.ts |
+| ET-6 | XLSX output | not built (needs a writer dependency; CSV opens in Excel) | decision D-ET |

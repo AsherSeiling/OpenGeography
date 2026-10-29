@@ -61,6 +61,12 @@ pub async fn remove_layer(engine: Eng<'_>, id: String) -> Res<()> {
     blocking(&engine, move |e| e.remove_layer(&id)).await
 }
 
+/// Export a point layer's attributes and coordinates (in the chosen CRS) as CSV or Parquet.
+#[tauri::command]
+pub async fn export_table(engine: Eng<'_>, id: String, spec: engine::export_table::TableExportSpec) -> Res<engine::export_table::TableExportResult> {
+    blocking(&engine, move |e| e.export_table(&id, &spec)).await
+}
+
 #[tauri::command]
 pub async fn copy_layer(engine: Eng<'_>, id: String, name: String, fids: Option<Vec<i64>>) -> Res<LayerInfo> {
     let info = blocking(&engine, move |e| e.copy_layer(&id, &name, fids.as_deref())).await?;

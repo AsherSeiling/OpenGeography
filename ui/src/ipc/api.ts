@@ -56,6 +56,22 @@ export interface TnmDataset {
 }
 
 /** A running engine task (download, import, model run…). */
+export interface TableExportSpec {
+  path: string;
+  format: "csv" | "parquet";
+  crs: string;
+  fids?: number[] | null;
+}
+export interface TableExportResult {
+  path: string;
+  sidecar: string;
+  rows: number;
+  xColumn: string;
+  yColumn: string;
+  crsName: string;
+  unit: string;
+}
+
 export interface TaskInfo {
   id: number;
   label: string;
@@ -513,6 +529,7 @@ export const api = {
   downloadElevation: (bbox: Extent, resolution: number, label: string, confirmed = false) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label, confirmed })),
   rasterValue: (id: string, lon: number, lat: number) => invoke<number | null>("raster_value", { id, lon, lat }),
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
+  exportTable: (id: string, spec: TableExportSpec) => invoke<TableExportResult>("export_table", { id, spec }),
   layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),
   exportLayoutSeries: (req: RenderRequest, format: string, dpi: number, path: string) => invoke<SeriesExportResult>("export_layout_series", { req, format, dpi, path }),
   datumDataStatus: () => invoke<DatumReport>("datum_data_status"),
