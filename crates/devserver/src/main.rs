@@ -304,6 +304,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "datum_coverage" => json!(e.datum_coverage()),
         "list_datum_grids" => json!(e.list_datum_grids()),
         "layout_text_slots" => json!(e.layout_text_slots()),
+        "build_topo_layout" => json!(e.build_topo_layout(&serde_json::from_value(a["spec"].clone())?, &s(a, "today")?)?),
         "download_datum_grid" => json!(e.download_datum_grid(&s(a, "name")?, a["confirmed"].as_bool().unwrap_or(false))?),
         "remove_datum_grid" => {
             e.remove_datum_grid(&s(a, "name")?)?;

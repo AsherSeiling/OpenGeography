@@ -2,7 +2,8 @@
 import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
 import { useDialog } from "../actions";
 import { reportError } from "../errors/store";
-import { api, errorText, IN_TAURI } from "../ipc/api";
+import { api, errorText, IN_TAURI, type TopoBuild, type TopoSpec } from "../ipc/api";
+import { todayIso } from "./topoArea";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
 import { getDock, showPane } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
@@ -249,6 +250,20 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = useExport
 // ---------- templates (C3.1)
 
 /** A new layout from a bundled or user template: its map frames take the map's coordinate system and view. */
+/** Topo Map Builder: build the sheet with the engine, add it as a new layout and open it. Returns the engine's self-check. */
+export async function buildTopoSheet(spec: TopoSpec): Promise<TopoBuild> {
+  const built = await api.buildTopoLayout(spec, todayIso());
+  const names = new Set(useLayouts.getState().list().map((l) => l.name));
+  let name = built.layout.name;
+  for (let n = 2; names.has(name); n++) name = `${built.layout.name} ${n}`;
+  const layout: Layout = { ...normalizeLayout(built.layout), id: newLayoutId(), name };
+  useLayouts.getState().add(layout);
+  useLayouts.getState().open(layout.id);
+  openLayout(layout.id);
+  status(`Built "${name}" at 1:${spec.scale.toLocaleString("en-US")} on UTM zone ${built.zone}. Add contours and hillshade for this area, then check the list in the Topo Map dialog.`);
+  return built;
+}
+
 export async function newLayoutFromTemplate(id: string) {
   const crs = useApp.getState().mapCrs;
   if (!crs) {

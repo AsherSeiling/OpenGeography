@@ -27,6 +27,7 @@ import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, 
 import { STATES } from "./TigerDialog";
 import { api, errorText, type CrsInfo } from "../ipc/api";
 import { ElevationDialog } from "./ElevationDialog";
+import { TopoMapDialog } from "./TopoMapDialog";
 import { ShortcutsDialog } from "../nodes/ShortcutsDialog";
 import { ProjectionBuilderDialog } from "./ProjectionBuilderDialog";
 import { ArcGisDialog } from "./ArcGisDialog";
@@ -64,6 +65,8 @@ export function Dialogs() {
       return <OvertureDialog onClose={close} />;
     case "ogc":
       return <OgcDialog onClose={close} />;
+    case "topoMap":
+      return <TopoMapDialog onClose={close} />;
     case "datumGrids":
       return <DatumGridsDialog onClose={close} />;
     case "responsibleUse":
