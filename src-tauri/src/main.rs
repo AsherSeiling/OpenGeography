@@ -56,6 +56,7 @@ fn main() {
             commands::list_datum_grids,
             commands::layout_text_slots,
             commands::build_topo_layout,
+            commands::topo_prepare_data,
             commands::download_datum_grid,
             commands::remove_datum_grid,
             commands::map_factors,

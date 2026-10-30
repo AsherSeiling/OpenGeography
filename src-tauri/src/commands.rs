@@ -150,6 +150,11 @@ pub async fn build_topo_layout(engine: Eng<'_>, spec: engine::layout::topo::Topo
 }
 
 #[tauri::command]
+pub async fn topo_prepare_data(engine: Eng<'_>, dem: String, interval: f64, index_every: u32, label: String) -> Res<engine::TopoData> {
+    blocking(&engine, move |e| e.topo_prepare_data(&dem, interval, index_every, &label)).await
+}
+
+#[tauri::command]
 pub async fn list_datum_grids(engine: Eng<'_>) -> Res<Vec<engine::grids::GridEntry>> {
     blocking(&engine, move |e| Ok(e.list_datum_grids())).await
 }

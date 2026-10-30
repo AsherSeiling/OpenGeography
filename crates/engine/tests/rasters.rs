@@ -327,3 +327,31 @@ fn raster_layers_report_stats_and_draw_tiles() {
     std::fs::write(&junk, b"not a tiff").unwrap();
     assert!(e.import(&junk).is_err());
 }
+
+#[test]
+fn lw9_topo_data_step_makes_contours_with_index_lines_and_a_hillshade_from_one_dem() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let p = dir.path().join("ramp.tif");
+    dem(&p, 40, None, Some(32614), |_, c| c as f32); // 0…39 m west to east
+    let id = import(&e, &p);
+    let made = e.topo_prepare_data(&id, 10.0, 2, "Test sheet").unwrap();
+    // Contours: a line layer at 10, 20 and 30 m with ELEV and INDEX, named for the sheet.
+    assert_eq!(made.contours.name, "Contours — Test sheet");
+    assert_eq!(made.contours.geom_type, "Line");
+    assert_eq!(made.contours.feature_count, 3, "{:?}", made.contours);
+    for f in ["elev", "index"] {
+        assert!(made.contours.fields.iter().any(|x| x.name.eq_ignore_ascii_case(f)), "{f} in {:?}", made.contours.fields);
+    }
+    // Hillshade: a raster layer in the same coordinate system.
+    assert_eq!(made.hillshade.name, "Hillshade — Test sheet");
+    assert!(made.hillshade.raster.is_some());
+    assert_eq!(made.hillshade.crs.as_deref(), Some("EPSG:32614"));
+    // Both are in the project.
+    let all: Vec<String> = e.list_layers().into_iter().map(|l| l.id).collect();
+    assert!(all.contains(&made.contours.id) && all.contains(&made.hillshade.id));
+    // Refusals in words: a vector layer is not a DEM; the interval must be positive.
+    let err = e.topo_prepare_data(&made.contours.id, 10.0, 5, "x").unwrap_err().to_string();
+    assert!(err.contains("not an elevation raster"), "{err}");
+    assert!(e.topo_prepare_data(&id, 0.0, 5, "x").unwrap_err().to_string().contains("greater than zero"));
+}

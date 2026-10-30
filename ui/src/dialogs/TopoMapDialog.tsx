@@ -2,7 +2,9 @@
 // and lists what it checked. Contours, hillshade and the rest of the data come from the Data tab and Analysis tools.
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, MessageBar, MessageBarBody, Option } from "@fluentui/react-components";
 import { useMemo, useState } from "react";
-import { errorText, type TopoBuild, type TopoSpec } from "../ipc/api";
+import { api, errorText, type ElevationPlan, type TopoBuild, type TopoSpec } from "../ipc/api";
+import { isCancelled } from "../progress/progress";
+import { contourStyle, hillshadeStyle, pickDem, sheetLabel } from "../layout/topoData";
 import { buildTopoSheet } from "../layout/actions";
 import { defaultDatum, PAPERS, parseCenter, quadCenter, SCALES, todayIso } from "../layout/topoArea";
 import { getCenterLonLat } from "../map/mapController";
@@ -37,7 +39,56 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [built, setBuilt] = useState<TopoBuild | null>(null);
   const layers = useApp((s) => s.layers);
+  const order = useApp((s) => s.order);
   const extra = useMemo(() => dataChecks(Object.values(layers)), [layers]);
+  const dem = useMemo(() => pickDem(order, layers), [order, layers]);
+  const [dataBusy, setDataBusy] = useState(false);
+  const [dataMsg, setDataMsg] = useState<string | null>(null);
+  const [plan, setPlan] = useState<ElevationPlan | null>(null);
+
+  /** Step 1: 3DEP elevation for the sheet's area (the engine's plan first; a big download asks for a second click). */
+  const getElevation = async () => {
+    if (!built) return;
+    setErr(null);
+    setDataBusy(true);
+    try {
+      const label = sheetLabel(built.layout.name);
+      const p = plan ?? (await api.planElevation(built.bboxLonlat, 10));
+      if (p.needsConfirm && !plan) {
+        setPlan(p);
+        setDataMsg(`This download is about ${(p.bytes / 1e6).toFixed(0)} MB. Click again to download it.`);
+        return;
+      }
+      setPlan(null);
+      const info = await api.downloadElevation(built.bboxLonlat, 10, label, p.needsConfirm);
+      useApp.getState().addLayers([info]);
+      setDataMsg(`Added ${info.name}.`);
+    } catch (e) {
+      if (!isCancelled(e)) setErr(errorText(e));
+    } finally {
+      setDataBusy(false);
+    }
+  };
+
+  /** Step 2: contours (index lines every fifth) and a hillshade from the elevation layer, drawn and ready for the sheet. */
+  const makeContours = async () => {
+    if (!built || !dem) return;
+    setErr(null);
+    setDataBusy(true);
+    try {
+      const made = await api.topoPrepareData(dem.id, built.contourIntervalM, 5, sheetLabel(built.layout.name));
+      const app = useApp.getState();
+      app.addLayers([made.hillshade, made.contours]); // the contours end up on top of the hillshade
+      app.setStyle(made.contours.id, contourStyle(useApp.getState().styles[made.contours.id]));
+      app.setStyle(made.hillshade.id, hillshadeStyle(useApp.getState().styles[made.hillshade.id]));
+      app.setVisible(dem.id, false); // the hillshade shows the terrain; the coloured elevation would hide it
+      setDataMsg(`Made ${made.contours.featureCount.toLocaleString()} contour lines every ${built.contourInterval} (index lines every fifth, labelled) and a hillshade.`);
+    } catch (e) {
+      if (!isCancelled(e)) setErr(errorText(e));
+    } finally {
+      setDataBusy(false);
+    }
+  };
 
   const build = async () => {
     setErr(null);
@@ -132,6 +183,13 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
                   <MessageBar key={i} intent={c.level === "ok" ? "success" : c.level === "warning" ? "warning" : "info"}><MessageBarBody>{c.text}</MessageBarBody></MessageBar>
                 ))}
                 <div className="props-hint">Contour interval for this scale: {built.contourInterval}.</div>
+                <strong>Prepare the data</strong>
+                <div className="props-hint">The sheet's frame follows the map layers, so the contours and hillshade below appear on it at once.</div>
+                <div className="row2">
+                  <Button size="small" disabled={dataBusy} onClick={() => void getElevation()}>{plan ? "Download anyway" : "1. Download elevation (3DEP, 10 m)"}</Button>
+                  <Button size="small" disabled={dataBusy || !dem} onClick={() => void makeContours()} title={dem ? `From ${dem.name}` : "Download or add an elevation layer first"}>2. Make contours and hillshade</Button>
+                </div>
+                {dataMsg && <MessageBar intent="success"><MessageBarBody>{dataMsg}</MessageBarBody></MessageBar>}
               </div>
             )}
           </DialogContent>

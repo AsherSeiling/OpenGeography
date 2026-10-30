@@ -56,6 +56,10 @@ pub struct TopoBuild {
     pub ground_m: [f64; 2],
     /// Contour interval to use when preparing the data, in the chosen units ("40 ft" / "10 m").
     pub contour_interval: String,
+    /// The same interval in metres, the unit of the elevation raster (a "40 ft" interval is 12.192 m).
+    pub contour_interval_m: f64,
+    /// West, south, east, north in longitude/latitude of the map frame plus a 5 % margin: the area to download elevation for.
+    pub bbox_lonlat: [f64; 4],
 }
 
 /// Space between the map and the marginal strip for the bottom labels, mm.
@@ -81,6 +85,12 @@ pub fn utm_crs(lon: f64, lat: f64, datum: &str) -> Result<(String, u8)> {
         "wgs84" => Ok((format!("EPSG:{}{zone:02}", if lat >= 0.0 { 326 } else { 327 }), zone)),
         d => bail!("Unknown datum '{d}' (nad83 or wgs84)"),
     }
+}
+
+/// An interval written "40 ft" or "10 m" in metres.
+pub fn interval_metres(text: &str) -> f64 {
+    let n: f64 = text.split_whitespace().next().and_then(|v| v.parse().ok()).unwrap_or(10.0);
+    if text.trim_end().ends_with("ft") { n * 0.3048 } else { n }
 }
 
 /// The contour interval for the scale: metres from the scale (about scale ÷ 2400), feet the nearest standard value.
@@ -224,7 +234,16 @@ pub fn build(spec: &TopoSpec, today: &str) -> Result<TopoBuild> {
     if ground[0] < 2000.0 || ground[1] < 2000.0 {
         checks.push(Check { level: "warning", text: "The map shows less than 2 km across; choose a smaller scale for land navigation.".into() });
     }
-    Ok(TopoBuild { layout, checks, crs, zone, ground_m: ground, contour_interval: interval })
+    // The area to prepare data for: the frame's corners in longitude/latitude, a little wider than the frame.
+    let ext = super::geo::frame_extent(&body, &fc, [ce, cn], spec.scale, fw, fh)?;
+    let (mx, my) = ((ext[2] - ext[0]) * 0.05, (ext[3] - ext[1]) * 0.05);
+    let mut bbox = [f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY];
+    for (x, y) in [(ext[0] - mx, ext[1] - my), (ext[2] + mx, ext[1] - my), (ext[0] - mx, ext[3] + my), (ext[2] + mx, ext[3] + my)] {
+        let (lo, la) = fc.to_lonlat(x, y)?;
+        bbox = [bbox[0].min(lo), bbox[1].min(la), bbox[2].max(lo), bbox[3].max(la)];
+    }
+    let contour_interval_m = interval_metres(&interval);
+    Ok(TopoBuild { layout, checks, crs, zone, ground_m: ground, contour_interval: interval, contour_interval_m, bbox_lonlat: bbox })
 }
 
 #[cfg(test)]
@@ -233,6 +252,18 @@ mod tests {
 
     fn spec() -> TopoSpec {
         serde_json::from_value(json!({ "center": [-93.0, 45.0], "scale": 24000, "paper": "tabloid", "landscape": true, "title": "Test quad" })).unwrap()
+    }
+
+    #[test]
+    fn the_sheet_knows_the_area_to_download_and_the_interval_in_metres() {
+        let b = build(&spec(), "2026-01-01").unwrap();
+        let [w, s, e, n] = b.bbox_lonlat;
+        // Centred on -93, 45; about 10.5 km × 4.8 km (the map frame on tabloid landscape at 1:24,000, plus 5 %).
+        assert!(w < -93.0 && e > -93.0 && s < 45.0 && n > 45.0, "{:?}", b.bbox_lonlat);
+        assert!((e - w) > 0.1 && (e - w) < 0.25 && (n - s) > 0.03 && (n - s) < 0.1, "{:?}", b.bbox_lonlat);
+        assert_eq!(interval_metres("40 ft"), 12.192);
+        assert_eq!(interval_metres("10 m"), 10.0);
+        assert!((b.contour_interval_m - 12.192).abs() < 1e-9);
     }
 
     #[test]

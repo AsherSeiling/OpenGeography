@@ -314,6 +314,15 @@ export interface TopoBuild {
   zone: number;
   groundM: [number, number];
   contourInterval: string;
+  /** The same interval in metres (the unit of 3DEP elevation). */
+  contourIntervalM: number;
+  /** West, south, east, north of the map frame plus a margin: the area to download elevation for. */
+  bboxLonlat: [number, number, number, number];
+}
+
+export interface TopoData {
+  contours: LayerInfo;
+  hillshade: LayerInfo;
 }
 
 export interface TextSlot {
@@ -656,6 +665,7 @@ export const api = {
   datumCoverage: () => invoke<[string, TransformReport][]>("datum_coverage"),
   /** Every text slot of every layout element (id, label, default size): the Properties Text section is built from this. */
   layoutTextSlots: () => invoke<TextSlot[]>("layout_text_slots"),
+  topoPrepareData: (dem: string, interval: number, indexEvery: number, label: string) => track(invoke<TopoData>("topo_prepare_data", { dem, interval, indexEvery, label })),
   buildTopoLayout: (spec: TopoSpec, today: string) => invoke<TopoBuild>("build_topo_layout", { spec, today }),
   /** Every datum grid PROJ-data offers, with where each is installed. */
   listDatumGrids: () => invoke<DatumGrid[]>("list_datum_grids"),
