@@ -1,6 +1,14 @@
 # Third-party notices
 
-GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-10-28 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
+GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-10-29 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
+
+## Licensing note for the macOS installer
+
+The bundled GDAL build (from Homebrew) links these libraries, which are licensed under the GPL only. Distributing the installer with them makes that binary distribution subject to the GPL (source must be offered). GIS Studio's own source code remains MIT OR Apache-2.0. A GDAL build without these optional drivers (PDF via poppler, HEIF/HEVC via x265, SpatiaLite topology via librttopo) avoids this.
+
+- **librttopo 1.1.0** — GPL-2.0-or-later — RT Topology Library (librttopo.1.dylib)
+- **poppler 26.10.0** — GPL-2.0-only OR GPL-3.0-only — PDF rendering library (based on the xpdf-3.0 code base) (libpoppler.159.0.0.dylib)
+- **x265 4.3** — GPL-2.0-or-later — H.265/HEVC encoder (libx265.216.dylib)
 
 ## Bundled data
 
@@ -16,9 +24,95 @@ GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source softwar
 | Datum-shift grids shipped with the installers (Canada, Australia, New Zealand, UK, Austria, Belgium, France, Germany, Netherlands, Portugal, Spain, Switzerland; list in `crates/engine/assets/bundled_grids.txt`) | Per provider: Open Government Licence – Canada, CC BY 4.0, CC0, BSD-2-Clause, Licence Ouverte, Data licence Germany – attribution 2.0; attribution texts are the providers' README files on cdn.proj.org | https://cdn.proj.org/ |
 | Extra CRS definitions (`crates/engine/assets/extra_crs.json`) | Derived from PROJ / EPSG (terms above) | https://proj.org/ |
 
-## Native libraries
+## Native libraries bundled in the macOS app (187 files from 85 projects)
 
-Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list the bundled native libraries.
+| Project | Version | License | Home page | Files |
+|---|---|---|---|---|
+| abseil | 20260817.0 | Apache-2.0 | https://abseil.io | libabsl_base.2601.0.0.dylib, libabsl_borrowed_fixup_buffer.2601.0.0.dylib, libabsl_city.2601.0.0.dylib, libabsl_civil_time.2601.0.0.dylib, libabsl_cord.2601.0.0.dylib, libabsl_cord_internal.2601.0.0.dylib, libabsl_cordz_functions.2601.0.0.dylib, libabsl_cordz_handle.2601.0.0.dylib, libabsl_cordz_info.2601.0.0.dylib, libabsl_crc32c.2601.0.0.dylib, libabsl_crc_cord_state.2601.0.0.dylib, libabsl_crc_cpu_detect.2601.0.0.dylib, libabsl_crc_internal.2601.0.0.dylib, libabsl_debugging_internal.2601.0.0.dylib, libabsl_decode_rust_punycode.2601.0.0.dylib, libabsl_demangle_internal.2601.0.0.dylib, libabsl_demangle_rust.2601.0.0.dylib, libabsl_examine_stack.2601.0.0.dylib, libabsl_exponential_biased.2601.0.0.dylib, libabsl_flags_commandlineflag.2601.0.0.dylib, libabsl_flags_commandlineflag_internal.2601.0.0.dylib, libabsl_flags_config.2601.0.0.dylib, libabsl_flags_internal.2601.0.0.dylib, libabsl_flags_marshalling.2601.0.0.dylib, libabsl_flags_private_handle_accessor.2601.0.0.dylib, libabsl_flags_program_name.2601.0.0.dylib, libabsl_flags_reflection.2601.0.0.dylib, libabsl_graphcycles_internal.2601.0.0.dylib, libabsl_hash.2601.0.0.dylib, libabsl_hashtablez_sampler.2601.0.0.dylib, libabsl_int128.2601.0.0.dylib, libabsl_kernel_timeout_internal.2601.0.0.dylib, libabsl_leak_check.2601.0.0.dylib, libabsl_log_entry.2601.0.0.dylib, libabsl_log_globals.2601.0.0.dylib, libabsl_log_internal_check_op.2601.0.0.dylib, libabsl_log_internal_conditions.2601.0.0.dylib, libabsl_log_internal_fnmatch.2601.0.0.dylib, libabsl_log_internal_format.2601.0.0.dylib, libabsl_log_internal_globals.2601.0.0.dylib, libabsl_log_internal_log_sink_set.2601.0.0.dylib, libabsl_log_internal_message.2601.0.0.dylib, libabsl_log_internal_nullguard.2601.0.0.dylib, libabsl_log_internal_proto.2601.0.0.dylib, libabsl_log_internal_structured_proto.2601.0.0.dylib, libabsl_log_severity.2601.0.0.dylib, libabsl_log_sink.2601.0.0.dylib, libabsl_malloc_internal.2601.0.0.dylib, libabsl_raw_hash_set.2601.0.0.dylib, libabsl_raw_logging_internal.2601.0.0.dylib, libabsl_spinlock_wait.2601.0.0.dylib, libabsl_stacktrace.2601.0.0.dylib, libabsl_str_format_internal.2601.0.0.dylib, libabsl_strerror.2601.0.0.dylib, libabsl_strings.2601.0.0.dylib, libabsl_strings_internal.2601.0.0.dylib, libabsl_symbolize.2601.0.0.dylib, libabsl_synchronization.2601.0.0.dylib, libabsl_throw_delegate.2601.0.0.dylib, libabsl_time.2601.0.0.dylib, libabsl_time_zone.2601.0.0.dylib, libabsl_tracing_internal.2601.0.0.dylib, libabsl_utf8_for_code_point.2601.0.0.dylib, libabsl_vlog_config_internal.2601.0.0.dylib |
+| aom | 3.15.2 | BSD-2-Clause | https://aomedia.googlesource.com/aom | libaom.3.13.3.dylib |
+| apache-arrow | 26.0.0 | Apache-2.0 | https://arrow.apache.org/ | libarrow.2300.1.0.dylib, libarrow_acero.2300.1.0.dylib, libarrow_compute.2300.1.0.dylib, libarrow_dataset.2300.1.0.dylib, libparquet.2300.1.0.dylib |
+| aws-c-auth | 1.0.2 | Apache-2.0 | https://github.com/awslabs/aws-c-auth | libaws-c-auth.1.0.0.dylib |
+| aws-c-cal | 1.0.0 | Apache-2.0 | https://github.com/awslabs/aws-c-cal | libaws-c-cal.1.0.0.dylib |
+| aws-c-common | 1.0.5 | Apache-2.0 | https://github.com/awslabs/aws-c-common | libaws-c-common.1.0.0.dylib |
+| aws-c-compression | 1.0.0 | Apache-2.0 | https://github.com/awslabs/aws-c-compression | libaws-c-compression.1.0.0.dylib |
+| aws-c-event-stream | 1.0.0 | Apache-2.0 | https://github.com/awslabs/aws-c-event-stream | libaws-c-event-stream.1.0.0.dylib |
+| aws-c-http | 1.1.1 | Apache-2.0 | https://github.com/awslabs/aws-c-http | libaws-c-http.1.0.0.dylib |
+| aws-c-io | 1.1.1 | Apache-2.0 | https://github.com/awslabs/aws-c-io | libaws-c-io.1.0.0.dylib |
+| aws-c-mqtt | 1.1.2 | Apache-2.0 | https://github.com/awslabs/aws-c-mqtt | libaws-c-mqtt.1.0.0.dylib |
+| aws-c-s3 | 1.5.1 | Apache-2.0 | https://github.com/awslabs/aws-c-s3 | libaws-c-s3.1.0.0.dylib |
+| aws-c-sdkutils | 1.0.1 | Apache-2.0 | https://github.com/awslabs/aws-c-sdkutils | libaws-c-sdkutils.1.0.0.dylib |
+| aws-checksums | 1.0.1 | Apache-2.0 | https://github.com/awslabs/aws-checksums | libaws-checksums.1.0.0.dylib |
+| aws-crt-cpp | 0.44.3 | Apache-2.0 | https://github.com/awslabs/aws-crt-cpp | libaws-crt-cpp.dylib |
+| aws-sdk-cpp | 1.11.915 | Apache-2.0 | https://github.com/aws/aws-sdk-cpp | libaws-cpp-sdk-cognito-identity.dylib, libaws-cpp-sdk-core.dylib, libaws-cpp-sdk-identity-management.dylib, libaws-cpp-sdk-s3.dylib, libaws-cpp-sdk-sts.dylib |
+| boost | 1.92.0 | BSL-1.0 | https://www.boost.org/ | libboost_atomic.dylib, libboost_chrono.dylib, libboost_container.dylib, libboost_date_time.dylib, libboost_serialization.dylib, libboost_thread.dylib |
+| brotli | 1.2.1 | MIT | https://github.com/google/brotli | libbrotlicommon.1.2.0.dylib, libbrotlidec.1.2.0.dylib, libbrotlienc.1.2.0.dylib |
+| c-blosc | 1.21.6 | BSD-3-Clause | https://www.blosc.org/ | libblosc.1.21.6.dylib |
+| cfitsio | 4.7.0 | CFITSIO | https://heasarc.gsfc.nasa.gov/docs/software/fitsio/fitsio.html | libcfitsio.4.6.3.dylib |
+| duckdb | 2.0.0 | MIT | https://www.duckdb.org | libduckdb.dylib |
+| fontconfig | 2.18.3 | HPND-sell-variant AND Unicode-3.0 AND MIT-Modern-Variant AND MIT AND LicenseRef-Homebrew-public-domain | https://wiki.freedesktop.org/www/Software/fontconfig/ | libfontconfig.1.dylib |
+| freetype | 2.15.0 | FTL | https://www.freetype.org/ | libfreetype.6.dylib |
+| freexl | 2.0.0 | MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later | https://www.gaia-gis.it/fossil/freexl/index | libfreexl.1.dylib |
+| gdal | 3.13.3 | MIT | https://gdal.org/en/stable/ | libgdal.38.3.12.3.dylib |
+| geos | 3.15.0 | LGPL-2.1-or-later | https://libgeos.org/ | libgeos.3.14.1.dylib, libgeos_c.1.20.5.dylib |
+| gettext | 1.0 | LGPL-2.1-or-later (libintl; the gettext tools are GPL-3.0-or-later) | https://www.gnu.org/software/gettext/ | libintl.8.dylib |
+| giflib | 6.1.3 | MIT | https://giflib.sourceforge.net/ | libgif.7.2.0.dylib |
+| gmp | 6.3.0 | LGPL-3.0-or-later OR GPL-2.0-or-later | https://gmplib.org/ | libgmp.10.dylib, libgmpxx.4.dylib |
+| gpgme | 2.2.0 | LGPL-2.1-or-later | https://www.gnupg.org/related_software/gpgme/ | libgpgme.45.dylib |
+| gpgmepp | 2.2.0 | LGPL-2.1-or-later | https://www.gnupg.org/related_software/gpgme/ | libgpgmepp.7.0.0.dylib |
+| hdf5 | 2.2.0 | BSD-3-Clause | https://www.hdfgroup.org/solutions/hdf5/ | libhdf5.320.1.1.dylib, libhdf5_hl.320.0.2.dylib |
+| highway | 1.4.0 | Apache-2.0 OR BSD-3-Clause | https://github.com/google/highway | libhwy.1.3.0.dylib |
+| imath | 3.2.3 | BSD-3-Clause | https://imath.readthedocs.io/en/latest/ | libImath-3_2.30.3.2.2.dylib |
+| jpeg-turbo | 3.2.1 | IJG AND Zlib AND BSD-3-Clause | https://www.libjpeg-turbo.org/ | libjpeg.8.3.2.dylib |
+| jpeg-xl | 0.12.0 | BSD-3-Clause | https://jpeg.org/jpegxl/index.html | libjxl.0.11.2.dylib, libjxl_cms.0.11.2.dylib, libjxl_threads.0.11.2.dylib |
+| json-c | 0.19 | MIT | https://github.com/json-c/json-c/wiki | libjson-c.5.4.0.dylib |
+| krb5 | 1.22.2 | BSD-2-Clause AND BSD-2-Clause-first-lines AND BSD-3-Clause AND BSD-4-Clause AND Brian-Gladman-2-Clause AND CMU-Mach-nodoc AND FSFULLRWD AND HPND AND HPND-export2-US AND HPND-export-US AND HPND-export-US-acknowledgement AND HPND-export-US-modify AND ISC AND MIT AND MIT-CMU AND OLDAP-2.8 AND OpenVision AND (BSD-2-Clause OR GPL-2.0-or-later) | https://web.mit.edu/kerberos/ | libcom_err.3.0.dylib, libgssapi_krb5.2.2.dylib, libk5crypto.3.1.dylib, libkrb5.3.3.dylib, libkrb5support.1.1.dylib |
+| libaec | 1.1.7 | BSD-2-Clause | https://github.com/Deutsches-Klimarechenzentrum/libaec | libaec.0.1.6.dylib, libsz.2.0.1.dylib |
+| libarchive | 3.8.10 | BSD-2-Clause | https://www.libarchive.org | libarchive.13.dylib |
+| libassuan | 3.0.2 | LGPL-2.1-or-later AND GPL-3.0-or-later AND FSFULLR | https://www.gnupg.org/related_software/libassuan/ | libassuan.9.dylib |
+| libb2 | 0.98.1 | CC0-1.0 | https://blake2.net/ | libb2.1.dylib |
+| libde265 | 1.1.3 | LGPL-3.0-or-later | https://github.com/strukturag/libde265 | libde265.0.1.11.dylib |
+| libdeflate | 1.26 | MIT | https://github.com/ebiggers/libdeflate | libdeflate.0.dylib |
+| libgeotiff | 1.7.4 | MIT | https://github.com/OSGeo/libgeotiff | libgeotiff.5.dylib |
+| libgpg-error | 1.61 | LGPL-2.1-or-later | https://www.gnupg.org/related_software/libgpg-error/ | libgpg-error.0.dylib |
+| libheif | 1.23.7 | LGPL-3.0-or-later | https://www.libde265.org/ | libheif.1.21.2.dylib |
+| libkml | 1.3.0 | BSD-3-Clause | https://github.com/libkml/libkml | libkmlbase.1.3.0.dylib, libkmldom.1.3.0.dylib, libkmlengine.1.3.0.dylib |
+| liblerc | 4.2.0 | Apache-2.0 | https://github.com/Esri/lerc | libLerc.4.dylib |
+| libpng | 1.6.59 | libpng-2.0 | https://www.libpng.org/pub/png/libpng.html | libpng16.16.dylib |
+| libpq | 18.6 | PostgreSQL | https://www.postgresql.org/docs/current/libpq.html | libpq.5.dylib |
+| librttopo | 1.1.0 | GPL-2.0-or-later | https://git.osgeo.org/gitea/rttopo/librttopo | librttopo.1.dylib |
+| libspatialite | 5.1.0 | MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later | https://www.gaia-gis.it/fossil/libspatialite/index | libspatialite.8.dylib |
+| libtiff | 4.7.2 | libtiff | https://libtiff.gitlab.io/libtiff/ | libtiff.6.dylib |
+| libtool | 2.6.2 | LGPL-2.1-or-later (libltdl; the libtool scripts are GPL-2.0-or-later) | https://www.gnu.org/software/libtool/ | libltdl.7.dylib |
+| libvmaf | 3.2.1 | BSD-2-Clause-Patent | https://github.com/Netflix/vmaf | libvmaf.3.dylib |
+| libxml2 | 2.15.4 | MIT | http://xmlsoft.org/ | libxml2.16.dylib |
+| little-cms2 | 2.19.1 | MIT | https://www.littlecms.com/ | liblcms2.2.dylib |
+| lz4 | 1.10.0 | BSD-2-Clause | https://lz4.github.io/lz4/ | liblz4.1.10.0.dylib |
+| minizip | 1.3.2 | Zlib | https://www.winimage.com/zLibDll/minizip.html | libminizip.1.dylib |
+| mpfr | 4.2.2 | LGPL-3.0-or-later | https://www.mpfr.org/ | libmpfr.6.dylib |
+| netcdf | 4.10.1 | BSD-3-Clause | https://www.unidata.ucar.edu/software/netcdf/ | libnetcdf.22.dylib |
+| nspr | 4.40 | MPL-2.0 | https://hg.mozilla.org/projects/nspr | libnspr4.dylib, libplc4.dylib, libplds4.dylib |
+| nss | 3.132 | MPL-2.0 | https://firefox-source-docs.mozilla.org/security/nss/index.html | libnss3.dylib, libnssutil3.dylib, libsmime3.dylib, libssl3.dylib |
+| openexr | 3.5.2 | BSD-3-Clause | https://www.openexr.com/ | libIex-3_4.33.3.4.10.dylib, libIlmThread-3_4.33.3.4.10.dylib, libOpenEXR-3_4.33.3.4.10.dylib, libOpenEXRCore-3_4.33.3.4.10.dylib, libOpenEXRUtil-3_4.33.3.4.10.dylib |
+| openjpeg | 2.5.4 | BSD-2-Clause | https://www.openjpeg.org/ | libopenjp2.2.5.4.dylib |
+| openjph | 0.32.0 | BSD-2-Clause | https://github.com/aous72/OpenJPH | libopenjph.0.27.0.dylib |
+| openssl@3 | 3.5.9 | Apache-2.0 | https://openssl-library.org | libcrypto.3.dylib, libssl.3.dylib |
+| pcre2 | 10.49 | BSD-3-Clause | https://www.pcre.org/ | libpcre2-8.0.dylib |
+| poppler | 26.10.0 | GPL-2.0-only OR GPL-3.0-only | https://poppler.freedesktop.org/ | libpoppler.159.0.0.dylib |
+| proj | 9.9.0 | MIT | https://proj.org/ | libproj.25.9.8.1.dylib |
+| qhull | 2020.2 | Qhull | http://www.qhull.org/ | libqhull_r.8.0.2.dylib |
+| re2 | 2025-11-05 | BSD-3-Clause | https://github.com/google/re2 | libre2.11.0.0.dylib |
+| sfcgal | 2.3.0 | LGPL-2.0-or-later | https://sfcgal.gitlab.io/SFCGAL/ | libSFCGAL.2.2.0.dylib |
+| snappy | 1.3.1 | BSD-3-Clause | https://google.github.io/snappy/ | libsnappy.1.2.2.dylib |
+| sqlite | 3.54.1 | blessing | https://sqlite.org/index.html | libsqlite3.3.53.1.dylib |
+| thrift | 0.25.0 | Apache-2.0 | https://thrift.apache.org/ | libthrift-0.22.0.dylib |
+| unixodbc | 2.3.14 | LGPL-2.1-or-later (libodbc) | https://www.unixodbc.org/ | libodbc.2.dylib, libodbcinst.2.dylib |
+| uriparser | 1.0.2 | BSD-3-Clause | https://uriparser.github.io/ | liburiparser.1.2.0.dylib |
+| utf8proc | 2.12.0 | MIT AND Unicode-DFS-2015 | https://juliastrings.github.io/utf8proc/ | libutf8proc.3.2.3.dylib |
+| webp | 1.6.0 | BSD-3-Clause | https://developers.google.com/speed/webp/ | libsharpyuv.0.1.2.dylib, libwebp.7.2.0.dylib |
+| x265 | 4.3 | GPL-2.0-or-later | https://github.com/Multicorewareinc/x265 | libx265.216.dylib |
+| xerces-c | 3.3.0 | Apache-2.0 | https://xerces.apache.org/xerces-c/ | libxerces-c-3.3.dylib |
+| xz | 5.8.4 | 0BSD (liblzma; some xz tools are GPL-2.0-or-later) | https://tukaani.org/xz/ | liblzma.5.dylib |
+| zstd | 1.5.7 | (BSD-3-Clause OR GPL-2.0-only) AND BSD-2-Clause AND MIT | https://facebook.github.io/zstd/ | libzstd.1.5.7.dylib |
 
 ## JavaScript packages bundled in the user interface (156)
 
@@ -181,12 +275,13 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | [zustand](https://www.npmjs.com/package/zustand) | 4.5.7 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 5.0.15 | MIT |
 
-## Rust crates compiled into the app (575)
+## Rust crates compiled into the app (646)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
 | accurate | 0.3.1 | MIT OR Apache-2.0 | https://github.com/bsteinb/accurate |
 | adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 | https://github.com/oyvindln/adler2 |
+| aes | 0.8.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-ciphers |
 | ahash | 0.8.12 | MIT OR Apache-2.0 | https://github.com/tkaitchuck/ahash |
 | aho-corasick | 1.1.5 | Unlicense OR MIT | https://github.com/BurntSushi/aho-corasick |
 | alloc-no-stdlib | 3.0.0 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
@@ -209,6 +304,19 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | arrow-select | 58.4.0 | Apache-2.0 | https://github.com/apache/arrow-rs |
 | arrow-string | 58.4.0 | Apache-2.0 | https://github.com/apache/arrow-rs |
 | ascii | 1.1.0 | Apache-2.0 OR MIT | https://github.com/tomprogrammer/rust-ascii |
+| askama | 0.16.1 | MIT OR Apache-2.0 | https://github.com/askama-rs/askama |
+| askama_derive | 0.16.1 | MIT OR Apache-2.0 | https://github.com/askama-rs/askama |
+| askama_macros | 0.16.1 | MIT OR Apache-2.0 | https://github.com/askama-rs/askama |
+| askama_parser | 0.16.1 | MIT OR Apache-2.0 | https://github.com/askama-rs/askama |
+| async-broadcast | 0.7.2 | MIT OR Apache-2.0 | https://github.com/smol-rs/async-broadcast |
+| async-channel | 2.5.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/async-channel |
+| async-io | 2.6.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/async-io |
+| async-lock | 3.4.2 | Apache-2.0 OR MIT | https://github.com/smol-rs/async-lock |
+| async-process | 2.5.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/async-process |
+| async-recursion | 1.2.0 | MIT OR Apache-2.0 | https://github.com/dcchut/async-recursion |
+| async-signal | 0.2.14 | Apache-2.0 OR MIT | https://github.com/smol-rs/async-signal |
+| async-task | 4.7.1 | Apache-2.0 OR MIT | https://github.com/smol-rs/async-task |
+| async-trait | 0.1.92 | MIT OR Apache-2.0 | https://github.com/dtolnay/async-trait |
 | atk | 0.18.2 | MIT | https://github.com/gtk-rs/gtk3-rs |
 | atk-sys | 0.18.2 | MIT | https://github.com/gtk-rs/gtk3-rs |
 | atoi | 2.0.0 | MIT | https://github.com/pacman82/atoi-rs |
@@ -217,12 +325,15 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | base64 | 0.21.7 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | base64 | 0.22.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | base64 | 0.23.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
+| basic-toml | 0.1.10 | MIT OR Apache-2.0 | https://github.com/dtolnay/basic-toml |
 | bit-set | 0.8.0 | Apache-2.0 OR MIT | https://github.com/contain-rs/bit-set |
 | bit-vec | 0.8.0 | Apache-2.0 OR MIT | https://github.com/contain-rs/bit-vec |
 | bitflags | 1.3.2 | MIT/Apache-2.0 | https://github.com/bitflags/bitflags |
 | bitflags | 2.13.2 | MIT OR Apache-2.0 | https://github.com/bitflags/bitflags |
 | block-buffer | 0.10.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
+| block-padding | 0.3.3 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
 | block2 | 0.6.2 | MIT | https://github.com/madsmtm/objc2 |
+| blocking | 1.7.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/blocking |
 | brotli | 9.0.0 | BSD-3-Clause AND MIT | https://github.com/dropbox/rust-brotli |
 | brotli-decompressor | 6.0.1 | BSD-3-Clause/MIT | https://github.com/dropbox/rust-brotli-decompressor |
 | bs58 | 0.5.1 | MIT/Apache-2.0 | https://github.com/Nullus157/bs58-rs |
@@ -239,6 +350,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | cargo_metadata | 0.19.2 | MIT | https://github.com/oli-obk/cargo_metadata |
 | cargo_toml | 1.0.1 | Apache-2.0 OR MIT | https://gitlab.com/lib.rs/cargo_toml |
 | cast | 0.3.0 | MIT OR Apache-2.0 | https://github.com/japaric/cast.rs |
+| cbc | 0.1.2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/block-modes |
 | cc | 1.9.0 | MIT OR Apache-2.0 | https://github.com/rust-lang/cc-rs |
 | cesu8 | 1.1.0 | Apache-2.0/MIT | https://github.com/emk/cesu8-rs |
 | cfb | 0.14.0 | MIT | https://github.com/mdsteele/rust-cfb |
@@ -247,13 +359,16 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | cfg_aliases | 0.2.2 | MIT | https://github.com/katharostech/cfg_aliases |
 | chrono | 0.4.45 | MIT OR Apache-2.0 | https://github.com/chronotope/chrono |
 | chunked_transfer | 1.5.0 | MIT OR Apache-2.0 | https://github.com/frewsxcv/rust-chunked-transfer |
+| cipher | 0.4.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
 | color_quant | 1.1.0 | MIT | https://github.com/image-rs/color_quant.git |
 | combine | 4.6.9 | MIT | https://github.com/Marwes/combine |
 | comfy-table | 7.1.4 | MIT | https://github.com/nukesor/comfy-table |
+| concurrent-queue | 2.5.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/concurrent-queue |
 | const-random | 0.1.18 | MIT OR Apache-2.0 | https://github.com/tkaitchuck/constrandom |
 | const-random-macro | 0.1.16 | MIT OR Apache-2.0 | https://github.com/tkaitchuck/constrandom |
 | cookie | 0.18.2 | MIT OR Apache-2.0 | https://github.com/SergioBenitez/cookie-rs |
 | core-foundation | 0.10.1 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
+| core-foundation | 0.9.4 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core-graphics | 0.25.0 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core-graphics-types | 0.2.0 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
@@ -274,6 +389,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | darling_macro | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
 | data-url | 0.3.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url |
 | dbus | 0.9.12 | Apache-2.0/MIT | https://github.com/diwic/dbus-rs |
+| dbus-secret-service | 4.1.0 | MIT OR Apache-2.0 | https://github.com/brotskydotcom/dbus-secret-service.git |
 | defmt | 1.2.0 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
 | defmt-macros | 1.2.0 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
 | defmt-parser | 1.1.0 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
@@ -296,12 +412,18 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 | https://github.com/dtolnay/dyn-clone |
 | embed-resource | 3.0.12 | MIT | https://github.com/nabijaczleweli/rust-embed-resource |
 | embed_plist | 1.2.2 | MIT OR Apache-2.0 | https://github.com/nvzqz/embed-plist-rs |
+| endi | 1.1.1 | MIT | https://github.com/zeenix/endi |
+| enumflags2 | 0.7.12 | MIT OR Apache-2.0 | https://github.com/meithecatte/enumflags2 |
+| enumflags2_derive | 0.7.12 | MIT OR Apache-2.0 | https://github.com/meithecatte/enumflags2 |
 | equivalent | 1.0.3 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/equivalent |
 | erased-serde | 0.4.10 | MIT OR Apache-2.0 | https://github.com/dtolnay/erased-serde |
 | errno | 0.3.14 | MIT OR Apache-2.0 | https://github.com/lambda-fairy/rust-errno |
 | euclid | 0.22.14 | MIT OR Apache-2.0 | https://github.com/servo/euclid |
+| event-listener | 5.4.2 | Apache-2.0 OR MIT | https://github.com/smol-rs/event-listener |
+| event-listener-strategy | 0.5.4 | Apache-2.0 OR MIT | https://github.com/smol-rs/event-listener-strategy |
 | fallible-iterator | 0.3.0 | MIT/Apache-2.0 | https://github.com/sfackler/rust-fallible-iterator |
 | fallible-streaming-iterator | 0.1.9 | MIT/Apache-2.0 | https://github.com/sfackler/fallible-streaming-iterator |
+| fasteval | 0.2.4 | MIT | https://github.com/likebike/fasteval |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/fastrand |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 | https://github.com/image-rs/fdeflate |
 | field-offset | 0.3.6 | MIT OR Apache-2.0 | https://github.com/Diggsey/rust-field-offset |
@@ -315,14 +437,17 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | font-types | 0.11.3 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | fontconfig-parser | 0.5.8 | MIT | https://github.com/Riey/fontconfig-parser |
 | fontdb | 0.23.0 | MIT | https://github.com/RazrFalcon/fontdb |
+| foreign-types | 0.3.2 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
 | foreign-types | 0.5.0 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
 | foreign-types-macros | 0.2.4 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
+| foreign-types-shared | 0.1.1 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
 | foreign-types-shared | 0.3.1 | MIT/Apache-2.0 | https://github.com/sfackler/foreign-types |
 | form_urlencoded | 1.2.2 | MIT OR Apache-2.0 | https://github.com/servo/rust-url |
 | futures-channel | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
 | futures-core | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
 | futures-executor | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
 | futures-io | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
+| futures-lite | 2.6.1 | Apache-2.0 OR MIT | https://github.com/smol-rs/futures-lite |
 | futures-macro | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
 | futures-sink | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
 | futures-task | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/futures-rs |
@@ -362,7 +487,10 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | hashlink | 0.10.0 | MIT OR Apache-2.0 | https://github.com/kyren/hashlink |
 | heck | 0.4.1 | MIT OR Apache-2.0 | https://github.com/withoutboats/heck |
 | heck | 0.5.0 | MIT OR Apache-2.0 | https://github.com/withoutboats/heck |
+| hermit-abi | 0.5.3 | MIT OR Apache-2.0 | https://github.com/hermit-os/hermit-rs |
 | hex | 0.4.3 | MIT OR Apache-2.0 | https://github.com/KokaKiwi/rust-hex |
+| hkdf | 0.12.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/KDFs/ |
+| hmac | 0.12.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/MACs |
 | html5ever | 0.39.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
 | http | 1.5.0 | MIT OR Apache-2.0 | https://github.com/hyperium/http |
 | http-body | 1.1.0 | MIT | https://github.com/hyperium/http-body |
@@ -391,6 +519,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | indexmap | 1.9.3 | Apache-2.0 OR MIT | https://github.com/bluss/indexmap |
 | indexmap | 2.14.2 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/indexmap |
 | infer | 0.22.0 | MIT | https://github.com/bojand/infer |
+| inout | 0.1.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
 | ipnet | 2.12.2 | MIT OR Apache-2.0 | https://github.com/krisprice/ipnet |
 | itoa | 1.0.18 | MIT OR Apache-2.0 | https://github.com/dtolnay/itoa |
 | javascriptcore-rs | 1.1.2 | MIT | https://github.com/tauri-apps/javascriptcore-rs |
@@ -408,6 +537,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | json-patch | 4.2.0 | MIT/Apache-2.0 | https://github.com/idubrov/json-patch |
 | jsonptr | 0.7.1 | MIT OR Apache-2.0 | https://github.com/chanced/jsonptr |
 | keyboard-types | 0.8.3 | MIT OR Apache-2.0 | https://github.com/rust-windowing/keyboard-types |
+| keyring | 3.6.3 | MIT OR Apache-2.0 | https://github.com/hwchen/keyring-rs.git |
 | kurbo | 0.11.3 | Apache-2.0 OR MIT | https://github.com/linebender/kurbo |
 | kurbo | 0.13.1 | Apache-2.0 OR MIT | https://github.com/linebender/kurbo |
 | lexical-core | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |
@@ -444,11 +574,15 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rust-windowing/android-ndk-rs |
 | ndk-sys | 0.6.0+11769913 | MIT OR Apache-2.0 | https://github.com/rust-mobile/ndk |
 | new_debug_unreachable | 1.0.6 | MIT | https://github.com/mbrubeck/rust-debug-unreachable |
+| nix | 0.29.0 | MIT | https://github.com/nix-rust/nix |
 | nix | 0.31.3 | MIT | https://github.com/nix-rust/nix |
+| num | 0.4.3 | MIT OR Apache-2.0 | https://github.com/rust-num/num |
 | num-bigint | 0.4.8 | MIT OR Apache-2.0 | https://github.com/rust-num/num-bigint |
 | num-complex | 0.4.6 | MIT OR Apache-2.0 | https://github.com/rust-num/num-complex |
 | num-conv | 0.2.2 | MIT OR Apache-2.0 | https://github.com/jhpratt/num-conv |
 | num-integer | 0.1.47 | MIT OR Apache-2.0 | https://github.com/rust-num/num-integer |
+| num-iter | 0.1.46 | MIT OR Apache-2.0 | https://github.com/rust-num/num-iter |
+| num-rational | 0.4.2 | MIT OR Apache-2.0 | https://github.com/rust-num/num-rational |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 | https://github.com/rust-num/num-traits |
 | num_enum | 0.7.6 | BSD-3-Clause OR MIT OR Apache-2.0 | https://github.com/illicitonion/num_enum |
 | num_enum_derive | 0.7.6 | BSD-3-Clause OR MIT OR Apache-2.0 | https://github.com/illicitonion/num_enum |
@@ -470,9 +604,15 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | objc2-user-notifications | 0.3.2 | Zlib OR Apache-2.0 OR MIT | https://github.com/madsmtm/objc2 |
 | objc2-web-kit | 0.3.2 | Zlib OR Apache-2.0 OR MIT | https://github.com/madsmtm/objc2 |
 | once_cell | 1.21.4 | MIT OR Apache-2.0 | https://github.com/matklad/once_cell |
+| openssl | 0.10.81 | Apache-2.0 | https://github.com/rust-openssl/rust-openssl |
+| openssl-macros | 0.1.1 | MIT/Apache-2.0 | https://crates.io/crates/openssl-macros |
+| openssl-src | 300.6.1+3.6.3 | MIT/Apache-2.0 | https://github.com/alexcrichton/openssl-src-rs |
+| openssl-sys | 0.9.117 | MIT | https://github.com/rust-openssl/rust-openssl |
 | option-ext | 0.2.0 | MPL-2.0 | https://github.com/soc/option-ext.git |
+| ordered-stream | 0.2.0 | MIT OR Apache-2.0 | https://github.com/danieldg/ordered-stream |
 | pango | 0.18.3 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | pango-sys | 0.18.0 | MIT | https://github.com/gtk-rs/gtk-rs-core |
+| parking | 2.2.1 | Apache-2.0 OR MIT | https://github.com/smol-rs/parking |
 | parking_lot | 0.12.5 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
 | parking_lot_core | 0.9.12 | MIT OR Apache-2.0 | https://github.com/Amanieu/parking_lot |
 | pdf-writer | 0.12.1 | MIT OR Apache-2.0 | https://github.com/typst/pdf-writer |
@@ -484,15 +624,18 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | phf_shared | 0.13.1 | MIT | https://github.com/rust-phf/rust-phf |
 | pico-args | 0.5.0 | MIT | https://github.com/RazrFalcon/pico-args |
 | pin-project-lite | 0.2.17 | Apache-2.0 OR MIT | https://github.com/taiki-e/pin-project-lite |
+| piper | 0.2.5 | MIT OR Apache-2.0 | https://github.com/smol-rs/piper |
 | pkg-config | 0.3.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/pkg-config-rs |
 | plist | 1.10.3 | MIT | https://github.com/ebarnard/rust-plist/ |
 | png | 0.17.16 | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
 | png | 0.18.1 | MIT OR Apache-2.0 | https://github.com/image-rs/image-png |
+| polling | 3.11.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/polling |
 | polycool | 0.4.0 | MIT OR Apache-2.0 | https://github.com/linebender/kurbo |
 | portable-atomic | 1.15.0 | Apache-2.0 OR MIT | https://github.com/taiki-e/portable-atomic |
 | portable-atomic-util | 0.2.8 | Apache-2.0 OR MIT | https://github.com/taiki-e/portable-atomic-util |
 | potential_utf | 0.1.6 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | powerfmt | 0.2.1 | MIT OR Apache-2.0 | https://github.com/jhpratt/powerfmt |
+| ppv-lite86 | 0.2.21 | MIT OR Apache-2.0 | https://github.com/cryptocorrosion/cryptocorrosion |
 | precomputed-hash | 0.1.1 | MIT | https://github.com/emilio/precomputed-hash |
 | proc-macro-crate | 1.3.1 | MIT OR Apache-2.0 | https://github.com/bkchr/proc-macro-crate |
 | proc-macro-crate | 2.0.2 | MIT OR Apache-2.0 | https://github.com/bkchr/proc-macro-crate |
@@ -506,6 +649,9 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | quote | 1.0.47 | MIT OR Apache-2.0 | https://github.com/dtolnay/quote |
 | r-efi | 5.3.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later | https://github.com/r-efi/r-efi |
 | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later | https://github.com/r-efi/r-efi |
+| rand | 0.8.8 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
+| rand_chacha | 0.3.1 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
+| rand_core | 0.6.4 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib | https://github.com/rust-windowing/raw-window-handle |
 | read-fonts | 0.39.2 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | redox_syscall | 0.5.18 | MIT | https://gitlab.redox-os.org/redox-os/syscall |
@@ -537,6 +683,10 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | schemars | 1.2.3 | MIT | https://github.com/GREsau/schemars |
 | schemars_derive | 0.8.22 | MIT | https://github.com/GREsau/schemars |
 | scopeguard | 1.2.0 | MIT OR Apache-2.0 | https://github.com/bluss/scopeguard |
+| secret-service | 4.0.0 | MIT OR Apache-2.0 | https://github.com/hwchen/secret-service-rs.git |
+| security-framework | 2.11.1 | MIT OR Apache-2.0 | https://github.com/kornelski/rust-security-framework |
+| security-framework | 3.7.0 | MIT OR Apache-2.0 | https://github.com/kornelski/rust-security-framework |
+| security-framework-sys | 2.17.0 | MIT OR Apache-2.0 | https://github.com/kornelski/rust-security-framework |
 | selectors | 0.38.0 | MPL-2.0 | https://github.com/servo/stylo |
 | semver | 1.0.28 | MIT OR Apache-2.0 | https://github.com/dtolnay/semver |
 | serde | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
@@ -553,8 +703,10 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | serialize-to-javascript | 0.1.2 | MIT OR Apache-2.0 | https://github.com/chippers/serialize-to-javascript |
 | serialize-to-javascript-impl | 0.1.2 | MIT OR Apache-2.0 | https://github.com/chippers/serialize-to-javascript |
 | servo_arc | 0.4.3 | MIT OR Apache-2.0 | https://github.com/servo/stylo |
+| sha1 | 0.10.7 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | shlex | 2.0.1 | MIT OR Apache-2.0 | https://github.com/comex/rust-shlex |
+| signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 | https://github.com/vorner/signal-hook |
 | simd-adler32 | 0.3.10 | MIT | https://github.com/mcountryman/simd-adler32 |
 | simplecss | 0.2.2 | Apache-2.0 OR MIT | https://github.com/linebender/simplecss |
 | siphasher | 1.0.4 | MIT OR Apache-2.0 | https://github.com/jedisct1/rust-siphash |
@@ -567,6 +719,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | soup3 | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |
 | soup3-sys | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | https://github.com/storyyeller/stable_deref_trait |
+| static_assertions | 1.1.0 | MIT OR Apache-2.0 | https://github.com/nvzqz/static-assertions-rs |
 | static_vcruntime | 3.0.0 | MIT OR Apache-2.0 OR Zlib | https://github.com/ChrisDenton/static_vcruntime |
 | strict-num | 0.1.1 | MIT | https://github.com/RazrFalcon/strict-num |
 | string_cache | 0.9.0 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
@@ -631,6 +784,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | tower-layer | 0.3.3 | MIT | https://github.com/tower-rs/tower |
 | tower-service | 0.3.3 | MIT | https://github.com/tower-rs/tower |
 | tracing | 0.1.44 | MIT | https://github.com/tokio-rs/tracing |
+| tracing-attributes | 0.1.31 | MIT | https://github.com/tokio-rs/tracing |
 | tracing-core | 0.1.36 | MIT | https://github.com/tokio-rs/tracing |
 | tray-icon | 0.25.1 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tray-icon |
 | try-lock | 0.2.5 | MIT | https://github.com/seanmonstar/try-lock |
@@ -638,6 +792,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | typed-path | 0.12.4 | MIT OR Apache-2.0 | https://github.com/chipsenkbeil/typed-path |
 | typeid | 1.0.3 | MIT OR Apache-2.0 | https://github.com/dtolnay/typeid |
 | typenum | 1.20.1 | MIT OR Apache-2.0 | https://github.com/paholg/typenum |
+| uds_windows | 1.2.1 | MIT | https://github.com/haraldh/rust_uds_windows |
 | unicode-bidi | 0.3.18 | MIT OR Apache-2.0 | https://github.com/servo/unicode-bidi |
 | unicode-bidi-mirroring | 0.4.0 | MIT/Apache-2.0 | https://github.com/RazrFalcon/unicode-bidi-mirroring |
 | unicode-ccc | 0.4.0 | MIT/Apache-2.0 | https://github.com/RazrFalcon/unicode-ccc |
@@ -648,6 +803,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | unicode-vo | 0.1.0 | MIT/Apache-2.0 | https://github.com/RazrFalcon/unicode-vo |
 | unicode-width | 0.2.2 | MIT OR Apache-2.0 | https://github.com/unicode-rs/unicode-width |
 | untrusted | 0.9.0 | ISC | https://github.com/briansmith/untrusted |
+| uom | 0.38.0 | Apache-2.0 OR MIT | https://github.com/iliekturtles/uom |
 | ureq | 2.12.1 | MIT OR Apache-2.0 | https://github.com/algesten/ureq |
 | ureq | 3.5.0 | MIT OR Apache-2.0 | https://github.com/algesten/ureq |
 | ureq-proto | 0.6.5 | MIT OR Apache-2.0 | https://github.com/algesten/ureq-proto |
@@ -735,20 +891,26 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | winnow | 1.0.4 | MIT | https://github.com/winnow-rs/winnow |
 | winreg | 0.56.0 | MIT | https://github.com/gentoo90/winreg-rs |
 | wit-bindgen | 0.57.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/wit-bindgen |
+| world_magnetic_model | 1.2025.0 | MIT OR Apache-2.0 | https://github.com/budzejko/world_magnetic_model |
 | write-fonts | 0.48.1 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | writeable | 0.6.4 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | wry | 0.57.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/wry |
 | x11 | 2.21.0 | MIT | https://github.com/AltF02/x11-rs.git |
 | x11-dl | 2.21.0 | MIT | https://github.com/AltF02/x11-rs.git |
 | xattr | 1.6.1 | MIT OR Apache-2.0 | https://github.com/Stebalien/xattr |
+| xdg-home | 1.3.0 | MIT | https://github.com/zeenix/xdg-home |
 | xmlwriter | 0.1.0 | MIT | https://github.com/RazrFalcon/xmlwriter |
 | yoke | 0.8.3 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | yoke-derive | 0.8.4 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
+| zbus | 4.4.0 | MIT | https://github.com/dbus2/zbus/ |
+| zbus_macros | 4.4.0 | MIT | https://github.com/dbus2/zbus/ |
+| zbus_names | 3.0.0 | MIT | https://github.com/dbus2/zbus/ |
 | zerocopy | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
 | zerocopy-derive | 0.8.63 | BSD-2-Clause OR Apache-2.0 OR MIT | https://github.com/google/zerocopy |
 | zerofrom | 0.1.8 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | zerofrom-derive | 0.1.8 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | zeroize | 1.9.1 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
+| zeroize_derive | 1.5.0 | Apache-2.0 OR MIT | https://github.com/RustCrypto/utils |
 | zerotrie | 0.2.5 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | zerovec | 0.11.8 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
 | zerovec-derive | 0.11.6 | Unicode-3.0 | https://github.com/unicode-org/icu4x |
@@ -760,3 +922,6 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image |
 | zune-jpeg | 0.4.21 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg |
 | zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg |
+| zvariant | 4.2.0 | MIT | https://github.com/dbus2/zbus/ |
+| zvariant_derive | 4.2.0 | MIT | https://github.com/dbus2/zbus/ |
+| zvariant_utils | 2.1.0 | MIT | https://github.com/dbus2/zbus/ |

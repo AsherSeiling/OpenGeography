@@ -21,6 +21,9 @@ pub struct FrameCtx {
     /// Frame rotation on the page, degrees clockwise.
     pub rotation: f64,
     pub factors: Factors,
+    /// Frame centre in longitude/latitude, and whether the frame is projected.
+    pub center_lonlat: Option<(f64, f64)>,
+    pub projected: bool,
     /// Layers drawn in the frame, top first.
     pub drawn: Vec<String>,
     /// Citations of what else the frame drew (its base map).

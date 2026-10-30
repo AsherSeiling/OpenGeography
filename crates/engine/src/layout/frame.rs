@@ -59,6 +59,9 @@ pub struct FrameOutput {
     pub drawn: Vec<String>,
     pub extent: [f64; 4],
     pub factors: geo::Factors,
+    /// The frame centre as longitude and latitude, and whether its CRS is projected (for the declination diagram).
+    pub center_lonlat: Option<(f64, f64)>,
+    pub projected: bool,
     /// The basemap that was drawn, if any.
     pub basemap: Option<String>,
     /// Labels as placed (and the hidden ones), for the UI's hit boxes (L3).
@@ -688,5 +691,5 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
         );
     }
     out.push_str("</g>");
-    Ok(FrameOutput { svg: out, warnings, drawn, extent, factors, basemap, labels: placed_labels, dropped_label_edits: dropped })
+    Ok(FrameOutput { svg: out, warnings, drawn, extent, factors, center_lonlat: crs.to_lonlat(f.center[0], f.center[1]).ok(), projected: crs.projected, basemap, labels: placed_labels, dropped_label_edits: dropped })
 }

@@ -154,7 +154,7 @@ function frameById(id?: string): MapFrame | null {
   return doc ? (frames(doc).find((f) => f.id === id) ?? null) : null;
 }
 
-const SURROUND_NAMES = { legend: "legend", scale_bar: "scale bar", north_arrow: "north arrow", sources: "sources line" } as const;
+const SURROUND_NAMES = { legend: "legend", scale_bar: "scale bar", north_arrow: "north arrow", declination: "declination diagram", sources: "sources line" } as const;
 
 /** Insert a legend, scale bar, north arrow or sources line for the selected (else first) map frame. */
 export function insertSurround(kind: keyof typeof SURROUND_NAMES) {

@@ -44,6 +44,7 @@ pub const SLOTS: &[Slot] = &[
     s("scale_bar", "scale_bar.numbers", "Distances and units", BAR_LABEL_PT, false, false),
     s("scale_bar", "scale_bar.notes", "Ratio and verbal scale", BAR_LABEL_PT, false, false),
     s("north_arrow", "north_arrow.letters", "N, S, E and W letters", AUTO, true, false),
+    s("declination", "declination.text", "Letters and caption", super::declination::DECLINATION_PT, false, false),
     s("table", "table.header", "Header", TABLE_PT, true, true),
     s("table", "table.cells", "Cells", TABLE_PT, false, true),
     s("chart", "chart.title", "Title", TABLE_PT * 1.2, true, true),

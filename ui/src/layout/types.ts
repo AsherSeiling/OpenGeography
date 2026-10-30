@@ -280,6 +280,19 @@ export interface NorthArrowElement extends Placement {
   source?: string;
 }
 
+export interface DeclinationElement extends Placement {
+  kind: "declination";
+  frame: string;
+  /** USGS topo, US Army (grid-magnetic angle) or simple (true and magnetic north only). */
+  style?: "usgs" | "army" | "simple";
+  units?: "both" | "deg" | "mils";
+  /** YYYY-MM-DD; empty = the day the layout is drawn. */
+  date?: string;
+  color?: string;
+  /** Open angles under 10° up so the lines can be told apart (default true). */
+  exaggerate?: boolean;
+}
+
 export interface SourcesElement extends Placement {
   kind: "sources";
   frame: string;
@@ -334,7 +347,7 @@ export interface ChartElement extends Placement {
   size?: number;
 }
 
-export type SurroundElement = LegendElement | ScaleBarElement | NorthArrowElement | SourcesElement;
+export type SurroundElement = LegendElement | ScaleBarElement | NorthArrowElement | DeclinationElement | SourcesElement;
 
 export type LayoutElement = MapFrame | TextElement | SurroundElement | ShapeElement | PictureElement | TableElement | ChartElement;
 

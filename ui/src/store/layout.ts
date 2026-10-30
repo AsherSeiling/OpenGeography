@@ -383,7 +383,7 @@ export function addSurround(kind: SurroundElement["kind"], frameId: string): str
   const s = useLayouts.getState();
   const f = s.doc?.elements.find((e) => e.id === frameId && e.kind === "map_frame");
   if (!s.doc || !f) return null;
-  const base = { id: nextId(s.doc, { legend: "lg", scale_bar: "sb", north_arrow: "na", sources: "src" }[kind]), rotation: 0, locked: false, visible: true, frame: frameId };
+  const base = { id: nextId(s.doc, { legend: "lg", scale_bar: "sb", north_arrow: "na", declination: "dc", sources: "src" }[kind]), rotation: 0, locked: false, visible: true, frame: frameId };
   const inset = 3;
   let el: SurroundElement;
   switch (kind) {
@@ -395,6 +395,9 @@ export function addSurround(kind: SurroundElement["kind"], frameId: string): str
       break;
     case "north_arrow":
       el = { ...base, kind, x: f.x + inset, y: f.y + inset, w: 12, h: 18, style: "simple" };
+      break;
+    case "declination":
+      el = { ...base, kind, x: f.x + f.w - 52 - inset, y: f.y + f.h - 46 - inset, w: 52, h: 46, style: "usgs", units: "both" };
       break;
     case "sources":
       el = { ...base, kind, x: f.x, y: f.y + f.h + 1.5, w: f.w, h: 8, size: 6 };

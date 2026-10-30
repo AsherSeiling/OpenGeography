@@ -462,6 +462,26 @@ pub enum Element {
         #[serde(default, skip_serializing_if = "String::is_empty")]
         source: String,
     },
+    /// Declination diagram (GN, TN, MN) of a map frame's centre, from the World Magnetic Model.
+    Declination {
+        #[serde(flatten)]
+        at: Placement,
+        frame: String,
+        /// One of `declination::STYLES`; empty = "usgs".
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        style: String,
+        /// One of `declination::UNITS`; empty = "both".
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        units: String,
+        /// "YYYY-MM-DD"; empty = the layout's date.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        date: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        color: String,
+        /// Open angles under 10° up so the lines can be told apart; the caption says so.
+        #[serde(default = "yes")]
+        exaggerate: bool,
+    },
     Sources {
         #[serde(flatten)]
         at: Placement,
@@ -563,6 +583,7 @@ impl Element {
             | Element::Legend { at, .. }
             | Element::ScaleBar { at, .. }
             | Element::NorthArrow { at, .. }
+            | Element::Declination { at, .. }
             | Element::Sources { at, .. }
             | Element::Shape { at, .. }
             | Element::Table { at, .. }
@@ -578,6 +599,7 @@ impl Element {
             Element::Legend { .. } => "legend",
             Element::ScaleBar { .. } => "scale_bar",
             Element::NorthArrow { .. } => "north_arrow",
+            Element::Declination { .. } => "declination",
             Element::Sources { .. } => "sources",
             Element::Shape { .. } => "shape",
             Element::Table { .. } => "table",
@@ -636,6 +658,9 @@ impl Layout {
                     bail!("Unknown scale bar units '{units2}' (km, mi, m or ft)");
                 }
             }
+            if let Element::Declination { style, units, date, .. } = e {
+                super::declination::check(style, units, date)?;
+            }
             if let Element::NorthArrow { style, north, source, .. } = e {
                 if !style.is_empty() && !super::surround::ARROW_STYLES.contains(&style.as_str()) {
                     bail!("Unknown north arrow style '{style}' ({})", super::surround::ARROW_STYLES.join(", "));
@@ -692,7 +717,7 @@ impl Layout {
         }
         for e in &self.elements {
             let frame = match e {
-                Element::Legend { frame, .. } | Element::ScaleBar { frame, .. } | Element::NorthArrow { frame, .. } | Element::Sources { frame, .. } => frame,
+                Element::Legend { frame, .. } | Element::ScaleBar { frame, .. } | Element::NorthArrow { frame, .. } | Element::Declination { frame, .. } | Element::Sources { frame, .. } => frame,
                 _ => continue,
             };
             let ok = self.elements.iter().any(|f| matches!(f, Element::MapFrame { at, .. } if &at.id == frame));

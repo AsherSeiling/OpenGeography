@@ -12,6 +12,7 @@ pub mod labels;
 pub mod model;
 pub mod series;
 pub mod shapes;
+pub mod declination;
 pub mod slots;
 pub mod surround;
 pub mod templates;
@@ -241,7 +242,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
                     basemaps.push(b.clone());
                 }
             }
-            let ctx = surround::FrameCtx { id: at.id.clone(), scale: *scale, rotation: at.rotation, factors: out.factors, drawn: out.drawn.iter().rev().cloned().collect(), extra_cites };
+            let ctx = surround::FrameCtx { id: at.id.clone(), scale: *scale, rotation: at.rotation, factors: out.factors, center_lonlat: out.center_lonlat, projected: out.projected, drawn: out.drawn.iter().rev().cloned().collect(), extra_cites };
             frames.insert(at.id.as_str(), (out.svg, ctx));
         }
     }
@@ -299,6 +300,12 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             Element::NorthArrow { at, frame, style, north, color, source } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
                     surround::north_arrow(&mut s, &mut warnings, at, &surround::ArrowOpts { style, north, color, source }, c);
+                }
+            }
+            Element::Declination { at, frame, style, units, date, color, exaggerate } => {
+                if let Some(c) = ctx_of(frame, &mut warnings) {
+                    let geo = declination::FrameGeo { center_lonlat: c.center_lonlat, true_north_deg: if c.projected { c.factors.true_north_deg } else { 0.0 }, projected: c.projected, rotation: c.rotation };
+                    declination::draw(&mut s, &mut warnings, at, &declination::Opts { style, units, date, color, exaggerate: *exaggerate }, &geo, &req.date);
                 }
             }
             Element::Sources { at, frame, size } => {
