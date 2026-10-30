@@ -4,6 +4,7 @@
 import { DatabaseRegular, SearchRegular, WrenchRegular } from "@fluentui/react-icons";
 import { compareCategories } from "./categories";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import { useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
@@ -93,7 +94,9 @@ export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPic
   const left = Math.max(8, Math.min(x, window.innerWidth - W - 8));
   const top = Math.max(8, Math.min(y, window.innerHeight - H - 8));
 
-  return (
+  // Rendered on the page itself, not inside the Model pane: dock panes sit in a transformed, paint-contained overlay, which turns
+  // `position: fixed` into "relative to the pane" and clips the menu (it opened off-screen in the app).
+  return createPortal(
     <div className="addmenu" ref={ref} style={{ left, top, width: W, height: H }} onKeyDown={onKey} onContextMenu={(e) => e.preventDefault()}>
       <div className="addmenu-search">
         <SearchRegular />
@@ -127,6 +130,7 @@ export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPic
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
