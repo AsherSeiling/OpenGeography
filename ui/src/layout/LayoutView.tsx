@@ -38,7 +38,7 @@ export function resized(box: { x: number; y: number; w: number; h: number }, han
   return { x: round(x), y: round(y), w: round(w), h: round(h) };
 }
 
-const LABEL: Record<string, string> = { map_frame: "Map frame", text: "Text", legend: "Legend", scale_bar: "Scale bar", north_arrow: "North arrow", sources: "Sources" };
+const LABEL: Record<string, string> = { map_frame: "Map frame", text: "Text", legend: "Legend", scale_bar: "Scale bar", north_arrow: "North arrow", declination: "Declination diagram", sources: "Sources" };
 
 const NONE: string[] = [];
 

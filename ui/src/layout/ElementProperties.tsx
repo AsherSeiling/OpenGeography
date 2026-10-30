@@ -10,7 +10,7 @@ import { displayInfo, useApp } from "../store/store";
 import { withStyleOverride } from "./labelEdits";
 import { useLegendRows, withOverride } from "./legendRows";
 import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
-import { rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type MapFrame, type NorthArrowElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
+import { rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type MapFrame, type NorthArrowElement, type DeclinationElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -40,7 +40,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
   const set = (patch: Record<string, unknown>, burst?: string) => useLayouts.getState().update(id, patch, burst);
   useEffect(() => void loadCatalog().catch(() => {}), []);
   if (!el) return <div className="empty-hint pad">Element not found.</div>;
-  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart" }[el.kind];
+  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", declination: "Declination Diagram", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart" }[el.kind];
   return (
     <div className="props">
       <div className="props-title">{title} <span className="muted">({el.id})</span></div>
@@ -54,6 +54,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
           {el.kind === "legend" && <LegendFields el={el} set={set} layout={layout} />}
           {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
           {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
+          {el.kind === "declination" && <DeclinationFields el={el} set={set} />}
           {el.kind === "sources" && <SourcesFields el={el} set={set} />}
           {el.kind === "table" && <TableFields el={el} set={set} />}
           {el.kind === "chart" && <ChartFields el={el} set={set} />}
@@ -382,6 +383,22 @@ function NorthArrowFields({ el, set }: { el: NorthArrowElement; set: Set }) {
       ) : (
         <ColorInput label="Colour" value={el.color || "#000000"} onChange={(color) => set({ color }, "color")} />
       )}
+    </>
+  );
+}
+
+/** Declination diagram: style, units, date. The numbers come from the World Magnetic Model at the frame's centre. */
+function DeclinationFields({ el, set }: { el: DeclinationElement; set: Set }) {
+  return (
+    <>
+      <Choice label="Style" value={el.style || "usgs"} options={[["usgs", "USGS topo"], ["army", "US Army (grid-magnetic angle)"], ["simple", "Simple (true and magnetic north)"]]} onPick={(style) => set({ style })} />
+      <Choice label="Units" value={el.units || "both"} options={[["both", "Degrees and mils"], ["deg", "Degrees"], ["mils", "Mils (6400 to a circle)"]]} onPick={(units) => set({ units })} />
+      <Field label="Date (YYYY-MM-DD, blank = today)" size="small">
+        <Input size="small" aria-label="Declination date" defaultValue={el.date ?? ""} onChange={(_, d) => { const t = d.value.trim(); if (t === "" || /^\d{4}-\d{2}-\d{2}$/.test(t)) set({ date: t }, "date"); }} />
+      </Field>
+      <Checkbox label="Open small angles up (not to scale)" checked={el.exaggerate ?? true} onChange={(_, d) => set({ exaggerate: !!d.checked })} />
+      <div className="props-hint">World Magnetic Model 2025, valid 2025–2029, at the map frame's centre. It is a model: check it against the declination printed on an official map before navigating by it.</div>
+      <ColorInput label="Colour" value={el.color || "#000000"} onChange={(color) => set({ color }, "color")} />
     </>
   );
 }

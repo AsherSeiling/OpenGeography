@@ -8,6 +8,7 @@ export const KIND_NAME: Record<string, string> = {
   legend: "Legend",
   scale_bar: "Scale bar",
   north_arrow: "North arrow",
+  declination: "Declination diagram",
   sources: "Sources",
   shape: "Shape",
   picture: "Picture",

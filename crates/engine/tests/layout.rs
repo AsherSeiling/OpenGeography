@@ -1714,6 +1714,74 @@ fn cg8_point_markers_line_dashes_and_polygon_patterns_render_in_layouts() {
     assert!(e.render_layout_svg(&req, &|| Ok(())).is_err(), "an svg symbol needs a file");
 }
 
+// ---------------------------------------------------------------- declination diagram (LW6)
+
+#[test]
+fn lw6_declination_diagram_draws_gn_tn_mn_from_the_model_and_the_frame() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = slot_layout(&ids, json!({}));
+    let render_with = |req: &RenderRequest, extra: serde_json::Value| {
+        let mut v = serde_json::to_value(&req.layout).unwrap();
+        for el in v["elements"].as_array_mut().unwrap() {
+            if el["kind"] == "declination" {
+                el.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            }
+        }
+        let mut r = req.clone();
+        r.layout = serde_json::from_value(v).unwrap();
+        render(&e, &r)
+    };
+    let out = render_with(&req, json!({}));
+    if let Ok(dir) = std::env::var("LW6_DUMP") {
+        // Look at it: LW6_DUMP=/some/dir cargo test ... lw6 writes the page as PNG at 150 dpi.
+        let mut v = serde_json::to_value(&req.layout).unwrap();
+        v["elements"] = json!(v["elements"].as_array().unwrap().iter().filter(|e| e["kind"] == "map_frame" || e["kind"] == "declination").cloned().collect::<Vec<_>>());
+        v["elements"][0]["center"] = json!([300000.0, 4650000.0]); // far from the central meridian: grid and true north differ
+        let mut r = req.clone();
+        r.layout = serde_json::from_value(v).unwrap();
+        use base64::Engine as _;
+        let png = e.render_layout_preview(&r, 150.0).unwrap().png;
+        std::fs::write(std::path::Path::new(&dir).join("declination.png"), base64::engine::general_purpose::STANDARD.decode(png).unwrap()).unwrap();
+    }
+    for id in ["declination-dc1-gn", "declination-dc1-tn", "declination-dc1-mn"] {
+        assert!(out.svg.contains(&format!("id=\"{id}\"")), "{id}");
+    }
+    let texts_of = |svg: &str| -> Vec<String> { svg.split("<text ").skip(1).map(|t| t.split_once('>').unwrap().1.split("</text>").next().unwrap().to_string()).collect() };
+    let t = texts_of(&out.svg);
+    assert!(t.iter().any(|x| x == "GN") && t.iter().any(|x| x == "TN") && t.iter().any(|x| x == "MN"), "{t:?}");
+    assert!(t.iter().any(|x| x.starts_with("2026 MAGNETIC NORTH DECLINATION")), "{t:?}");
+    // Units: degrees only has no mils; mils only has no degree sign in the declination line.
+    let deg = texts_of(&render_with(&req, json!({ "units": "deg" })).svg);
+    assert!(deg.iter().any(|x| x.contains("° ") && !x.contains("mils") && x.contains("at centre of sheet")), "{deg:?}");
+    let mil = texts_of(&render_with(&req, json!({ "units": "mils" })).svg);
+    assert!(mil.iter().any(|x| x.contains("mils") && x.contains("at centre of sheet")), "{mil:?}");
+    // The simple style leaves grid north out; the army style words the grid-magnetic angle.
+    let simple = render_with(&req, json!({ "style": "simple" })).svg;
+    assert!(!simple.contains("declination-dc1-gn") && simple.contains("declination-dc1-mn"));
+    let army = texts_of(&render_with(&req, json!({ "style": "army" })).svg);
+    assert!(army.iter().any(|x| x.starts_with("G-M angle")), "{army:?}");
+    // Small angles are opened up by default and the caption says so; true scale turns that off.
+    assert!(t.iter().any(|x| x == "angles exaggerated, not to scale"), "{t:?}");
+    let exact = texts_of(&render_with(&req, json!({ "exaggerate": false })).svg);
+    assert!(!exact.iter().any(|x| x == "angles exaggerated, not to scale"));
+    // Outside the model's years: an explained warning and no magnetic line, never a guess.
+    let late = render_with(&req, json!({ "date": "2045-01-01" }));
+    assert!(!late.svg.contains("declination-dc1-mn") && late.warnings.iter().any(|w| w.contains("Declination diagram")), "{:?}", late.warnings);
+    // Bad words and dates are refused when the layout is checked.
+    req.layout = serde_json::from_value({
+        let mut v = serde_json::to_value(&req.layout).unwrap();
+        for el in v["elements"].as_array_mut().unwrap() {
+            if el["kind"] == "declination" {
+                el["date"] = json!("tomorrow");
+            }
+        }
+        v
+    })
+    .unwrap();
+    assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("YYYY-MM-DD"));
+}
+
 // ---------------------------------------------------------------- text slots (docs/LAYOUT_REWORK_PLAN.md §4.2)
 
 use engine::layout::slots::{self, NO_TEXT, SLOTS};
@@ -1739,6 +1807,7 @@ fn slot_layout(ids: &[String; 4], styles: serde_json::Value) -> RenderRequest {
         { "kind": "legend", "id": "lg1", "frame": "f1", "x": 215.0, "y": 30.0, "w": 55.0, "h": 70.0, "title": "Legend title", "columns": 1, "textStyles": st("legend") },
         { "kind": "scale_bar", "id": "sb1", "frame": "f1", "x": 215.0, "y": 110.0, "w": 55.0, "h": 20.0, "units": "km", "segments": 4, "ratio": true, "verbal": true, "textStyles": st("scale_bar") },
         { "kind": "north_arrow", "id": "na1", "frame": "f1", "x": 230.0, "y": 135.0, "w": 25.0, "h": 25.0, "style": "rose", "textStyles": st("north_arrow") },
+        { "kind": "declination", "id": "dc1", "frame": "f1", "x": 150.0, "y": 95.0, "w": 60.0, "h": 44.0, "date": "2026-01-01", "textStyles": st("declination") },
         { "kind": "sources", "id": "src1", "frame": "f1", "x": 12.7, "y": 195.0, "w": 200.0, "h": 8.0, "size": 6, "textStyles": st("sources") },
         { "kind": "table", "id": "tb1", "layer": ids[0], "x": 215.0, "y": 165.0, "w": 55.0, "h": 30.0, "fields": ["cls", "pop"], "textStyles": st("table") },
         { "kind": "chart", "id": "ch1", "layer": ids[0], "x": 150.0, "y": 135.0, "w": 60.0, "h": 40.0, "chartType": "bar", "category": "cls", "title": "Chart title", "textStyles": st("chart") }
@@ -1752,7 +1821,7 @@ fn slot_layout(ids: &[String; 4], styles: serde_json::Value) -> RenderRequest {
 #[test]
 fn text_slots_cover_every_element_kind_that_draws_text() {
     // Every element kind is either listed in NO_TEXT or has at least one slot; every slot belongs to a real kind.
-    let kinds = ["map_frame", "text", "legend", "scale_bar", "north_arrow", "sources", "shape", "table", "chart", "picture"];
+    let kinds = ["map_frame", "text", "legend", "scale_bar", "north_arrow", "declination", "sources", "shape", "table", "chart", "picture"];
     for k in kinds {
         assert!(NO_TEXT.contains(&k) || !slots::of_kind(k).is_empty(), "{k} has no text slot and is not marked as drawing no text");
     }

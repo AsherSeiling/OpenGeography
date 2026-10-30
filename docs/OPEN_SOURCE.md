@@ -26,7 +26,7 @@ GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC
 | OpenLayers (`ol`), `ol-mapbox-style` | BSD-2-Clause | map display | `ui/src/map` |
 | `proj4` | MIT | client-side projections | `ui/src/map` |
 | `geographiclib-geodesic` | MIT | geodesic measurements in the UI | `ui/src` |
-| `geomagnetism` | Apache-2.0 | magnetic declination (World Magnetic Model) | layouts (north arrow) |
+| `world_magnetic_model` (with `uom`, `time`) | MIT OR Apache-2.0 | magnetic declination and its yearly change from NOAA/BGS WMM2025 (also bundles WMM2020); the model itself is public domain | layouts (declination diagram, `layout/declination.rs`) |
 | `mgrs` | MIT | MGRS coordinates | status bar |
 | `fontdb` (a dependency of `resvg`/`usvg`, used directly) | MIT | lists the fonts installed on the computer (macOS, Windows, Linux system font folders) and copies the families a layout names into its render database | `fonts.rs`, `layout/export.rs` |
 | `zustand`, `zundo`, `@tanstack/react-virtual` | MIT | state, undo, long lists | `ui/src` |
