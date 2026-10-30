@@ -68,6 +68,10 @@ patchelf --force-rpath --set-rpath '$ORIGIN/../lib/gdal-private:$ORIGIN/../lib' 
 echo "Private libraries: $(ls "$PRIV" | wc -l) files, $(du -sh "$PRIV" | cut -f1)"
 echo "ldd of the app's GDAL resolution:"; LD_LIBRARY_PATH="$ROOT/usr/lib" ldd "$BIN" | grep -E 'gdal|proj|geos|jpeg|tiff|stdc' || true
 
+# appimagetool (the "continuous" build) now refuses an image whose files are not readable by everyone; the extraction leaves owner-only modes.
+chmod -R a+rX "$ROOT"
+chmod a+rx "$ROOT/AppRun" 2>/dev/null || true
+
 # Repack with the original runtime.
 curl -fsSL -o appimagetool "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
 chmod +x appimagetool

@@ -95,3 +95,5 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 ## 7. Keeping this current
 
 For every new or changed dependency, bundled file, downloaded source, algorithm or cited method: add or edit a row here (name, licence, role, where), update `THIRD_PARTY_NOTICES.md` if it ships (`python3 scripts/third_party_notices.py` after dependency changes, from a CI build), and cite the source in the tool's header comment. Check the licence on the project's own page at the time you adopt it; a GPL-only source is a reference for ideas, never a dependency.
+
+_Packaging tools (not shipped): appimagetool (MIT, AppImage project) repacks the Linux image in `scripts/linux-private-libs.sh`; WhiteboxTools is built by `scripts/build-whitebox.sh` (see section 2)._
