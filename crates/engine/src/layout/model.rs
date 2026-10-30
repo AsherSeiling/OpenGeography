@@ -223,6 +223,50 @@ pub struct GridSpec {
     /// Edge labels.
     #[serde(default = "yes")]
     pub labels: bool,
+    /// Full lines, short ticks at the frame edges, or small crosses where lines meet.
+    #[serde(default)]
+    pub style: GridStyle,
+    /// Line colour (`#rrggbb`); empty = the default of the kind (grid blue, graticule grey).
+    #[serde(default)]
+    pub color: Option<String>,
+    /// Line width, mm; unset = 0.15.
+    #[serde(default)]
+    pub width: Option<f64>,
+    /// Dashed lines; unset = dashed for a graticule, solid for a grid.
+    #[serde(default)]
+    pub dashed: Option<bool>,
+    /// Tick length / cross arm length, mm; unset = 2.5 (tick) or 1.5 (cross arm).
+    #[serde(default, rename = "tickLength")]
+    pub tick_length: Option<f64>,
+    /// How the labels read; "auto" keeps the kind's default.
+    #[serde(default, rename = "labelFormat")]
+    pub label_format: LabelFormat,
+    /// Grid only, UTM frames: print the zone, latitude band and 100 km square ("15T WK") under the frame's lower-left corner.
+    #[serde(default)]
+    pub designation: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum GridStyle {
+    #[default]
+    Lines,
+    Ticks,
+    Crosses,
+}
+
+/// Graticule: auto (degrees with hemisphere letter), dms, decimal (signed). Grid: auto = metres, km, short (the two digits of the
+/// 10 km and 1 km places, as printed on military maps; needs an interval of 1000 m or more).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LabelFormat {
+    #[default]
+    Auto,
+    Dms,
+    Decimal,
+    Metres,
+    Km,
+    Short,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -244,6 +288,16 @@ impl GridSpec {
             GridInterval::Auto(s) if s == "auto" => {}
             GridInterval::Every(v) if v.is_finite() && *v > 0.0 => {}
             _ => bail!("Invalid {what}: the interval must be \"auto\" or a positive number"),
+        }
+        if let Some(w) = g.width {
+            if !(w.is_finite() && w > 0.0 && w <= 5.0) {
+                bail!("Invalid {what}: the line width must be between 0 and 5 mm");
+            }
+        }
+        if let Some(t) = g.tick_length {
+            if !(t.is_finite() && t > 0.0 && t <= 20.0) {
+                bail!("Invalid {what}: the tick length must be between 0 and 20 mm");
+            }
         }
         Ok(g)
     }
