@@ -1,7 +1,7 @@
 // Office / ArcGIS Pro style ribbon: tabs → labeled groups → large and small
 // buttons. Contextual tabs appear when a layer is selected.
 import { Combobox, Menu, MenuDivider, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Option, Tooltip } from "@fluentui/react-components";
-import { DocumentPdfRegular, DocumentRegular, ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
+import { AlignLeftRegular, ArrowRotateClockwiseRegular, ColorRegular, DeleteRegular, DocumentOnePageMultipleRegular, DocumentPdfRegular, DocumentRegular, DocumentSaveRegular, DocumentSettingsRegular, LayerRegular, PageFitRegular, PaintBrushRegular, TextAlignLeftRegular, ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api, errorText, type LayoutTemplate } from "../ipc/api";
@@ -516,7 +516,7 @@ function ThemeMenu() {
       <Menu onOpenChange={(_, d) => d.open && void api.layoutThemes().then(setThemes, () => setThemes([]))}>
         <MenuTrigger>
           <button className="rbtn small" disabled={!open} title="Topographic, thematic or minimalist: page colours, frame, legend box, scale bar and north arrow style">
-            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-icon"><PaintBrushRegular /></span>
             <span className="rbtn-label">Page look ▾</span>
           </button>
         </MenuTrigger>
@@ -531,7 +531,7 @@ function ThemeMenu() {
       <Menu onOpenChange={(_, d) => d.open && void api.layoutThemes().then(setThemes, () => setThemes([]))}>
         <MenuTrigger>
           <button className="rbtn small" disabled={!open} title="The page look plus the theme's colours on single-symbol layers (changes the map too)">
-            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-icon"><ColorRegular /></span>
             <span className="rbtn-label">Look + layer colours ▾</span>
           </button>
         </MenuTrigger>
@@ -555,13 +555,13 @@ function TemplateGroup() {
   return (
     <div className="rcol">
       <button className="rbtn small" disabled={!open} title="Keep this page as a template for new layouts" onClick={() => void saveLayoutAsTemplate()}>
-        <span className="rbtn-icon"><DocumentRegular /></span>
+        <span className="rbtn-icon"><DocumentSaveRegular /></span>
         <span className="rbtn-label">Save as Template</span>
       </button>
       <Menu onOpenChange={(_, d) => d.open && void load()}>
         <MenuTrigger>
           <button className="rbtn small" title="Delete one of your templates">
-            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-icon"><DeleteRegular /></span>
             <span className="rbtn-label">Delete Template ▾</span>
           </button>
         </MenuTrigger>
@@ -589,7 +589,7 @@ function PageMenu() {
       <Menu>
         <MenuTrigger>
           <button className="rbtn small" disabled={!page}>
-            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-icon"><PageFitRegular /></span>
             <span className="rbtn-label">Size: {cur?.size ?? "Custom"} ▾</span>
           </button>
         </MenuTrigger>
@@ -604,7 +604,7 @@ function PageMenu() {
       <Menu>
         <MenuTrigger>
           <button className="rbtn small" disabled={!page}>
-            <span className="rbtn-icon"><DocumentRegular /></span>
+            <span className="rbtn-icon"><ArrowRotateClockwiseRegular /></span>
             <span className="rbtn-label">Orientation: {cur?.orientation ?? (page && page.width > page.height ? "landscape" : "portrait")} ▾</span>
           </button>
         </MenuTrigger>
@@ -617,7 +617,7 @@ function PageMenu() {
         </MenuPopover>
       </Menu>
       <button className="rbtn small" disabled={!page} title="Size, margin, bleed and crop marks, background, author and guides" onClick={setup}>
-        <span className="rbtn-icon"><DocumentRegular /></span>
+        <span className="rbtn-icon"><DocumentSettingsRegular /></span>
         <span className="rbtn-label">Page Setup…</span>
       </button>
     </div>
@@ -633,7 +633,7 @@ function SeriesGroup() {
   return (
     <div className="rcol">
       <button className="rbtn small" disabled={!open} title="One page per feature of an index layer" onClick={() => useDialog.getState().show({ kind: "layoutSeries" })}>
-        <span className="rbtn-icon"><DocumentRegular /></span>
+        <span className="rbtn-icon"><DocumentOnePageMultipleRegular /></span>
         <span className="rbtn-label">{series ? "Map Series…" : "Set Up Map Series…"}</span>
       </button>
       {series && (
@@ -673,7 +673,7 @@ function ArrangeMenu() {
     <Menu>
       <MenuTrigger>
         <button className="rbtn small" disabled={!n} title={tip}>
-          <span className="rbtn-icon"><DocumentRegular /></span>
+          <span className="rbtn-icon">{label === "Align" ? <AlignLeftRegular /> : label === "Spread" ? <TextAlignLeftRegular /> : <LayerRegular />}</span>
           <span className="rbtn-label">{label} ▾</span>
         </button>
       </MenuTrigger>
