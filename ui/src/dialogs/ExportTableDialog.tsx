@@ -7,16 +7,17 @@ import { crsName } from "../crs/crs";
 import { IN_TAURI } from "../ipc/api";
 import { displayInfo, useApp } from "../store/store";
 import { CrsPicker } from "./Dialogs";
+import { DEFAULT_GRID, GRID_PRECISIONS } from "./gridRef";
 
 type CoordMode = "xy" | "usng" | "mgrs" | "xy+usng" | "xy+mgrs";
 const COORD_MODES: [CoordMode, string][] = [
   ["xy", "X/Y or lon/lat in a coordinate system"],
-  ["usng", "USNG reference only"],
   ["mgrs", "MGRS reference only"],
-  ["xy+usng", "X/Y or lon/lat and a USNG reference"],
+  ["usng", "USNG reference only"],
   ["xy+mgrs", "X/Y or lon/lat and an MGRS reference"],
+  ["xy+usng", "X/Y or lon/lat and a USNG reference"],
 ];
-const PRECISIONS: [number, string][] = [[5, "1 m (5 digits)"], [4, "10 m (4 digits)"], [3, "100 m (3 digits)"], [2, "1 km (2 digits)"], [1, "10 km (1 digit)"], [0, "100 km square only"]];
+const PRECISIONS = GRID_PRECISIONS;
 const gridStyleOf = (m: CoordMode): "usng" | "mgrs" | null => (m.endsWith("usng") ? "usng" : m.endsWith("mgrs") ? "mgrs" : null);
 
 export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: () => void }) {
@@ -29,7 +30,7 @@ export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: 
   // What coordinates to write: X/Y or lon/lat in a coordinate system the user picks, a USNG or MGRS reference (the UTM zone and datum are
   // chosen for each point, nothing to pick), or both.
   const [mode, setMode] = useState<CoordMode>("xy");
-  const [digits, setDigits] = useState(5);
+  const [digits, setDigits] = useState(DEFAULT_GRID.precision);
   const [path, setPath] = useState("");
   const [busy, setBusy] = useState(false);
   if (!info || !base) return null;
@@ -40,7 +41,7 @@ export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: 
   const ready = (!needsCrs || !!crs) && !!fixedPath && !busy;
   const go = async () => {
     setBusy(true);
-    const ok = await runExportTable(owner, { path: fixedPath, format, crs: needsCrs ? crs! : "", gridRef: gridStyle ? { style: gridStyle, precision: digits, datum: "auto" } : null, fids: which === "selected" ? (useApp.getState().selection[owner] ?? []) : null });
+    const ok = await runExportTable(owner, { path: fixedPath, format, crs: needsCrs ? crs! : "", gridRef: gridStyle ? { style: gridStyle, precision: digits, datum: "wgs84" } : null, fids: which === "selected" ? (useApp.getState().selection[owner] ?? []) : null });
     setBusy(false);
     if (ok) onClose();
   };
@@ -67,7 +68,7 @@ export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: 
                   </Dropdown>
                 </Field>
                 <div className="props-hint" data-testid="export-table-grid-note">
-                  The UTM zone and datum are chosen automatically for each point (NAD 83 in the United States and Canada, WGS 84 elsewhere); no coordinate system needs to be picked{needsCrs ? " for the reference, only for the X/Y columns" : ""}. Points beyond 80°S–84°N get an empty reference.
+                  The UTM zone is chosen automatically for each point (the polar UPS grid beyond 84°N and 80°S) on WGS 84; no coordinate system needs to be picked{needsCrs ? " for the reference, only for the X/Y columns" : ""}.
                 </div>
               </>
             )}

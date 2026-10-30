@@ -58,6 +58,7 @@ fn main() {
             commands::build_topo_layout,
             commands::topo_prepare_data,
             commands::usng_crs_at,
+            commands::usng_grid_layer,
             commands::download_datum_grid,
             commands::remove_datum_grid,
             commands::map_factors,

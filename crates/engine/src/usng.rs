@@ -3,7 +3,7 @@
 //! Both are the same grid: UTM zone + latitude band, a two-letter 100 km square and an easting/northing inside it. They differ only in
 //! how they are written: USNG puts spaces in ("15T VG 97470 47556"), MGRS runs them together ("15TVG9747047556"). The letters are the
 //! modern (WGS 84) lettering, and the datum is stated by the caller (NAD 83 for North America by default, as USNG specifies; WGS 84
-//! elsewhere). The grid covers 80°S–84°N; the polar (UPS) grids are not offered, and the tools say so rather than guess.
+//! elsewhere). Between 80°S and 84°N the grid is UTM; beyond that it is UPS (universal polar stereographic: one letter A/B/Y/Z instead of a zone and band). The polar lettering is checked against the NGA GeoTrans values (tests).
 //! Written from the grid's published description (zone, band, column and row letter sets, the even-zone row shift, the Norway and
 //! Svalbard zone exceptions) and checked against the MIT `mgrs` package the status bar uses (tests below). No third-party code.
 
@@ -26,8 +26,8 @@ pub enum Style {
 impl Style {
     pub fn parse(s: &str) -> Result<Style> {
         match s.to_lowercase().as_str() {
-            "usng" | "" => Ok(Style::Usng),
-            "mgrs" => Ok(Style::Mgrs),
+            "usng" => Ok(Style::Usng),
+            "mgrs" | "" => Ok(Style::Mgrs),
             o => bail!("Unknown grid reference style '{o}' (usng or mgrs)"),
         }
     }
@@ -51,9 +51,9 @@ pub enum Datum {
 impl Datum {
     pub fn parse(s: &str) -> Result<Datum> {
         match s.to_lowercase().as_str() {
-            "auto" | "" => Ok(Datum::Auto),
+            "auto" => Ok(Datum::Auto),
             "nad83" => Ok(Datum::Nad83),
-            "wgs84" => Ok(Datum::Wgs84),
+            "wgs84" | "" => Ok(Datum::Wgs84),
             o => bail!("Unknown datum '{o}' (auto, nad83 or wgs84)"),
         }
     }
@@ -61,6 +61,10 @@ impl Datum {
 
 /// The UTM CRS of a zone on the chosen datum.
 pub fn utm_crs(zone: u8, north: bool, datum: Datum) -> String {
+    if zone == 0 {
+        // Polar: UPS has one datum (WGS 84), so the datum choice does not apply.
+        return if north { "EPSG:32661".into() } else { "EPSG:32761".into() };
+    }
     let nad = match datum {
         Datum::Nad83 => true,
         Datum::Auto => north && zone <= 23,
@@ -107,6 +111,53 @@ pub fn band_of(lat: f64) -> Option<char> {
     BANDS.chars().nth((((lat + 80.0) / 8.0).floor() as usize).min(BANDS.len() - 1))
 }
 
+/// Beyond the UTM grid: north of 84°N or south of 80°S.
+pub fn is_polar(lat: f64) -> bool {
+    lat > 84.0 || lat < -80.0
+}
+
+const UPS_ROWS: &str = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+/// UPS grid zone letter, its 100 km column letters, and the false easting and northing the letters count from.
+const UPS_ZONES: [(char, &str, f64, f64); 4] = [
+    ('A', "JKLPQRSTUXYZ", 800_000.0, 800_000.0),
+    ('B', "ABCFGHJKLPQR", 2_000_000.0, 800_000.0),
+    ('Y', "RSTUXYZ", 1_300_000.0, 1_300_000.0),
+    ('Z', "ABCFGHJ", 2_000_000.0, 1_300_000.0),
+];
+
+/// UPS zone letter: Y or Z north of 84°N (west or east of Greenwich), A or B south of 80°S.
+pub fn ups_zone(lon: f64, lat: f64) -> char {
+    match (lat > 0.0, lon < 0.0) {
+        (true, true) => 'Y',
+        (true, false) => 'Z',
+        (false, true) => 'A',
+        (false, false) => 'B',
+    }
+}
+
+/// A reference written for a UPS point (`easting`/`northing` in EPSG:32661 or 32761).
+pub fn format_ups(lon: f64, lat: f64, easting: f64, northing: f64, precision: u8, style: Style) -> Option<String> {
+    let z = ups_zone(lon, lat);
+    let (_, cols, fe, fn_) = *UPS_ZONES.iter().find(|u| u.0 == z)?;
+    let ci = ((easting - fe) / 100_000.0).floor();
+    let ri = ((northing - fn_) / 100_000.0).floor();
+    if ci < 0.0 || ri < 0.0 || ci as usize >= cols.len() || ri as usize >= UPS_ROWS.len() {
+        return None;
+    }
+    let sq = format!("{}{}", cols.as_bytes()[ci as usize] as char, UPS_ROWS.as_bytes()[ri as usize] as char);
+    let p = precision.min(5) as u32;
+    let digits = |v: f64| {
+        let q = ((v.rem_euclid(100_000.0)) / 10f64.powi(5 - p as i32)).floor() as i64;
+        if p == 0 { String::new() } else { format!("{q:0width$}", width = p as usize) }
+    };
+    let (e, n) = (digits(easting), digits(northing));
+    Some(match style {
+        Style::Usng if p == 0 => format!("{z} {sq}"),
+        Style::Usng => format!("{z} {sq} {e} {n}"),
+        Style::Mgrs => format!("{z}{sq}{e}{n}"),
+    })
+}
+
 /// "15T VG" letters of a UTM point (`northing` as in the zone's CRS, including the 10 000 000 m southern offset).
 pub fn square_of(zone: u8, easting: f64, northing: f64) -> Option<String> {
     let col = (easting / 100_000.0).floor() as i64;
@@ -127,12 +178,12 @@ pub struct UsngCrs {
     pub north: bool,
 }
 
-/// The UTM CRS at a place (80°S–84°N), named from the CRS catalogue.
+/// The grid's coordinate system at a place: UTM from 80°S to 84°N, UPS beyond (zone 0), named from the CRS catalogue.
 pub fn crs_at(lon: f64, lat: f64, datum: Datum) -> Result<UsngCrs> {
-    if !(lon.is_finite() && lat.is_finite()) || !(-80.0..=84.0).contains(&lat) || lon.abs() > 180.0 {
-        bail!("USNG and MGRS cover 80°S to 84°N; there is no grid at latitude {lat:.1}°");
+    if !(lon.is_finite() && lat.is_finite()) || lat.abs() > 90.0 || lon.abs() > 180.0 {
+        bail!("{lat}, {lon} is not a place on Earth");
     }
-    let (zone, north) = (zone_of(lon, lat), lat >= 0.0);
+    let (zone, north) = (if is_polar(lat) { 0 } else { zone_of(lon, lat) }, lat >= 0.0);
     let id = utm_crs(zone, north, datum);
     let name = crate::crs::info(&id).map(|i| i.name).unwrap_or_else(|_| id.clone());
     Ok(UsngCrs { id, name, zone, north })
@@ -158,6 +209,7 @@ pub fn format_ref(zone: u8, lat: f64, easting: f64, northing: f64, precision: u8
 /// A parsed reference: the grid square and the position inside it (the lower-left corner of the named cell).
 #[derive(Debug, Clone, PartialEq)]
 pub struct GridRef {
+    /// UTM zone 1–60, or 0 for a polar (UPS) reference, whose `band` is the UPS zone letter (A, B, Y or Z).
     pub zone: u8,
     pub band: char,
     pub square: String,
@@ -178,6 +230,25 @@ impl GridRef {
 pub fn parse(text: &str) -> Result<GridRef> {
     let t: String = text.chars().filter(|c| !c.is_whitespace()).collect::<String>().to_uppercase();
     let bad = || anyhow!("'{}' is not a USNG/MGRS reference (for example 15T VG 97470 47556)", text.trim());
+    // Polar: a single zone letter A, B, Y or Z, two square letters, then the digits.
+    if let Some(z) = t.chars().next().filter(|c| "ABYZ".contains(*c)) {
+        let rest: Vec<char> = t[1..].chars().collect();
+        if rest.len() < 2 || !rest[0].is_ascii_alphabetic() || !rest[1].is_ascii_alphabetic() {
+            return Err(bad());
+        }
+        let digits: String = rest[2..].iter().collect();
+        if digits.len() % 2 != 0 || digits.len() > 10 || !digits.chars().all(|c| c.is_ascii_digit()) {
+            return Err(anyhow!("'{}' needs the same number of easting and northing digits (0 to 5 each)", text.trim()));
+        }
+        let (_, cols, _, _) = *UPS_ZONES.iter().find(|u| u.0 == z).unwrap();
+        if !cols.contains(rest[0]) || !UPS_ROWS.contains(rest[1]) {
+            return Err(anyhow!("'{}': the square letters {}{} do not exist in polar zone {z}", text.trim(), rest[0], rest[1]));
+        }
+        let n = digits.len() / 2;
+        let scale = 10f64.powi(5 - n as i32);
+        let (e, nn) = if n == 0 { (0.0, 0.0) } else { (digits[..n].parse::<f64>().unwrap() * scale, digits[n..].parse::<f64>().unwrap() * scale) };
+        return Ok(GridRef { zone: 0, band: z, square: format!("{}{}", rest[0], rest[1]), easting_in_square: e, northing_in_square: nn, digits: n as u8 });
+    }
     let zlen = t.chars().take_while(|c| c.is_ascii_digit()).count();
     if !(1..=2).contains(&zlen) {
         return Err(bad());
@@ -235,6 +306,17 @@ pub fn to_utm(r: &GridRef, to_lonlat: &dyn Fn(f64, f64, bool) -> Result<(f64, f6
     bail!("'{}{}{}' does not fall inside latitude band {}", r.zone, r.band, r.square, r.band)
 }
 
+/// UPS easting and northing (EPSG:32661 / 32761) of the lower-left corner of the cell a polar reference names, and whether it is north.
+pub fn to_ups(r: &GridRef) -> Result<(f64, f64, bool)> {
+    if r.zone != 0 {
+        bail!("not a polar reference");
+    }
+    let (_, cols, fe, fn_) = *UPS_ZONES.iter().find(|u| u.0 == r.band).ok_or_else(|| anyhow!("unknown polar zone {}", r.band))?;
+    let ci = cols.find(r.square.chars().next().unwrap()).ok_or_else(|| anyhow!("bad polar square"))? as f64;
+    let ri = UPS_ROWS.find(r.square.chars().nth(1).unwrap()).ok_or_else(|| anyhow!("bad polar square"))? as f64;
+    Ok((fe + ci * 100_000.0 + r.easting_in_square, fn_ + ri * 100_000.0 + r.northing_in_square, r.band == 'Y' || r.band == 'Z'))
+}
+
 /// SQL that adds a USNG/MGRS text column to `table`. `pt` is a point expression over the alias `t` (`t.geom`, or
 /// `ST_PointOnSurface(t.geom)` for lines and polygons) in `src_crs`. A row with no geometry, or outside 80°S–84°N, gets NULL; the
 /// second value is how many rows that is. The UTM zones in use are looked up first (`conn`) so the SQL only names those; with `force`
@@ -247,11 +329,12 @@ pub fn add_field_sql(conn: Option<&Connection>, table: &str, src_crs: &str, pt: 
         "WITH s AS (SELECT t.*, {pt} AS __pt FROM {t} t), \
          l AS (SELECT s.*, ST_Transform(__pt, {src}, 'EPSG:4326', true) AS __ll FROM s), \
          g AS (SELECT l.*, ST_X(__ll) AS __lon, ST_Y(__ll) AS __lat FROM l), \
-         y AS (SELECT g.*, CASE WHEN __lat BETWEEN -80 AND 84 THEN {zone} END AS __z FROM g)",
+         y AS (SELECT g.*, {zexpr} AS __z FROM g)",
         t = if table.contains('"') { table.to_string() } else { ident(table) },
-        zone = match force {
-            Some((z, _)) => z.to_string(),
-            None => zone,
+        // Zone 0 is polar (UPS): north of 84°N or south of 80°S. A forced zone puts every row in that zone.
+        zexpr = match force {
+            Some((z, _)) => format!("CASE WHEN __lat BETWEEN -80 AND 84 THEN {z} END"),
+            None => format!("CASE WHEN __lat IS NULL THEN NULL WHEN __lat BETWEEN -80 AND 84 THEN {zone} ELSE 0 END"),
         }
     );
     let (pairs, skipped): (Vec<(i32, bool)>, i64) = match (force, conn) {
@@ -293,10 +376,26 @@ pub fn add_field_sql(conn: Option<&Connection>, table: &str, src_crs: &str, pt: 
         Style::Usng => format!("CAST(__z AS VARCHAR) || {band} || ' ' || {col} || {row} || ' ' || {de} || ' ' || {dn}"),
         Style::Mgrs => format!("CAST(__z AS VARCHAR) || {band} || {col} || {row} || {de} || {dn}"),
     };
+    // Polar (zone 0): the zone letter, then the square from the UPS letter tables.
+    let ups_label = match style {
+        Style::Usng if p == 0 => "__zl || ' ' || __uc || __ur".to_string(),
+        Style::Usng => format!("__zl || ' ' || __uc || __ur || ' ' || {de} || ' ' || {dn}"),
+        Style::Mgrs => format!("__zl || __uc || __ur || {de} || {dn}"),
+    };
+    let zl = "CASE WHEN __lat > 0 THEN CASE WHEN __lon < 0 THEN 'Y' ELSE 'Z' END ELSE CASE WHEN __lon < 0 THEN 'A' ELSE 'B' END END";
+    let cols_by_zone = format!("CASE __zl WHEN 'A' THEN '{}' WHEN 'B' THEN '{}' WHEN 'Y' THEN '{}' ELSE '{}' END", UPS_ZONES[0].1, UPS_ZONES[1].1, UPS_ZONES[2].1, UPS_ZONES[3].1);
+    let fe = "CASE __zl WHEN 'A' THEN 800000 WHEN 'Y' THEN 1300000 ELSE 2000000 END";
+    let fnn = "CASE WHEN __zl IN ('A', 'B') THEN 800000 ELSE 1300000 END";
     let sql = format!(
-        "{upto_zone}, c AS (SELECT y.*, {e} AS __e, {n} AS __n FROM y) \
-         SELECT * EXCLUDE (__pt, __ll, __lon, __lat, __z, __e, __n), \
-                CASE WHEN __e IS NULL OR __e < 100000 OR __e >= 900000 THEN NULL ELSE {label} END AS {f} FROM c",
+        "{upto_zone}, c AS (SELECT y.*, {e} AS __e, {n} AS __n, CASE WHEN __z = 0 THEN {zl} END AS __zl FROM y), \
+         d AS (SELECT c.*, \
+                 CASE WHEN __z = 0 AND __e >= {fe} THEN NULLIF(substr({cols_by_zone}, CAST(floor((__e - {fe}) / 100000) AS INTEGER) + 1, 1), '') END AS __uc, \
+                 CASE WHEN __z = 0 AND __n >= {fnn} THEN NULLIF(substr('{UPS_ROWS}', CAST(floor((__n - {fnn}) / 100000) AS INTEGER) + 1, 1), '') END AS __ur FROM c) \
+         SELECT * EXCLUDE (__pt, __ll, __lon, __lat, __z, __e, __n, __zl, __uc, __ur), \
+                CASE WHEN __e IS NULL THEN NULL \
+                     WHEN __z = 0 THEN CASE WHEN __uc IS NULL OR __ur IS NULL THEN NULL ELSE {ups_label} END \
+                     WHEN __e < 100000 OR __e >= 900000 THEN NULL \
+                     ELSE {label} END AS {f} FROM d",
         e = branch("ST_X"),
         n = branch("ST_Y"),
         f = ident(field),
@@ -344,7 +443,10 @@ mod tests {
         assert!(mgrs.name.contains("WGS 84"), "{}", mgrs.name);
         assert_eq!(crs_at(10.75, 59.91, Datum::Auto).unwrap().id, "EPSG:32632", "Europe: WGS 84, Norway's zone 32");
         assert_eq!(crs_at(151.2, -33.9, Datum::Auto).unwrap().id, "EPSG:32756", "southern hemisphere");
-        assert!(crs_at(0.0, 85.0, Datum::Auto).unwrap_err().to_string().contains("80°S to 84°N"));
+        let ups = crs_at(0.0, 85.0, Datum::Nad83).unwrap();
+        assert_eq!((ups.id.as_str(), ups.zone, ups.north), ("EPSG:32661", 0, true), "north of 84°N is UPS north, on WGS 84 whatever the datum asked");
+        assert_eq!(crs_at(10.0, -85.0, Datum::Auto).unwrap().id, "EPSG:32761");
+        assert!(crs_at(0.0, 91.0, Datum::Auto).is_err());
     }
 
     #[test]

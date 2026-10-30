@@ -1,4 +1,6 @@
 // User-level actions shared by the ribbon, context menus and shortcuts.
+import { exportGraph, gridField, type GridChoice } from "./dialogs/gridRef";
+import { gridLabel, gridSizeFor, groundWidthM, usngGridStyle } from "./map/usngGrid";
 import { bibliographyFiles } from "./sources/cite";
 import { useBibPrefs } from "./sources/prefs";
 import { track } from "./progress/progress";
@@ -261,6 +263,18 @@ export function toggleWorldView() {
   status(on ? "World view: the whole Earth, cut at the opposite side of the central meridian. Add Graticule and World Outline from the Map tab." : "Back to the area of use of the map coordinate system");
 }
 
+/** Add an MGRS grid for the map view as a layer: outlines and a reference in each square, sized for how far in you are zoomed. */
+export async function addUsngGrid() {
+  const bounds = getViewBounds();
+  if (!bounds) return status("Zoom the map to your area first: the grid is made for the map view.");
+  const size = gridSizeFor(groundWidthM(bounds));
+  const info = await busy("Drawing the USNG grid", () => api.usngGridLayer(bounds, size, "mgrs", "wgs84", `MGRS grid ${gridLabel(size)}`));
+  if (!info) return;
+  useApp.getState().addLayers([info]);
+  useApp.getState().setStyle(info.id, usngGridStyle(useApp.getState().styles[info.id], "MGRS"));
+  status(`Added ${info.name}: ${info.featureCount.toLocaleString()} squares of ${gridLabel(size)}, each labelled with its MGRS reference. Zoom in and run it again for finer squares.`);
+}
+
 /** Add the graticule and the CRS's reference lines (central meridian, standard parallels, edge of the map). */
 export async function addWorldReference() {
   const crs = useApp.getState().mapCrs;
@@ -349,7 +363,7 @@ const EXPORT_FORMATS: Record<string, string> = { gpkg: "GPKG", shp: "ESRI Shapef
 
 /** Write what a layer shows (its node result if any, after its definition
  * query) to a file; `selectedOnly` writes just the selected features. */
-export async function runExport(owner: string, selectedOnly: boolean) {
+export async function runExport(owner: string, selectedOnly: boolean, grid: GridChoice | null = null) {
   const info = shown(owner);
   if (!info) return;
   const fids = selectedOnly ? (useApp.getState().selection[owner] ?? []) : null;
@@ -368,17 +382,13 @@ export async function runExport(owner: string, selectedOnly: boolean) {
   if (!path) return;
   const format = EXPORT_FORMATS[path.split(".").pop()?.toLowerCase() ?? ""] ?? "GPKG";
   const res = await busy(`Exporting ${info.name}`, () =>
-    api.runGraph({
-      nodes: [
-        { id: "in", tool: "input_layer", params: fids ? { layer: info.id, fids } : { layer: info.id } },
-        { id: "out", tool: "export", params: { path, format } },
-      ],
-      edges: [{ source: "in", target: "out", targetHandle: "in" }],
-    }),
+    api.runGraph(exportGraph(info.id, fids, path, format, info.geomType === "Raster" ? null : grid)),
   );
   const out = res?.find((r) => r.id === "out");
   const n = res?.find((r) => r.id === "in")?.rows;
-  if (out) status(out.error ? `Export failed: ${out.error}` : `Exported ${n?.toLocaleString() ?? ""} feature(s) to ${path}`);
+  const gridRes = res?.find((r) => r.id === "grid");
+  if (gridRes?.error) return status(`Export failed: ${gridRes.error}`);
+  if (out) status(out.error ? `Export failed: ${out.error}` : `Exported ${n?.toLocaleString() ?? ""} feature(s) to ${path}${grid ? ` with a ${gridField(grid.style)} column` : ""}`);
 }
 
 /** Copy the selected features into a new layer. */

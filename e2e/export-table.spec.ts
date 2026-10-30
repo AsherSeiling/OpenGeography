@@ -59,7 +59,7 @@ test("ET-USNG the export can write a USNG or MGRS reference with no coordinate s
   await expect.poll(() => (existsSync(both) && existsSync(both + ".crs.txt") ? readFileSync(both, "utf8").trim().split("\n").length : 0)).toBe(13);
   const lines2 = readFileSync(both, "utf8").trim().split("\n");
   expect(lines2[0]).toMatch(/lon,lat,MGRS$/);
-  expect(lines2[1].split(",").at(-1)).toMatch(/^\d{1,2}[C-X][A-Z]{2}\d{10}$/);
+  expect(lines2[1].split(",").at(-1)).toMatch(/^\d{1,2}[C-X][A-Z]{2}\d{4}$/); // 1 km by default
 });
 
 test("ET-USNG-CRS choosing USNG or MGRS in the coordinate system dialog picks the UTM zone of the view", async ({ app }) => {
@@ -70,7 +70,7 @@ test("ET-USNG-CRS choosing USNG or MGRS in the coordinate system dialog picks th
   const dlg = app.getByRole("dialog");
   await dlg.getByRole("button", { name: /^USNG/ }).click();
   await expect(dlg.getByTestId("grid-crs-note")).toContainText("UTM zone 14N"); // -97.5° is zone 14
-  await expect(dlg.getByText(/NAD83 \/ UTM zone 14N/).first()).toBeVisible();
+  await expect(dlg.getByTestId("grid-crs-note")).toContainText("WGS 84 / UTM zone 14N"); // WGS 84 is the default datum
   await dlg.getByRole("button", { name: /^MGRS/ }).click();
   await expect(dlg.getByTestId("grid-crs-note")).toContainText("WGS 84 / UTM zone 14N");
 });

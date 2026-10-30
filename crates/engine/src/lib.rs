@@ -928,6 +928,41 @@ impl Engine {
         Ok(TopoData { contours, hillshade })
     }
 
+    /// A USNG/MGRS grid layer for a longitude/latitude box (the map view): squares of `interval` metres, each labelled with its reference,
+    /// added as a new layer. Made by the USNG / MGRS Grid tool from a throw-away extent layer, which is removed again.
+    pub fn usng_grid_layer(&self, bbox: [f64; 4], interval: f64, style: &str, datum: &str, name: &str) -> Result<LayerInfo> {
+        let [w, s, e, n] = bbox;
+        if !bbox.iter().all(|v| v.is_finite()) || w >= e || s >= n {
+            return Err(anyhow!("The area for the grid is not a valid box"));
+        }
+        if usng::is_polar((s + n) / 2.0) {
+            return Err(anyhow!("This area is in the polar (UPS) part of the grid; the grid layer draws the UTM part (80°S to 84°N)"));
+        }
+        let (s, n) = (s.max(-79.99), n.min(83.99));
+        let wkt = format!("POLYGON(({w} {s}, {e} {s}, {e} {n}, {w} {n}, {w} {s}))");
+        let extent = self.create_features("USNG extent", &[(wkt, Default::default())])?;
+        let result = (|| {
+            let graph: Graph = serde_json::from_value(serde_json::json!({
+                "nodes": [
+                    { "id": "in", "tool": "input_layer", "params": { "layer": extent.id } },
+                    { "id": "g", "tool": "usng_grid", "params": { "interval": interval.to_string(), "style": style, "datum": datum, "field": style.to_uppercase(), "clip": false } },
+                    { "id": "out", "tool": "add_to_map", "params": { "name": name } }
+                ],
+                "edges": [
+                    { "source": "in", "target": "g", "targetHandle": "in" },
+                    { "source": "g", "target": "out", "targetHandle": "in" }
+                ]
+            }))?;
+            let results = self.run_graph(&graph, None, &mut |_| {})?;
+            if let Some(bad) = results.iter().find(|r| r.error.is_some()) {
+                return Err(anyhow!("{}", bad.error.clone().unwrap_or_default()));
+            }
+            results.iter().find(|r| r.id == "out").and_then(|r| r.layer.clone()).ok_or_else(|| anyhow!("The grid layer was not created"))
+        })();
+        let _ = self.remove_layer(&extent.id);
+        result
+    }
+
     /// The UTM coordinate system a USNG/MGRS grid uses at a place: zone (with the Norway/Svalbard exceptions), hemisphere and datum
     /// ("auto" = NAD 83 in zones 1–23 north, WGS 84 elsewhere), so choosing USNG or MGRS needs no coordinate system to be picked.
     pub fn usng_crs_at(&self, lon: f64, lat: f64, datum: &str) -> Result<usng::UsngCrs> {
