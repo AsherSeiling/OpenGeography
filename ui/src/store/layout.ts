@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import { temporal } from "zundo";
 import { api, errorText } from "../ipc/api";
+import { moveInList } from "../layout/items";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
 import { distributePatches, sizePatches, withGroupMates, type DistributeAxis } from "../layout/arrange";
 import { cleanPatch, nextId, normalizeLayout, type Guide, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
@@ -37,6 +38,8 @@ interface LayoutState {
   setSeries: (series: SeriesSpec | null) => void;
   /** Change the stacking order of the selected elements (C3.0), one undo step. */
   arrange: (op: OrderOp) => void;
+  /** Drag-and-drop in the Items list: draw `id` just above (or below) `targetId`, one undo step. */
+  moveElement: (id: string, targetId: string, below: boolean) => void;
   /** Line up the selected elements (to each other, or to the page for one), one undo step. */
   align: (op: AlignOp) => void;
   /** Equal gaps between three or more selected elements, or the same width/height as the first selected; one undo step. */
@@ -189,6 +192,13 @@ export const useLayouts = create<LayoutState>()(
         flushBurst();
         const ids = get().selected;
         if (ids.length) edit((d) => ({ ...d, elements: reorder(d.elements, ids, op) }));
+      },
+      moveElement: (id, targetId, below) => {
+        flushBurst();
+        const d = get().doc;
+        if (!d) return;
+        const next = moveInList(d.elements, id, targetId, below);
+        if (next !== d.elements) edit((x) => ({ ...x, elements: next }));
       },
       align: (op) => {
         flushBurst();

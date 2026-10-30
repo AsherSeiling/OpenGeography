@@ -133,6 +133,55 @@ pub struct Placement {
     /// Elements with the same group id are selected and moved together in the editor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// Name shown in the Items catalog; empty = the kind's default name.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
+    /// Opacity of the whole element, 0 to 1; unset = 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+    /// Text style overrides by slot id (`legend.title`, see `slots.rs`). Named `textStyles` because the Text element has a `text` field.
+    #[serde(default, rename = "textStyles", skip_serializing_if = "BTreeMap::is_empty")]
+    pub text_styles: BTreeMap<String, TextStyle>,
+}
+
+/// Style of one text slot; every field is optional and an unset field keeps the slot's default.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TextStyle {
+    /// Size in points.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<f64>,
+    /// An installed font family used in place of the bundled face.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub italic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underline: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// Extra space between letters, millimetres.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub halo_color: Option<String>,
+    /// Halo width, millimetres.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub halo_width: Option<f64>,
+}
+
+impl Placement {
+    /// The slot's style, if the user set one.
+    pub fn slot_style(&self, slot: &str) -> Option<&TextStyle> {
+        self.text_styles.get(slot)
+    }
+
+    /// The slot's size in points: the user's size when it is a sensible number (1 to 400), else `default`.
+    pub fn slot_pt(&self, slot: &str, default: f64) -> f64 {
+        self.text_styles.get(slot).and_then(|t| t.size).filter(|s| s.is_finite() && (1.0..=400.0).contains(s)).unwrap_or(default)
+    }
 }
 
 /// Background, frame and shadow of any layout element (QGIS item "Background / Frame / Drop shadow"; ArcGIS Pro element background, border, shadow).

@@ -12,6 +12,7 @@ pub mod labels;
 pub mod model;
 pub mod series;
 pub mod shapes;
+pub mod slots;
 pub mod surround;
 pub mod templates;
 pub mod themes;
@@ -262,6 +263,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             }
             c
         };
+        let element_start = s.len();
         if let Some(d) = &e.at().decor {
             shapes::decor(&mut s, e.at(), d);
         }
@@ -303,6 +305,13 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
                 if let Some(c) = ctx_of(frame, &mut warnings) {
                     surround::sources(&mut s, &mut warnings, at, *size, c, cites, &c.extra_cites);
                 }
+            }
+        }
+        // Element opacity: the element's whole drawing (background, frame and content) fades together.
+        if let Some(op) = e.at().opacity.filter(|o| o.is_finite() && *o >= 0.0 && *o < 1.0) {
+            if s.len() > element_start {
+                s.insert_str(element_start, &format!("<g opacity=\"{}\">", svg::mm(op)));
+                s.push_str("</g>");
             }
         }
     }

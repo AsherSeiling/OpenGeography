@@ -16,6 +16,7 @@ import { MapView } from "./panes/MapView";
 import { ModelPane } from "./panes/ModelPane";
 import { defaultLayout, setDock, type PaneId } from "./panes/panes";
 import { CatalogPane } from "./panes/CatalogPane";
+import { ItemsPane } from "./panes/ItemsPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
 import { SourcesPane } from "./panes/SourcesPane";
 import { ErrorDialog } from "./errors/ErrorDialog";
@@ -60,6 +61,7 @@ const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPan
   properties: () => guard("properties", "Properties", <PropertiesPane />),
   tools: () => guard("tools", "Geoprocessing", <ToolsPane />),
   sources: () => guard("sources", "Sources", <SourcesPane />),
+  items: () => guard("items", "Items", <ItemsPane />),
 };
 
 export function App() {

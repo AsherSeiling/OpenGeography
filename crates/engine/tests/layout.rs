@@ -1629,3 +1629,93 @@ fn cg8_point_markers_line_dashes_and_polygon_patterns_render_in_layouts() {
     put(&mut req, &ids[2], json!({ "marker": "svg" }));
     assert!(e.render_layout_svg(&req, &|| Ok(())).is_err(), "an svg symbol needs a file");
 }
+
+// ---------------------------------------------------------------- text slots (docs/LAYOUT_REWORK_PLAN.md §4.2)
+
+use engine::layout::slots::{self, NO_TEXT, SLOTS};
+
+const PT: f64 = 25.4 / 72.0;
+
+/// One element of every kind that draws text, in a frame with a graticule and a grid; `styles` is merged into each element's `textStyles`.
+fn slot_layout(ids: &[String; 4], styles: serde_json::Value) -> RenderRequest {
+    let mut req = request(ids, categorized());
+    let st = |kind: &str| -> serde_json::Value {
+        let mut m = serde_json::Map::new();
+        for sl in SLOTS.iter().filter(|s| s.kind == kind) {
+            if let Some(v) = styles.get(sl.id) {
+                m.insert(sl.id.to_string(), v.clone());
+            }
+        }
+        serde_json::Value::Object(m)
+    };
+    let elements = json!([
+        { "kind": "map_frame", "id": "f1", "x": 12.7, "y": 30.0, "w": 200.0, "h": 160.0, "crs": "EPSG:26915", "center": CENTER, "scale": 24000, "layers": "map",
+          "graticule": { "interval": "auto", "labels": true }, "grid": { "interval": 500, "labels": true }, "textStyles": st("map_frame") },
+        { "kind": "text", "id": "t1", "x": 12.7, "y": 10.0, "w": 254.0, "h": 14.0, "text": "Title", "font": "sans-bold", "size": 18, "align": "center", "color": "#000000", "textStyles": st("text") },
+        { "kind": "legend", "id": "lg1", "frame": "f1", "x": 215.0, "y": 30.0, "w": 55.0, "h": 70.0, "title": "Legend title", "columns": 1, "textStyles": st("legend") },
+        { "kind": "scale_bar", "id": "sb1", "frame": "f1", "x": 215.0, "y": 110.0, "w": 55.0, "h": 20.0, "units": "km", "segments": 4, "ratio": true, "verbal": true, "textStyles": st("scale_bar") },
+        { "kind": "north_arrow", "id": "na1", "frame": "f1", "x": 230.0, "y": 135.0, "w": 25.0, "h": 25.0, "style": "rose", "textStyles": st("north_arrow") },
+        { "kind": "sources", "id": "src1", "frame": "f1", "x": 12.7, "y": 195.0, "w": 200.0, "h": 8.0, "size": 6, "textStyles": st("sources") },
+        { "kind": "table", "id": "tb1", "layer": ids[0], "x": 215.0, "y": 165.0, "w": 55.0, "h": 30.0, "fields": ["cls", "pop"], "textStyles": st("table") },
+        { "kind": "chart", "id": "ch1", "layer": ids[0], "x": 150.0, "y": 135.0, "w": 60.0, "h": 40.0, "chartType": "bar", "category": "cls", "title": "Chart title", "textStyles": st("chart") }
+    ]);
+    let mut v = serde_json::to_value(&req.layout).unwrap();
+    v["elements"] = elements;
+    req.layout = serde_json::from_value(v).unwrap();
+    req
+}
+
+#[test]
+fn text_slots_cover_every_element_kind_that_draws_text() {
+    // Every element kind is either listed in NO_TEXT or has at least one slot; every slot belongs to a real kind.
+    let kinds = ["map_frame", "text", "legend", "scale_bar", "north_arrow", "sources", "shape", "table", "chart", "picture"];
+    for k in kinds {
+        assert!(NO_TEXT.contains(&k) || !slots::of_kind(k).is_empty(), "{k} has no text slot and is not marked as drawing no text");
+    }
+    for s in SLOTS {
+        assert!(kinds.contains(&s.kind), "{} names an unknown element kind", s.id);
+    }
+}
+
+#[test]
+fn every_text_slot_changes_its_text_size_and_colour_in_the_drawing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let base = render(&e, &slot_layout(&ids, json!({}))).svg;
+    for sl in SLOTS.iter().filter(|s| s.id != "text.text") {
+        let styled = render(&e, &slot_layout(&ids, json!({ sl.id: { "size": 23.0, "color": "#c0ffee" } }))).svg;
+        let want = format!("font-size=\"{}\"", engine::layout::svg::mm(23.0 * PT));
+        assert!(styled.contains(&want), "{}: no text drawn at 23 pt", sl.id);
+        assert!(!base.contains(&want), "{}: the baseline already has 23 pt text", sl.id);
+        assert!(styled.contains("fill=\"#c0ffee\""), "{}: the colour was not applied", sl.id);
+        assert!(!base.contains("fill=\"#c0ffee\""), "{}", sl.id);
+    }
+}
+
+#[test]
+fn slot_styles_set_font_weight_slant_underline_spacing_and_halo() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let svg = render(&e, &slot_layout(&ids, json!({ "legend.title": { "bold": false, "italic": true, "underline": true, "letterSpacing": 0.4, "haloColor": "#ffffff", "haloWidth": 0.5, "family": "Georgia" } }))).svg;
+    let title = svg.split("<text").find(|t| t.contains(">Legend title<")).expect("the legend title");
+    for needle in ["font-weight=\"400\"", "font-style=\"italic\"", "text-decoration=\"underline\"", "letter-spacing=\"0.4\"", "paint-order=\"stroke\"", "stroke-width=\"1\"", "'Georgia'"] {
+        assert!(title.contains(needle), "{needle} missing in {title}");
+    }
+}
+
+#[test]
+fn element_opacity_fades_the_whole_element_and_old_layouts_load_unchanged() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = slot_layout(&ids, json!({}));
+    let mut v = serde_json::to_value(&req.layout).unwrap();
+    v["elements"][1]["opacity"] = json!(0.4);
+    v["elements"][1]["name"] = json!("Map title");
+    req.layout = serde_json::from_value(v.clone()).unwrap();
+    let svg = render(&e, &req).svg;
+    assert!(svg.contains("<g opacity=\"0.4\">"), "no opacity group");
+    // Round trip keeps name and opacity; an element without them serialises without the new keys.
+    let back = serde_json::to_value(&req.layout).unwrap();
+    assert_eq!(back["elements"][1]["name"], "Map title");
+    assert!(back["elements"][0].get("textStyles").is_none() && back["elements"][0].get("opacity").is_none(), "{}", back["elements"][0]);
+}

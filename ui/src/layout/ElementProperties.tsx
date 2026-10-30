@@ -1,6 +1,7 @@
 // Properties pane for a layout element (target { kind: "layoutElement" }).
 import { Button, Checkbox, Dropdown, Field, Input, Option, Textarea } from "@fluentui/react-components";
 import { FontPicker } from "../panes/LabelSettings";
+import { TextSection } from "./TextSection";
 import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
@@ -43,28 +44,53 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
     <div className="props">
       <div className="props-title">{title} <span className="muted">({el.id})</span></div>
       <div className="props-body stack">
-        {el.kind === "map_frame" && <FrameFields el={el} set={set} layout={layout} />}
-        {el.kind === "text" && <TextFields el={el} set={set} />}
-        {el.kind === "legend" && <LegendFields el={el} set={set} layout={layout} />}
-        {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
-        {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
-        {el.kind === "sources" && <SourcesFields el={el} set={set} />}
-        {el.kind === "table" && <TableFields el={el} set={set} />}
-        {el.kind === "chart" && <ChartFields el={el} set={set} />}
-        {el.kind === "shape" && <ShapeFields el={el} set={set} />}
-        {el.kind === "picture" && <PictureFields el={el} set={set} />}
-        <div className="props-grid">
-          <Num label="X (mm)" value={el.x} step={0.5} decimals={1} onChange={(x) => set({ x }, "x")} />
-          <Num label="Y (mm)" value={el.y} step={0.5} decimals={1} onChange={(y) => set({ y }, "y")} />
-          <Num label="Width (mm)" value={el.w} min={1} step={0.5} decimals={1} onChange={(w) => set({ w }, "w")} />
-          <Num label="Height (mm)" value={el.h} min={1} step={0.5} decimals={1} onChange={(h) => set({ h }, "h")} />
-          <Num label="Rotation (°)" value={el.rotation} decimals={2} onChange={(rotation) => set({ rotation }, "rotation")} />
-        </div>
-        <DecorFields el={el} set={set} />
-        <Checkbox label="Locked" checked={el.locked} onChange={(_, d) => set({ locked: !!d.checked })} />
-        <Checkbox label="Visible" checked={el.visible} onChange={(_, d) => set({ visible: !!d.checked })} />
+        <Field label="Name (shown in the Items list)" size="small">
+          <Input size="small" aria-label="Element name" value={el.name ?? ""} placeholder={title} onChange={(_, d) => set({ name: d.value }, "name")} />
+        </Field>
+        <Section title="Content" open>
+          {el.kind === "map_frame" && <FrameFields el={el} set={set} layout={layout} />}
+          {el.kind === "text" && <TextFields el={el} set={set} />}
+          {el.kind === "legend" && <LegendFields el={el} set={set} layout={layout} />}
+          {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
+          {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
+          {el.kind === "sources" && <SourcesFields el={el} set={set} />}
+          {el.kind === "table" && <TableFields el={el} set={set} />}
+          {el.kind === "chart" && <ChartFields el={el} set={set} />}
+          {el.kind === "shape" && <ShapeFields el={el} set={set} />}
+          {el.kind === "picture" && <PictureFields el={el} set={set} />}
+        </Section>
+        {el.kind !== "text" && el.kind !== "shape" && el.kind !== "picture" && (
+          <Section title="Text sizes and fonts" open>
+            <TextSection el={el} set={set} />
+          </Section>
+        )}
+        <Section title="Appearance">
+          <DecorFields el={el} set={set} />
+          <Num label="Opacity (%)" value={Math.round((el.opacity ?? 1) * 100)} min={0} max={100} step={5} decimals={0} onChange={(v) => set({ opacity: v >= 100 ? undefined : v / 100 }, "opacity")} />
+        </Section>
+        <Section title="Position and size" open>
+          <div className="props-grid">
+            <Num label="X (mm)" value={el.x} step={0.5} decimals={1} onChange={(x) => set({ x }, "x")} />
+            <Num label="Y (mm)" value={el.y} step={0.5} decimals={1} onChange={(y) => set({ y }, "y")} />
+            <Num label="Width (mm)" value={el.w} min={1} step={0.5} decimals={1} onChange={(w) => set({ w }, "w")} />
+            <Num label="Height (mm)" value={el.h} min={1} step={0.5} decimals={1} onChange={(h) => set({ h }, "h")} />
+            <Num label="Rotation (°)" value={el.rotation} decimals={2} onChange={(rotation) => set({ rotation }, "rotation")} />
+          </div>
+          <Checkbox label="Locked" checked={el.locked} onChange={(_, d) => set({ locked: !!d.checked })} />
+          <Checkbox label="Visible" checked={el.visible} onChange={(_, d) => set({ visible: !!d.checked })} />
+        </Section>
       </div>
     </div>
+  );
+}
+
+/** A titled, collapsible group of settings. */
+function Section({ title, open, children }: { title: string; open?: boolean; children: React.ReactNode }) {
+  return (
+    <details className="props-section" open={open}>
+      <summary className="props-section-title">{title}</summary>
+      <div className="stack">{children}</div>
+    </details>
   );
 }
 
@@ -485,8 +511,7 @@ function DecorFields({ el, set }: { el: LayoutElement; set: SetFn }) {
   const d = el.decor ?? {};
   const patch = (p: Record<string, unknown>) => set({ decor: { ...d, ...p } }, "decor");
   return (
-    <details>
-      <summary>Background, frame and shadow</summary>
+    <div className="stack" data-testid="decor">
       <div className="stack">
         <Checkbox label="Background" checked={!!d.background} onChange={(_, c) => patch({ background: c.checked ? "#ffffff" : null })} />
         {d.background && <ColorInput label="Background colour" value={d.background} onChange={(background) => patch({ background })} />}
@@ -501,6 +526,6 @@ function DecorFields({ el, set }: { el: LayoutElement; set: SetFn }) {
         <Checkbox label="Drop shadow" checked={!!d.shadow} onChange={(_, c) => patch({ shadow: !!c.checked, shadowOffset: d.shadowOffset ?? 1.5 })} />
         {d.shadow && <Num label="Shadow offset (mm)" value={d.shadowOffset ?? 1.5} min={0} step={0.25} decimals={2} onChange={(shadowOffset) => patch({ shadowOffset })} />}
       </div>
-    </details>
+    </div>
   );
 }

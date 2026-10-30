@@ -140,6 +140,11 @@ pub async fn set_datum_policy(engine: Eng<'_>, strict: bool) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn layout_text_slots(engine: Eng<'_>) -> Res<Vec<engine::layout::slots::Slot>> {
+    blocking(&engine, move |e| Ok(e.layout_text_slots())).await
+}
+
+#[tauri::command]
 pub async fn list_datum_grids(engine: Eng<'_>) -> Res<Vec<engine::grids::GridEntry>> {
     blocking(&engine, move |e| Ok(e.list_datum_grids())).await
 }

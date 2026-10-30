@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describePage, frames, LAYOUT_VERSION, newLayoutDoc, nextId, PAGE_SIZES, pageFor, roundScaleUp, rounded, STANDARD_SCALES, type Layout } from "./types";
+import { cleanPatch, cleanTextStyle, cleanTextStyles, describePage, frames, LAYOUT_VERSION, newLayoutDoc, nextId, normalizeLayout, PAGE_SIZES, pageFor, roundScaleUp, rounded, STANDARD_SCALES, type Layout } from "./types";
 
 describe("page sizes", () => {
   it("landscape swaps width and height; portrait keeps them", () => {
@@ -74,5 +74,27 @@ describe("layout documents", () => {
     const l = doc();
     l.elements = [{ kind: "text", id: "t1" }, { kind: "map_frame", id: "m1" }, { kind: "scale_bar", id: "s1" }, { kind: "map_frame", id: "m2" }] as never;
     expect(frames(l).map((f) => f.id)).toEqual(["m1", "m2"]);
+  });
+});
+
+
+describe("text styles (LW3)", () => {
+  it("keeps only sensible values", () => {
+    expect(cleanTextStyle({ size: 12, bold: true, color: "#112233", letterSpacing: 0.3 })).toEqual({ size: 12, bold: true, color: "#112233", letterSpacing: 0.3 });
+    expect(cleanTextStyle({ size: 0, color: "red; evil", family: "  ", letterSpacing: 99, haloWidth: -1, junk: 1 })).toEqual({});
+    expect(cleanTextStyle({ size: 401 })).toEqual({});
+    expect(cleanTextStyle(null)).toEqual({});
+  });
+  it("drops empty slots and bad containers", () => {
+    expect(cleanTextStyles({ "legend.title": { size: 14 }, "legend.entries": { size: -3 } })).toEqual({ "legend.title": { size: 14 } });
+    expect(cleanTextStyles(undefined)).toBeUndefined();
+    expect(cleanTextStyles({})).toBeUndefined();
+  });
+  it("normalizeLayout and cleanPatch carry them and refuse a bad opacity", () => {
+    const l = normalizeLayout({ id: "x", name: "x", version: 1, body: "earth", page: pageFor("Letter", "landscape"), series: null, elements: [{ kind: "legend", id: "a", x: 0, y: 0, w: 20, h: 20, rotation: 0, locked: false, visible: true, frame: "f", title: "t", columns: 1, textStyles: { "legend.title": { size: 14, junk: 1 } as never }, opacity: 7 } as never] } as never);
+    expect((l.elements[0] as { textStyles?: unknown }).textStyles).toEqual({ "legend.title": { size: 14 } });
+    expect((l.elements[0] as { opacity?: number }).opacity).toBeUndefined();
+    expect(cleanPatch({ opacity: 2, x: 5 })).toEqual({ x: 5 });
+    expect(cleanPatch({ opacity: 0.5, textStyles: { "legend.title": { size: 9 } } })).toEqual({ opacity: 0.5, textStyles: { "legend.title": { size: 9 } } });
   });
 });

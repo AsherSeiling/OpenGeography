@@ -5,7 +5,8 @@
 //! the common forms of colour blindness.
 
 use super::model::Placement;
-use super::surround::{ellipsize, open_group, text_line, text_width, PT_MM};
+use super::slots::TABLE_PT;
+use super::surround::{ellipsize, open_group, text_slot, text_width, PT_MM};
 use super::svg::{color, esc, mm};
 use crate::db::ident;
 use crate::layers::LayerInfo;
@@ -80,8 +81,10 @@ fn find_layer(lookup: &dyn Fn(&str) -> Option<LayerInfo>, id: &str, what: &str, 
 
 pub fn table(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lookup: &dyn Fn(&str) -> Option<LayerInfo>, at: &Placement, layer: &str, o: &TableSpec) -> Result<()> {
     let Some(info) = find_layer(lookup, layer, "Table", at, warnings) else { return Ok(()) };
-    let size = if o.size > 0.0 { o.size } else { 7.0 };
-    let row_h = size * PT_MM * 1.7;
+    let size = if o.size > 0.0 { o.size } else { TABLE_PT };
+    let head_pt = at.slot_pt("table.header", size);
+    let cell_pt = at.slot_pt("table.cells", size);
+    let row_h = head_pt.max(cell_pt) * PT_MM * 1.7;
     // Fields: the chosen ones that exist; else the first five.
     let mut cols: Vec<(String, bool)> = Vec::new();
     for f in o.fields {
@@ -118,8 +121,8 @@ pub fn table(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lo
         .iter()
         .enumerate()
         .map(|(i, (n, numeric))| {
-            let cell = rows.iter().map(|r| text_width(&if *numeric { num_text(&r[i]) } else { r[i].clone() }, "sans", size)).fold(0.0, f64::max);
-            cell.max(text_width(n, "sans-bold", size)) + 2.0 * pad
+            let cell = rows.iter().map(|r| text_width(&if *numeric { num_text(&r[i]) } else { r[i].clone() }, "sans", cell_pt)).fold(0.0, f64::max);
+            cell.max(text_width(n, "sans-bold", head_pt)) + 2.0 * pad
         })
         .collect();
     let total_w: f64 = w.iter().sum();
@@ -131,9 +134,9 @@ pub fn table(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lo
     let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"#e6e6e6\"/>", mm(at.x), mm(at.y), mm(w.iter().sum()), mm(row_h));
     let mut x = at.x;
     for (i, (n, numeric)) in cols.iter().enumerate() {
-        let t = ellipsize(n, "sans-bold", size, w[i] - 2.0 * pad);
+        let t = ellipsize(n, "sans-bold", head_pt, w[i] - 2.0 * pad);
         let (tx, anchor) = if *numeric { (x + w[i] - pad, "end") } else { (x + pad, "start") };
-        text_line(out, tx, at.y + row_h * 0.72, &t, "sans-bold", size, anchor);
+        text_slot(out, tx, at.y + row_h * 0.72, &t, "sans-bold", head_pt, anchor, at, "table.header");
         x += w[i];
     }
     for (ri, r) in rows.iter().enumerate() {
@@ -144,9 +147,9 @@ pub fn table(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lo
         let mut x = at.x;
         for (i, (_, numeric)) in cols.iter().enumerate() {
             let raw = if *numeric { num_text(&r[i]) } else { r[i].clone() };
-            let t = ellipsize(&raw, "sans", size, w[i] - 2.0 * pad);
+            let t = ellipsize(&raw, "sans", cell_pt, w[i] - 2.0 * pad);
             let (tx, anchor) = if *numeric { (x + w[i] - pad, "end") } else { (x + pad, "start") };
-            text_line(out, tx, y + row_h * 0.72, &t, "sans", size, anchor);
+            text_slot(out, tx, y + row_h * 0.72, &t, "sans", cell_pt, anchor, at, "table.cells");
             x += w[i];
         }
     }
@@ -196,15 +199,17 @@ pub fn chart(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lo
         data.retain(|d| d.1 >= 0.0);
     }
     open_group(out, "chart", at);
-    let size = if o.size > 0.0 { o.size } else { 7.0 };
+    let base = if o.size > 0.0 { o.size } else { TABLE_PT };
+    let size = at.slot_pt("chart.labels", base);
+    let title_pt = at.slot_pt("chart.title", base * 1.2);
     let mut top = at.y;
     if !o.title.trim().is_empty() {
-        text_line(out, at.x, at.y + size * 1.2 * PT_MM, &ellipsize(o.title, "sans-bold", size * 1.2, at.w), "sans-bold", size * 1.2, "start");
-        top += size * 1.2 * PT_MM * 1.6;
+        text_slot(out, at.x, at.y + title_pt * PT_MM, &ellipsize(o.title, "sans-bold", title_pt, at.w), "sans-bold", title_pt, "start", at, "chart.title");
+        top += title_pt * PT_MM * 1.6;
     }
     let max = data.iter().map(|d| d.1).fold(0.0, f64::max);
     if data.is_empty() || max <= 0.0 {
-        text_line(out, at.x, top + size * PT_MM, "No data to chart", "sans", size, "start");
+        text_slot(out, at.x, top + size * PT_MM, "No data to chart", "sans", size, "start", at, "chart.labels");
         out.push_str("</g>");
         return Ok(());
     }
@@ -218,10 +223,10 @@ pub fn chart(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lo
             let row = ((at.y + at.h - top) / data.len() as f64).min(size * PT_MM * 2.2);
             for (i, (name, v)) in data.iter().enumerate() {
                 let y = top + row * i as f64;
-                text_line(out, at.x + label_w - 1.0, y + row * 0.62, &ellipsize(name, "sans", size, label_w - 1.0), "sans", size, "end");
+                text_slot(out, at.x + label_w - 1.0, y + row * 0.62, &ellipsize(name, "sans", size, label_w - 1.0), "sans", size, "end", at, "chart.labels");
                 let bw = plot_w * v / max;
                 let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\"/>", mm(at.x + label_w), mm(y + row * 0.12), mm(bw), mm(row * 0.76), fill(0));
-                text_line(out, at.x + label_w + bw + 1.0, y + row * 0.62, &fmt(*v), "sans", size, "start");
+                text_slot(out, at.x + label_w + bw + 1.0, y + row * 0.62, &fmt(*v), "sans", size, "start", at, "chart.labels");
             }
         }
         _ => {
@@ -247,7 +252,7 @@ pub fn chart(out: &mut String, warnings: &mut Vec<String>, conn: &Connection, lo
                 let y = top + (avail_h - row * data.len() as f64) / 2.0 + row * i as f64;
                 let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"3\" height=\"3\" fill=\"{}\"/>", mm(lx), mm(y + row / 2.0 - 1.5), fill(i));
                 let t = format!("{} ({}%)", name, num_text(&format!("{}", (v / total * 1000.0).round() / 10.0)));
-                text_line(out, lx + 4.5, y + row * 0.62, &ellipsize(&t, "sans", size, (at.x + at.w - lx - 4.5).max(1.0)), "sans", size, "start");
+                text_slot(out, lx + 4.5, y + row * 0.62, &ellipsize(&t, "sans", size, (at.x + at.w - lx - 4.5).max(1.0)), "sans", size, "start", at, "chart.labels");
             }
         }
     }
