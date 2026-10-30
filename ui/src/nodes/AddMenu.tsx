@@ -1,7 +1,8 @@
 // Blender-style "Add" menu for the Model (Shift+A, right-click, or the Add
 // button): categories on the left, items on the right; typing searches
 // everything. Enter adds the highlighted item, Esc closes.
-import { DatabaseRegular, SearchRegular, WrenchRegular } from "@fluentui/react-icons";
+import { DatabaseRegular, SearchRegular } from "@fluentui/react-icons";
+import { ToolIcon } from "./toolIcon";
 import { compareCategories } from "./categories";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -123,7 +124,7 @@ export function AddMenu({ x, y, onPick, onClose }: { x: number; y: number; onPic
               onClick={() => onPick(i)}
               title={i.description}
             >
-              {i.kind === "input" ? <DatabaseRegular /> : <WrenchRegular />}
+              {i.kind === "input" ? <DatabaseRegular /> : <ToolIcon tool={i.tool} />}
               <span className="addmenu-label">{i.label}</span>
               {q && <span className="addmenu-catlabel">{i.category}</span>}
             </button>
