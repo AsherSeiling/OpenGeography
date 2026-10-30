@@ -179,7 +179,7 @@ impl Engine {
         if let (Some(g), Some(c)) = (&spec.grid_ref, &grid_col) {
             let style = crate::usng::Style::parse(&g.style)?;
             note.push_str(&format!(
-                "\nGrid reference column {c}: {} reference of each point, {} (UTM zone and latitude band chosen for each point; the 100 km square letters follow the modern WGS 84 lettering). Datum: {}. Digits are cut, not rounded, so the reference names the square holding the point. Points outside 80°S–84°N, or without a location, are left empty ({skipped} here); the polar grids are not written.\n",
+                "\nGrid reference column {c}: {} reference of each point, {} (UTM zone and latitude band chosen for each point; the 100 km square letters follow the modern WGS 84 lettering). Datum: {}. Digits are cut, not rounded, so the reference names the square holding the point. Points beyond 84°N or 80°S are written in the polar (UPS) grid, which is always WGS 84. Points without a location are left empty ({skipped} here).\n",
                 style.name(),
                 match g.precision {
                     0 => "the 100 km square only".to_string(),
@@ -187,9 +187,9 @@ impl Engine {
                     n => format!("with {n} digit{} per axis (a square {} m wide)", if n == 1 { "" } else { "s" }, 10u32.pow(5 - n as u32)),
                 },
                 match g.datum.as_str() {
-                    "nad83" => "NAD 83",
-                    "wgs84" => "WGS 84",
-                    _ => "NAD 83 in UTM zones 1–23 north (the United States and Canada), WGS 84 elsewhere",
+                    "nad83" => "NAD 83 (UTM zones 1–23 north; WGS 84 elsewhere)",
+                    "auto" => "NAD 83 in UTM zones 1–23 north (the United States and Canada), WGS 84 elsewhere",
+                    _ => "WGS 84",
                 },
             ));
         }

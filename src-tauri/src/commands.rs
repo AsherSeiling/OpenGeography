@@ -160,6 +160,11 @@ pub async fn usng_crs_at(engine: Eng<'_>, lon: f64, lat: f64, datum: String) -> 
 }
 
 #[tauri::command]
+pub async fn usng_grid_layer(engine: Eng<'_>, bbox: [f64; 4], interval: f64, style: String, datum: String, name: String) -> Res<engine::layers::LayerInfo> {
+    blocking(&engine, move |e| e.usng_grid_layer(bbox, interval, &style, &datum, &name)).await
+}
+
+#[tauri::command]
 pub async fn list_datum_grids(engine: Eng<'_>) -> Res<Vec<engine::grids::GridEntry>> {
     blocking(&engine, move |e| Ok(e.list_datum_grids())).await
 }

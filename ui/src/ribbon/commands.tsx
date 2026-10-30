@@ -3,6 +3,7 @@
 import { createElement } from "react";
 import { toolIcon } from "../nodes/toolIcon";
 import {
+  BorderAllRegular,
   AddCircleRegular,
   MyLocationRegular,
   LocationRegular,
@@ -86,6 +87,7 @@ import {
   addTissotCircles,
   addWorldOutline,
   addWorldReference,
+  addUsngGrid,
   toggleWorldView,
   removeLayer,
   runModel,
@@ -159,6 +161,7 @@ const list: Command[] = [
   { id: "stac", label: "Imagery & DEM", icon: <ImageMultipleRegular />, run: () => useDialog.getState().show({ kind: "stac" }), tip: "Search Sentinel-2 imagery and the Copernicus DEM (STAC) and clip a scene to your area straight from the cloud" },
   { id: "arcgis", label: "ArcGIS Services", icon: <ServerRegular />, run: () => useDialog.getState().show({ kind: "arcgis" }), tip: "Download PAD-US, FEMA flood zones, wetlands, wildfire perimeters or any ArcGIS REST layer for your area" },
   { id: "worldView", label: "World View", icon: <EarthRegular />, run: toggleWorldView, checked: () => app().worldView, tip: "Show the whole Earth in this coordinate system (cut at the opposite side of its central meridian)" },
+  { id: "usngGrid", label: "MGRS Grid", icon: <BorderAllRegular />, run: () => void addUsngGrid(), tip: "Add an MGRS (USNG) grid for the map view: squares sized for how far you are zoomed, each labelled with its reference" },
   { id: "worldGraticule", label: "Graticule", icon: <GridRegular />, run: addWorldReference, tip: "Add curved latitude/longitude lines and the coordinate system's own reference lines (central meridian, standard parallels, edge of the map)" },
   { id: "worldOutline", label: "World Outline", icon: <MapRegular />, run: addWorldOutline, tip: "Add the bundled Natural Earth land outline (public domain, works offline)" },
   { id: "projectionBuilder", label: "Projection Builder", icon: <SettingsRegular />, run: () => useDialog.getState().show({ kind: "projectionBuilder" }), tip: "Build a conic, cylindrical, azimuthal or world projection from its parameters" },

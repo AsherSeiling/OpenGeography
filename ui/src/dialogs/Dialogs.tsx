@@ -282,9 +282,9 @@ function CrsPickerDialog({ title, initial, onPick, onClose }: { title: string; i
     const at = getCenterLonLat();
     if (!at) return setGridMsg("Zoom the map to your area first: the zone is chosen for the centre of the map view.");
     try {
-      const c = await api.usngCrsAt(at[0], at[1], kind === "usng" ? "auto" : "wgs84");
+      const c = await api.usngCrsAt(at[0], at[1], "wgs84");
       setSel({ id: c.id, name: c.name });
-      setGridMsg(`${kind.toUpperCase()} uses UTM zone ${c.zone}${c.north ? "N" : "S"} here: ${c.name}.`);
+      setGridMsg(c.zone === 0 ? `${kind.toUpperCase()} uses the polar UPS grid here: ${c.name}.` : `${kind.toUpperCase()} uses UTM zone ${c.zone}${c.north ? "N" : "S"} here: ${c.name}.`);
     } catch (e) {
       setGridMsg(errorText(e));
     }
@@ -297,8 +297,8 @@ function CrsPickerDialog({ title, initial, onPick, onClose }: { title: string; i
           <DialogContent>
             <div className="btn-row">
               <Button size="small" appearance="subtle" onClick={() => setSel({ id: "EPSG:3857", name: "WGS 84 / Pseudo-Mercator (Web Mercator)" })}>Web Mercator (EPSG:3857)</Button>
-              <Button size="small" appearance="subtle" onClick={() => void gridCrs("usng")} title="NAD 83 UTM in the United States and Canada, WGS 84 elsewhere; the zone of the map view's centre">USNG (UTM zone of the view)</Button>
-              <Button size="small" appearance="subtle" onClick={() => void gridCrs("mgrs")} title="WGS 84 UTM, the zone of the map view's centre">MGRS (UTM zone of the view)</Button>
+              <Button size="small" appearance="subtle" onClick={() => void gridCrs("mgrs")} title="WGS 84 UTM, the zone of the map view's centre (the polar UPS grid beyond 84°N and 80°S)">MGRS (UTM zone of the view)</Button>
+              <Button size="small" appearance="subtle" onClick={() => void gridCrs("usng")} title="The same grid and coordinate system as MGRS (WGS 84), written with spaces">USNG (UTM zone of the view)</Button>
             </div>
             {gridMsg && <div className="props-hint" data-testid="grid-crs-note">{gridMsg}</div>}
             <CrsPicker value={sel?.id ?? null} onChange={(id, name) => setSel({ id, name })} />

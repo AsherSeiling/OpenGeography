@@ -7,19 +7,19 @@ use crate::layout::geo::{Body, FrameCrs};
 use crate::usng::{self, Datum, Style};
 use std::collections::HashMap;
 
-const STYLES: &[(&str, &str)] = &[("usng", "USNG (15T VG 97470 47556)"), ("mgrs", "MGRS (15TVG9747047556)")];
-const DATUMS: &[(&str, &str)] = &[("auto", "NAD 83 in North America, WGS 84 elsewhere"), ("nad83", "NAD 83"), ("wgs84", "WGS 84")];
+const STYLES: &[(&str, &str)] = &[("mgrs", "MGRS (15TVG9747047556)"), ("usng", "USNG (15T VG 97470 47556)")];
+const DATUMS: &[(&str, &str)] = &[("wgs84", "WGS 84"), ("nad83", "NAD 83 (zones 1–23 north)"), ("auto", "NAD 83 in North America, WGS 84 elsewhere")];
 const PRECISIONS: &[(&str, &str)] = &[
+    ("2", "1 km (2 digits)"),
     ("5", "1 m (5 digits)"),
     ("4", "10 m (4 digits)"),
     ("3", "100 m (3 digits)"),
-    ("2", "1 km (2 digits)"),
     ("1", "10 km (1 digit)"),
     ("0", "100 km square only"),
 ];
 
 fn precision(p: &Params) -> u8 {
-    p.str("precision").and_then(|s| s.parse().ok()).filter(|n| *n <= 5).unwrap_or(5)
+    p.str("precision").and_then(|s| s.parse().ok()).filter(|n| *n <= 5).unwrap_or(2)
 }
 
 /// Add a USNG or MGRS reference for each feature (a point on a line or polygon) as a text field.
@@ -37,9 +37,9 @@ impl Tool for AddUsng {
             output: Some(PortKind::Vector),
             params: vec![
                 Param::new("field", "Field name", ParamKind::Text).default("USNG"),
-                Param::new("style", "Written as", ParamKind::Enum).default("usng").options(STYLES).help("USNG and MGRS are the same grid; USNG puts spaces in"),
-                Param::new("precision", "Precision", ParamKind::Enum).default("5").options(PRECISIONS),
-                Param::new("datum", "Datum", ParamKind::Enum).default("auto").options(DATUMS).help("USNG is defined on NAD 83 (the same as WGS 84 to about a metre in the United States)"),
+                Param::new("style", "Written as", ParamKind::Enum).default("mgrs").options(STYLES).help("USNG and MGRS are the same grid; USNG puts spaces in"),
+                Param::new("precision", "Precision", ParamKind::Enum).default("2").options(PRECISIONS),
+                Param::new("datum", "Datum", ParamKind::Enum).default("wgs84").options(DATUMS).help("USNG is defined on NAD 83, which matches WGS 84 to about a metre in the United States; the polar grids are always WGS 84"),
             ],
         }
     }
@@ -57,7 +57,7 @@ impl Tool for AddUsng {
         let pt = if ctx.dimension(i)? == 0 { "t.geom" } else { "ST_PointOnSurface(t.geom)" };
         let (sql, skipped) = usng::add_field_sql(Some(ctx.conn), &i.table, &crs, pt, &field, precision(p), style, datum, None)?;
         if skipped > 0 {
-            ctx.add_note(format!("{skipped} feature{} {} no {} reference: no location, or outside 80°S–84°N where the grid is not defined here.", if skipped == 1 { "" } else { "s" }, if skipped == 1 { "has" } else { "have" }, style.name()));
+            ctx.add_note(format!("{skipped} feature{} {} no {} reference because {} no location.", if skipped == 1 { "" } else { "s" }, if skipped == 1 { "has" } else { "have" }, style.name(), if skipped == 1 { "it has" } else { "they have" }));
         }
         Ok(Output::Select { sql: format!("SELECT * EXCLUDE (geom), geom FROM ({sql})"), crs: i.crs.clone(), view: false })
     }
@@ -79,7 +79,7 @@ impl Tool for UsngToPoints {
             params: vec![
                 Param::new("field", "Reference field", ParamKind::Field).field_of("in"),
                 Param::new("where", "Place the point at", ParamKind::Enum).default("centre").options(&[("centre", "The centre of the named square"), ("corner", "Its lower-left corner")]),
-                Param::new("datum", "Datum", ParamKind::Enum).default("auto").options(DATUMS),
+                Param::new("datum", "Datum", ParamKind::Enum).default("wgs84").options(DATUMS),
             ],
         }
     }
@@ -109,7 +109,8 @@ impl Tool for UsngToPoints {
         for v in &values {
             let one = (|| -> Result<(f64, f64)> {
                 let r = usng::parse(v)?;
-                let north = r.band >= 'N';
+                // Polar references (zone 0) are UPS on WGS 84; the others UTM on the chosen datum.
+                let north = if r.zone == 0 { r.band == 'Y' || r.band == 'Z' } else { r.band >= 'N' };
                 let code = usng::utm_crs(r.zone, north, datum);
                 if !code.starts_with("EPSG:269") {
                     any_wgs = true;
@@ -121,7 +122,7 @@ impl Tool for UsngToPoints {
                     }
                     cache[&code].to_lonlat(e, n)
                 };
-                let (e, n, _) = usng::to_utm(&r, &to_ll)?;
+                let (e, n, _) = if r.zone == 0 { usng::to_ups(&r)? } else { usng::to_utm(&r, &to_ll)? };
                 let half = if centre { r.cell_m() / 2.0 } else { 0.0 };
                 to_ll(e + half, n + half, north)
             })();
@@ -166,21 +167,23 @@ impl Tool for UsngGrid {
             output: Some(PortKind::Vector),
             params: vec![
                 Param::new("interval", "Square size", ParamKind::Enum).default("1000").options(&[("100000", "100 km"), ("10000", "10 km"), ("1000", "1 km"), ("100", "100 m")]),
-                Param::new("style", "Written as", ParamKind::Enum).default("usng").options(STYLES),
-                Param::new("datum", "Datum", ParamKind::Enum).default("auto").options(DATUMS),
+                Param::new("style", "Written as", ParamKind::Enum).default("mgrs").options(STYLES),
+                Param::new("datum", "Datum", ParamKind::Enum).default("wgs84").options(DATUMS),
+                Param::new("field", "Label field name", ParamKind::Text).default("MGRS").help("Named MGRS or USNG to match how it is written"),
                 Param::new("clip", "Only squares touching features", ParamKind::Bool).default(false),
             ],
         }
     }
 
     fn output_fields(&self) -> OutFields {
-        OutFields::from(&[]).add(NewField::new("USNG", "VARCHAR"))
+        OutFields::from(&[]).add(NewField::new("MGRS", "VARCHAR").named_by("field"))
     }
 
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let crs = need_crs(i)?.to_string();
         let style = Style::parse(&p.str("style").unwrap_or_default())?;
+        let label_field = p.str("field").unwrap_or_else(|| style.name().to_string());
         let datum = Datum::parse(&p.str("datum").unwrap_or_default())?;
         let size: f64 = p.f64("interval").unwrap_or(1000.0);
         let digits = match size as i64 {
@@ -191,8 +194,8 @@ impl Tool for UsngGrid {
             _ => bail!("Square size must be 100 km, 10 km, 1 km or 100 m"),
         };
         let (lon, lat) = ctx.center_lonlat(i)?;
-        if !(-80.0..=84.0).contains(&lat) {
-            bail!("The USNG/MGRS grid covers 80°S to 84°N; this layer is centred at {lat:.1}°");
+        if usng::is_polar(lat) {
+            bail!("This layer is centred at {lat:.1}°, in the polar (UPS) grid. This tool draws the UTM part of the grid (80°S to 84°N); references there can still be written with Add USNG / MGRS Field");
         }
         let zone = usng::zone_of(lon, lat);
         let north = lat >= 0.0;
@@ -214,7 +217,7 @@ impl Tool for UsngGrid {
             ix1 + 1,
             iy1 + 1
         );
-        let (labelled, _) = usng::add_field_sql(None, "\"{out}_cells\"", &utm, "ST_Centroid(t.geom)", "USNG", digits, style, datum, Some((zone, north)))?;
+        let (labelled, _) = usng::add_field_sql(None, "\"{out}_cells\"", &utm, "ST_Centroid(t.geom)", &label_field, digits, style, datum, Some((zone, north)))?;
         let touch = if p.bool("clip") {
             format!(" WHERE EXISTS (SELECT 1 FROM {} f WHERE ST_Intersects(l.geom, ST_Transform(f.geom, {c}, {u}, true)))", ident(&i.table))
         } else {
@@ -223,7 +226,7 @@ impl Tool for UsngGrid {
         Ok(Output::Script {
             statements: vec![
                 format!("CREATE OR REPLACE TABLE \"{{out}}_cells\" AS {cells}"),
-                format!("CREATE OR REPLACE TABLE \"{{out}}\" AS SELECT USNG, geom FROM ({labelled}) l{touch}"),
+                format!("CREATE OR REPLACE TABLE \"{{out}}\" AS SELECT {}, geom FROM ({labelled}) l{touch}", ident(&label_field)),
                 "DROP TABLE \"{out}_cells\"".to_string(),
             ],
             crs: Some(utm),
