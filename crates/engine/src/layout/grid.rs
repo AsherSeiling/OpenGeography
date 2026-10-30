@@ -6,7 +6,7 @@
 //! frame-CRS units.
 
 use super::geo::{Body, FrameCrs};
-use super::model::{GridSpec, GridStyle, LabelFormat, Placement};
+use super::model::{GridSpec, GridStyle, LabelEdges, LabelFormat, Placement};
 use super::slots::GRID_LABEL_PT;
 use super::surround::{nice_floor, num, text_slot};
 use super::svg::{self, esc};
@@ -83,25 +83,39 @@ fn cross_x(pts: &[(f64, f64)], x: f64, y0: f64, y1: f64) -> Option<f64> {
 
 /// Edge label of a line given as page points, below the frame (above it when
 /// `flip`, or when the line doesn't reach the bottom edge).
-fn meridian_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, flip: bool) {
+fn meridian_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, flip: bool, strict: bool) {
     let pt = at.slot_pt(slot, GRID_LABEL_PT);
     let (y_bot, y_top) = (at.y + at.h, at.y);
     let bottom = cross_y(pts, y_bot, at.x, at.x + at.w).map(|x| (x, y_bot + 0.6 + pt * PT_MM * 0.9));
     let top = cross_y(pts, y_top, at.x, at.x + at.w).map(|x| (x, y_top - 0.8));
-    if let Some((x, y)) = if flip { top.or(bottom) } else { bottom.or(top) } {
+    if let Some((x, y)) = if strict { if flip { top } else { bottom } } else if flip { top.or(bottom) } else { bottom.or(top) } {
         label(out, at, slot, x, y, "middle", text);
     }
 }
 
 /// Edge label of a line, left of the frame (right of it when `flip`, or when
 /// the line doesn't reach the left edge).
-fn parallel_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, flip: bool) {
+fn parallel_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, flip: bool, strict: bool) {
     let (x_left, x_right) = (at.x, at.x + at.w);
     let dy = at.slot_pt(slot, GRID_LABEL_PT) * PT_MM * 0.35;
     let left = cross_x(pts, x_left, at.y, at.y + at.h).map(|y| (x_left - 0.8, y + dy, "end"));
     let right = cross_x(pts, x_right, at.y, at.y + at.h).map(|y| (x_right + 0.8, y + dy, "start"));
-    if let Some((x, y, anchor)) = if flip { right.or(left) } else { left.or(right) } {
+    if let Some((x, y, anchor)) = if strict { if flip { right } else { left } } else if flip { right.or(left) } else { left.or(right) } {
         label(out, at, slot, x, y, anchor, text);
+    }
+}
+
+/// Label a line on the edges the spec asks for (`auto_flip`: what "auto" does for this line set).
+fn put_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, vertical: bool, spec: &GridSpec, auto_flip: bool) {
+    let draw = |out: &mut String, flip: bool, strict: bool| if vertical { meridian_label(out, at, slot, pts, text, flip, strict) } else { parallel_label(out, at, slot, pts, text, flip, strict) };
+    match spec.label_edges {
+        LabelEdges::Auto => draw(out, auto_flip, false),
+        LabelEdges::BottomLeft => draw(out, false, false),
+        LabelEdges::TopRight => draw(out, true, false),
+        LabelEdges::All => {
+            draw(out, false, true);
+            draw(out, true, true);
+        }
     }
 }
 
@@ -266,13 +280,14 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
     let (la0, la1) = ((lat_min - pad_lat).max(-89.9), (lat_max + pad_lat).min(89.9));
     let (lo0, lo1) = (lon_min - pad_lon, lon_max + pad_lon);
     let sample = |lon: f64, lat: f64| crs.from_lonlat(lon, lat).ok().filter(|p| p.0.is_finite() && p.1.is_finite()).map(|p| to_page(p.0, p.1));
+    let (lon_ends, lat_ends) = ((*lons.start(), *lons.end()), (*lats.start(), *lats.end()));
     for k in lons {
         let lon = k as f64 * step;
         let pts: Vec<_> = (0..=SAMPLES).map(|i| sample(lon, la0 + (la1 - la0) * i as f64 / SAMPLES as f64)).collect();
         for (n, seg) in segments(pts).iter().enumerate() {
             line_path(&mut out.lines, &format!("graticule-{}-lon{}{}", esc(&at.id), id_part(lon), if n > 0 { format!("-{n}") } else { String::new() }), seg, spec, at);
-            if spec.labels && n == 0 {
-                meridian_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &graticule_text(body, lon, true, step, d, spec.label_format), false);
+            if spec.labels && n == 0 && (!spec.corners_only || k == lon_ends.0 || k == lon_ends.1) {
+                put_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &graticule_text(body, lon, true, step, d, spec.label_format), true, spec, false);
             }
         }
     }
@@ -281,8 +296,8 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
         let pts: Vec<_> = (0..=SAMPLES).map(|i| sample(lo0 + (lo1 - lo0) * i as f64 / SAMPLES as f64, lat)).collect();
         for (n, seg) in segments(pts).iter().enumerate() {
             line_path(&mut out.lines, &format!("graticule-{}-lat{}{}", esc(&at.id), id_part(lat), if n > 0 { format!("-{n}") } else { String::new() }), seg, spec, at);
-            if spec.labels && n == 0 {
-                parallel_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &graticule_text(body, lat, false, step, d, spec.label_format), false);
+            if spec.labels && n == 0 && (!spec.corners_only || k == lat_ends.0 || k == lat_ends.1) {
+                put_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &graticule_text(body, lat, false, step, d, spec.label_format), false, spec, false);
             }
         }
     }
@@ -322,20 +337,21 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         warnings.push(format!("Frame '{}': two-digit grid labels need an interval of 1000 m or more; full numbers are shown", at.id));
     }
     let fmt = |v: f64| grid_text(v, step, crs.unit_m, spec.label_format);
+    let (x_ends, y_ends) = ((*xs.start(), *xs.end()), (*ys.start(), *ys.end()));
     for k in xs {
         let x = k as f64 * step;
         let pts = [to_page(x, extent[1]), to_page(x, extent[3])];
         line_path(&mut out.lines, &format!("grid-{}-x{}", esc(&at.id), id_part(x)), &pts, spec, at);
-        if spec.labels {
-            meridian_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(x), flip);
+        if spec.labels && (!spec.corners_only || k == x_ends.0 || k == x_ends.1) {
+            put_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(x), true, spec, flip);
         }
     }
     for k in ys {
         let y = k as f64 * step;
         let pts = [to_page(extent[0], y), to_page(extent[2], y)];
         line_path(&mut out.lines, &format!("grid-{}-y{}", esc(&at.id), id_part(y)), &pts, spec, at);
-        if spec.labels {
-            parallel_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(y), flip);
+        if spec.labels && (!spec.corners_only || k == y_ends.0 || k == y_ends.1) {
+            put_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(y), false, spec, flip);
         }
     }
     if let Some(sub) = spec.sub_interval {
@@ -367,6 +383,30 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         }
         if !d.is_empty() {
             let _ = write!(out.lines, "<path id=\"grid-{}-crosses\" d=\"{d}\"/>", esc(&at.id));
+        }
+    }
+    if spec.square_letters {
+        match crs.utm_zone() {
+            Some((zone, south)) if crs.unit_m == 1.0 => {
+                let pt = at.slot_pt("map_frame.grid_labels", GRID_LABEL_PT);
+                for ci in (extent[0] / 100_000.0).floor() as i64..=(extent[2] / 100_000.0).floor() as i64 {
+                    for ri in (extent[1] / 100_000.0).floor() as i64..=(extent[3] / 100_000.0).floor() as i64 {
+                        // The visible part of this 100 km square, and its middle.
+                        let (e0, e1) = ((ci as f64 * 100_000.0).max(extent[0]), ((ci + 1) as f64 * 100_000.0).min(extent[2]));
+                        let (n0, n1) = ((ri as f64 * 100_000.0).max(extent[1]), ((ri + 1) as f64 * 100_000.0).min(extent[3]));
+                        let (ce, cn) = ((e0 + e1) / 2.0, (n0 + n1) / 2.0);
+                        let (ce_sq, cn_sq) = (ci as f64 * 100_000.0 + 50_000.0, ri as f64 * 100_000.0 + 50_000.0);
+                        if let Ok((_, lat)) = crs.to_lonlat(ce, cn) {
+                            if let Some(t) = mgrs_designation(zone, south, ce_sq, cn_sq, lat) {
+                                let (x, y) = to_page(ce, cn);
+                                let letters = t.split(' ').nth(1).unwrap_or("");
+                                text_slot(&mut out.labels, x, y, letters, "sans", pt * 2.5, "middle", at, "map_frame.grid_labels");
+                            }
+                        }
+                    }
+                }
+            }
+            _ => warnings.push(format!("Frame '{}': the 100 km square letters need a UTM coordinate system in metres", at.id)),
         }
     }
     if spec.designation {

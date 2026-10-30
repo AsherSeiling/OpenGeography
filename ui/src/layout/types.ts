@@ -118,6 +118,12 @@ export interface GridSpec {
   tickLength?: number;
   /** Graticule: auto, dms, decimal. Grid: auto (metres), metres, km, short (two digits, as on military maps). */
   labelFormat?: "auto" | "dms" | "decimal" | "metres" | "km" | "short";
+  /** Which edges carry the labels; auto = bottom and left. */
+  labelEdges?: "auto" | "all" | "bottomleft" | "topright";
+  /** Label only the outermost line of each direction. */
+  cornersOnly?: boolean;
+  /** Grid on a UTM frame: the 100 km square letters in each square. */
+  squareLetters?: boolean;
   /** Grid only: lighter lines between the main ones (CRS units; must divide the interval evenly). */
   subInterval?: number;
   /** Grid on a UTM frame: print the zone, band and 100 km square under the lower-left corner. */

@@ -241,12 +241,31 @@ pub struct GridSpec {
     /// How the labels read; "auto" keeps the kind's default.
     #[serde(default, rename = "labelFormat")]
     pub label_format: LabelFormat,
+    /// Which frame edges carry the labels; auto = bottom and left (top and right for a grid drawn with a graticule).
+    #[serde(default, rename = "labelEdges")]
+    pub label_edges: LabelEdges,
+    /// Label only the outermost line of each direction (the frame's corners).
+    #[serde(default, rename = "cornersOnly")]
+    pub corners_only: bool,
+    /// Grid only, UTM frames: the 100 km square letters ("VK") in the middle of each square's visible part.
+    #[serde(default, rename = "squareLetters")]
+    pub square_letters: bool,
     /// Grid only: a finer set of lines drawn lighter between the main ones (CRS units, must divide the interval evenly; 1000 inside a 10 000 grid).
     #[serde(default, rename = "subInterval")]
     pub sub_interval: Option<f64>,
     /// Grid only, UTM frames: print the zone, latitude band and 100 km square ("15T WK") under the frame's lower-left corner.
     #[serde(default)]
     pub designation: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LabelEdges {
+    #[default]
+    Auto,
+    All,
+    BottomLeft,
+    TopRight,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
