@@ -1033,8 +1033,28 @@ impl Engine {
             return self.tile(id, z, x, y, fields);
         }
         let info = self.layer(id)?;
-        if info.is_raster() {
-            return Err(anyhow!("Rasters aren't drawn in this coordinate system yet"));
+        if let Some(r) = &info.raster {
+            // A raster tile on the map CRS's own grid: the file warped straight to that tile's rectangle (PROJ does the work, so a pole,
+            // a conic or a datum with grids is handled as for the vectors). No display table is needed.
+            let (crs, di) = self.display_key(key)?;
+            let token = fields.first().map_or("", |f| f.as_str());
+            let cache_key: TileKey = (id.to_string(), info.version, z, x, y, format!("{key}|{token}"));
+            if let Some(t) = self.tile_cache.lock().get(&cache_key) {
+                return Ok(t.clone());
+            }
+            if info.crs.is_none() {
+                return Ok(Arc::new(Vec::new()));
+            }
+            let style = raster_style::RasterStyle::from_token(token)?;
+            let bounds = di.grid.tile_bounds(z, x, y)?;
+            let size = di.grid.tile_size;
+            let png = {
+                let _slot = raster::WarpSlot::take(); // at most one warp per core at a time (no GDAL handle is shared between threads)
+                raster::render_extent_styled(r, &style, &crs, bounds, size, size)?
+            };
+            let t = Arc::new(png);
+            self.tile_cache.lock().put(cache_key, t.clone());
+            return Ok(t);
         }
         let (_, di) = self.display_key(key)?;
         let cache_key: TileKey = (id.to_string(), info.version, z, x, y, format!("{key}|{}", fields.join(",")));

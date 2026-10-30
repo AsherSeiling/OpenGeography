@@ -177,7 +177,7 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 | R-G4 | Identify / sample from another CRS | point given in 4326 on a UTM raster, and the reverse | value equals the native lookup; point outside the domain = no value (B-T6) | auto: crs_raster::r_g4 (+ P18 at the pole: crs_raster::p18) |
 | R-G5 | Terrain in a geographic CRS | analytic 30° slope in a 4326 DEM | slope 30° ± 0.5°; aspect correct; hillshade matches the projected run | auto: crs_raster::r_g5 (30° north- and east-facing planes at 45° N, aspect; G11 fixed) |
 | R-G6 | Contours / polygonize | DEM in 4326 and in 2277 | CRS carried; interval in elevation units; vertical unit stated as unknown | to automate (contours/polygonize CRS carry) |
-| R-G7 | Raster and vector line up | raster of a known rectangle and a vector of the same rectangle, same CRS, `render_extent` in the zoo | edges within 1 px | to automate with M4 (render_extent alignment) |
+| R-G7 | Raster and vector line up | raster of a known rectangle and a vector of the same rectangle, same CRS, `render_extent` in the zoo | edges within 1 px | auto: tests/raster_crs_tiles.rs (UTM 15N; the full zoo is still to do) |
 | R-G8 | Clip raster by vector in another CRS | polygon in 4326, raster in UTM | extent = polygon's transformed bounds, ≤ 1 pixel | to automate (clip raster by vector in another CRS) |
 | R-G9 | Rotated / sheared geotransform | rotated GeoTIFF through Warp, Clip, Identify | correct or refused with a message; never an axis-aligned reading | to automate (rotated geotransform; geographic terrain refuses a rotated raster in words) |
 | R-G10 | Raster edge cases | no CRS (existing), zero-size, all NoData, CRS-less world file | readable errors; no crash | partial: crs_raster::r_g10 (no CRS refused in words; all NoData imports with a warning, C-8); zero-size and CRS-less world file to add |
@@ -247,7 +247,7 @@ For each case the fixture shapes (points, a 2 km line, a 1 km² polygon, a polyg
 |---|---|---|---|---|
 | R-K1 | Reference suite on all platforms | CI macOS, Windows, Linux | all R-A/R-D pass with one tolerance table; log prints PROJ and GDAL versions | planned R7 (risk G13) |
 | R-K2 | Bundled data is the data used | packaged app `--self-test` | prints `proj.db` version and the datum grids found; asserts R-D1 on the bundled data | planned R3 (self-test), R7 (3 OS) |
-| R-K3 | Concurrency | 16 threads × reproject 100 k points + tiles in 3 CRSs, 20 repeats | no crash; results equal the single-thread run | planned R7 (shares M4 P17) |
+| R-K3 | Concurrency | 16 threads × reproject 100 k points + tiles in 3 CRSs, 20 repeats | no crash; results equal the single-thread run | planned R7; raster part done: tests/raster_crs_tiles.rs (32 threads × 5 rounds, same bytes every time) |
 | R-K4 | Performance | 1 M points 4326 → UTM; 100 k polygons × 50 vertices Project | < 3 s; < 20 s (release); baseline file, fail on > 25 % slowdown | planned R7 (ignored, perf) |
 | R-K5 | Cancel | Project of 3 M points, Cancel | stops within 2 s; layer unchanged | planned R7 (extends §13) |
 | R-K6 | Offline PROJ | grid missing, no network | no network request is made (`PROJ_NETWORK` off); same message as R-D4 | planned R3 |
@@ -1018,3 +1018,5 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | USNG-8 | Defaults | MGRS written first, 1 km (2 digits), WGS 84 datum everywhere (tools, exports, CRS buttons, map grid); NAD 83 and the 'NAD 83 in North America' choice stay available | auto: the specs above |
 | USNG-9 | Not built | the USNG / MGRS Grid tool does not draw the polar (UPS) squares; a USNG readout when clicking the map | — |
 | MN-1 | Clearable map messages | each warning drawn over the map ("N features aren't drawn", "Basemap may be offset", unsupported rasters) has a × to clear it, and "Clear all messages" appears when there are two or more; a cleared message stays hidden while its text is the same and returns if the text changes; "Projecting…" lines are not clearable | auto: mapNotices.test.ts, e2e/map-notices.spec.ts |
+| M4-1 | Rasters in every map CRS | a raster draws in UTM, Albers and polar stereographic with tiles from that CRS's grid (PNG, 200); across the South Pole in EPSG:3031 (alpha 255 at the pole, 0 beyond the data); known rectangle within one pixel in UTM 15N; 32 threads agree byte for byte | auto: tests/raster_crs_tiles.rs, e2e/raster-any-crs.spec.ts |
+| M4-2 | Not built | 3M-point pan performance trace (P16), engine-drawn basemaps, the whole 18-CRS zoo for raster alignment | — |

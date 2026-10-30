@@ -387,6 +387,34 @@ pub fn render_tile(info: &RasterInfo, z: u32, x: u32, y: u32, style: &RasterStyl
     render_extent_styled(info, style, crate::crs::WEB_MERCATOR, [x0, y1 - size, x0 + size, y1], 256, 256)
 }
 
+/// Concurrent map tiles each warp their own copy of the raster; this keeps the number running at once to the machine's cores, so a
+/// busy map cannot pile up dozens of warps. Held while a tile is drawn, released when it drops.
+pub struct WarpSlot;
+
+static WARP_SLOTS: std::sync::OnceLock<(parking_lot::Mutex<usize>, parking_lot::Condvar)> = std::sync::OnceLock::new();
+
+impl WarpSlot {
+    pub fn take() -> WarpSlot {
+        let (m, cv) = WARP_SLOTS.get_or_init(|| (parking_lot::Mutex::new(0), parking_lot::Condvar::new()));
+        let cap = std::thread::available_parallelism().map_or(2, |n| n.get());
+        let mut running = m.lock();
+        while *running >= cap {
+            cv.wait(&mut running);
+        }
+        *running += 1;
+        WarpSlot
+    }
+}
+
+impl Drop for WarpSlot {
+    fn drop(&mut self) {
+        if let Some((m, cv)) = WARP_SLOTS.get() {
+            *m.lock() -= 1;
+            cv.notify_one();
+        }
+    }
+}
+
 /// A PNG of `extent` (`[xmin, ymin, xmax, ymax]` in `crs`) at `w_px` × `h_px`:
 /// the raster warped to that grid and coloured like the map (elevation ramp
 /// with hillshade, or RGB). Pixels with no data are transparent. Map tiles
