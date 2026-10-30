@@ -8,6 +8,7 @@ use super::export;
 use super::frame::{class_color, PX_MM};
 use super::geo::{self, Factors};
 use super::model::{LayerStyle, Placement, RenderRequest, StyleKind};
+use super::slots::{BAR_LABEL_PT, LEGEND_PT, SOURCES_PT, TITLE_PT};
 use super::svg::{self, esc, mm, opacity};
 use crate::layers::LayerInfo;
 use std::fmt::Write;
@@ -96,16 +97,35 @@ fn font_attrs(font: &str) -> (&'static str, &'static str) {
     }
 }
 
-/// One line of text with its baseline at `y`.
-pub(super) fn text_line(out: &mut String, x: f64, y: f64, text: &str, font: &str, size_pt: f64, anchor: &str) {
-    let (weight, style) = font_attrs(font);
+/// One line of text in a slot of the element (`legend.title`, see `slots.rs`): the slot's style (font, bold, italic, underline, colour,
+/// letter spacing, halo) is applied on top of `font`; `size_pt` is already the slot's size (`Placement::slot_pt`).
+pub(super) fn text_slot(out: &mut String, x: f64, y: f64, text: &str, font: &str, size_pt: f64, anchor: &str, at: &Placement, slot: &str) {
+    let st = at.slot_style(slot);
+    let (mut weight, mut fstyle) = font_attrs(font);
+    if let Some(b) = st.and_then(|t| t.bold) {
+        weight = if b { "700" } else { "400" };
+    }
+    if let Some(i) = st.and_then(|t| t.italic) {
+        fstyle = if i { "italic" } else { "normal" };
+    }
+    let mut extra = String::new();
+    if st.and_then(|t| t.underline) == Some(true) {
+        extra.push_str(" text-decoration=\"underline\"");
+    }
+    if let Some(ls) = st.and_then(|t| t.letter_spacing).filter(|v| v.is_finite() && v.abs() <= 10.0 && *v != 0.0) {
+        let _ = write!(extra, " letter-spacing=\"{}\"", mm(ls));
+    }
+    if let (Some(hc), Some(hw)) = (st.and_then(|t| t.halo_color.as_deref()), st.and_then(|t| t.halo_width).filter(|w| w.is_finite() && *w > 0.0 && *w <= 5.0)) {
+        let _ = write!(extra, " stroke=\"{}\" stroke-width=\"{}\" stroke-linejoin=\"round\" paint-order=\"stroke\"", svg::color(hc, "#ffffff"), mm(hw * 2.0));
+    }
     let _ = write!(
         out,
-        "<text x=\"{}\" y=\"{}\" font-family=\"{}\" font-weight=\"{weight}\" font-style=\"{style}\" font-size=\"{}\" fill=\"#000000\" text-anchor=\"{anchor}\">{}</text>",
+        "<text x=\"{}\" y=\"{}\" font-family=\"{}\" font-weight=\"{weight}\" font-style=\"{fstyle}\" font-size=\"{}\" fill=\"{}\" text-anchor=\"{anchor}\"{extra}>{}</text>",
         mm(x),
         mm(y),
-        export::font_family(),
+        export::font_stack(st.and_then(|t| t.family.as_deref())),
         mm(size_pt * PT_MM),
+        svg::color(st.and_then(|t| t.color.as_deref()).unwrap_or("#000000"), "#000000"),
         esc(text)
     );
 }
@@ -162,7 +182,6 @@ pub fn plan_bar(units: &str, segments: u32, k: f64, scale: f64, max_mm: f64) -> 
     Some(BarPlan { unit, segment, segments: n, length_mm: segment * n as f64 * per_unit })
 }
 
-const BAR_LABEL_PT: f64 = 7.0;
 
 pub const BAR_STYLES: &[&str] = &["alternating", "hollow", "line", "ticks", "double"];
 pub const ARROW_STYLES: &[&str] = &["simple", "compass", "arrow", "triangle", "half", "rose", "circle", "custom"];
@@ -198,7 +217,8 @@ pub fn verbal_scale(scale: f64, units: &str) -> String {
     format!("1 cm on the map = {} {u}", num((v * 100.0).round() / 100.0))
 }
 
-fn draw_bar(out: &mut String, x0: f64, y0: f64, bar_h: f64, plan: &BarPlan, style: &str, color: &str, labels_below: bool) -> f64 {
+fn draw_bar(out: &mut String, at: &Placement, x0: f64, y0: f64, bar_h: f64, plan: &BarPlan, style: &str, color: &str, labels_below: bool) -> f64 {
+    let num_pt = at.slot_pt("scale_bar.numbers", BAR_LABEL_PT);
     let seg_mm = plan.length_mm / plan.segments as f64;
     let c = svg::color(color, "#000000");
     match style {
@@ -219,11 +239,11 @@ fn draw_bar(out: &mut String, x0: f64, y0: f64, bar_h: f64, plan: &BarPlan, styl
         }
     }
     let _ = labels_below;
-    let label_y = y0 + bar_h + 0.8 + BAR_LABEL_PT * PT_MM * 0.8;
+    let label_y = y0 + bar_h + 0.8 + num_pt * PT_MM * 0.8;
     for i in 0..=plan.segments {
         let v = plan.segment * i as f64;
         let label = if i == plan.segments { format!("{} {}", num(v), plan.unit) } else { num(v) };
-        text_line(out, x0 + seg_mm * i as f64, label_y, &label, "sans", BAR_LABEL_PT, "middle");
+        text_slot(out, x0 + seg_mm * i as f64, label_y, &label, "sans", num_pt, "middle", at, "scale_bar.numbers");
     }
     label_y
 }
@@ -240,24 +260,25 @@ pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, o
     open_group(out, "scalebar", at);
     let x0 = at.x + 1.0;
     let bar_h = 2.0f64.min(at.h / 3.0);
-    let mut label_y = draw_bar(out, x0, at.y + 1.0, bar_h, &plan, style, o.color, true);
+    let mut label_y = draw_bar(out, at, x0, at.y + 1.0, bar_h, &plan, style, o.color, true);
     if style == "double" {
         // The same ground length again in the second unit, below the first bar's labels.
         let u2 = if o.units2.is_empty() { "mi" } else { o.units2 };
         if let Some(p2) = plan_bar(u2, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) {
             let y2 = label_y + 1.2;
-            label_y = draw_bar(out, x0, y2, bar_h, &p2, "alternating", o.color, true);
+            label_y = draw_bar(out, at, x0, y2, bar_h, &p2, "alternating", o.color, true);
         }
     }
     let mut line_y = label_y;
+    let note_pt = at.slot_pt("scale_bar.notes", BAR_LABEL_PT);
     if o.verbal {
-        line_y += BAR_LABEL_PT * PT_MM * 1.4;
-        text_line(out, x0, line_y, &verbal_scale(ctx.scale, o.units), "sans", BAR_LABEL_PT, "start");
+        line_y += note_pt * PT_MM * 1.4;
+        text_slot(out, x0, line_y, &verbal_scale(ctx.scale, o.units), "sans", note_pt, "start", at, "scale_bar.notes");
     }
     if o.ratio {
         // "1:24,000" on its own line under the distances, so it never collides with them.
-        line_y += BAR_LABEL_PT * PT_MM * 1.4;
-        text_line(out, x0, line_y, &format!("1:{}", super::grouped(ctx.scale)), "sans", BAR_LABEL_PT, "start");
+        line_y += note_pt * PT_MM * 1.4;
+        text_slot(out, x0, line_y, &format!("1:{}", super::grouped(ctx.scale)), "sans", note_pt, "start", at, "scale_bar.notes");
     }
     if (o.ratio || o.verbal || style == "double") && line_y > at.y + at.h + 1e-6 {
         warnings.push(if o.ratio { format!("Scale bar '{}' is too short for its 1:N label; make it taller", at.id) } else { format!("Scale bar '{}' does not fit its height; make it taller", at.id) });
@@ -299,11 +320,11 @@ pub fn north_arrow(out: &mut String, warnings: &mut Vec<String>, at: &Placement,
         out.push_str("</g></g>");
         return;
     }
-    let label_pt = 9.0f64.min(at.h * 0.3 / PT_MM);
+    let label_pt = at.slot_pt("north_arrow.letters", 9.0f64.min(at.h * 0.3 / PT_MM));
     let label_h = label_pt * PT_MM;
     let with_n = o.style != "rose";
     if with_n {
-        text_line(out, cx, at.y + label_h * 0.9, "N", "sans-bold", label_pt, "middle");
+        text_slot(out, cx, at.y + label_h * 0.9, "N", "sans-bold", label_pt, "middle", at, "north_arrow.letters");
     }
     let top = if with_n { at.y + label_h * 1.2 } else { at.y };
     let (len, half) = (at.y + at.h - top, (at.w / 2.0).min((at.y + at.h - top) * 0.3));
@@ -331,12 +352,12 @@ pub fn north_arrow(out: &mut String, warnings: &mut Vec<String>, at: &Placement,
             let right = [p(0.0, -1.0), p(0.2, -0.2), p(0.7, 0.0), p(0.2, 0.2), p(0.0, 1.0), p(0.0, 0.0)];
             let _ = write!(out, "<polygon points=\"{}\" fill=\"{c}\"/>", pts(&right));
             if o.style == "rose" {
-                let lp = (r * 0.2 / PT_MM).clamp(4.0, 8.0);
+                let lp = at.slot_pt("north_arrow.letters", (r * 0.2 / PT_MM).clamp(4.0, 8.0));
                 let (lx, ly) = (p(0.0, -1.0), p(0.0, 1.0));
-                text_line(out, lx.0, lx.1 - 0.6, "N", "sans-bold", lp, "middle");
-                text_line(out, ly.0, ly.1 + lp * PT_MM * 0.9, "S", "sans", lp, "middle");
-                text_line(out, cx + r * 1.0 + 0.8, mid + lp * PT_MM * 0.35, "E", "sans", lp, "start");
-                text_line(out, cx - r * 1.0 - 0.8, mid + lp * PT_MM * 0.35, "W", "sans", lp, "end");
+                text_slot(out, lx.0, lx.1 - 0.6, "N", "sans-bold", lp, "middle", at, "north_arrow.letters");
+                text_slot(out, ly.0, ly.1 + lp * PT_MM * 0.9, "S", "sans-bold", lp, "middle", at, "north_arrow.letters");
+                text_slot(out, cx + r * 1.0 + 0.8, mid + lp * PT_MM * 0.35, "E", "sans-bold", lp, "start", at, "north_arrow.letters");
+                text_slot(out, cx - r * 1.0 - 0.8, mid + lp * PT_MM * 0.35, "W", "sans-bold", lp, "end", at, "north_arrow.letters");
             }
         }
         "arrow" => {
@@ -375,8 +396,6 @@ const ROW_MM: f64 = 5.0;
 const SWATCH_W: f64 = 7.0;
 const SWATCH_GAP: f64 = 2.5;
 const LEGEND_PAD: f64 = 2.0;
-const LEGEND_PT: f64 = 8.0;
-const TITLE_PT: f64 = 10.0;
 
 #[derive(Clone, Copy)]
 enum Sym {
@@ -543,9 +562,11 @@ pub struct LegendRowInfo {
 
 #[allow(clippy::too_many_arguments)]
 pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<LegendRowInfo>, at: &Placement, o: &LegendOpts, ctx: &FrameCtx, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>) {
-    let text_pt = if o.text_pt > 0.0 { o.text_pt } else { LEGEND_PT };
-    let title_pt = if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT };
-    let row_mm = ROW_MM.max(text_pt * PT_MM * 1.7);
+    let base_pt = if o.text_pt > 0.0 { o.text_pt } else { LEGEND_PT };
+    let text_pt = at.slot_pt("legend.entries", base_pt);
+    let head_pt = at.slot_pt("legend.headings", base_pt);
+    let title_pt = at.slot_pt("legend.title", if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT });
+    let row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
     let mut rows: Vec<Row> = Vec::new();
     for id in &ctx.drawn {
         if let Some(info) = lookup(id) {
@@ -586,7 +607,7 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
     let mut top = at.y + LEGEND_PAD;
     if !o.title.trim().is_empty() {
         let t = ellipsize(o.title, "sans-bold", title_pt, at.w - 2.0 * LEGEND_PAD);
-        text_line(out, at.x + LEGEND_PAD, top + title_pt * PT_MM * 0.85, &t, "sans-bold", title_pt, "start");
+        text_slot(out, at.x + LEGEND_PAD, top + title_pt * PT_MM * 0.85, &t, "sans-bold", title_pt, "start", at, "legend.title");
         top += title_pt * PT_MM + 3.0;
     }
     let ncols = o.columns.clamp(1, 6) as usize;
@@ -612,10 +633,10 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
         if let Some((lo, hi)) = &row.ends {
             let w = (col_w - 1.0).min(SWATCH_W * 3.0);
             if hi.is_empty() {
-                text_line(out, cx, base, &ellipsize(lo, "sans", text_pt, col_w - 1.0), "sans", text_pt, "start");
+                text_slot(out, cx, base, &ellipsize(lo, "sans", text_pt, col_w - 1.0), "sans", text_pt, "start", at, "legend.entries");
             } else {
-                text_line(out, cx, base, lo, "sans", text_pt, "start");
-                text_line(out, cx + w, base, hi, "sans", text_pt, "end");
+                text_slot(out, cx, base, lo, "sans", text_pt, "start", at, "legend.entries");
+                text_slot(out, cx + w, base, hi, "sans", text_pt, "end", at, "legend.entries");
             }
             continue;
         }
@@ -623,9 +644,9 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
             Some((sym, color)) => {
                 swatch(out, cx, ry, *sym, color, &row.style, row_mm, o.patch);
                 let tx = cx + SWATCH_W + SWATCH_GAP;
-                text_line(out, tx, base, &ellipsize(&row.label, "sans", text_pt, col_w - SWATCH_W - SWATCH_GAP - 1.0), "sans", text_pt, "start");
+                text_slot(out, tx, base, &ellipsize(&row.label, "sans", text_pt, col_w - SWATCH_W - SWATCH_GAP - 1.0), "sans", text_pt, "start", at, "legend.entries");
             }
-            None => text_line(out, cx, base, &ellipsize(&row.label, "sans-bold", text_pt, col_w - 1.0), "sans-bold", text_pt, "start"),
+            None => text_slot(out, cx, base - (text_pt - head_pt) * PT_MM * 0.35, &ellipsize(&row.label, "sans-bold", head_pt, col_w - 1.0), "sans-bold", head_pt, "start", at, "legend.headings"),
         }
     }
     out.push_str("</g>");
@@ -645,12 +666,12 @@ pub fn sources(out: &mut String, warnings: &mut Vec<String>, at: &Placement, siz
     if seen.is_empty() {
         return;
     }
-    let size = if size > 0.0 { size } else { 6.0 };
+    let size = at.slot_pt("sources.text", if size > 0.0 { size } else { SOURCES_PT });
     let lines = wrap(&format!("Data: {}.", seen.join("; ")), "sans", size, at.w);
     let line_h = size * PT_MM * 1.25;
     open_group(out, "sources", at);
     for (i, l) in lines.iter().enumerate() {
-        text_line(out, at.x, at.y + size * PT_MM * 0.9 + line_h * i as f64, l, "sans", size, "start");
+        text_slot(out, at.x, at.y + size * PT_MM * 0.9 + line_h * i as f64, l, "sans", size, "start", at, "sources.text");
     }
     out.push_str("</g>");
     if size * PT_MM * 0.9 + line_h * (lines.len().saturating_sub(1)) as f64 + size * PT_MM * 0.3 > at.h + 1e-6 {

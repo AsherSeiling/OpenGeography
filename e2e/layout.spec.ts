@@ -87,6 +87,7 @@ test("M-19 layout: elements, drag/resize, undo, Set from Map View, Frame CRS, sc
   // Rename, duplicate, delete from the Layouts list in Contents
   app.removeAllListeners("dialog");
   app.on("dialog", (d) => (d.type() === "prompt" ? d.accept("Site map") : d.accept()));
+  await app.getByRole("tab", { name: "Contents" }).click(); // the layout workspace shows Items in that group
   await app.locator(".layout-row", { hasText: "Layout 1" }).hover(); // row buttons show on hover
   await app.getByRole("button", { name: "Rename Layout 1" }).click();
   await expect(app.locator(".layout-row", { hasText: "Site map" })).toBeVisible();

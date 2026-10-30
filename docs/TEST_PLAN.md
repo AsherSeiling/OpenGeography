@@ -983,4 +983,10 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LW-T1 | Ribbon fitting | the right-most groups shrink first; never wider than the window when avoidable; a collapsed button wider than icon-only is skipped; at least one group stays inline; a wider window never hides more; nothing is dropped | auto: ui/src/ribbon/ribbonFit.test.ts |
 | LW-T2 | No scroll bar | at 900, 1024, 1280, 1440 and 1920 px on Map, Insert, Analysis, Data, View, Feature Layer and Layout the ribbon body never scrolls; a command is still one click away; Ctrl+F1 and a double-click collapse it; Alt shows tab key tips | auto: e2e/ribbon-width.spec.ts |
 | LW-T3 | Key tips take no shortcut | Alt+a style combinations in the node editor still work (the model specs) | auto: e2e/model.spec.ts |
+| LW3-1 | Text slots | every piece of text an element draws has a slot (`layout/slots.rs`); the guard test fails if a new text draw has none; each slot changes size/colour in the drawing; family, bold, italic, underline, letter spacing and halo apply | auto: layout.rs text_slots_*, every_text_slot_*, slot_styles_* |
+| LW3-2 | Opacity and name | element opacity fades the whole element; old layouts load unchanged | auto: layout.rs element_opacity_* |
+| LW4-1 | Sectioned Properties | Content, Text sizes and fonts, Appearance (incl. opacity), Position and size; Name field; per-slot reset | auto: e2e/layout-text.spec.ts, layout-graphics.spec.ts |
+| LW2-1 | Items catalog | pane lists every element top first; search; eye, lock, double-click rename, drag to reorder (one undo step), Shift/Cmd selection, Group/Ungroup | auto: items.test.ts, e2e/layout-items.spec.ts |
+| LW1-1 | Layout workspace | opening a layout tab shows Items and Properties and shrinks the Model/Table group; the Map tab or closing the last layout puts them back | auto: e2e/layout-items.spec.ts (enter); leave is manual |
+| LW-OPEN | Not built yet | contextual ribbon tabs split (Layout/Insert/Arrange/Export), status bar zoom and pointer mm, Character panel, frame layers and legend entries as Items children, multi-selection Properties | — |
 

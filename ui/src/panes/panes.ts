@@ -2,7 +2,7 @@
 // floated; View → Reset Panes restores this default.
 import type { DockviewApi } from "dockview-react";
 
-export type PaneId = "contents" | "catalog" | "map" | "table" | "model" | "properties" | "tools" | "sources";
+export type PaneId = "contents" | "catalog" | "map" | "table" | "model" | "properties" | "tools" | "sources" | "items";
 
 export const PANE_TITLES: Record<PaneId, string> = {
   contents: "Contents",
@@ -13,6 +13,7 @@ export const PANE_TITLES: Record<PaneId, string> = {
   properties: "Properties",
   tools: "Geoprocessing",
   sources: "Sources",
+  items: "Items",
 };
 
 let dock: DockviewApi | null = null;
@@ -84,6 +85,7 @@ export function showPane(id: PaneId) {
     catalog: dock.getPanel("contents") ? { referencePanel: "contents", direction: "within" } : { direction: "left" },
     properties: { direction: "right" },
     tools: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : undefined,
+    items: dock.getPanel("contents") ? { referencePanel: "contents", direction: "within" } : { direction: "left" },
     sources: dock.getPanel("properties") ? { referencePanel: "properties", direction: "within" } : { direction: "right" },
     table: dock.getPanel("model") ? { referencePanel: "model", direction: "within" } : dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,
     model: dock.getPanel("table") ? { referencePanel: "table", direction: "within" } : dock.getPanel("map") ? { referencePanel: "map", direction: "below" } : undefined,

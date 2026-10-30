@@ -26,7 +26,7 @@ test("CG1 shapes, pictures and background/frame/shadow in a layout", async ({ ap
   await expect.poll(async () => (await state(app)).els.find((e: any) => e.kind === "picture")?.source).toMatch(/^data:image\/svg\+xml;base64,/);
 
   // Decor on the selected picture: background, frame and shadow from Properties.
-  await app.getByText("Background, frame and shadow").click();
+  await app.locator(".props-section-title", { hasText: "Appearance" }).click();
   await app.getByRole("checkbox", { name: "Background" }).check();
   await app.getByRole("checkbox", { name: "Drop shadow" }).check();
   const pic = (await state(app)).els.find((e: any) => e.kind === "picture");
@@ -175,7 +175,7 @@ test("CG6 page setup, guides, snapping, spread, group and the element list", asy
   expect(new Set(d.elements.map((e: any) => e.group)).size).toBe(1);
   await gis(app, (g, a: any) => g.useLayouts.getState().select([a.id]), { id: ids[0] });
   expect((await gis(app, (g) => g.useLayouts.getState().selected)) as string[]).toHaveLength(3);
-  await expect(app.locator(".layout-outline .row")).toHaveCount(3);
+  await expect(app.locator(".layout-outline .row[data-element]")).toHaveCount(3);
   await app.locator(`.layout-outline [data-element="${ids[1]}"] input[type=checkbox]`).uncheck();
   expect((await doc()).elements.find((e: any) => e.id === ids[1]).visible).toBe(false);
 });

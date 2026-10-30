@@ -7,14 +7,14 @@
 
 use super::geo::{Body, FrameCrs};
 use super::model::{GridSpec, Placement};
-use super::surround::{nice_floor, num};
-use super::svg::{self, esc, mm};
+use super::slots::GRID_LABEL_PT;
+use super::surround::{nice_floor, num, text_slot};
+use super::svg::{self, esc};
 use std::fmt::Write;
 
 /// Lines drawn per set before we refuse (a typo'd interval would draw millions).
 const MAX_LINES: usize = 200;
 const SAMPLES: usize = 64;
-const LABEL_PT: f64 = 6.0;
 const PT_MM: f64 = 25.4 / 72.0;
 
 pub struct GridOutput {
@@ -56,8 +56,8 @@ fn path(pts: &[(f64, f64)]) -> String {
     d
 }
 
-fn label(out: &mut String, x: f64, y: f64, anchor: &str, text: &str) {
-    let _ = write!(out, "<text x=\"{}\" y=\"{}\" font-family=\"{}\" font-size=\"{}\" fill=\"#000000\" text-anchor=\"{anchor}\">{}</text>", mm(x), mm(y), super::export::font_family(), mm(LABEL_PT * PT_MM), esc(text));
+fn label(out: &mut String, at: &Placement, slot: &str, x: f64, y: f64, anchor: &str, text: &str) {
+    text_slot(out, x, y, text, "sans", at.slot_pt(slot, GRID_LABEL_PT), anchor, at, slot);
 }
 
 /// Where the polyline first crosses the horizontal line `y` inside `[x0, x1]`.
@@ -79,24 +79,25 @@ fn cross_x(pts: &[(f64, f64)], x: f64, y0: f64, y1: f64) -> Option<f64> {
 
 /// Edge label of a line given as page points, below the frame (above it when
 /// `flip`, or when the line doesn't reach the bottom edge).
-fn meridian_label(out: &mut String, at: &Placement, pts: &[(f64, f64)], text: &str, flip: bool) {
+fn meridian_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, flip: bool) {
+    let pt = at.slot_pt(slot, GRID_LABEL_PT);
     let (y_bot, y_top) = (at.y + at.h, at.y);
-    let bottom = cross_y(pts, y_bot, at.x, at.x + at.w).map(|x| (x, y_bot + 0.6 + LABEL_PT * PT_MM * 0.9));
+    let bottom = cross_y(pts, y_bot, at.x, at.x + at.w).map(|x| (x, y_bot + 0.6 + pt * PT_MM * 0.9));
     let top = cross_y(pts, y_top, at.x, at.x + at.w).map(|x| (x, y_top - 0.8));
     if let Some((x, y)) = if flip { top.or(bottom) } else { bottom.or(top) } {
-        label(out, x, y, "middle", text);
+        label(out, at, slot, x, y, "middle", text);
     }
 }
 
 /// Edge label of a line, left of the frame (right of it when `flip`, or when
 /// the line doesn't reach the left edge).
-fn parallel_label(out: &mut String, at: &Placement, pts: &[(f64, f64)], text: &str, flip: bool) {
+fn parallel_label(out: &mut String, at: &Placement, slot: &str, pts: &[(f64, f64)], text: &str, flip: bool) {
     let (x_left, x_right) = (at.x, at.x + at.w);
-    let dy = LABEL_PT * PT_MM * 0.35;
+    let dy = at.slot_pt(slot, GRID_LABEL_PT) * PT_MM * 0.35;
     let left = cross_x(pts, x_left, at.y, at.y + at.h).map(|y| (x_left - 0.8, y + dy, "end"));
     let right = cross_x(pts, x_right, at.y, at.y + at.h).map(|y| (x_right + 0.8, y + dy, "start"));
     if let Some((x, y, anchor)) = if flip { right.or(left) } else { left.or(right) } {
-        label(out, x, y, anchor, text);
+        label(out, at, slot, x, y, anchor, text);
     }
 }
 
@@ -158,7 +159,7 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
         for (n, seg) in segments(pts).iter().enumerate() {
             let _ = write!(out.lines, "<path id=\"graticule-{}-lon{}{}\" d=\"{}\"/>", esc(&at.id), id_part(lon), if n > 0 { format!("-{n}") } else { String::new() }, path(seg));
             if spec.labels && n == 0 {
-                meridian_label(&mut out.labels, at, seg, &body.format_lon(lon, d), false);
+                meridian_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &body.format_lon(lon, d), false);
             }
         }
     }
@@ -168,7 +169,7 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
         for (n, seg) in segments(pts).iter().enumerate() {
             let _ = write!(out.lines, "<path id=\"graticule-{}-lat{}{}\" d=\"{}\"/>", esc(&at.id), id_part(lat), if n > 0 { format!("-{n}") } else { String::new() }, path(seg));
             if spec.labels && n == 0 {
-                parallel_label(&mut out.labels, at, seg, &body.format_lat(lat, d), false);
+                parallel_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &body.format_lat(lat, d), false);
             }
         }
     }
@@ -196,7 +197,7 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         let pts = [to_page(x, extent[1]), to_page(x, extent[3])];
         let _ = write!(out.lines, "<path id=\"grid-{}-x{}\" d=\"{}\"/>", esc(&at.id), id_part(x), path(&pts));
         if spec.labels {
-            meridian_label(&mut out.labels, at, &pts, &fmt(x), flip);
+            meridian_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(x), flip);
         }
     }
     for k in ys {
@@ -204,7 +205,7 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         let pts = [to_page(extent[0], y), to_page(extent[2], y)];
         let _ = write!(out.lines, "<path id=\"grid-{}-y{}\" d=\"{}\"/>", esc(&at.id), id_part(y), path(&pts));
         if spec.labels {
-            parallel_label(&mut out.labels, at, &pts, &fmt(y), flip);
+            parallel_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(y), flip);
         }
     }
     out

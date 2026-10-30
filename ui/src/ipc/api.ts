@@ -288,6 +288,18 @@ export interface TransformReport {
   text: string;
 }
 
+/** One text slot of a layout element (engine `layout/slots.rs`). */
+export interface TextSlot {
+  kind: string;
+  id: string;
+  label: string;
+  /** Default size in points; 0 = automatic (from the element's box). */
+  defaultPt: number;
+  bold: boolean;
+  /** The element's own size field sets this slot's base size (`size`, `textSize`). */
+  legacySize: boolean;
+}
+
 /** One datum grid of the PROJ-data catalog (Datum Grids menu). */
 export interface DatumGrid {
   name: string;
@@ -615,6 +627,8 @@ export const api = {
   setDatumPolicy: (strict: boolean) => invoke<null>("set_datum_policy", { strict }),
   /** How well this installation moves coordinates in each checked region. */
   datumCoverage: () => invoke<[string, TransformReport][]>("datum_coverage"),
+  /** Every text slot of every layout element (id, label, default size): the Properties Text section is built from this. */
+  layoutTextSlots: () => invoke<TextSlot[]>("layout_text_slots"),
   /** Every datum grid PROJ-data offers, with where each is installed. */
   listDatumGrids: () => invoke<DatumGrid[]>("list_datum_grids"),
   /** Download one grid (checksum-verified). Grids above 50 MB need `confirmed`. */

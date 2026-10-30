@@ -54,6 +54,7 @@ fn main() {
             commands::set_datum_policy,
             commands::datum_coverage,
             commands::list_datum_grids,
+            commands::layout_text_slots,
             commands::download_datum_grid,
             commands::remove_datum_grid,
             commands::map_factors,

@@ -869,6 +869,11 @@ impl Engine {
         transform_report::set_strict(strict)
     }
 
+    /// Every text slot of every layout element (`layout/slots.rs`): the Properties pane builds its Text section from this.
+    pub fn layout_text_slots(&self) -> Vec<layout::slots::Slot> {
+        layout::slots::SLOTS.to_vec()
+    }
+
     /// Every datum grid PROJ-data offers, sorted by continent, country and purpose, with where each is installed.
     pub fn list_datum_grids(&self) -> Vec<grids::GridEntry> {
         grids::list()

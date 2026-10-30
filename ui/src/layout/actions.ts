@@ -4,7 +4,7 @@ import { useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI } from "../ipc/api";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
-import { getDock } from "../panes/panes";
+import { getDock, showPane } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
@@ -58,12 +58,47 @@ export function openLayout(id: string) {
  * a click into the Properties pane drop the selection and every later edit (bug U-5).
  */
 export function followActivePanel(layoutId: string | undefined) {
-  if (layoutId) useLayouts.getState().open(layoutId);
+  if (layoutId) {
+    useLayouts.getState().open(layoutId);
+    enterWorkspace();
+  } else if (workspace && getDock()?.activePanel?.id === "map") leaveWorkspace();
+}
+
+/** The bottom group (Model, Attribute Table) is shrunk while a layout is open; its height is kept to put back. */
+let workspace: { bottomHeight: number | null } | null = null;
+const COLLAPSED_PX = 30;
+
+/** LW1: a layout tab is active, so the window becomes a layout workspace: Items beside the page, Properties on the right, node/table dock out of the way. */
+export function enterWorkspace() {
+  const dock = getDock();
+  if (!dock || workspace) return;
+  const bottom = dock.getPanel("model")?.group ?? dock.getPanel("table")?.group;
+  workspace = { bottomHeight: null };
+  if (bottom && bottom.api.height > COLLAPSED_PX * 2) {
+    workspace.bottomHeight = bottom.api.height;
+    bottom.api.setSize({ height: COLLAPSED_PX });
+  }
+  showPane("items");
+  showPane("properties");
+}
+
+/** Back to the Map: restore the bottom group and the Contents tab. */
+export function leaveWorkspace() {
+  const dock = getDock();
+  const w = workspace;
+  workspace = null;
+  if (!dock || !w) return;
+  const bottom = dock.getPanel("model")?.group ?? dock.getPanel("table")?.group;
+  if (bottom && w.bottomHeight) bottom.api.setSize({ height: w.bottomHeight });
+  dock.getPanel("contents")?.api.setActive();
 }
 
 /** A dock panel was closed: if it was the open layout's tab, no layout is open any more. */
 export function layoutPanelClosed(layoutId: string | undefined) {
-  if (layoutId && useLayouts.getState().id === layoutId) useLayouts.getState().open(null);
+  if (layoutId && useLayouts.getState().id === layoutId) {
+    useLayouts.getState().open(null);
+    if (!getDock()?.panels.some((p) => p.id.startsWith("layout:") && p.id !== `layout:${layoutId}`)) leaveWorkspace();
+  }
 }
 
 export function closeLayoutPanel(id: string) {

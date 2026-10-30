@@ -29,6 +29,56 @@ export interface Placement {
   group?: string;
   /** Background, frame and drop shadow under any element. */
   decor?: Decor;
+  /** Name shown in the Items catalog; empty or unset = the kind's default name. */
+  name?: string;
+  /** Opacity of the whole element, 0 to 1; unset = 1. */
+  opacity?: number;
+  /** Text style overrides by slot id (`legend.title`; the slots come from the engine, `layoutTextSlots`). */
+  textStyles?: Record<string, TextStyle>;
+}
+
+/** Style of one text slot; an unset field keeps the slot's default. */
+export interface TextStyle {
+  /** Points, 1 to 400. */
+  size?: number;
+  /** An installed font family. */
+  family?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  color?: string;
+  /** Extra space between letters, mm. */
+  letterSpacing?: number;
+  haloColor?: string;
+  /** Halo width, mm. */
+  haloWidth?: number;
+}
+
+/** A text style with only sensible values: sizes 1 to 400 pt, finite numbers, known fields. */
+export function cleanTextStyle(raw: unknown): TextStyle {
+  const t = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const out: TextStyle = {};
+  if (typeof t.size === "number" && Number.isFinite(t.size) && t.size >= 1 && t.size <= 400) out.size = t.size;
+  if (typeof t.family === "string" && t.family.trim()) out.family = t.family;
+  if (typeof t.bold === "boolean") out.bold = t.bold;
+  if (typeof t.italic === "boolean") out.italic = t.italic;
+  if (typeof t.underline === "boolean") out.underline = t.underline;
+  if (typeof t.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.color)) out.color = t.color;
+  if (typeof t.letterSpacing === "number" && Number.isFinite(t.letterSpacing) && Math.abs(t.letterSpacing) <= 10) out.letterSpacing = t.letterSpacing;
+  if (typeof t.haloColor === "string" && /^#[0-9a-fA-F]{3,8}$/.test(t.haloColor)) out.haloColor = t.haloColor;
+  if (typeof t.haloWidth === "number" && Number.isFinite(t.haloWidth) && t.haloWidth >= 0 && t.haloWidth <= 5) out.haloWidth = t.haloWidth;
+  return out;
+}
+
+/** All slot styles of an element cleaned; empty styles dropped. */
+export function cleanTextStyles(raw: unknown): Record<string, TextStyle> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, TextStyle> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const c = cleanTextStyle(v);
+    if (Object.keys(c).length) out[k] = c;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export interface Decor {
@@ -391,6 +441,11 @@ export function cleanPatch(patch: Record<string, unknown>): Record<string, unkno
       if ((k === "w" || k === "h") && v < MIN_SIZE_MM) continue;
       if ((k === "scale" || k === "size" || k === "columns" || k === "segments") && v <= 0) continue;
     }
+    if (k === "opacity" && typeof v === "number" && (v < 0 || v > 1)) continue;
+    if (k === "textStyles") {
+      out[k] = cleanTextStyles(v) ?? {};
+      continue;
+    }
     if (k === "center" && !(Array.isArray(v) && v.length === 2 && v.every((c) => typeof c === "number" && Number.isFinite(c)))) continue;
     out[k] = v;
   }
@@ -406,7 +461,9 @@ export function normalizeLayout(raw: Layout): Layout {
   const elements = (Array.isArray(raw.elements) ? raw.elements : [])
     .filter((e) => e && typeof e === "object" && typeof e.id === "string")
     .map((e) => {
-      const base = { ...e, x: num(e.x, 0), y: num(e.y, 0), w: Math.max(MIN_SIZE_MM, num(e.w, 10)), h: Math.max(MIN_SIZE_MM, num(e.h, 10)), rotation: num(e.rotation, 0), locked: !!e.locked, visible: e.visible !== false };
+      const base = { ...e, x: num(e.x, 0), y: num(e.y, 0), w: Math.max(MIN_SIZE_MM, num(e.w, 10)), h: Math.max(MIN_SIZE_MM, num(e.h, 10)), rotation: num(e.rotation, 0), locked: !!e.locked, visible: e.visible !== false, textStyles: cleanTextStyles(e.textStyles), opacity: typeof e.opacity === "number" && e.opacity >= 0 && e.opacity <= 1 ? e.opacity : undefined };
+      if (base.textStyles === undefined) delete base.textStyles;
+      if (base.opacity === undefined) delete base.opacity;
       if (base.kind === "map_frame") {
         const c = (base as MapFrame).center;
         return { ...base, crs: base.crs ?? "", center: Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(v)) ? c : [0, 0], scale: num(base.scale, 1_000_000) > 0 ? num(base.scale, 1_000_000) : 1_000_000 } as MapFrame;
