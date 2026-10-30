@@ -66,3 +66,32 @@ test("with layers loaded but none selected, Shift+A and right-click still open t
   await app.mouse.click(spot.x, spot.y, { button: "right" });
   await expect(app.locator(".addmenu")).toBeVisible();
 });
+
+test("a right click that moves a few pixels (a trackpad) still opens the Add menu", async ({ app }) => {
+  await addTestLayer(app, "points", 20);
+  const spot = await emptySpot(app);
+  await app.mouse.move(spot.x, spot.y);
+  await app.mouse.down({ button: "right" });
+  await app.mouse.move(spot.x + 2, spot.y + 1);
+  await app.mouse.up({ button: "right" });
+  await expect(app.locator(".addmenu")).toBeVisible();
+});
+
+test("Shift+A with the pointer over another pane still opens the Add menu on the canvas", async ({ app }) => {
+  await addTestLayer(app, "points", 20);
+  await app.mouse.move(40, 400); // the Contents pane, far from the node canvas
+  await app.waitForTimeout(200);
+  await app.keyboard.press("Shift+A");
+  await expect(app.locator(".addmenu")).toBeVisible();
+});
+
+test("the toolbar says what happened to Shift+A and to a right-click", async ({ app }) => {
+  await addTestLayer(app, "points", 20);
+  await hoverCanvas(app);
+  await app.keyboard.press("Shift+A");
+  await expect(app.getByTestId("model-diag")).toContainText("Add menu opened");
+  await app.keyboard.press("Escape");
+  const spot = await emptySpot(app);
+  await app.mouse.click(spot.x, spot.y, { button: "right" });
+  await expect(app.getByTestId("model-diag")).toContainText("Add menu opened");
+});

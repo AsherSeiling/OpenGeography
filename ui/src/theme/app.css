@@ -680,3 +680,4 @@ select.qe-val { width: 160px; }
 .items-pane .items-actions { gap: 8px; }
 .items-pane .page-row { font-weight: 600; }
 .rtab-context-row { display: flex; }
+.model-diag { font-size: 11px; color: #8a6d00; border: 1px dashed #c19c00; border-radius: 2px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
