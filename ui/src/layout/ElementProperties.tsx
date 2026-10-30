@@ -125,7 +125,7 @@ function FrameFields({ el, set, layout }: { el: MapFrame; set: Set; layout: stri
           <Option value="osm" disabled title="OpenStreetMap's tile policy forbids bulk downloads, so it can't be used in a print layout.">OpenStreetMap (not for print)</Option>
         </Dropdown>
       </Field>
-      <GridFields label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
+      <GridFields graticule label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
       <GridFields label="Grid (map coordinates)" unit="CRS units" value={el.grid} onChange={(grid) => set({ grid }, "grid")} />
       <SeriesFollow el={el} set={set} />
       <FrameLabels el={el} set={set} />
@@ -200,7 +200,7 @@ function FrameLabels({ el, set }: { el: MapFrame; set: Set }) {
 const BASEMAPS: [MapFrame["basemap"], string][] = [["none", "None"], ["usgsTopo", "USGS Topo"], ["usgsImagery", "USGS Imagery"], ["usgsRelief", "USGS Shaded Relief"]];
 
 /** Graticule/grid: off, or on with an interval ("auto" or a number) and edge labels. */
-function GridFields({ label, unit, value, onChange }: { label: string; unit: string; value: GridSpec | null; onChange: (v: GridSpec | null) => void }) {
+function GridFields({ label, unit, value, onChange, graticule }: { graticule?: boolean; label: string; unit: string; value: GridSpec | null; onChange: (v: GridSpec | null) => void }) {
   const [text, setText] = useState(value ? String(value.interval) : "auto");
   useEffect(() => setText((t) => (value && (value.interval === "auto" ? t.trim() === "auto" : Number(t) === value.interval) ? t : value ? String(value.interval) : t)), [value?.interval]);
   return (
@@ -222,6 +222,18 @@ function GridFields({ label, unit, value, onChange }: { label: string; unit: str
             />
           </Field>
           <Checkbox label="Labels" checked={value.labels} onChange={(_, d) => onChange({ ...value, labels: !!d.checked })} />
+          <Choice label="Style" value={value.style ?? "lines"} options={[["lines", "Lines"], ["ticks", "Ticks at the edges"], ["crosses", "Crosses"]]} onPick={(style) => onChange({ ...value, style })} />
+          <Choice
+            label="Label format"
+            value={value.labelFormat ?? "auto"}
+            options={graticule ? [["auto", "Degrees with N/S, E/W"], ["dms", "Degrees, minutes, seconds"], ["decimal", "Signed decimal degrees"]] : [["auto", "Full number"], ["km", "Kilometres"], ["short", "Two digits (1 km grid)"]]}
+            onPick={(labelFormat) => onChange({ ...value, labelFormat })}
+          />
+          <ColorInput label={`${label.split(" ")[0]} colour`} value={value.color ?? (graticule ? "#4d4d4d" : "#26567a")} onChange={(color) => onChange({ ...value, color })} />
+          <Num label="Line width (mm)" value={value.width ?? 0.15} min={0.05} step={0.05} decimals={2} onChange={(width) => onChange({ ...value, width })} />
+          {(value.style ?? "lines") !== "lines" && <Num label="Tick / cross size (mm)" value={value.tickLength ?? 2.5} min={0.5} step={0.5} decimals={1} onChange={(tickLength) => onChange({ ...value, tickLength })} />}
+          {(value.style ?? "lines") === "lines" && <Checkbox label="Dashed" checked={value.dashed ?? !!graticule} onChange={(_, d) => onChange({ ...value, dashed: !!d.checked })} />}
+          {!graticule && <Checkbox label="Zone and 100 km square (UTM)" checked={!!value.designation} onChange={(_, d) => onChange({ ...value, designation: !!d.checked })} />}
         </div>
       )}
     </>

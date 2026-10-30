@@ -81,6 +81,7 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | Export Table coordinate columns, reprojection with explicit CRS and a sidecar note | PROJ transformation via DuckDB Spatial `ST_Transform` (always x/y); no external method | `export_table.rs` |
 | QGIS Processing algorithm ids (about 30: `native:splitvectorlayer`, `native:union`, `gdal:slope`, …) | QGIS documentation, named in each tool's header comment so users can find the equivalent | `nodes/*.rs` |
 | ArcGIS Pro tool names (Spatial Autocorrelation, Hot Spot Analysis, Fill, Flow Direction, …) | proprietary software: names only, so users can find the equivalent; no code or documentation text | node descriptions |
+| MGRS 100 km square lettering (LW5, grid zone designation) | Written from the MGRS description (zone, latitude band, column and row letter sets with the even-zone row offset); checked against the MIT `mgrs` package in the tests | `layout/grid.rs` `mgrs_designation` |
 
 ## 6. Considered and not used
 

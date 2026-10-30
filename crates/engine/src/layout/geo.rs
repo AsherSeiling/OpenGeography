@@ -99,6 +99,16 @@ impl FrameCrs {
         Ok([f(&xs, f64::min, f64::INFINITY), f(&ys, f64::min, f64::INFINITY), f(&xs, f64::max, f64::NEG_INFINITY), f(&ys, f64::max, f64::NEG_INFINITY)])
     }
 
+    /// UTM zone (1–60) and whether it is the southern one, when this CRS is a UTM zone.
+    pub fn utm_zone(&self) -> Option<(u8, bool)> {
+        let p = self.srs.to_proj4().ok()?;
+        if !p.contains("+proj=utm") {
+            return None;
+        }
+        let zone = p.split_whitespace().find_map(|t| t.strip_prefix("+zone="))?.parse::<u8>().ok()?;
+        Some((zone, p.split_whitespace().any(|t| t == "+south")))
+    }
+
     /// CRS coordinates → (lon, lat) degrees.
     pub fn to_lonlat(&self, x: f64, y: f64) -> Result<(f64, f64)> {
         let (mut xs, mut ys) = ([x], [y]);

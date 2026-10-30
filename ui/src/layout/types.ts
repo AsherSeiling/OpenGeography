@@ -108,6 +108,18 @@ export type FrameLayers = "map" | { id: string; visible: boolean }[];
 export interface GridSpec {
   interval: "auto" | number;
   labels: boolean;
+  /** Full lines (default), short ticks at the frame edges, or crosses where lines meet. */
+  style?: "lines" | "ticks" | "crosses";
+  color?: string;
+  /** Line width, mm. */
+  width?: number;
+  dashed?: boolean;
+  /** Tick length / cross size, mm. */
+  tickLength?: number;
+  /** Graticule: auto, dms, decimal. Grid: auto (metres), metres, km, short (two digits, as on military maps). */
+  labelFormat?: "auto" | "dms" | "decimal" | "metres" | "km" | "short";
+  /** Grid on a UTM frame: print the zone, band and 100 km square under the lower-left corner. */
+  designation?: boolean;
 }
 
 export interface MapFrame extends Placement {

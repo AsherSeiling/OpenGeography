@@ -627,14 +627,14 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
     if let Some(spec) = f.grid {
         let g = grid::grid(&crs, at, extent, spec, f.graticule.is_some(), &to_page, &mut warnings);
         if !g.lines.is_empty() {
-            let _ = write!(body_svg, "<g id=\"grid-{}\" fill=\"none\" stroke=\"#26567a\" stroke-width=\"0.15\">{}</g>", esc(&at.id), g.lines);
+            let _ = write!(body_svg, "<g id=\"grid-{}\" fill=\"none\" {}>{}</g>", esc(&at.id), grid::line_attrs(spec, "#26567a", false), g.lines);
         }
         labels.push_str(&g.labels);
     }
     if let Some(spec) = f.graticule {
         let g = grid::graticule(body, &crs, at, extent, spec, &to_page, &mut warnings);
         if !g.lines.is_empty() {
-            let _ = write!(body_svg, "<g id=\"graticule-{}\" fill=\"none\" stroke=\"#4d4d4d\" stroke-width=\"0.15\" stroke-dasharray=\"1.2 0.8\">{}</g>", esc(&at.id), g.lines);
+            let _ = write!(body_svg, "<g id=\"graticule-{}\" fill=\"none\" {}>{}</g>", esc(&at.id), grid::line_attrs(spec, "#4d4d4d", true), g.lines);
         }
         labels.push_str(&g.labels);
     }

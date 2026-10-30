@@ -6,7 +6,7 @@
 //! frame-CRS units.
 
 use super::geo::{Body, FrameCrs};
-use super::model::{GridSpec, Placement};
+use super::model::{GridSpec, GridStyle, LabelFormat, Placement};
 use super::slots::GRID_LABEL_PT;
 use super::surround::{nice_floor, num, text_slot};
 use super::svg::{self, esc};
@@ -16,6 +16,8 @@ use std::fmt::Write;
 const MAX_LINES: usize = 200;
 const SAMPLES: usize = 64;
 const PT_MM: f64 = 25.4 / 72.0;
+/// Default tick length, mm (crosses use 0.6 of it as the arm).
+const TICK_MM: f64 = 2.5;
 
 pub struct GridOutput {
     /// Lines, drawn inside the frame's clip.
@@ -115,6 +117,115 @@ fn segments(pts: Vec<Option<(f64, f64)>>) -> Vec<Vec<(f64, f64)>> {
     out
 }
 
+/// Short marks where `pts` meets the frame's four edges, pointing into the frame.
+fn edge_ticks(pts: &[(f64, f64)], at: &Placement, len: f64) -> String {
+    let mut d = String::new();
+    let (x0, x1, y0, y1) = (at.x, at.x + at.w, at.y, at.y + at.h);
+    if let Some(x) = cross_y(pts, y1, x0, x1) {
+        svg::cmd(&mut d, 'M', x, y1);
+        svg::cmd(&mut d, 'L', x, y1 - len);
+    }
+    if let Some(x) = cross_y(pts, y0, x0, x1) {
+        svg::cmd(&mut d, 'M', x, y0);
+        svg::cmd(&mut d, 'L', x, y0 + len);
+    }
+    if let Some(y) = cross_x(pts, x0, y0, y1) {
+        svg::cmd(&mut d, 'M', x0, y);
+        svg::cmd(&mut d, 'L', x0 + len, y);
+    }
+    if let Some(y) = cross_x(pts, x1, y0, y1) {
+        svg::cmd(&mut d, 'M', x1, y);
+        svg::cmd(&mut d, 'L', x1 - len, y);
+    }
+    d
+}
+
+/// Stroke attributes of a line set. Ticks and crosses are never dashed.
+pub fn line_attrs(spec: &GridSpec, default_color: &str, default_dashed: bool) -> String {
+    let dashed = spec.dashed.unwrap_or(default_dashed) && spec.style == GridStyle::Lines;
+    format!(
+        "stroke=\"{}\" stroke-width=\"{}\"{}",
+        svg::color(spec.color.as_deref().unwrap_or(""), default_color),
+        num(spec.width.unwrap_or(0.15)),
+        if dashed { " stroke-dasharray=\"1.2 0.8\"" } else { "" }
+    )
+}
+
+/// One `<path>` for a line in the chosen style (nothing for crosses, which are drawn at the nodes).
+fn line_path(out: &mut String, id: &str, pts: &[(f64, f64)], spec: &GridSpec, at: &Placement) {
+    let d = match spec.style {
+        GridStyle::Lines => path(pts),
+        GridStyle::Ticks => edge_ticks(pts, at, spec.tick_length.unwrap_or(TICK_MM)),
+        GridStyle::Crosses => return,
+    };
+    if !d.is_empty() {
+        let _ = write!(out, "<path id=\"{id}\" d=\"{d}\"/>");
+    }
+}
+
+/// A small cross at a page point when it lies inside the frame.
+fn cross_mark(d: &mut String, at: &Placement, p: (f64, f64), arm: f64) {
+    if p.0 < at.x || p.0 > at.x + at.w || p.1 < at.y || p.1 > at.y + at.h {
+        return;
+    }
+    svg::cmd(d, 'M', p.0 - arm, p.1);
+    svg::cmd(d, 'L', p.0 + arm, p.1);
+    svg::cmd(d, 'M', p.0, p.1 - arm);
+    svg::cmd(d, 'L', p.0, p.1 + arm);
+}
+
+/// Degrees, minutes and seconds, as many parts as the interval needs (45°30′ for half degrees, 45°30′15″ for 15″).
+pub fn dms_label(v: f64, pos: char, neg: char, step_deg: f64) -> String {
+    let step_s = step_deg * 3600.0;
+    let frac = (step_s - step_s.round()).abs() > 1e-6 || step_s < 1.0;
+    let total = (v.abs() * 3600.0 * if frac { 10.0 } else { 1.0 }).round() / if frac { 10.0 } else { 1.0 };
+    let (d, m, sec) = ((total / 3600.0).floor() as i64, ((total % 3600.0) / 60.0).floor() as i64, total % 60.0);
+    let hemi = if v < 0.0 { neg } else { pos };
+    if (step_s % 3600.0).abs() < 1e-6 || (step_s % 3600.0 - 3600.0).abs() < 1e-6 {
+        format!("{d}°{hemi}")
+    } else if (step_s % 60.0).abs() < 1e-6 || (step_s % 60.0 - 60.0).abs() < 1e-6 {
+        format!("{d}°{m:02}′{hemi}")
+    } else if frac {
+        format!("{d}°{m:02}′{sec:04.1}″{hemi}")
+    } else {
+        format!("{d}°{m:02}′{:02}″{hemi}", sec.round() as i64)
+    }
+}
+
+/// A grid coordinate as the label format asks. `value` is in CRS units.
+fn grid_text(value: f64, step: f64, unit_m: f64, fmt: LabelFormat) -> String {
+    let metres = value * unit_m;
+    let plain = |v: f64, st: f64| format!("{:.*}", decimals(st), v);
+    match fmt {
+        LabelFormat::Km => plain(metres / 1000.0, step * unit_m / 1000.0),
+        LabelFormat::Short if step * unit_m >= 999.9 => format!("{:02}", ((metres / 1000.0).round() as i64).rem_euclid(100)),
+        _ => plain(value, step),
+    }
+}
+
+const LAT_BANDS: &[u8] = b"CDEFGHJKLMNPQRSTUVWX";
+
+/// "15T WK": UTM zone, latitude band and 100 km square letters (MGRS lettering) of a UTM point; None outside 80°S–84°N.
+pub fn mgrs_designation(zone: u8, south: bool, e: f64, n: f64, lat: f64) -> Option<String> {
+    if !(-80.0..=84.0).contains(&lat) || !(100_000.0..900_000.0).contains(&e) {
+        return None;
+    }
+    let band = LAT_BANDS[(((lat + 80.0) / 8.0).floor() as usize).min(LAT_BANDS.len() - 1)] as char;
+    let set = ["ABCDEFGH", "JKLMNPQR", "STUVWXYZ"][((zone as usize) - 1) % 3].as_bytes();
+    let col = set[(e / 100_000.0).floor() as usize - 1] as char;
+    let n = if south { n - 10_000_000.0 } else { n };
+    let row = b"ABCDEFGHJKLMNPQRSTUV"[(((n / 100_000.0).floor() as i64 + if zone % 2 == 0 { 5 } else { 0 }).rem_euclid(20)) as usize] as char;
+    Some(format!("{zone}{band} {col}{row}"))
+}
+
+fn graticule_text(body: &Body, v: f64, lon: bool, step: f64, d: usize, fmt: LabelFormat) -> String {
+    match fmt {
+        LabelFormat::Dms => if lon { dms_label(((v + 180.0).rem_euclid(360.0)) - 180.0, 'E', 'W', step) } else { dms_label(v, 'N', 'S', step) },
+        LabelFormat::Decimal => format!("{:.*}°", d, if lon { ((v + 180.0).rem_euclid(360.0)) - 180.0 } else { v }),
+        _ => if lon { body.format_lon(v, d) } else { body.format_lat(v, d) },
+    }
+}
+
 /// Lines of longitude and latitude through the frame.
 pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, to_page: ToPage, warnings: &mut Vec<String>) -> GridOutput {
     let mut out = GridOutput { lines: String::new(), labels: String::new() };
@@ -157,9 +268,9 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
         let lon = k as f64 * step;
         let pts: Vec<_> = (0..=SAMPLES).map(|i| sample(lon, la0 + (la1 - la0) * i as f64 / SAMPLES as f64)).collect();
         for (n, seg) in segments(pts).iter().enumerate() {
-            let _ = write!(out.lines, "<path id=\"graticule-{}-lon{}{}\" d=\"{}\"/>", esc(&at.id), id_part(lon), if n > 0 { format!("-{n}") } else { String::new() }, path(seg));
+            line_path(&mut out.lines, &format!("graticule-{}-lon{}{}", esc(&at.id), id_part(lon), if n > 0 { format!("-{n}") } else { String::new() }), seg, spec, at);
             if spec.labels && n == 0 {
-                meridian_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &body.format_lon(lon, d), false);
+                meridian_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &graticule_text(body, lon, true, step, d, spec.label_format), false);
             }
         }
     }
@@ -167,10 +278,24 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
         let lat = k as f64 * step;
         let pts: Vec<_> = (0..=SAMPLES).map(|i| sample(lo0 + (lo1 - lo0) * i as f64 / SAMPLES as f64, lat)).collect();
         for (n, seg) in segments(pts).iter().enumerate() {
-            let _ = write!(out.lines, "<path id=\"graticule-{}-lat{}{}\" d=\"{}\"/>", esc(&at.id), id_part(lat), if n > 0 { format!("-{n}") } else { String::new() }, path(seg));
+            line_path(&mut out.lines, &format!("graticule-{}-lat{}{}", esc(&at.id), id_part(lat), if n > 0 { format!("-{n}") } else { String::new() }), seg, spec, at);
             if spec.labels && n == 0 {
-                parallel_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &body.format_lat(lat, d), false);
+                parallel_label(&mut out.labels, at, "map_frame.graticule_labels", seg, &graticule_text(body, lat, false, step, d, spec.label_format), false);
             }
+        }
+    }
+    if spec.style == GridStyle::Crosses {
+        let arm = spec.tick_length.unwrap_or(TICK_MM) * 0.6;
+        let mut d = String::new();
+        for kl in multiples(lon_min, lon_max, step) {
+            for ka in multiples(lat_min, lat_max, step) {
+                if let Some(p) = sample(kl as f64 * step, ka as f64 * step) {
+                    cross_mark(&mut d, at, p, arm);
+                }
+            }
+        }
+        if !d.is_empty() {
+            let _ = write!(out.lines, "<path id=\"graticule-{}-crosses\" d=\"{d}\"/>", esc(&at.id));
         }
     }
     out
@@ -191,11 +316,14 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         return out;
     }
     let d = decimals(step);
-    let fmt = |v: f64| format!("{:.*}", d, v);
+    if spec.label_format == LabelFormat::Short && step * crs.unit_m < 999.9 {
+        warnings.push(format!("Frame '{}': two-digit grid labels need an interval of 1000 m or more; full numbers are shown", at.id));
+    }
+    let fmt = |v: f64| grid_text(v, step, crs.unit_m, spec.label_format);
     for k in xs {
         let x = k as f64 * step;
         let pts = [to_page(x, extent[1]), to_page(x, extent[3])];
-        let _ = write!(out.lines, "<path id=\"grid-{}-x{}\" d=\"{}\"/>", esc(&at.id), id_part(x), path(&pts));
+        line_path(&mut out.lines, &format!("grid-{}-x{}", esc(&at.id), id_part(x)), &pts, spec, at);
         if spec.labels {
             meridian_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(x), flip);
         }
@@ -203,9 +331,36 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
     for k in ys {
         let y = k as f64 * step;
         let pts = [to_page(extent[0], y), to_page(extent[2], y)];
-        let _ = write!(out.lines, "<path id=\"grid-{}-y{}\" d=\"{}\"/>", esc(&at.id), id_part(y), path(&pts));
+        line_path(&mut out.lines, &format!("grid-{}-y{}", esc(&at.id), id_part(y)), &pts, spec, at);
         if spec.labels {
             parallel_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(y), flip);
+        }
+    }
+    if spec.style == GridStyle::Crosses {
+        let arm = spec.tick_length.unwrap_or(TICK_MM) * 0.6;
+        let mut d = String::new();
+        for kx in multiples(extent[0], extent[2], step) {
+            for ky in multiples(extent[1], extent[3], step) {
+                cross_mark(&mut d, at, to_page(kx as f64 * step, ky as f64 * step), arm);
+            }
+        }
+        if !d.is_empty() {
+            let _ = write!(out.lines, "<path id=\"grid-{}-crosses\" d=\"{d}\"/>", esc(&at.id));
+        }
+    }
+    if spec.designation {
+        match (crs.utm_zone(), crs.to_lonlat(extent[0], extent[1])) {
+            (Some((zone, south)), Ok((_, lat))) => {
+                let (e, n) = (extent[0] * crs.unit_m, extent[1] * crs.unit_m);
+                match mgrs_designation(zone, south, e, n, lat) {
+                    Some(t) => {
+                        let pt = at.slot_pt("map_frame.grid_labels", GRID_LABEL_PT);
+                        label(&mut out.labels, at, "map_frame.grid_labels", at.x, at.y + at.h + 0.6 + pt * PT_MM * 2.5, "start", &t);
+                    }
+                    None => warnings.push(format!("Frame '{}': the grid zone designation is not available at this corner", at.id)),
+                }
+            }
+            _ => warnings.push(format!("Frame '{}': the grid zone designation needs a UTM coordinate system", at.id)),
         }
     }
     out
@@ -223,5 +378,34 @@ mod tests {
         assert_eq!(decimals(0.5), 1);
         assert_eq!(decimals(5.0), 0);
         assert_eq!(multiples(-96.4, -94.9, 0.5).collect::<Vec<_>>(), vec![-192, -191, -190]);
+    }
+
+    #[test]
+    fn dms_labels_show_as_many_parts_as_the_interval_needs() {
+        assert_eq!(dms_label(-93.0, 'E', 'W', 1.0), "93°W");
+        assert_eq!(dms_label(45.5, 'N', 'S', 0.5), "45°30′N");
+        assert_eq!(dms_label(45.25, 'N', 'S', 0.25), "45°15′N");
+        assert_eq!(dms_label(-93.0 - 15.0 / 3600.0, 'E', 'W', 15.0 / 3600.0), "93°00′15″W");
+        assert_eq!(dms_label(45.0 + 30.0 / 60.0 + 7.5 / 3600.0, 'N', 'S', 2.5 / 3600.0), "45°30′07.5″N");
+    }
+
+    #[test]
+    fn grid_numbers_in_metres_km_and_two_digit_form() {
+        assert_eq!(grid_text(4_985_000.0, 1000.0, 1.0, LabelFormat::Auto), "4985000");
+        assert_eq!(grid_text(4_985_000.0, 1000.0, 1.0, LabelFormat::Km), "4985");
+        assert_eq!(grid_text(4_985_500.0, 500.0, 1.0, LabelFormat::Km), "4985.5");
+        assert_eq!(grid_text(4_985_000.0, 1000.0, 1.0, LabelFormat::Short), "85");
+        assert_eq!(grid_text(500_000.0, 1000.0, 1.0, LabelFormat::Short), "00");
+        // A finer interval cannot be written as two digits: the full number stays.
+        assert_eq!(grid_text(4_985_250.0, 250.0, 1.0, LabelFormat::Short), "4985250");
+    }
+
+    #[test]
+    fn mgrs_squares_match_the_mgrs_library() {
+        // Reference values from the `mgrs` package the status bar uses.
+        assert_eq!(mgrs_designation(15, false, 500_000.0, 4_982_950.0, 45.0).unwrap(), "15T WK");
+        assert_eq!(mgrs_designation(15, false, 499_976.0, 4_982_994.0, 45.0004).unwrap(), "15T VK");
+        assert_eq!(mgrs_designation(11, false, 278_124.0, 4_119_987.0, 37.2).unwrap(), "11S KB");
+        assert!(mgrs_designation(15, false, 500_000.0, 9_000_000.0, 85.0).is_none());
     }
 }

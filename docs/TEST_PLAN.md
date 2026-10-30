@@ -991,5 +991,8 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LW1-2 | Contextual ribbon tabs | the Layout band has four tabs: Layout (Page, Template, Theme, Map Series), Elements (Insert, Graphics), Format (Map Frame, Arrange), Export | auto: e2e/layout-items.spec.ts |
 | LW1-3 | Layout readout | pointer position in page mm and the selected item's size next to the zoom controls | auto: items.test.ts pointerMm, e2e/layout-items.spec.ts |
 | LW4-2 | Character panel | Text element: font, style, size, colour, underline, letter spacing, halo (stored as the `text.text` slot style) | auto: e2e/layout-items.spec.ts |
+| LW5-1 | Grid and graticule styles | lines, ticks at the frame edges, crosses at nodes; colour, width, dashes, tick size; defaults leave old layouts unchanged | auto: layout.rs lw5_grid_styles_*, e2e/layout-grid.spec.ts |
+| LW5-2 | Label formats | graticule: degrees with hemisphere, DMS (as many parts as the interval needs), signed decimal; grid: full, km, two digits (1 km grid) | auto: grid.rs unit tests, layout.rs lw5_label_formats_* |
+| LW5-3 | Zone designation | UTM grid frames print "15T VG" (zone, band, 100 km square) under the lower-left corner; matches the `mgrs` package; non-UTM frames warn | auto: grid.rs mgrs_squares_*, layout.rs lw5_label_formats_* |
+| LW5-4 | Not built | 1 000 m subgrid drawn lighter inside a 10 km grid, label side choice, MGRS 100 km square letter labels along the grid, graticule corner-only labels | — |
 | LW-OPEN | Not built yet | frame layers and legend entries as Items children, multi-selection Properties, a status bar in the main window for the layout | — |
-

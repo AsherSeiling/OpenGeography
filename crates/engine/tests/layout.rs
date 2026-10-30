@@ -694,6 +694,50 @@ mod c24 {
     }
 
     #[test]
+    fn lw5_grid_styles_ticks_crosses_colour_width_and_old_layouts_unchanged() {
+        let e = Engine::new().unwrap();
+        let c = [500_000.0, 4_649_776.0];
+        // Default: unchanged (solid blue 0.15 mm lines, the whole line).
+        let plain = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labels": false } }))).svg;
+        assert!(plain.contains("stroke=\"#26567a\" stroke-width=\"0.15\""), "{plain}");
+        assert!(!plain.contains("stroke-dasharray") || plain.matches("stroke-dasharray").count() == 0);
+        // Ticks: each line is a short mark at the frame edge (2.5 mm), not the full height.
+        let ticks = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labels": false, "style": "ticks", "color": "#ff0000", "width": 0.4 } }))).svg;
+        assert!(ticks.contains("stroke=\"#ff0000\" stroke-width=\"0.4\""));
+        let v = path_points(&ticks, "grid-f1-x500000");
+        assert_eq!(v.len(), 4, "a tick at the bottom and one at the top: {v:?}");
+        assert!((v[0].1 - v[1].1).abs() - 2.5 < 1e-6 && (v[2].1 - v[3].1).abs() - 2.5 < 1e-6);
+        // Crosses: one path of arms at the nodes inside the frame.
+        let cross = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labels": false, "style": "crosses" } }))).svg;
+        assert!(cross.contains("id=\"grid-f1-crosses\""));
+        assert!(!cross.contains("id=\"grid-f1-x500000\""));
+        // Graticule ticks and crosses work too, and a dashed graticule drops its dashes when ticks.
+        let g = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "graticule": { "interval": 0.01, "labels": false, "style": "crosses" } }))).svg;
+        assert!(g.contains("id=\"graticule-f1-crosses\""));
+        let gt = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "graticule": { "interval": 0.01, "labels": false, "style": "ticks" } }))).svg;
+        assert!(!gt.contains("stroke-dasharray"));
+    }
+
+    #[test]
+    fn lw5_label_formats_and_the_zone_designation() {
+        let e = Engine::new().unwrap();
+        let c = [500_000.0, 4_649_776.0];
+        let short = texts(&render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labelFormat": "short", "designation": true } }))).svg);
+        assert!(short.iter().any(|t| t == "00") && short.iter().any(|t| t == "50"), "{short:?}");
+        // Lower-left corner ~(497.6 km E, 4647.4 km N) in zone 15: band T, square VG (checked against the mgrs package).
+        assert!(short.iter().any(|t| t == "15T VG"), "{short:?}");
+        let km = texts(&render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labelFormat": "km" } }))).svg);
+        assert!(km.iter().any(|t| t == "4650") && km.iter().any(|t| t == "500"), "{km:?}");
+        let dms = texts(&render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "graticule": { "interval": 0.005, "labelFormat": "dms" } }))).svg);
+        assert!(dms.iter().any(|t| t.contains('′') && (t.ends_with('W') || t.ends_with('N'))), "{dms:?}");
+        let dec = texts(&render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "graticule": { "interval": 0.005, "labelFormat": "decimal" } }))).svg);
+        assert!(dec.iter().any(|t| t.starts_with("-93.") && t.ends_with('°')), "{dec:?}");
+        // Designation needs UTM.
+        let lcc = render(&e, &frame_req("EPSG:3857", [-10_000_000.0, 5_000_000.0], 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": "auto", "designation": true } })));
+        assert!(lcc.warnings.iter().any(|w| w.contains("needs a UTM")), "{:?}", lcc.warnings);
+    }
+
+    #[test]
     fn model_rejects_bad_grid_specs_and_unprintable_basemaps() {
         let e = Engine::new().unwrap();
         for (extra, needle) in [
