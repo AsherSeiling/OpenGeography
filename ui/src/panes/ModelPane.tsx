@@ -51,6 +51,14 @@ function ModelCanvas() {
   const canUndo = useStore(temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(temporal, (s) => s.futureStates.length > 0);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  // What the editor last did with Shift+A or a right-click, shown in the toolbar for a few seconds so a silent failure can be reported.
+  const [diag, setDiag] = useState<{ text: string; at: number } | null>(null);
+  const note = (text: string) => setDiag({ text, at: Date.now() });
+  useEffect(() => {
+    if (!diag) return;
+    const t = setTimeout(() => setDiag(null), 9000);
+    return () => clearTimeout(t);
+  }, [diag]);
   const [nodeMenu, setNodeMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [spliceEdge, setSpliceEdge] = useState<string | null>(null);
   const mouse = useRef<{ x: number; y: number } | null>(null);
@@ -178,6 +186,7 @@ function ModelCanvas() {
       const app = useApp.getState();
       const first = app.order.find((id) => app.layers[id] && !app.layers[id].temporary);
       if (!first) {
+        note("Add menu: no layers in the project");
         app.setStatus("Add data first (Data tab, or drag a file into the Catalog): every layer gets its own node tree here.");
         return;
       }
@@ -185,6 +194,7 @@ function ModelCanvas() {
       app.setStatus(`Selected "${app.layers[first].name}" so its node tree opens here.`);
     }
     setMenu({ x, y });
+    note("Add menu opened");
   };
 
   const pick = (item: AddItem) => {
@@ -200,6 +210,11 @@ function ModelCanvas() {
   const suppressMenu = useRef(false);
   const [cut, setCut] = useState<{ x: number; y: number }[] | null>(null);
 
+  /** The node canvas is on screen with room to work in (its tab is active and not squashed). */
+  const canvasVisible = () => {
+    const r = wrap.current?.getBoundingClientRect();
+    return !!wrap.current && wrap.current.offsetParent !== null && !!r && r.width > 80 && r.height > 60;
+  };
   const overCanvas = () => {
     const m = mouse.current;
     const r = wrap.current?.getBoundingClientRect();
@@ -291,7 +306,7 @@ function ModelCanvas() {
       case "add": {
         // At the pointer; if the window never reported one (some desktop webviews), at the middle of the canvas.
         const r = wrap.current?.getBoundingClientRect();
-        const m = mouse.current ?? (r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null);
+        const m = mouse.current && overCanvas() ? mouse.current : r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
         if (m) openMenu(m.x, m.y);
         break;
       }
@@ -352,7 +367,12 @@ function ModelCanvas() {
         return;
       }
       const target = e.target as HTMLElement;
-      if (document.querySelector(".addmenu, [role=dialog]")) return;
+      const isAddKey = e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "a";
+      if (isAddKey) note("Shift+A received");
+      if (document.querySelector(".addmenu, [role=dialog]")) {
+        if (isAddKey) note("Shift+A ignored: a menu or dialog is open");
+        return;
+      }
       const nodeField = target?.closest?.(".model .react-flow__node input, .model .react-flow__node select, .model .react-flow__node textarea") as HTMLElement | null;
       // Enter / Esc in a node's field finishes editing.
       if (nodeField && (e.key === "Enter" || e.key === "Escape") && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
@@ -375,15 +395,25 @@ function ModelCanvas() {
           field.blur();
           setActive(editorState());
         } else {
+          if (wantsAdd) note("Shift+A ignored: a text box has the keys (click the canvas first)");
           if (wantsAdd && !field.closest(".model")) {
             useApp.getState().setStatus("Shift+A: a text box has focus. Click the Model canvas (or move the pointer over it and wait a moment), then press Shift+A.");
           }
           return; // the keys are for that field
         }
       }
-      if (!editorActive(target)) return;
       const combo = eventCombo(e);
       const action = combo && actionFor(useKeymap.getState().bindings, combo);
+      // Add (Shift+A) works anywhere in the window while the Model canvas is on screen and no text box has the keys; the other
+      // shortcuts follow the pointer. When Add cannot run the status bar says why instead of nothing happening.
+      if (!editorActive(target)) {
+        if (action !== "add") return;
+        if (!canvasVisible()) {
+          note("Shift+A ignored: the Model canvas is not on screen");
+          useApp.getState().setStatus("Shift+A: the Model canvas is not on screen. Open the Model tab (View → Model) and try again.");
+          return;
+        }
+      }
       if (!action) return;
       // Without a layer there is no tree to act on; only Add does something (it picks a layer, see openMenu).
       if (!useModel.getState().layer && action !== "add") return;
@@ -519,6 +549,7 @@ function ModelCanvas() {
             Editing field
           </span>
         )}
+        {diag && <span className="model-diag" data-testid="model-diag" title="What the editor last did with Shift+A or a right-click">{diag.text}</span>}
         <span className="model-hint">
           {hasErrors
               ? "Some steps failed — select a red step to see the error in Properties."
@@ -530,6 +561,23 @@ function ModelCanvas() {
         ref={wrap}
         data-drop="model"
         onMouseMove={(e) => (mouse.current = { x: e.clientX, y: e.clientY })}
+        onContextMenuCapture={(e) => {
+          // Our own right-click handling on empty canvas: React Flow treats a right click that moved a pixel or two (a trackpad does) as a
+          // pan and never reports it, so no Add menu opened in the app. Nodes, edges and the zoom controls keep their own menus.
+          const t = e.target as HTMLElement;
+          if (!t.closest(".react-flow__pane") || t.closest(".react-flow__node, .react-flow__edge, .react-flow__controls")) {
+            note("Right-click on a node, connection or control: that has its own menu");
+            return;
+          }
+          note("Right-click on the canvas received");
+          e.preventDefault();
+          e.stopPropagation();
+          if (suppressMenu.current) {
+            suppressMenu.current = false;
+            return;
+          }
+          openMenu(e.clientX, e.clientY);
+        }}
         onPointerDownCapture={onCutDown}
         onPointerMove={onCutMove}
         onPointerUp={onCutUp}
@@ -579,14 +627,9 @@ function ModelCanvas() {
             dragStep.current?.(); // the move (and any insert) is one undo step
             dragStep.current = null;
           }}
-          onPaneContextMenu={(e) => {
-            e.preventDefault();
-            if (suppressMenu.current) {
-              suppressMenu.current = false;
-              return;
-            }
-            openMenu(e.clientX, e.clientY);
-          }}
+          panOnDrag={[0, 1]}
+          paneClickDistance={6}
+          onPaneContextMenu={(e) => e.preventDefault()}
           onPaneClick={() => {
             // Clicking empty canvas releases a node field, so shortcuts apply again.
             if ((document.activeElement as HTMLElement)?.closest?.(".model")) (document.activeElement as HTMLElement).blur();
