@@ -755,6 +755,29 @@ mod c24 {
     }
 
     #[test]
+    fn lw5_label_edges_corner_labels_and_square_letters() {
+        let e = Engine::new().unwrap();
+        let c = [500_000.0, 4_649_776.0];
+        let count = |extra: serde_json::Value| texts(&render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": extra }))).svg).len();
+        let base = count(json!({ "interval": 1000 }));
+        assert!(base > 4);
+        // All four edges label every line twice (bottom + top, left + right).
+        assert_eq!(count(json!({ "interval": 1000, "labelEdges": "all" })), base * 2);
+        // Only the outermost line of each direction: at most four labels.
+        let corners = count(json!({ "interval": 1000, "cornersOnly": true }));
+        assert!(corners <= 4 && corners >= 2, "{corners}");
+        // Top/right puts the x labels above the frame (y < frame top 30 mm), bottom/left below it.
+        let svg_of = |edges: &str| render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labelEdges": edges } }))).svg;
+        let first_text_y = |svg: &str| { let i = svg.find("<text ").unwrap(); let t = &svg[i..]; let y = t.split(" y=\"").nth(1).unwrap().split('"').next().unwrap().parse::<f64>().unwrap(); y };
+        assert!(first_text_y(&svg_of("topright")) < 30.0 && first_text_y(&svg_of("bottomleft")) > 30.0);
+        // 100 km square letters: the frame lies inside square VG (about 498–502 km E straddles W/V at 500 km).
+        let letters = texts(&render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "labels": false, "squareLetters": true } }))).svg);
+        assert!(letters.iter().any(|t| t == "VG") && letters.iter().any(|t| t == "WG"), "{letters:?}");
+        let geo = render(&e, &frame_req("EPSG:3857", [-10_000_000.0, 5_000_000.0], 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 1000, "squareLetters": true } })));
+        assert!(geo.warnings.iter().any(|w| w.contains("100 km square letters")), "{:?}", geo.warnings);
+    }
+
+    #[test]
     fn model_rejects_bad_grid_specs_and_unprintable_basemaps() {
         let e = Engine::new().unwrap();
         for (extra, needle) in [

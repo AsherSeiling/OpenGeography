@@ -223,6 +223,8 @@ function GridFields({ label, unit, value, onChange, graticule }: { graticule?: b
           </Field>
           <Checkbox label="Labels" checked={value.labels} onChange={(_, d) => onChange({ ...value, labels: !!d.checked })} />
           <Choice label="Style" value={value.style ?? "lines"} options={[["lines", "Lines"], ["ticks", "Ticks at the edges"], ["crosses", "Crosses"]]} onPick={(style) => onChange({ ...value, style })} />
+          <Choice label="Label edges" value={value.labelEdges ?? "auto"} options={[["auto", "Automatic"], ["all", "All four edges"], ["bottomleft", "Bottom and left"], ["topright", "Top and right"]]} onPick={(labelEdges) => onChange({ ...value, labelEdges })} />
+          <Checkbox label="Label the corner lines only" checked={!!value.cornersOnly} onChange={(_, d) => onChange({ ...value, cornersOnly: !!d.checked })} />
           <Choice
             label="Label format"
             value={value.labelFormat ?? "auto"}
@@ -248,6 +250,7 @@ function GridFields({ label, unit, value, onChange, graticule }: { graticule?: b
               />
             </Field>
           )}
+          {!graticule && <Checkbox label="100 km square letters (UTM)" checked={!!value.squareLetters} onChange={(_, d) => onChange({ ...value, squareLetters: !!d.checked })} />}
           {!graticule && <Checkbox label="Zone and 100 km square (UTM)" checked={!!value.designation} onChange={(_, d) => onChange({ ...value, designation: !!d.checked })} />}
         </div>
       )}
