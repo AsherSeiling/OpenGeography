@@ -309,7 +309,6 @@ export function MapView() {
         removeDrawn(map, id);
       }
     }
-    let skippedRasters = 0;
     order.forEach((id, i) => {
       if (!wanted.has(id)) return;
       const info = shown(id)!;
@@ -317,11 +316,6 @@ export function MapView() {
       const zIndex = order.length - i; // first in Contents is on top
       const raster = info.geomType === "Raster";
       const dispKey = `${info.id}|${info.version}|${active.info.crsKey}`;
-      if (raster && !mercator) {
-        skippedRasters++;
-        removeDrawn(map, id);
-        return;
-      }
       if (!raster && !mercator && !displayReady.current.has(dispKey)) {
         void buildFor(info, active, crsName, dispKey);
         // Keep drawing what is there (if anything) until the new display table is ready.
@@ -384,13 +378,6 @@ export function MapView() {
       }
       d.labels?.layer.setZIndex(zIndex + 0.5);
       d.labels?.layer.setVisible(!!visible[id]);
-    });
-    useMapView.setState((s) => {
-      const notices = { ...s.notices };
-      const rk = "rasters";
-      if (skippedRasters) notices[rk] = `${skippedRasters} raster layer${skippedRasters === 1 ? " isn't" : "s aren't"} drawn in ${crsName} yet; rasters are shown in Web Mercator only for now`;
-      else delete notices[rk];
-      return { notices };
     });
   }, [layers, results, showOriginal, order, visible, styles, active, mapCrs, tick, buildFor]);
 

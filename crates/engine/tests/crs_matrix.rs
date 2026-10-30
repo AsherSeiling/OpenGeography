@@ -109,12 +109,16 @@ fn recipes() -> Vec<Recipe> {
         Recipe { check: Check::SameWithin(1e-3), ..r("voronoi", &[("in", "P")], json!({})) },
         Recipe { check: Check::SameWithin(1e-3), ..r("concave_hull", &[("in", "P")], json!({})) },
         r("fishnet", &[("in", "A")], json!({ "size": 5, "units": "km" })),
+        r("add_usng", &[("in", "P")], json!({ "field": "REF", "style": "mgrs", "precision": "5", "datum": "wgs84" })),
+        r("add_usng", &[("in", "A")], json!({ "field": "REF", "style": "usng", "precision": "2", "datum": "wgs84" })),
     ]
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 45] = [
+const EXCLUDED: [(&str, &str); 47] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
+    ("usng_grid", "its squares are the UTM grid, so the result is deliberately in the UTM zone of the input, not in the input's CRS; tested in usng.rs"),
+    ("usng_to_points", "reads text references, so its input has no coordinate system to vary; tested against GeoTrans/mgrs values in usng.rs"),
     ("layer_output", "writes the result back; covered by every matrix run"),
     ("add_to_map", "a table sink"),
     ("export", "tested for CRS in crs_export.rs (R-E3) and engine.rs"),
