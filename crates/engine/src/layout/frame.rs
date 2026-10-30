@@ -626,6 +626,9 @@ pub fn render_frame(conn: &Connection, body: &Body, f: &FrameInput, req: &Render
     let to_page = |x: f64, y: f64| m.xy(x, y);
     if let Some(spec) = f.grid {
         let g = grid::grid(&crs, at, extent, spec, f.graticule.is_some(), &to_page, &mut warnings);
+        if !g.sub.is_empty() {
+            let _ = write!(body_svg, "<g id=\"subgrid-{}\" fill=\"none\" opacity=\"0.55\" {}>{}</g>", esc(&at.id), grid::line_attrs(&GridSpec { width: Some(spec.width.unwrap_or(0.15) * 0.6), ..spec.clone() }, "#26567a", false), g.sub);
+        }
         if !g.lines.is_empty() {
             let _ = write!(body_svg, "<g id=\"grid-{}\" fill=\"none\" {}>{}</g>", esc(&at.id), grid::line_attrs(spec, "#26567a", false), g.lines);
         }

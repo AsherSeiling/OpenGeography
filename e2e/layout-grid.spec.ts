@@ -18,9 +18,12 @@ test("LW5 grid style, label format and zone designation reach the drawing", asyn
   await app.getByRole("option", { name: "Two digits (1 km grid)" }).click();
   await app.getByRole("checkbox", { name: "Zone and 100 km square (UTM)" }).check();
   await app.getByRole("spinbutton", { name: "Line width (mm)" }).fill("0.3");
+  await app.getByRole("textbox", { name: "Interval (CRS units)" }).fill("2000");
+  await app.getByRole("textbox", { name: "Sub-grid interval" }).fill("1000");
+  await expect.poll(async () => (await frame()).grid?.subInterval).toBe(1000);
   await expect.poll(async () => (await frame()).grid?.designation).toBe(true);
   const g = (await frame()).grid;
-  expect(g).toMatchObject({ style: "ticks", labelFormat: "short", designation: true, width: 0.3 });
+  expect(g).toMatchObject({ style: "ticks", labelFormat: "short", designation: true, width: 0.3, interval: 2000 });
 
   // The engine draws it: tick paths, two-digit labels, and a designation like "15T …".
   const out = (await gis(app, async (x) => { const s = x.useLayouts.getState(); const st = x.useApp.getState(); return x.api.renderLayoutPreview(x.layoutActions.layoutRequest(s.doc), 96); })) as any;

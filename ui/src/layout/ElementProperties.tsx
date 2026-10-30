@@ -233,6 +233,21 @@ function GridFields({ label, unit, value, onChange, graticule }: { graticule?: b
           <Num label="Line width (mm)" value={value.width ?? 0.15} min={0.05} step={0.05} decimals={2} onChange={(width) => onChange({ ...value, width })} />
           {(value.style ?? "lines") !== "lines" && <Num label="Tick / cross size (mm)" value={value.tickLength ?? 2.5} min={0.5} step={0.5} decimals={1} onChange={(tickLength) => onChange({ ...value, tickLength })} />}
           {(value.style ?? "lines") === "lines" && <Checkbox label="Dashed" checked={value.dashed ?? !!graticule} onChange={(_, d) => onChange({ ...value, dashed: !!d.checked })} />}
+          {!graticule && (
+            <Field label="Sub-grid every (CRS units, blank = none)" size="small">
+              <Input
+                size="small"
+                aria-label="Sub-grid interval"
+                defaultValue={value.subInterval === undefined ? "" : String(value.subInterval)}
+                onChange={(_, d) => {
+                  const t = d.value.trim();
+                  const v = Number(t);
+                  if (t === "") onChange({ ...value, subInterval: undefined });
+                  else if (Number.isFinite(v) && v > 0) onChange({ ...value, subInterval: v });
+                }}
+              />
+            </Field>
+          )}
           {!graticule && <Checkbox label="Zone and 100 km square (UTM)" checked={!!value.designation} onChange={(_, d) => onChange({ ...value, designation: !!d.checked })} />}
         </div>
       )}
