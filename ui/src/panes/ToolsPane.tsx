@@ -1,6 +1,7 @@
 import { useShallow } from "zustand/react/shallow";
 import { SearchBox } from "@fluentui/react-components";
-import { DatabaseRegular, WrenchRegular } from "@fluentui/react-icons";
+import { DatabaseRegular } from "@fluentui/react-icons";
+import { ToolIcon } from "../nodes/toolIcon";
 import { useMemo, useState } from "react";
 import { justDragged, startDrag } from "../dnd";
 import { useModel, useRun } from "../store/model";
@@ -94,7 +95,7 @@ function loadClosed(): Record<string, boolean> {
 function ToolItem({ t, add }: { t: { id: string; name: string; description: string; role: string }; add: (tool: string) => void }) {
   return (
     <div className={`tool-item ${t.role === "output" ? "output" : ""}`} title={t.description} onPointerDown={(e) => startDrag(e, { kind: "tool", id: t.id, label: t.name })} onClick={() => add(t.id)}>
-      <WrenchRegular />
+      <ToolIcon tool={t.id} />
       <div>
         <div className="tool-name">{t.name}</div>
         <div className="tool-desc">{t.description}</div>

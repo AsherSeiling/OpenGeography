@@ -1,6 +1,7 @@
 // Blender-style node cards: a colored header (blue = input layer, yellow =
 // tool, green = output), then output sockets (right edge), the step's
 // settings, and input sockets (left edge), one labeled row each.
+import { ToolIcon } from "./toolIcon";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
 import { saveResultAsLayer } from "../actions";
@@ -50,6 +51,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
   return (
     <div className={`bnode ${kind} ${data.fixed ? "fixed" : ""} ${selected ? "selected" : ""} ${r?.status ?? ""} ${data.muted ? "muted" : ""} ${data.collapsed ? "collapsed" : ""}`}>
       <div className="bnode-head">
+        {kind !== "data" && <span className="bnode-icon"><ToolIcon tool={data.tool} /></span>}
         <span className="bnode-title">{title}</span>
         {data.muted && <span className="bnode-tag" title="Muted (M): bypassed — its first input passes straight through">muted</span>}
         {changed && !data.muted && <span className="bnode-changed" title="Changed since the last run — run the tree to update" />}

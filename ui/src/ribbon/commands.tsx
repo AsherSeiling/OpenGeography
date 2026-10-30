@@ -1,5 +1,7 @@
 // Every ribbon command lives in this one registry. The ribbon layout, menus
 // and the "Tell me" search all read from it.
+import { createElement } from "react";
+import { toolIcon } from "../nodes/toolIcon";
 import {
   AddCircleRegular,
   MyLocationRegular,
@@ -242,7 +244,7 @@ export function toolCommand(toolId: string, name: string, description: string): 
   return {
     id: `tool:${toolId}`,
     label: name,
-    icon: <WrenchRegular />,
+    icon: createElement(toolIcon(toolId)),
     tip: description,
     run: () => {
       showPane("model");
