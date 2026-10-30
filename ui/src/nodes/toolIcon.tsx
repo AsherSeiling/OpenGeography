@@ -2,6 +2,9 @@
 // `every_tool_has_its_own_icon` fails when a tool is added without a line here or when two tools share an icon.
 import {
   WrenchRegular,
+  TextNumberFormatRegular,
+  MapPinRegular,
+  TableSimpleRegular,
   type FluentIcon,
   AlignCenterVerticalRegular,
   ArrowAutofitHeightRegular,
@@ -83,6 +86,9 @@ import { createElement } from "react";
 
 export const TOOL_ICONS: Record<string, FluentIcon> = {
   input_layer: LayerRegular,
+  add_usng: TextNumberFormatRegular,
+  usng_to_points: MapPinRegular,
+  usng_grid: TableSimpleRegular,
   filter: FilterRegular,
   merge: MergeRegular,
   select_by_location: SelectObjectRegular,

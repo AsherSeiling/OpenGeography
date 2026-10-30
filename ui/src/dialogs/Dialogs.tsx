@@ -275,13 +275,32 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
 
 function CrsPickerDialog({ title, initial, onPick, onClose }: { title: string; initial: string | null; onPick: (id: string, name: string) => void; onClose: () => void }) {
   const [sel, setSel] = useState<{ id: string; name: string } | null>(initial ? { id: initial, name: crsName(initial) } : null);
+  const [gridMsg, setGridMsg] = useState<string | null>(null);
+  // USNG and MGRS use the UTM zone of the place: choosing either picks that zone for the middle of the map view, nothing else to choose.
+  const gridCrs = async (kind: "usng" | "mgrs") => {
+    setGridMsg(null);
+    const at = getCenterLonLat();
+    if (!at) return setGridMsg("Zoom the map to your area first: the zone is chosen for the centre of the map view.");
+    try {
+      const c = await api.usngCrsAt(at[0], at[1], kind === "usng" ? "auto" : "wgs84");
+      setSel({ id: c.id, name: c.name });
+      setGridMsg(`${kind.toUpperCase()} uses UTM zone ${c.zone}${c.north ? "N" : "S"} here: ${c.name}.`);
+    } catch (e) {
+      setGridMsg(errorText(e));
+    }
+  };
   return (
     <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface className="dlg-wide">
         <DialogBody>
           <DialogTitle>{title}</DialogTitle>
           <DialogContent>
-            <Button size="small" appearance="subtle" onClick={() => setSel({ id: "EPSG:3857", name: "WGS 84 / Pseudo-Mercator (Web Mercator)" })}>Web Mercator (EPSG:3857)</Button>
+            <div className="btn-row">
+              <Button size="small" appearance="subtle" onClick={() => setSel({ id: "EPSG:3857", name: "WGS 84 / Pseudo-Mercator (Web Mercator)" })}>Web Mercator (EPSG:3857)</Button>
+              <Button size="small" appearance="subtle" onClick={() => void gridCrs("usng")} title="NAD 83 UTM in the United States and Canada, WGS 84 elsewhere; the zone of the map view's centre">USNG (UTM zone of the view)</Button>
+              <Button size="small" appearance="subtle" onClick={() => void gridCrs("mgrs")} title="WGS 84 UTM, the zone of the map view's centre">MGRS (UTM zone of the view)</Button>
+            </div>
+            {gridMsg && <div className="props-hint" data-testid="grid-crs-note">{gridMsg}</div>}
             <CrsPicker value={sel?.id ?? null} onChange={(id, name) => setSel({ id, name })} />
             {sel && <div className="crs-current">Selected: <b>{sel.name}</b> ({sel.id})</div>}
           </DialogContent>

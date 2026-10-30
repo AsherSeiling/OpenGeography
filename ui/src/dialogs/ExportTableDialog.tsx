@@ -8,6 +8,17 @@ import { IN_TAURI } from "../ipc/api";
 import { displayInfo, useApp } from "../store/store";
 import { CrsPicker } from "./Dialogs";
 
+type CoordMode = "xy" | "usng" | "mgrs" | "xy+usng" | "xy+mgrs";
+const COORD_MODES: [CoordMode, string][] = [
+  ["xy", "X/Y or lon/lat in a coordinate system"],
+  ["usng", "USNG reference only"],
+  ["mgrs", "MGRS reference only"],
+  ["xy+usng", "X/Y or lon/lat and a USNG reference"],
+  ["xy+mgrs", "X/Y or lon/lat and an MGRS reference"],
+];
+const PRECISIONS: [number, string][] = [[5, "1 m (5 digits)"], [4, "10 m (4 digits)"], [3, "100 m (3 digits)"], [2, "1 km (2 digits)"], [1, "10 km (1 digit)"], [0, "100 km square only"]];
+const gridStyleOf = (m: CoordMode): "usng" | "mgrs" | null => (m.endsWith("usng") ? "usng" : m.endsWith("mgrs") ? "mgrs" : null);
+
 export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: () => void }) {
   const info = useApp((s) => displayInfo(s, owner));
   const base = useApp((s) => s.layers[owner]);
@@ -15,15 +26,21 @@ export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: 
   const [which, setWhich] = useState<"all" | "selected">(nsel > 0 ? "selected" : "all");
   const [format, setFormat] = useState<"csv" | "parquet">("csv");
   const [crs, setCrs] = useState<string | null>(null);
+  // What coordinates to write: X/Y or lon/lat in a coordinate system the user picks, a USNG or MGRS reference (the UTM zone and datum are
+  // chosen for each point, nothing to pick), or both.
+  const [mode, setMode] = useState<CoordMode>("xy");
+  const [digits, setDigits] = useState(5);
   const [path, setPath] = useState("");
   const [busy, setBusy] = useState(false);
   if (!info || !base) return null;
   const ext = format === "csv" ? "csv" : "parquet";
   const fixedPath = path.trim() && !path.trim().toLowerCase().endsWith(`.${ext}`) ? `${path.trim()}.${ext}` : path.trim();
-  const ready = !!crs && !!fixedPath && !busy;
+  const needsCrs = mode === "xy" || mode.startsWith("xy+");
+  const gridStyle = gridStyleOf(mode);
+  const ready = (!needsCrs || !!crs) && !!fixedPath && !busy;
   const go = async () => {
     setBusy(true);
-    const ok = await runExportTable(owner, { path: fixedPath, format, crs: crs!, fids: which === "selected" ? (useApp.getState().selection[owner] ?? []) : null });
+    const ok = await runExportTable(owner, { path: fixedPath, format, crs: needsCrs ? crs! : "", gridRef: gridStyle ? { style: gridStyle, precision: digits, datum: "auto" } : null, fids: which === "selected" ? (useApp.getState().selection[owner] ?? []) : null });
     setBusy(false);
     if (ok) onClose();
   };
@@ -37,10 +54,29 @@ export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: 
               <Radio value="all" label={`All points (${info.featureCount.toLocaleString()}${base.definitionQuery ? ", after the definition query" : ""})`} />
               <Radio value="selected" disabled={nsel === 0} label={`Selected points only (${nsel.toLocaleString()})`} />
             </RadioGroup>
-            <Field label="Coordinate system of the X/Y columns" size="small" required hint={crs ? `Chosen: ${crsName(crs)}` : "Choose one; nothing is assumed."}>
-              <CrsPicker value={crs} onChange={(id) => setCrs(id)} />
+            <Field label="Coordinates to write" size="small">
+              <Dropdown size="small" aria-label="Coordinates to write" value={COORD_MODES.find((m) => m[0] === mode)![1]} selectedOptions={[mode]} onOptionSelect={(_, d) => setMode(d.optionValue as CoordMode)}>
+                {COORD_MODES.map(([v, l]) => <Option key={v} value={v}>{l}</Option>)}
+              </Dropdown>
             </Field>
-            {info.crs && (
+            {gridStyle && (
+              <>
+                <Field label={`${gridStyle.toUpperCase()} precision`} size="small">
+                  <Dropdown size="small" aria-label="Grid reference precision" value={PRECISIONS.find((p) => p[0] === digits)![1]} selectedOptions={[String(digits)]} onOptionSelect={(_, d) => setDigits(Number(d.optionValue))}>
+                    {PRECISIONS.map(([v, l]) => <Option key={v} value={String(v)}>{l}</Option>)}
+                  </Dropdown>
+                </Field>
+                <div className="props-hint" data-testid="export-table-grid-note">
+                  The UTM zone and datum are chosen automatically for each point (NAD 83 in the United States and Canada, WGS 84 elsewhere); no coordinate system needs to be picked{needsCrs ? " for the reference, only for the X/Y columns" : ""}. Points beyond 80°S–84°N get an empty reference.
+                </div>
+              </>
+            )}
+            {needsCrs && (
+              <Field label="Coordinate system of the X/Y columns" size="small" required hint={crs ? `Chosen: ${crsName(crs)}` : "Choose one; nothing is assumed."}>
+                <CrsPicker value={crs} onChange={(id) => setCrs(id)} />
+              </Field>
+            )}
+            {needsCrs && info.crs && (
               <div className="btn-row">
                 <Button size="small" onClick={() => setCrs(info.crs!)} data-testid="export-table-layer-crs">Use the layer's ({info.crsName ?? info.crs})</Button>
                 <Button size="small" onClick={() => setCrs("EPSG:4326")}>WGS 84 lon/lat</Button>

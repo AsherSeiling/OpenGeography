@@ -334,7 +334,9 @@ export async function runExportTable(owner: string, spec: TableExportSpec): Prom
   if (!info) return false;
   const r = await busy(`Exporting the table of ${info.name}`, () => api.exportTable(info.id, spec));
   if (!r) return false;
-  status(`Exported ${r.rows.toLocaleString()} row(s) to ${r.path} with ${r.xColumn}/${r.yColumn} in ${r.crsName} (${r.unit}); the coordinate system is described in ${r.sidecar}`);
+  const coords = r.xColumn ? `${r.xColumn}/${r.yColumn} in ${r.crsName} (${r.unit})` : "";
+  const grid = r.gridColumn ? `${r.gridColumn} references` : "";
+  status(`Exported ${r.rows.toLocaleString()} row(s) to ${r.path} with ${[coords, grid].filter(Boolean).join(" and ")}; what they mean is described in ${r.sidecar}`);
   return true;
 }
 

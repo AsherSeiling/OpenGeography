@@ -3,6 +3,7 @@
 
 pub mod attrs;
 pub mod catalog;
+pub mod usng;
 pub mod crs;
 pub mod export_table;
 pub mod fonts;
@@ -925,6 +926,12 @@ impl Engine {
             sources::inherit(c, &[dem], &hillshade.id, &hillshade.name)
         })?;
         Ok(TopoData { contours, hillshade })
+    }
+
+    /// The UTM coordinate system a USNG/MGRS grid uses at a place: zone (with the Norway/Svalbard exceptions), hemisphere and datum
+    /// ("auto" = NAD 83 in zones 1–23 north, WGS 84 elsewhere), so choosing USNG or MGRS needs no coordinate system to be picked.
+    pub fn usng_crs_at(&self, lon: f64, lat: f64, datum: &str) -> Result<usng::UsngCrs> {
+        usng::crs_at(lon, lat, usng::Datum::parse(datum)?)
     }
 
     /// Every datum grid PROJ-data offers, sorted by continent, country and purpose, with where each is installed.

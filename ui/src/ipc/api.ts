@@ -63,11 +63,26 @@ export interface FontFamily {
   italic: boolean;
   monospace: boolean;
 }
+export interface GridRefSpec {
+  style: "usng" | "mgrs";
+  /** Digits per axis: 0 (100 km square) to 5 (1 m). */
+  precision: number;
+  datum: "auto" | "nad83" | "wgs84";
+}
 export interface TableExportSpec {
   path: string;
   format: "csv" | "parquet";
+  /** The coordinate system of the X/Y columns; empty when only a grid reference is written. */
   crs: string;
+  gridRef?: GridRefSpec | null;
   fids?: number[] | null;
+}
+/** The UTM system USNG/MGRS use at a place. */
+export interface UsngCrs {
+  id: string;
+  name: string;
+  zone: number;
+  north: boolean;
 }
 export interface TableExportResult {
   path: string;
@@ -77,6 +92,7 @@ export interface TableExportResult {
   yColumn: string;
   crsName: string;
   unit: string;
+  gridColumn?: string | null;
 }
 
 export interface TaskInfo {
@@ -666,6 +682,7 @@ export const api = {
   /** Every text slot of every layout element (id, label, default size): the Properties Text section is built from this. */
   layoutTextSlots: () => invoke<TextSlot[]>("layout_text_slots"),
   topoPrepareData: (dem: string, interval: number, indexEvery: number, label: string) => track(invoke<TopoData>("topo_prepare_data", { dem, interval, indexEvery, label })),
+  usngCrsAt: (lon: number, lat: number, datum: "auto" | "nad83" | "wgs84" = "auto") => invoke<UsngCrs>("usng_crs_at", { lon, lat, datum }),
   buildTopoLayout: (spec: TopoSpec, today: string) => invoke<TopoBuild>("build_topo_layout", { spec, today }),
   /** Every datum grid PROJ-data offers, with where each is installed. */
   listDatumGrids: () => invoke<DatumGrid[]>("list_datum_grids"),

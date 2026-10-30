@@ -43,6 +43,7 @@ mod symbology;
 mod summarize_within;
 mod near;
 mod fishnet;
+mod usng_tools;
 mod summary_statistics;
 
 use crate::crs;
@@ -519,6 +520,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(summarize_within::SummarizeWithin),
         Box::new(near::Near),
         Box::new(fishnet::Fishnet),
+        Box::new(usng_tools::AddUsng),
+        Box::new(usng_tools::UsngToPoints),
+        Box::new(usng_tools::UsngGrid),
         Box::new(summary_statistics::SummaryStatistics),
         Box::new(qgis_vector::PolygonsToLines),
         Box::new(qgis_vector::LinesToPolygons),

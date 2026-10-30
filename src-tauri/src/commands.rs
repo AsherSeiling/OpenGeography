@@ -155,6 +155,11 @@ pub async fn topo_prepare_data(engine: Eng<'_>, dem: String, interval: f64, inde
 }
 
 #[tauri::command]
+pub async fn usng_crs_at(engine: Eng<'_>, lon: f64, lat: f64, datum: String) -> Res<engine::usng::UsngCrs> {
+    blocking(&engine, move |e| e.usng_crs_at(lon, lat, &datum)).await
+}
+
+#[tauri::command]
 pub async fn list_datum_grids(engine: Eng<'_>) -> Res<Vec<engine::grids::GridEntry>> {
     blocking(&engine, move |e| Ok(e.list_datum_grids())).await
 }
