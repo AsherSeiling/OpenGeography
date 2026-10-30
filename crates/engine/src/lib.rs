@@ -67,6 +67,13 @@ pub struct TnmImport {
     pub failed: Vec<String>,
 }
 
+/// What the Topo Map Builder's data step made from an elevation raster.
+#[derive(serde::Serialize, Debug)]
+pub struct TopoData {
+    pub contours: LayerInfo,
+    pub hillshade: LayerInfo,
+}
+
 type TileKey = (String, u64, u32, u32, u32, String);
 
 /// Id of the node-tree result layer for `owner` (e.g. L3 → L3r).
@@ -877,6 +884,47 @@ impl Engine {
     /// The Topo Map Builder's layout and self-check for a centre, scale and paper (`layout/topo.rs`).
     pub fn build_topo_layout(&self, spec: &layout::topo::TopoSpec, today: &str) -> Result<layout::topo::TopoBuild> {
         layout::topo::build(spec, today)
+    }
+
+    /// Topo Map Builder, data step: contour lines (with ELEV and INDEX fields; every `index_every`-th line is an index contour) and a
+    /// north-west-lit hillshade, both made from one elevation raster as new layers that keep its sources. `interval` is in the
+    /// raster's units (metres for 3DEP).
+    pub fn topo_prepare_data(&self, dem: &str, interval: f64, index_every: u32, label: &str) -> Result<TopoData> {
+        let info = self.layer(dem)?;
+        if info.raster.as_ref().map_or(true, |r| r.kind != "elevation") {
+            return Err(anyhow!("'{}' is not an elevation raster; choose the elevation layer", info.name));
+        }
+        if !(interval.is_finite() && interval > 0.0) {
+            return Err(anyhow!("The contour interval must be greater than zero"));
+        }
+        let src = PathBuf::from(&info.raster.as_ref().unwrap().path);
+        // Contours go through the same graph machinery as the Contour tool, so the layer is exactly what the tool would make.
+        let graph: graph::Graph = serde_json::from_value(serde_json::json!({
+            "nodes": [
+                { "id": "in", "tool": "input_layer", "params": { "layer": dem } },
+                { "id": "ct", "tool": "contours", "params": { "interval": interval, "base": 0, "index_every": index_every } },
+                { "id": "out", "tool": "add_to_map", "params": { "name": format!("Contours — {label}") } }
+            ],
+            "edges": [
+                { "source": "in", "target": "ct", "targetHandle": "in" },
+                { "source": "ct", "target": "out", "targetHandle": "in" }
+            ]
+        }))?;
+        let results = self.run_graph(&graph, None, &mut |_| {})?;
+        if let Some(bad) = results.iter().find(|r| r.error.is_some()) {
+            return Err(anyhow!("Contours could not be made: {}", bad.error.clone().unwrap_or_default()));
+        }
+        let contours = results.iter().find(|r| r.id == "out").and_then(|r| r.layer.clone()).ok_or_else(|| anyhow!("The contour layer was not created"))?;
+        // Hillshade lit from the north-west at 45°, the cartographic convention.
+        let shade = raster::hillshade(&src, 315.0, 45.0, 1.0, false)?;
+        let id = self.alloc_id();
+        let name = format!("Hillshade — {label}");
+        let hillshade = layers::raster_layer(&id, &name, &shade, Some(format!("Hillshade of {}", info.name)))?;
+        self.with_conn(|c| {
+            self.save_meta(c, &hillshade)?;
+            sources::inherit(c, &[dem], &hillshade.id, &hillshade.name)
+        })?;
+        Ok(TopoData { contours, hillshade })
     }
 
     /// Every datum grid PROJ-data offers, sorted by continent, country and purpose, with where each is installed.
