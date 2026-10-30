@@ -14,12 +14,17 @@ pub fn available() -> bool {
 
 /// `tool` is WhiteboxTools' tool name (e.g. "FillDepressions"); `args` are (flag, value) pairs without dashes.
 /// WhiteboxTools v2.4.0 sometimes panics with "Error unwrapping 'output'" when its worker threads finish (a race in the program, seen
-/// in FillDepressions); the run is repeated up to 3 times for that message only. Any other failure is reported at once.
+/// in FillDepressions); the run is repeated (single-threaded) up to 3 more times for that message only. Any other failure is reported at once.
 pub fn run(tool: &str, args: &[(&str, String)]) -> Result<()> {
     let mut attempt = 1;
     loop {
-        match run_once(tool, args) {
-            Err(e) if attempt < 3 && e.to_string().contains("Error unwrapping") => attempt += 1,
+        // The first try uses every core; the repeats run the program on one thread (`--max_procs=1`), where the race cannot happen.
+        let mut a: Vec<(&str, String)> = args.to_vec();
+        if attempt > 1 {
+            a.push(("max_procs", "1".into()));
+        }
+        match run_once(tool, &a) {
+            Err(e) if attempt < 4 && e.to_string().contains("Error unwrapping") => attempt += 1,
             other => return other,
         }
     }

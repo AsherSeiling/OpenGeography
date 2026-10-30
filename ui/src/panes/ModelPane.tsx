@@ -352,17 +352,19 @@ function ModelCanvas() {
       }
       const field = typingField();
       if (field) {
-        // A text box outside the editor that still has focus must not swallow shortcuts while the pointer is over the canvas
-        // (Blender-style: the pointer decides). Typing wins while keys are going into it (the last 1.2 s).
+        // Only the Add shortcut lets the pointer override a text box outside the editor that still has focus (Blender-style: the pointer
+        // decides), and only when keys are not going into that box (nothing typed in the last 1.2 s). Editing keys (Escape, Enter,
+        // Delete, Backspace, letters) always stay with the text box.
+        const combo = eventCombo(e);
+        const wantsAdd = !!combo && actionFor(useKeymap.getState().bindings, combo) === "add";
         const printable = e.key.length === 1 && !e.metaKey && !e.ctrlKey;
-        if (printable) lastTyped.current = Date.now();
+        if (printable && !wantsAdd) lastTyped.current = Date.now(); // the shortcut itself is not typing
         const idle = Date.now() - lastTyped.current > 1200;
-        if (!field.closest(".model") && sawMove.current && overCanvas() && idle) {
+        if (wantsAdd && !field.closest(".model") && sawMove.current && overCanvas() && idle) {
           field.blur();
           setActive(editorState());
         } else {
-          const combo = eventCombo(e);
-          if (combo && actionFor(useKeymap.getState().bindings, combo) === "add" && !field.closest(".model")) {
+          if (wantsAdd && !field.closest(".model")) {
             useApp.getState().setStatus("Shift+A: a text box has focus. Click the Model canvas (or move the pointer over it and wait a moment), then press Shift+A.");
           }
           return; // the keys are for that field

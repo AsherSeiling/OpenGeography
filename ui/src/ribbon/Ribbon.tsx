@@ -2,7 +2,8 @@
 // buttons. Contextual tabs appear when a layer is selected.
 import { Combobox, Menu, MenuDivider, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger, Option, Tooltip } from "@fluentui/react-components";
 import { DocumentPdfRegular, DocumentRegular, ImageMultipleRegular, SearchRegular } from "@fluentui/react-icons";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { api, errorText, type LayoutTemplate } from "../ipc/api";
 import { pageCaption, useSeriesView } from "../layout/series";
 import { useDialog } from "../actions";
@@ -15,13 +16,9 @@ import { useRun } from "../store/model";
 import { useNav } from "../nav/navStore";
 import { useApp } from "../store/store";
 import { BASEMAP_OPTIONS, commands, TOOL_BUTTONS, toolCommand, type Command } from "./commands";
+import { fitRibbon, type Variant } from "./ribbonFit";
+import { useRibbonTabs, type Group, type Size } from "./tabs";
 
-type Size = "large" | "small";
-type Item = { cmd: string; size?: Size } | { custom: ReactNode };
-interface Group {
-  label: string;
-  items: Item[];
-}
 
 const TABS: Record<string, Group[]> = {
   Map: [
@@ -90,6 +87,9 @@ const TABS: Record<string, Group[]> = {
   ],
 };
 
+const MAIN_TABS = ["Map", "Insert", "Analysis", "Data", "View"];
+const KEY_TIPS: Record<string, string> = { Map: "M", Insert: "I", Analysis: "A", Data: "D", View: "V" };
+
 export function Ribbon() {
   const [tab, setTab] = useState("Map");
   // Re-render when state that affects enabled/checked changes.
@@ -104,14 +104,155 @@ export function Ribbon() {
   const layoutId = useLayouts((s) => s.id);
   useLayouts((s) => s.doc);
   useLayouts((s) => s.selected);
+  const registered = useRibbonTabs((s) => s.tabs);
   // Opening a layout tab brings its contextual ribbon tab forward, as in ArcGIS Pro.
   useEffect(() => {
     if (layoutId) setTab("Layout");
   }, [layoutId]);
-  const current = (tab === "Feature Layer" && !contextual) || (tab === "Layout" && !layoutId) ? "Map" : tab;
+  const extra = Object.values(registered).filter((t) => t.visible);
+  const current = (tab === "Feature Layer" && !contextual) || (tab === "Layout" && !layoutId) || (!(tab in TABS) && !extra.some((t) => t.id === tab)) ? "Map" : tab;
+  const groups: Group[] = TABS[current] ?? extra.find((t) => t.id === current)?.groups ?? [];
+
+  // Collapse to the tab row (double-click a tab or Ctrl+F1); a click on a tab while collapsed shows the body until you click elsewhere.
+  const [collapsed, setCollapsed] = useState(false);
+  const [peek, setPeek] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F1" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setCollapsed((c) => !c);
+        setPeek(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  useEffect(() => {
+    if (!peek) return;
+    const off = (e: MouseEvent) => {
+      if (!(e.target as Element)?.closest?.(".ribbon")) setPeek(false);
+    };
+    window.addEventListener("mousedown", off);
+    return () => window.removeEventListener("mousedown", off);
+  }, [peek]);
+
+  // Key tips: Alt pressed and released on its own (no mouse action in between) shows a letter on each tab; the next plain letter opens that
+  // tab. They go away on any mouse action, on any other key, and after 4 seconds, so they never swallow a shortcut meant for another pane.
+  const [tips, setTips] = useState(false);
+  useEffect(() => {
+    let alone = false;
+    let timer = 0;
+    const close = () => {
+      window.clearTimeout(timer);
+      setTips(false);
+    };
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "Alt") {
+        alone = true;
+        return;
+      }
+      alone = false;
+      if (!tipsOpen.current) return;
+      const plain = !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+      const t = plain ? Object.entries(KEY_TIPS).find(([, k]) => k.toLowerCase() === e.key.toLowerCase()) : undefined;
+      close();
+      if (t) {
+        e.preventDefault();
+        e.stopPropagation();
+        setTab(t[0]);
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === "Alt" && alone) {
+        window.clearTimeout(timer);
+        setTips((v) => {
+          if (!v) timer = window.setTimeout(() => setTips(false), 4000);
+          return !v;
+        });
+      }
+      alone = false;
+    };
+    const mouse = () => {
+      alone = false;
+      if (tipsOpen.current) close();
+    };
+    window.addEventListener("keydown", down, true);
+    window.addEventListener("keyup", up, true);
+    window.addEventListener("pointerdown", mouse, true);
+    window.addEventListener("wheel", mouse, { capture: true, passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", down, true);
+      window.removeEventListener("keyup", up, true);
+      window.removeEventListener("pointerdown", mouse, true);
+      window.removeEventListener("wheel", mouse, true);
+    };
+  }, []);
+  const tipsOpen = useRef(false);
+  tipsOpen.current = tips;
+  const pickTab = (t: string) => {
+    setTab(t);
+    if (collapsed) setPeek(true);
+  };
+
+  // Fit the groups of the current tab into the width: measure each group in each size variant once per tab, then choose variants.
+  const body = useRef<HTMLDivElement>(null);
+  const moreBtn = useRef<HTMLDivElement>(null);
+  const [forced, setForced] = useState<Variant | null>(null);
+  const [fit, setFit] = useState<{ variants: Variant[]; shown: number } | null>(null);
+  const widths = useRef<Record<string, number[][]>>({});
+  const layoutKey = `${current}|${groups.length}`;
+  const measure = useCallback(() => {
+    const el = body.current;
+    if (!el) return;
+    if (!widths.current[layoutKey]) {
+      const w: number[][] = groups.map(() => [0, 0, 0, 0]);
+      for (const v of [0, 1, 2, 3] as Variant[]) {
+        flushSync(() => setForced(v));
+        el.querySelectorAll<HTMLElement>(":scope > .rg-slot").forEach((slot, gi) => {
+          if (w[gi]) w[gi][v] = slot.getBoundingClientRect().width;
+        });
+      }
+      flushSync(() => setForced(null));
+      widths.current[layoutKey] = w;
+    }
+    const cs = getComputedStyle(el);
+    const avail = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const more = moreBtn.current?.getBoundingClientRect().width || 76;
+    const result = fitRibbon({ widths: widths.current[layoutKey], avail, moreWidth: more });
+    setFit(result);
+  }, [layoutKey, groups]);
+  useEffect(() => {
+    const el = body.current;
+    if (!el) return;
+    // A short timer, not requestAnimationFrame: a hidden or background window never runs animation frames.
+    let timer = 0;
+    const run = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(measure, 16);
+    };
+    run();
+    const ro = new ResizeObserver(run);
+    ro.observe(el);
+    // Fonts change group widths: measure again once they are loaded.
+    (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready.then(() => { delete widths.current[layoutKey]; run(); });
+    return () => {
+      window.clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, [measure, layoutKey, collapsed, peek]);
+  // A layout or template change can change a custom control's width: measure that tab again.
+  const doc = useLayouts((s) => s.doc);
+  useLayoutEffect(() => {
+    delete widths.current[layoutKey];
+  }, [doc?.page?.width, doc?.page?.height, layoutKey]);
+
+  const variants = (i: number): Variant => forced ?? fit?.variants[i] ?? 0;
+  const shown = forced !== null ? groups.length : fit?.shown ?? groups.length;
+  const hidden = groups.slice(shown);
 
   return (
-    <div className="ribbon">
+    <div className={`ribbon${collapsed ? " collapsed" : ""}${collapsed && peek ? " peek" : ""}`}>
       <div className="ribbon-tabs">
         <Menu>
           <MenuTrigger>
@@ -127,15 +268,23 @@ export function Ribbon() {
             </MenuList>
           </MenuPopover>
         </Menu>
-        {["Map", "Insert", "Analysis", "Data", "View"].map((t) => (
-          <button key={t} className={`rtab ${current === t ? "on" : ""}`} onClick={() => setTab(t)}>
+        <div className="qat" role="toolbar" aria-label="Quick access">
+          {["open", "save"].map((id) => (
+            <Tooltip key={id} content={`${commands[id].label}${commands[id].keys ? ` (${commands[id].keys})` : ""}`} relationship="label" withArrow>
+              <button className="qat-btn" onClick={() => commands[id].run()}>{commands[id].icon}</button>
+            </Tooltip>
+          ))}
+        </div>
+        {MAIN_TABS.map((t) => (
+          <button key={t} className={`rtab ${current === t ? "on" : ""}`} onClick={() => pickTab(t)} onDoubleClick={() => { setCollapsed((c) => !c); setPeek(false); }} title="Double-click to collapse or expand the ribbon (Ctrl+F1)">
             {t}
+            {tips && <span className="keytip">{KEY_TIPS[t]}</span>}
           </button>
         ))}
         {layoutId && (
           <div className="rtab-context">
             <span className="rtab-context-label">Layout</span>
-            <button className={`rtab ctx ${current === "Layout" ? "on" : ""}`} onClick={() => setTab("Layout")}>
+            <button className={`rtab ctx ${current === "Layout" ? "on" : ""}`} onClick={() => pickTab("Layout")}>
               Layout
             </button>
           </div>
@@ -143,36 +292,72 @@ export function Ribbon() {
         {contextual && (
           <div className="rtab-context">
             <span className="rtab-context-label">Layer</span>
-            <button className={`rtab ctx ${current === "Feature Layer" ? "on" : ""}`} onClick={() => setTab("Feature Layer")}>
+            <button className={`rtab ctx ${current === "Feature Layer" ? "on" : ""}`} onClick={() => pickTab("Feature Layer")}>
               Feature Layer
             </button>
           </div>
         )}
+        {extra.map((t) => (
+          <div key={t.id} className="rtab-context">
+            <span className="rtab-context-label">{t.band}</span>
+            <button className={`rtab ctx ${current === t.id ? "on" : ""}`} onClick={() => pickTab(t.id)}>
+              {t.label}
+            </button>
+          </div>
+        ))}
         <div className="ribbon-spacer" />
         <TellMe />
       </div>
-      <div className="ribbon-body">
-        {TABS[current].map((g) => (
-          <RibbonGroup key={g.label} group={g} />
+      <div className="ribbon-body" ref={body}>
+        {groups.slice(0, shown).map((g, i) => (
+          <div key={g.label} className="rg-slot" data-group={g.label}>
+            <RibbonGroup group={g} variant={variants(i)} />
+          </div>
         ))}
+        {hidden.length > 0 && forced === null && (
+          <div className="rg-slot rg-more" ref={moreBtn}>
+            <Menu>
+              <MenuTrigger>
+                <button className="rbtn large rbtn-more" title="Commands that do not fit at this window width">
+                  <span className="rbtn-icon">⋯</span>
+                  <span className="rbtn-label">More ▾</span>
+                </button>
+              </MenuTrigger>
+              <MenuPopover>
+                <div className="rmenu">
+                  {hidden.map((g) => (
+                    <GroupMenuBody key={g.label} group={g} heading />
+                  ))}
+                </div>
+              </MenuPopover>
+            </Menu>
+          </div>
+        )}
+        {hidden.length === 0 && <div className="rg-slot rg-more rg-measure" ref={moreBtn} aria-hidden><span className="rbtn large rbtn-more"><span className="rbtn-icon">⋯</span><span className="rbtn-label">More ▾</span></span></div>}
       </div>
     </div>
   );
 }
 
-function RibbonGroup({ group }: { group: Group }) {
+/**
+ * One group in the given size variant (see ribbonFit.ts). The group's own controls stay mounted in every variant (hidden when the group
+ * is collapsed into a menu), so measuring the variants never rebuilds a control or closes a menu the user has just opened.
+ */
+function RibbonGroup({ group, variant = 0 }: { group: Group; variant?: Variant }) {
+  const collapsed = variant === 3;
   // Consecutive small buttons stack in columns of three, as in Office.
   const cols: ReactNode[] = [];
   let smalls: string[] = [];
+  const small = (id: string) => <RButton key={id} cmd={commands[id]} size="small" iconOnly={variant === 2} />;
   const flush = () => {
-    if (smalls.length) cols.push(<div key={`s${cols.length}`} className="rcol">{smalls.map((id) => <RButton key={id} cmd={commands[id]} size="small" />)}</div>);
+    if (smalls.length) cols.push(<div key={`s${cols.length}`} className="rcol">{smalls.map(small)}</div>);
     smalls = [];
   };
   group.items.forEach((it, i) => {
     if ("custom" in it) {
       flush();
       cols.push(<div key={`c${i}`}>{it.custom}</div>);
-    } else if (it.size === "small") {
+    } else if (it.size === "small" || variant === 1 || variant === 2) {
       smalls.push(it.cmd);
       if (smalls.length === 3) flush();
     } else {
@@ -182,23 +367,69 @@ function RibbonGroup({ group }: { group: Group }) {
   });
   flush();
   return (
-    <div className="rgroup">
-      <div className="rgroup-items">{cols}</div>
+    <div className={`rgroup${collapsed ? " rgroup-collapsed" : ""}`}>
+      <div className="rgroup-items">
+        {collapsed && (
+          <Menu>
+            <MenuTrigger>
+              <button className="rbtn large" title={group.label}>
+                <span className="rbtn-icon">{firstIcon(group)}</span>
+                <span className="rbtn-label">{group.label} ▾</span>
+              </button>
+            </MenuTrigger>
+            <MenuPopover>
+              <div className="rmenu">
+                <GroupMenuBody group={group} />
+              </div>
+            </MenuPopover>
+          </Menu>
+        )}
+        <div className={collapsed ? "rg-hidden" : "rg-cols"}>{cols}</div>
+      </div>
       <div className="rgroup-label">{group.label}</div>
     </div>
   );
 }
 
-export function RButton({ cmd, size }: { cmd: Command; size: Size }) {
+function firstIcon(g: Group): ReactNode {
+  for (const it of g.items) if ("cmd" in it && commands[it.cmd]) return commands[it.cmd].icon;
+  return "▦";
+}
+
+/** A group's commands as menu rows (for a collapsed group and for the More menu); custom controls are shown as they are. */
+function GroupMenuBody({ group, heading }: { group: Group; heading?: boolean }) {
+  return (
+    <div className="rmenu-group">
+      {heading && <div className="rmenu-heading">{group.label}</div>}
+      {group.items.map((it, i) =>
+        "custom" in it ? (
+          <div key={`c${i}`} className="rmenu-custom">{it.custom}</div>
+        ) : commands[it.cmd] ? (
+          <button
+            key={it.cmd}
+            className="rmenu-item"
+            disabled={commands[it.cmd].enabled ? !commands[it.cmd].enabled!() : false}
+            onClick={() => commands[it.cmd].run()}
+          >
+            <span className="rbtn-icon">{commands[it.cmd].icon}</span>
+            <span>{commands[it.cmd].label}</span>
+          </button>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+export function RButton({ cmd, size, iconOnly }: { cmd: Command; size: Size; iconOnly?: boolean }) {
   const disabled = cmd.enabled ? !cmd.enabled() : false;
   const checked = cmd.checked?.() ?? false;
   const btn = (
-    <button className={`rbtn ${size} ${checked ? "checked" : ""}`} disabled={disabled} onClick={() => cmd.run()} aria-pressed={cmd.checked ? checked : undefined}>
+    <button className={`rbtn ${size}${iconOnly ? " iconly" : ""} ${checked ? "checked" : ""}`} disabled={disabled} onClick={() => cmd.run()} aria-pressed={cmd.checked ? checked : undefined} aria-label={iconOnly ? cmd.label : undefined}>
       <span className="rbtn-icon">{cmd.icon}</span>
       <span className="rbtn-label">{cmd.label}</span>
     </button>
   );
-  const tip = [cmd.tip, cmd.keys && `(${cmd.keys})`].filter(Boolean).join(" ");
+  const tip = [iconOnly ? cmd.label : null, cmd.tip, cmd.keys && `(${cmd.keys})`].filter(Boolean).join(" · ");
   return tip ? (
     <Tooltip content={tip} relationship="description" withArrow>
       {btn}

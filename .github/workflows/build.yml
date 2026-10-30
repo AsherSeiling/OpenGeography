@@ -228,7 +228,8 @@ jobs:
         run: scripts/ci-run.sh "Engine tests" cargo test -p engine --release
       - name: Stage resources and the DLLs the app needs next to its exe
         run: |
-          GDAL_DATA_SRC="$CONDA_PREFIX/Library/share/gdal" PROJ_DATA_SRC="$CONDA_PREFIX/Library/share/proj" \
+          # Through ci-run.sh so a failure here is published as an annotation (the logs need a sign-in to read).
+          scripts/ci-run.sh "Stage resources" env GDAL_DATA_SRC="$CONDA_PREFIX/Library/share/gdal" PROJ_DATA_SRC="$CONDA_PREFIX/Library/share/proj" \
             scripts/stage-resources.sh windows_amd64
           mkdir -p src-tauri/dlls
           cp "$CONDA_PREFIX"/Library/bin/*.dll src-tauri/dlls/

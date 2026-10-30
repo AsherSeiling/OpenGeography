@@ -10,7 +10,10 @@ export const test = base.extend<{ app: Page; errors: { expected: boolean; known:
   /** Set `errors.expected = true` in a test that deliberately provokes an error pop-up. */
   /** `errors.known`: console errors of a bug already listed in docs/BUGS.md ("Found by e2e"); anything else still fails. */
   errors: async ({}, use) => { await use({ expected: false, known: [] }); },
-  app: async ({ page, errors: errState }, use) => {
+  app: async ({ page, errors: errState }, use, testInfo) => {
+    // The Layout tab needs about 2,300 px to show every group at full size; the specs that drive it get a wide window, the rest keep the
+    // usual 1600 x 950 (their node and map positions depend on it). The ribbon's own width spec sets its own sizes.
+    if (/layout|series|templates|labels/.test(testInfo.file)) await page.setViewportSize({ width: 2560, height: 1300 });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
     page.on("console", (m) => {
