@@ -30,9 +30,10 @@ Data used (all free, no account unless noted): USGS 3DEP elevation, USGS The Nat
 ## How I will run them
 
 1. For each project: a fresh project in the UI; do everything through ribbon, panes, dialogs and nodes (no scripts, no direct engine calls), screenshot the result, export what it ends in.
-2. Log (in `docs/TEST_PROJECT_LOG.md`) for each: what worked, anything that errored, anything confusing or slow, anything I had to decide myself, and each bug found (also added to `docs/BUGS.md`).
-3. At the end, one **decision form**: every open choice as a multiple-choice question with my recommended answer first, grouped by area (cartography, data sources, defaults, missing tools), so you can answer in one pass.
-4. Things I will not do without asking: use an API key or account, download more than a few hundred MB in total, publish anything outside this repository.
+2. **Images of every map are saved** in the project folder, one folder per project: `test-projects/NN-name/` holding a PNG of the finished map as drawn in the app (and of the layout page, when the project ends in a layout), plus the exported PDF. A PNG is also saved of any screen where something went wrong, so the log can point at it.
+3. Log (in `docs/TEST_PROJECT_LOG.md`) for each: what worked, anything that errored, anything confusing or slow, anything I had to decide myself, and each bug found (also added to `docs/BUGS.md`).
+4. At the end, one **decision form**: every open choice as a multiple-choice question with my recommended answer first, grouped by area (cartography, data sources, defaults, missing tools), so you can answer in one pass.
+5. Things I will not do without asking: use an API key or account, download more than a few hundred MB in total, publish anything outside this repository.
 
 ## Open questions before I start
 
