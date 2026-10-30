@@ -1,4 +1,5 @@
 import type { FeatureCollection, Feature } from "geojson";
+import { dismissNotices, visibleNotices, type MapNoticeLine } from "./mapNotices";
 import OlMap from "ol/Map";
 import { defaults as defaultControls } from "ol/control/defaults";
 import GeoJSON from "ol/format/GeoJSON";
@@ -54,7 +55,9 @@ export const useMapView = create<{
   projecting: Record<string, string>;
   /** Plain-language notes about what the map isn't drawing, e.g. features outside the CRS's area of use. */
   notices: Record<string, string>;
-}>(() => ({ pointer: null, resolution: null, scale: null, basemapOffsetM: null, crsKey: null, projecting: {}, notices: {} }));
+  /** Warnings the user cleared (id → the text that was cleared): they stay hidden until the text changes. */
+  dismissed: Record<string, string>;
+}>(() => ({ pointer: null, resolution: null, scale: null, basemapOffsetM: null, crsKey: null, projecting: {}, notices: {}, dismissed: {} }));
 
 /** A basemap datum offset above this many metres gets a warning chip (R1). */
 const BASEMAP_OFFSET_WARN_M = 5;
@@ -609,17 +612,29 @@ function MapNotices() {
   const crsKey = useMapView((s) => s.crsKey);
   // Keys end in the CRS key they were made for ("rasters" has none and is always current).
   const here = (k: string) => !k.includes("|") || k.endsWith(`|${crsKey}`);
-  const lines: { id: string; text: string; kind: "busy" | "warn" }[] = [
+  const dismissed = useMapView((s) => s.dismissed);
+  const all: MapNoticeLine[] = [
     ...Object.entries(projecting).filter(([k]) => here(k)).map(([k, n]) => ({ id: `projecting:${k}`, text: `Projecting ${n}…`, kind: "busy" as const })),
     ...Object.entries(notices).filter(([k]) => here(k)).map(([k, text]) => ({ id: `notice:${k}`, text, kind: "warn" as const })),
   ];
-  if (offset !== null && basemap !== "none") lines.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
+  if (offset !== null && basemap !== "none") all.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
+  const lines = visibleNotices(all, dismissed);
   if (!lines.length) return null;
+  const warnings = lines.filter((l) => l.kind === "warn");
+  const clear = (which: MapNoticeLine[]) => useMapView.setState((s) => ({ dismissed: dismissNotices(s.dismissed, which) }));
   return (
-    <div className="map-notices">
+    <div className="map-notices" data-testid="map-notices">
       {lines.map((l) => (
-        <div key={l.id} className={`map-notice ${l.kind}`}>{l.text}</div>
+        <div key={l.id} className={`map-notice ${l.kind}`}>
+          <span>{l.text}</span>
+          {l.kind === "warn" && (
+            <button className="map-notice-x" title="Clear this message" aria-label={`Clear: ${l.text}`} onClick={() => clear([l])}>×</button>
+          )}
+        </div>
       ))}
+      {warnings.length > 1 && (
+        <button className="map-notice-all" onClick={() => clear(warnings)}>Clear all messages</button>
+      )}
     </div>
   );
 }
