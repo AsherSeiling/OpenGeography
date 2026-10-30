@@ -70,3 +70,12 @@ export function clickSelection(elements: LayoutElement[], selected: string[], an
   if (mod.toggle) return selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
   return [id];
 }
+
+/** The pointer's place on the page in mm (one decimal), or null when it is off the page. */
+export function pointerMm(clientX: number, clientY: number, rect: { left: number; top: number }, zoom: number, page: { width: number; height: number }): { x: number; y: number } | null {
+  if (!(zoom > 0)) return null;
+  const x = (clientX - rect.left) / zoom;
+  const y = (clientY - rect.top) / zoom;
+  if (x < 0 || y < 0 || x > page.width || y > page.height) return null;
+  return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+}

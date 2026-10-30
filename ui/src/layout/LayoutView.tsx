@@ -3,6 +3,7 @@
 // moves and resizes elements.
 import { useLegendRows } from "./legendRows";
 import { snapMove, snapTargets } from "./snap";
+import { pointerMm } from "./items";
 import { Button, MessageBar, MessageBarBody, Tooltip } from "@fluentui/react-components";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, errorText } from "../ipc/api";
@@ -62,6 +63,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; labels: PlacedLabel[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
+  const [ptr, setPtr] = useState<{ x: number; y: number } | null>(null);
   const { page } = layout;
 
   // Fit the page into the canvas.
@@ -263,6 +265,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   };
 
   const warnings = preview?.warnings ?? [];
+  const selEl = selected.length === 1 ? layout.elements.find((e) => e.id === selected[0]) : undefined;
   const sorted = useMemo(() => layout.elements.filter((e) => e.visible), [layout.elements]);
 
   return (
@@ -273,6 +276,10 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         <Button size="small" appearance="subtle" onClick={() => zoomTo(z / 1.25)}>−</Button>
         <Button size="small" appearance="subtle" onClick={() => zoomTo(z * 1.25)}>+</Button>
         <span className="muted">{Math.round(((z * 25.4) / 96) * 100)}%</span>
+        <span className="layout-pointer muted" data-testid="layout-pointer" title="Pointer position on the page, mm from the top-left corner">
+          {ptr ? `${ptr.x}, ${ptr.y} mm` : "— mm"}
+        </span>
+        {selEl && <span className="layout-pointer muted" data-testid="layout-selsize" title="Selected item: size in mm">{`${Math.round(selEl.w * 10) / 10} × ${Math.round(selEl.h * 10) / 10} mm`}</span>}
         <span className="layout-stat muted" title="Engine-rendered preview: the export uses the same renderer">
           {rendering ? "Rendering…" : preview ? `Preview ${dpi} dpi · ${Math.round(preview.bytes / 1024)} KB · ${preview.ms} ms` : ""}
         </span>
@@ -296,6 +303,11 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         ref={wrap}
         tabIndex={0}
         onKeyDown={onKey}
+        onPointerMove={(e) => {
+          const r = pageEl.current?.getBoundingClientRect();
+          setPtr(r ? pointerMm(e.clientX, e.clientY, r, z, page) : null);
+        }}
+        onPointerLeave={() => setPtr(null)}
         onPointerDown={() => {
           activate();
           store().select([]);

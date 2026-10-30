@@ -49,3 +49,31 @@ test("LW1/LW2 the Items catalog lists every element, renames, locks, searches an
   await items.getByRole("button", { name: "Ungroup" }).click();
   expect((await doc(app)).elements.every((e: any) => !e.group)).toBe(true);
 });
+
+test("LW1/LW4 layout ribbon tabs, pointer readout and the Character panel", async ({ app }) => {
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+
+  // Four contextual tabs under the Layout band, each with its own groups and no scroll bar.
+  for (const [tab, group] of [["Layout", "Page"], ["Elements", "Graphics"], ["Format", "Arrange"], ["Export", "Export"]]) {
+    await app.locator(".rtab.ctx", { hasText: new RegExp(`^${tab}$`) }).click();
+    await expect(app.locator(`.rg-slot[data-group="${group}"]`)).toHaveCount(1);
+  }
+
+  // Pointer position over the page, in mm.
+  const box = (await app.locator(".layout-page").boundingBox())!;
+  await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(app.getByTestId("layout-pointer")).toContainText(/\d+(\.\d)?, \d+(\.\d)? mm/);
+
+  // Character panel on a text element: underline, letter spacing and halo are stored as the text slot's style.
+  await ribbon(app, "Layout", /^Text$/);
+  await expect(app.locator(".props-section-title", { hasText: "Character" })).toBeVisible();
+  await app.getByRole("checkbox", { name: "Underline" }).check();
+  await app.getByRole("spinbutton", { name: "Halo width (mm)" }).fill("0.4");
+  const t = (await doc(app)).elements.find((e: any) => e.kind === "text");
+  expect(t.textStyles["text.text"].underline).toBe(true);
+  expect(t.textStyles["text.text"].haloWidth).toBe(0.4);
+  await expect(app.getByTestId("layout-selsize")).toContainText("mm");
+});

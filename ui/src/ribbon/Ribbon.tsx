@@ -72,11 +72,17 @@ const TABS: Record<string, Group[]> = {
     { label: "Page", items: [{ custom: <PageMenu /> }] },
     { label: "Template", items: [{ custom: <TemplateGroup /> }] },
     { label: "Theme", items: [{ custom: <ThemeMenu /> }] },
+    { label: "Map Series", items: [{ custom: <SeriesGroup /> }] },
+  ],
+  Elements: [
     { label: "Insert", items: [{ cmd: "layoutMapFrame" }, { cmd: "layoutOverview" }, { cmd: "layoutText" }, { cmd: "layoutTable" }, { cmd: "layoutChart" }, { cmd: "layoutLegend" }, { cmd: "layoutScaleBar" }, { cmd: "layoutNorthArrow" }, { cmd: "layoutSources" }] },
     { label: "Graphics", items: [{ cmd: "layoutRect" }, { cmd: "layoutEllipse" }, { cmd: "layoutTriangle" }, { cmd: "layoutLine" }, { cmd: "layoutArrow" }, { cmd: "layoutPicture" }] },
+  ],
+  Format: [
     { label: "Map Frame", items: [{ cmd: "layoutFromMap" }, { cmd: "layoutFrameCrs" }, { custom: <ScaleBox /> }] },
     { label: "Arrange", items: [{ custom: <ArrangeMenu /> }] },
-    { label: "Map Series", items: [{ custom: <SeriesGroup /> }] },
+  ],
+  Export: [
     { label: "Export", items: [{ cmd: "layoutPdf" }, { cmd: "layoutPng" }, { cmd: "layoutSvg" }, { custom: <DpiBox /> }] },
   ],
   "Feature Layer": [
@@ -87,6 +93,8 @@ const TABS: Record<string, Group[]> = {
   ],
 };
 
+/** The layout workspace's contextual tabs (LW1), all under one "Layout" band. */
+const LAYOUT_TABS = ["Layout", "Elements", "Format", "Export"];
 const MAIN_TABS = ["Map", "Insert", "Analysis", "Data", "View"];
 const KEY_TIPS: Record<string, string> = { Map: "M", Insert: "I", Analysis: "A", Data: "D", View: "V" };
 
@@ -110,7 +118,7 @@ export function Ribbon() {
     if (layoutId) setTab("Layout");
   }, [layoutId]);
   const extra = Object.values(registered).filter((t) => t.visible);
-  const current = (tab === "Feature Layer" && !contextual) || (tab === "Layout" && !layoutId) || (!(tab in TABS) && !extra.some((t) => t.id === tab)) ? "Map" : tab;
+  const current = (tab === "Feature Layer" && !contextual) || (LAYOUT_TABS.includes(tab) && !layoutId) || (!(tab in TABS) && !extra.some((t) => t.id === tab)) ? "Map" : tab;
   const groups: Group[] = TABS[current] ?? extra.find((t) => t.id === current)?.groups ?? [];
 
   // Collapse to the tab row (double-click a tab or Ctrl+F1); a click on a tab while collapsed shows the body until you click elsewhere.
@@ -284,9 +292,13 @@ export function Ribbon() {
         {layoutId && (
           <div className="rtab-context">
             <span className="rtab-context-label">Layout</span>
-            <button className={`rtab ctx ${current === "Layout" ? "on" : ""}`} onClick={() => pickTab("Layout")}>
-              Layout
-            </button>
+            <div className="rtab-context-row">
+              {LAYOUT_TABS.map((t) => (
+                <button key={t} className={`rtab ctx ${current === t ? "on" : ""}`} onClick={() => pickTab(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {contextual && (

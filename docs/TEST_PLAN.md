@@ -988,5 +988,8 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LW4-1 | Sectioned Properties | Content, Text sizes and fonts, Appearance (incl. opacity), Position and size; Name field; per-slot reset | auto: e2e/layout-text.spec.ts, layout-graphics.spec.ts |
 | LW2-1 | Items catalog | pane lists every element top first; search; eye, lock, double-click rename, drag to reorder (one undo step), Shift/Cmd selection, Group/Ungroup | auto: items.test.ts, e2e/layout-items.spec.ts |
 | LW1-1 | Layout workspace | opening a layout tab shows Items and Properties and shrinks the Model/Table group; the Map tab or closing the last layout puts them back | auto: e2e/layout-items.spec.ts (enter); leave is manual |
-| LW-OPEN | Not built yet | contextual ribbon tabs split (Layout/Insert/Arrange/Export), status bar zoom and pointer mm, Character panel, frame layers and legend entries as Items children, multi-selection Properties | — |
+| LW1-2 | Contextual ribbon tabs | the Layout band has four tabs: Layout (Page, Template, Theme, Map Series), Elements (Insert, Graphics), Format (Map Frame, Arrange), Export | auto: e2e/layout-items.spec.ts |
+| LW1-3 | Layout readout | pointer position in page mm and the selected item's size next to the zoom controls | auto: items.test.ts pointerMm, e2e/layout-items.spec.ts |
+| LW4-2 | Character panel | Text element: font, style, size, colour, underline, letter spacing, halo (stored as the `text.text` slot style) | auto: e2e/layout-items.spec.ts |
+| LW-OPEN | Not built yet | frame layers and legend entries as Items children, multi-selection Properties, a status bar in the main window for the layout | — |
 
