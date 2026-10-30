@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clickSelection, displayOrder, itemName, matchItems, moveInList, rangeIds } from "./items";
+import { pointerMm, clickSelection, displayOrder, itemName, matchItems, moveInList, rangeIds } from "./items";
 import type { LayoutElement } from "./types";
 
 const el = (id: string, kind: string, extra: Record<string, unknown> = {}) => ({ id, kind, x: 0, y: 0, w: 10, h: 10, rotation: 0, locked: false, visible: true, ...extra }) as unknown as LayoutElement;
@@ -45,5 +45,12 @@ describe("Items catalog logic", () => {
     expect(clickSelection(list, ["a"], "a", "c", { toggle: true, shift: false })).toEqual(["a", "c"]);
     expect(clickSelection(list, ["a", "c"], "a", "c", { toggle: true, shift: false })).toEqual(["a"]);
     expect(clickSelection(list, ["d"], "d", "b", { toggle: false, shift: true })).toEqual(["d", "c", "b"]);
+  });
+  it("turns the pointer into page millimetres, null off the page", () => {
+    const page = { width: 279.4, height: 215.9 };
+    expect(pointerMm(110, 70, { left: 10, top: 20 }, 2, page)).toEqual({ x: 50, y: 25 });
+    expect(pointerMm(5, 70, { left: 10, top: 20 }, 2, page)).toBeNull();
+    expect(pointerMm(10 + 2 * 300, 70, { left: 10, top: 20 }, 2, page)).toBeNull();
+    expect(pointerMm(11, 21, { left: 10, top: 20 }, 0, page)).toBeNull();
   });
 });

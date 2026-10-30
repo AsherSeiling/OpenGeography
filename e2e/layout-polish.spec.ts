@@ -28,6 +28,7 @@ test("C3.0 Arrange: order and align the selected elements, undo restores", async
   const els = () => gis(app, (g) => g.useLayouts.getState().doc.elements.map((e: any) => ({ id: e.id, x: e.x }))) as Promise<{ id: string; x: number }[]>;
   const [first, second] = await els();
   await gis(app, (g, a: any) => { g.useLayouts.getState().update(a.second, { x: 120 }); g.useLayouts.getState().select([a.first]); }, { first: first.id, second: second.id });
+  await app.locator(".rtab.ctx", { hasText: /^Format$/ }).click();
   await app.getByRole("button", { name: /Order/ }).click();
   await app.getByRole("menuitem", { name: "Bring to Front" }).click();
   expect((await els()).map((e) => e.id)).toEqual([second.id, first.id]);
@@ -42,6 +43,7 @@ test("C3.0 Arrange: order and align the selected elements, undo restores", async
 
 test("C3.0 the dpi box takes 72–600 only, is remembered, and the scale bar can print its ratio", async ({ app }) => {
   await newLayout(app);
+  await app.locator(".rtab.ctx", { hasText: /^Export$/ }).click();
   const dpi = app.getByLabel("Export resolution in dots per inch");
   await expect(dpi).toHaveValue("300");
   await dpi.fill("150");

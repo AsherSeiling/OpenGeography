@@ -2,6 +2,7 @@
 import { Button, Checkbox, Dropdown, Field, Input, Option, Textarea } from "@fluentui/react-components";
 import { FontPicker } from "../panes/LabelSettings";
 import { TextSection } from "./TextSection";
+import { withSlotStyle } from "./textStyles";
 import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
@@ -9,7 +10,7 @@ import { displayInfo, useApp } from "../store/store";
 import { withStyleOverride } from "./labelEdits";
 import { useLegendRows, withOverride } from "./legendRows";
 import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
-import { rounded, type GridSpec, type LayoutElement, type LegendElement, type ChartElement, type MapFrame, type NorthArrowElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
+import { rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type MapFrame, type NorthArrowElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -59,6 +60,11 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
           {el.kind === "shape" && <ShapeFields el={el} set={set} />}
           {el.kind === "picture" && <PictureFields el={el} set={set} />}
         </Section>
+        {el.kind === "text" && (
+          <Section title="Character" open>
+            <CharacterFields el={el} set={set} />
+          </Section>
+        )}
         {el.kind !== "text" && el.kind !== "shape" && el.kind !== "picture" && (
           <Section title="Text sizes and fonts" open>
             <TextSection el={el} set={set} />
@@ -355,13 +361,28 @@ function SourcesFields({ el, set }: { el: SourcesElement; set: Set }) {
 }
 
 function TextFields({ el, set }: { el: TextElement; set: Set }) {
-  const fonts: [TextElement["font"], string][] = [["sans", "Regular"], ["sans-bold", "Bold"], ["sans-italic", "Italic"]];
   const aligns: TextElement["align"][] = ["left", "center", "right"];
   return (
     <>
       <Field label="Text (tokens: {layout_name} {project} {author} {date} {scale} {crs} {datum} {units} {layer_count} {layer_names}; **bold** and *italic*)" size="small">
         <Textarea size="small" value={el.text} rows={3} onChange={(_, d) => set({ text: d.value }, "text")} />
       </Field>
+      <Field label="Align" size="small">
+        <Dropdown size="small" value={el.align} selectedOptions={[el.align]} onOptionSelect={(_, d) => set({ align: d.optionValue })}>
+          {aligns.map((a) => <Option key={a} value={a}>{a}</Option>)}
+        </Dropdown>
+      </Field>
+    </>
+  );
+}
+
+/** The Character panel of a Text element: font, weight and slant, size, colour, underline, letter spacing and halo. */
+function CharacterFields({ el, set }: { el: TextElement; set: Set }) {
+  const fonts: [TextElement["font"], string][] = [["sans", "Regular"], ["sans-bold", "Bold"], ["sans-italic", "Italic"]];
+  const st = el.textStyles?.["text.text"] ?? {};
+  const change = (patch: Partial<Record<keyof TextStyle, unknown>>, burst: string) => set({ textStyles: withSlotStyle(el.textStyles, "text.text", patch) }, burst);
+  return (
+    <>
       <FontPicker value={el.family} onChange={(family) => set({ family })} />
       <Field label="Style" size="small">
         <Dropdown size="small" value={fonts.find((f) => f[0] === el.font)?.[1]} selectedOptions={[el.font]} onOptionSelect={(_, d) => set({ font: d.optionValue })}>
@@ -369,14 +390,19 @@ function TextFields({ el, set }: { el: TextElement; set: Set }) {
         </Dropdown>
       </Field>
       <Num label="Size (pt)" value={el.size} min={1} step={1} onChange={(size) => set({ size }, "size")} />
-      <Field label="Align" size="small">
-        <Dropdown size="small" value={el.align} selectedOptions={[el.align]} onOptionSelect={(_, d) => set({ align: d.optionValue })}>
-          {aligns.map((a) => <Option key={a} value={a}>{a}</Option>)}
-        </Dropdown>
-      </Field>
       <Field label="Colour" size="small">
         <input type="color" value={el.color} onChange={(e) => set({ color: e.target.value }, "color")} />
       </Field>
+      <Checkbox label="Underline" checked={!!st.underline} onChange={(_, d) => change({ underline: !!d.checked }, "text:underline")} />
+      <div className="row2">
+        <Num label="Letter spacing (mm)" value={st.letterSpacing ?? 0} step={0.1} decimals={1} onChange={(v) => change({ letterSpacing: v || undefined }, "text:ls")} />
+        <Num label="Halo width (mm)" value={st.haloWidth ?? 0} min={0} step={0.1} decimals={1} onChange={(v) => change({ haloWidth: v > 0 ? v : undefined, haloColor: st.haloColor ?? "#ffffff" }, "text:halo")} />
+      </div>
+      {st.haloWidth !== undefined && (
+        <Field label="Halo colour" size="small">
+          <input type="color" aria-label="Halo colour" value={st.haloColor ?? "#ffffff"} onChange={(e) => change({ haloColor: e.target.value }, "text:haloc")} />
+        </Field>
+      )}
     </>
   );
 }

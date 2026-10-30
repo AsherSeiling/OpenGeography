@@ -55,6 +55,7 @@ test("L2 labels in a layout: the engine preview changes when labels are on, and 
   await app.locator(".rbtn", { hasText: /New Layout/ }).click();
   await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
   await app.locator(".rtab", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab.ctx", { hasText: /^Elements$/ }).click();
   await app.locator(".rbtn", { hasText: /^Map Frame$/ }).first().click();
   await gis(app, (g) => { const d = g.useLayouts.getState().doc; const f = d.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { center: [420000, 3779000], scale: 150000, basemap: "none" }); });
   const preview = (page: any) => gis(page, async (g) => { const r = await g.api.renderLayoutPreview(g.layoutActions.layoutRequest(g.useLayouts.getState().doc), 96); return { len: r.png.length, warnings: r.warnings }; }) as Promise<{ len: number; warnings: string[] }>;
@@ -75,6 +76,7 @@ test("L3 adjusting labels in the layout: select, drag, edit text, hide, reset, u
   await app.locator(".rbtn", { hasText: /New Layout/ }).click();
   await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
   await app.locator(".rtab", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab.ctx", { hasText: /^Elements$/ }).click();
   await app.locator(".rbtn", { hasText: /^Map Frame$/ }).first().click();
   await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { center: [420000, 3779000], scale: 150000, basemap: "none" }); });
   const overrides = () => gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame").labelOverrides ?? null) as Promise<any>;

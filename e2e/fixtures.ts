@@ -40,8 +40,18 @@ export { expect };
 
 /** Click a ribbon button by its label (switching tab first when given). */
 export async function ribbon(page: Page, tab: string | null, label: string | RegExp) {
-  if (tab) await page.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).click();
-  await page.locator(".rbtn", { hasText: label }).first().click();
+  const btn = page.locator(".rbtn", { hasText: label }).first();
+  if (tab && tab !== "Layout") await page.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).click();
+  else if (tab === "Layout" || (await page.locator(".rtab.ctx", { hasText: /^Elements$/ }).count()) > 0) {
+    // The layout workspace splits its ribbon into Layout / Elements / Format / Export: find the tab that holds the button.
+    for (const t of ["Layout", "Elements", "Format", "Export"]) {
+      if (tab === null && t === "Layout" && (await btn.isVisible())) break;
+      await page.locator(".rtab", { hasText: new RegExp(`^${t}$`) }).click();
+      // The tab body renders a moment after the click: give the button a short chance before trying the next tab.
+      if (await btn.waitFor({ timeout: 700 }).then(() => true, () => false)) break;
+    }
+  }
+  await btn.click();
 }
 
 /** Generate a test layer through the engine (what Data → Generate Test Data does) and add it to the app. */

@@ -227,6 +227,7 @@ test("CG9 a theme restyles the page and recolours single-symbol layers", async (
   await ribbon(app, "Layout", /^Map Frame$/);
   await ribbon(app, "Layout", /^Legend$/);
   await ribbon(app, "Layout", /^Text$/);
+  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
   await app.locator(".rbtn", { hasText: /Look \+ layer colours/ }).click();
   await app.getByRole("menuitem", { name: "Thematic" }).click();
   await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "text").color)) as string).toBe("#1f2a44");
@@ -237,6 +238,7 @@ test("CG9 a theme restyles the page and recolours single-symbol layers", async (
   expect(st.fill).toBe("#0072b2");
   // Page look alone leaves layer colours.
   await gis(app, (g, x: any) => g.useApp.getState().setStyle(x.id, { ...g.useApp.getState().styles[x.id], fill: "#123456" }), { id: a.id });
+  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
   await app.locator(".rbtn", { hasText: /Page look/ }).click();
   await app.getByRole("menuitem", { name: "Minimalist" }).click();
   await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "scale_bar" || e.kind === "text").color)) as string).toBe("#333333");
