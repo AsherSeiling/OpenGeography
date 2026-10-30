@@ -77,3 +77,17 @@ test("LW1/LW4 layout ribbon tabs, pointer readout and the Character panel", asyn
   expect(t.textStyles["text.text"].haloWidth).toBe(0.4);
   await expect(app.getByTestId("layout-selsize")).toContainText("mm");
 });
+
+test("LW1 the Model canvas stays tall enough to use in the layout workspace", async ({ app }) => {
+  await addTestLayerSimple(app);
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  const h = (await app.locator(".model-canvas").boundingBox())!.height;
+  expect(h).toBeGreaterThan(60);
+});
+
+async function addTestLayerSimple(app: any) {
+  await gis(app, async (g) => { const l = await g.api.generateTestLayer("points", 10, [-100, 30, -90, 40]); g.useApp.getState().addLayers([l]); });
+}

@@ -65,9 +65,9 @@ export function followActivePanel(layoutId: string | undefined) {
   } else if (workspace && getDock()?.activePanel?.id === "map") leaveWorkspace();
 }
 
-/** The bottom group (Model, Attribute Table) is shrunk while a layout is open; its height is kept to put back. */
+/** The bottom group (Model, Attribute Table) is made smaller while a layout is open; its height is kept to put back. It stays tall enough to use (right-click and Shift+A need a canvas to act on). */
 let workspace: { bottomHeight: number | null } | null = null;
-const COLLAPSED_PX = 30;
+const SHRUNK_PX = 170;
 
 /** LW1: a layout tab is active, so the window becomes a layout workspace: Items beside the page, Properties on the right, node/table dock out of the way. */
 export function enterWorkspace() {
@@ -75,9 +75,9 @@ export function enterWorkspace() {
   if (!dock || workspace) return;
   const bottom = dock.getPanel("model")?.group ?? dock.getPanel("table")?.group;
   workspace = { bottomHeight: null };
-  if (bottom && bottom.api.height > COLLAPSED_PX * 2) {
+  if (bottom && bottom.api.height > SHRUNK_PX + 40) {
     workspace.bottomHeight = bottom.api.height;
-    bottom.api.setSize({ height: COLLAPSED_PX });
+    bottom.api.setSize({ height: SHRUNK_PX });
   }
   showPane("items");
   showPane("properties");
