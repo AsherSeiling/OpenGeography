@@ -362,6 +362,7 @@ function ScaleBarFields({ el, set }: { el: ScaleBarElement; set: Set }) {
       <Choice label="Units" value={el.units || "km"} options={units} onPick={(units) => set({ units })} />
       {el.style === "double" && <Choice label="Second bar units" value={el.units2 || "mi"} options={units} onPick={(units2) => set({ units2 })} />}
       <Num label="Segments" value={el.segments || 4} min={1} max={10} step={1} onChange={(segments) => set({ segments: Math.round(segments) })} />
+      <Num label="Fixed length (0 = automatic)" value={el.length ?? 0} min={0} step={100} decimals={0} onChange={(length) => set({ length: length > 0 ? length : undefined }, "barLength")} />
       <ColorInput label="Colour" value={el.color || "#000000"} onChange={(color) => set({ color }, "color")} />
       <Checkbox label="Also print the ratio (1:N) under the bar" checked={!!el.ratio} onChange={(_, d) => set({ ratio: d.checked ? true : undefined })} />
       <Checkbox label="Also print the sentence (1 cm on the map = …)" checked={!!el.verbal} onChange={(_, d) => set({ verbal: d.checked ? true : undefined })} />

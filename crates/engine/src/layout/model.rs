@@ -445,6 +445,9 @@ pub enum Element {
         verbal: bool,
         #[serde(default, skip_serializing_if = "String::is_empty")]
         color: String,
+        /// Ground length of the whole bar in `units`; 0 = the longest round bar that fits (a 1 000 m bar in ten parts is a coordinate scale).
+        #[serde(default, skip_serializing_if = "is_zero")]
+        length: f64,
     },
     NorthArrow {
         #[serde(flatten)]
@@ -649,6 +652,11 @@ impl Layout {
             }
             if let Element::Shape { shape, .. } = e {
                 super::shapes::check_shape(shape)?;
+            }
+            if let Element::ScaleBar { length, .. } = e {
+                if !(length.is_finite() && *length >= 0.0) {
+                    bail!("A scale bar's length must be zero (automatic) or a positive ground distance");
+                }
             }
             if let Element::ScaleBar { style, units2, .. } = e {
                 if !style.is_empty() && !super::surround::BAR_STYLES.contains(&style.as_str()) {

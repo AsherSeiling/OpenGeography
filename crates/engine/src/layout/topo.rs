@@ -168,11 +168,13 @@ pub fn build(spec: &TopoSpec, today: &str) -> Result<TopoBuild> {
         let before: f64 = shares[..i].iter().sum();
         (m + usable * before / total + if i > 0 { gap } else { 0.0 }, usable * shares[i] / total - if i > 0 { gap } else { 0.0 })
     };
-    let shares = [0.26, 0.26, 0.28, 0.20];
+    // A narrow page gives the declination diagram and the scale bars more of the strip: their captions and the 1 000 m coordinate scale need the room.
+    let shares = if usable < 230.0 { [0.29, 0.28, 0.16, 0.12, 0.15] } else { [0.23, 0.24, 0.20, 0.14, 0.19] };
     let (dx, dw) = cell(0, 2.0, &shares);
     let (bx, bw) = cell(1, 2.0, &shares);
     let (gx, gw) = cell(2, 2.0, &shares);
-    let (lx, lw) = cell(3, 2.0, &shares);
+    let (ax, aw) = cell(3, 2.0, &shares);
+    let (lx, lw) = cell(4, 2.0, &shares);
     let dec_w = dw.min(56.0);
     let units3 = if spec.units == "metric" { "m" } else { "ft" };
     let bar_h = 11.0;
@@ -180,6 +182,22 @@ pub fn build(spec: &TopoSpec, today: &str) -> Result<TopoBuild> {
 
     // Grid-reference example from the centre of the sheet.
     let centre_ref = mgrs_designation(zone, lat < 0.0, ce, cn, lat).map(|sq| format!("{sq} {:03.0} {:03.0}", ((ce % 100_000.0) / 100.0).floor(), ((cn % 100_000.0) / 100.0).floor())).unwrap_or_else(|| "—".into());
+    // The coordinate scale: 1 000 m in ten 100 m parts, laid along a grid line to read a position to 100 m (then by eye to 10 m).
+    let coord_scale = spec.scale <= 50_000.0;
+    // Neighbouring sheets: the centre moved by one sheet's ground size in each direction, named by the MGRS 1 km square it falls in.
+    let ground_w = (w - fx - m - 6.0) / 1000.0 * spec.scale;
+    let ground_h = (h - (m + title_h) - m - strip - src_h - GAP) / 1000.0 * spec.scale;
+    let neighbour = |de: f64, dn: f64| -> String {
+        let (e, n) = (ce + de * ground_w, cn + dn * ground_h);
+        match fc.to_lonlat(e, n) {
+            Ok((_, la)) => crate::usng::format_ref(zone, la, e, n, 2, crate::usng::Style::Mgrs).unwrap_or_else(|| "—".into()),
+            Err(_) => "—".into(),
+        }
+    };
+    let adjoining = format!(
+        "ADJOINING SHEETS\nNW  {}\nN  {}\nNE  {}\nW  {}\nE  {}\nSW  {}\nS  {}\nSE  {}",
+        neighbour(-1.0, 1.0), neighbour(0.0, 1.0), neighbour(1.0, 1.0), neighbour(-1.0, 0.0), neighbour(1.0, 0.0), neighbour(-1.0, -1.0), neighbour(0.0, -1.0), neighbour(1.0, -1.0)
+    );
     let gridref_pt = 7.0;
     let gridref = format!(
         "HOW TO GIVE A GRID REFERENCE\n{}\n{}",
@@ -208,6 +226,9 @@ pub fn build(spec: &TopoSpec, today: &str) -> Result<TopoBuild> {
             { "kind": "scale_bar", "id": "sb1", "name": "Scale bar km", "frame": "f1", "x": bx, "y": sy, "w": bw, "h": bar_h, "units": "km", "segments": 4 },
             { "kind": "scale_bar", "id": "sb2", "name": "Scale bar mi", "frame": "f1", "x": bx, "y": sy + bar_h + 1.5, "w": bw, "h": bar_h, "units": "mi", "segments": 4 },
             { "kind": "scale_bar", "id": "sb3", "name": "Scale bar", "frame": "f1", "x": bx, "y": sy + 2.0 * (bar_h + 1.5), "w": bw, "h": bar_h, "units": units3, "segments": 4, "ratio": true },
+            { "kind": "scale_bar", "id": "sb4", "name": "Coordinate scale (1 000 m)", "frame": "f1", "x": bx, "y": sy + 3.0 * (bar_h + 1.5), "w": bw, "h": bar_h, "units": "m", "segments": 10, "style": "ticks", "length": 1000.0, "visible": coord_scale, "textStyles": { "scale_bar.numbers": { "size": 4.0 } } },
+            { "kind": "text", "id": "adjoining", "name": "Adjoining sheets", "x": ax, "y": sy, "w": aw, "h": strip - 2.0, "text": adjoining, "font": "sans", "size": 6.0, "align": "left", "color": "#000000",
+              "decor": { "background": "#ffffff", "frameColor": "#000000", "frameWidth": 0.3 } },
             { "kind": "text", "id": "gridref", "name": "Grid reference box", "x": gx, "y": sy, "w": gw, "h": strip - 2.0, "text": gridref, "font": "sans", "size": gridref_pt, "align": "left", "color": "#000000",
               "decor": { "background": "#ffffff", "frameColor": "#000000", "frameWidth": 0.3 } },
             { "kind": "legend", "id": "lg1", "name": "Legend", "frame": "f1", "x": lx, "y": sy, "w": lw, "h": strip - 2.0, "title": "Legend", "columns": 1,
@@ -223,6 +244,7 @@ pub fn build(spec: &TopoSpec, today: &str) -> Result<TopoBuild> {
     let mut checks = vec![
         Check { level: "ok", text: format!("Scale 1:{} on {} {} ({:.0} × {:.0} mm): the map shows {:.1} × {:.1} km on the ground.", group(spec.scale), spec.paper, if spec.landscape { "landscape" } else { "portrait" }, w, h, ground[0] / 1000.0, ground[1] / 1000.0) },
         Check { level: "ok", text: format!("Grid: {} / UTM zone {zone}, {} m lines with {} labels; lat/lon ticks every {}.", crs, group(grid_m), if big { "two-digit" } else { "kilometre" }, if tick_deg < 0.1 { format!("{:.1}′", tick_deg * 60.0) } else { format!("{:.0}′", tick_deg * 60.0) }) },
+        Check { level: if coord_scale { "ok" } else { "note" }, text: if coord_scale { format!("Coordinate scale: 1 000 m is {:.1} mm on this sheet, in ten 100 m parts; lay it along a grid line to read a position.", 1_000_000.0 / spec.scale) } else { "No coordinate scale at this scale (1 000 m would be under 10 mm); use the grid numbers.".to_string() } },
         Check { level: "note", text: format!("Contour interval for this scale: {interval}, index contours every fifth line (prepare the contours in the Data step)." ) },
     ];
     match declination::parse_date(date).and_then(|d| declination::declination(lon, lat, d)) {
@@ -318,6 +340,23 @@ mod tests {
         bad = spec();
         bad.scale = 10.0;
         assert!(build(&bad, "2026-01-01").is_err());
+    }
+
+    #[test]
+    fn no_paper_or_orientation_leaves_a_marginal_item_too_small_for_what_it_draws() {
+        use crate::layout::model::Element;
+        for paper in ["letter", "tabloid", "a3", "a4"] {
+            for landscape in [true, false] {
+                let mut sp = spec();
+                sp.paper = paper.into();
+                sp.landscape = landscape;
+                let b = build(&sp, "2026-01-01").unwrap();
+                let w = |id: &str| b.layout.elements.iter().find(|e| e.at().id == id).map(|e| e.at().w).unwrap();
+                // Declination caption needs ~52 mm at 7 pt; the 1 000 m coordinate scale is 40 mm at 1:25,000 plus labels.
+                assert!(w("dc1") >= 46.0, "{paper} {landscape}: declination {}", w("dc1"));
+                assert!(w("sb4") >= 48.0 - 1e-9 || !matches!(b.layout.elements.iter().find(|e| e.at().id == "sb4"), Some(Element::ScaleBar { .. })), "{paper} {landscape}: coordinate scale box {}", w("sb4"));
+            }
+        }
     }
 
     #[test]

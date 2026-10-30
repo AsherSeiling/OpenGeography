@@ -6,7 +6,7 @@ import { api, errorText, type ElevationPlan, type TopoBuild, type TopoSpec } fro
 import { isCancelled } from "../progress/progress";
 import { contourStyle, hillshadeStyle, pickDem, sheetLabel } from "../layout/topoData";
 import { buildTopoSheet } from "../layout/actions";
-import { defaultDatum, PAPERS, parseCenter, quadCenter, SCALES, todayIso } from "../layout/topoArea";
+import { defaultDatum, PAPERS, parseCenter, quadCenter, SCALES, todayIso, TOPO_PRESETS, type TopoPreset } from "../layout/topoArea";
 import { getCenterLonLat } from "../map/mapController";
 import { useApp } from "../store/store";
 
@@ -33,6 +33,14 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
   const [landscape, setLandscape] = useState(true);
   const [units, setUnits] = useState<TopoSpec["units"]>("imperial");
   const [datum, setDatum] = useState<TopoSpec["datum"] | "auto">("auto");
+  const [preset, setPreset] = useState<TopoPreset | null>(null);
+  const applyPreset = (p: TopoPreset) => {
+    setPreset(p);
+    setScale(p.scale);
+    setPaper(p.paper);
+    setLandscape(p.landscape);
+    setUnits(p.units);
+  };
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(todayIso());
   const [err, setErr] = useState<string | null>(null);
@@ -63,6 +71,23 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
       const info = await api.downloadElevation(built.bboxLonlat, 10, label, p.needsConfirm);
       useApp.getState().addLayers([info]);
       setDataMsg(`Added ${info.name}.`);
+    } catch (e) {
+      if (!isCancelled(e)) setErr(errorText(e));
+    } finally {
+      setDataBusy(false);
+    }
+  };
+
+  /** Step 3: roads, trails, water, buildings and names from The National Map for the sheet's area (the preset names which). */
+  const getFeatures = async () => {
+    if (!built) return;
+    setErr(null);
+    setDataBusy(true);
+    try {
+      const ids = (preset ?? TOPO_PRESETS[0]).data;
+      const { layers: out, empty, failed } = await api.tnmImport(ids, built.bboxLonlat, null, true, sheetLabel(built.layout.name));
+      useApp.getState().addLayers(out);
+      setDataMsg(`Added ${out.length} National Map layer(s), ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features${empty.length ? ` · none in this area: ${empty.join(", ")}` : ""}${failed.length ? ` · failed, try again later: ${failed.join(", ")}` : ""}.`);
     } catch (e) {
       if (!isCancelled(e)) setErr(errorText(e));
     } finally {
@@ -126,6 +151,11 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Topo Map Builder</DialogTitle>
           <DialogContent className="stack">
             <div className="props-hint">Builds a land-navigation sheet as a new layout: UTM grid with zone and 100 km square, lat/lon ticks, declination diagram, scale bars, grid-reference box, legend and a marginal note.</div>
+            <Field label="Preset" size="small">
+              <Dropdown size="small" aria-label="Preset" placeholder="Choose a ready-made sheet, or set everything below" value={preset?.label ?? ""} selectedOptions={preset ? [preset.id] : []} onOptionSelect={(_, d) => { const p = TOPO_PRESETS.find((x) => x.id === d.optionValue); if (p) applyPreset(p); }}>
+                {TOPO_PRESETS.map((p) => <Option key={p.id} value={p.id}>{p.label}</Option>)}
+              </Dropdown>
+            </Field>
             <Field label="Area" size="small">
               <Dropdown size="small" value={where === "view" ? "The centre of the map view" : "A position I type"} selectedOptions={[where]} onOptionSelect={(_, d) => setWhere(d.optionValue as "view" | "position")}>
                 <Option value="view">The centre of the map view</Option>
@@ -188,6 +218,7 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
                 <div className="row2">
                   <Button size="small" disabled={dataBusy} onClick={() => void getElevation()}>{plan ? "Download anyway" : "1. Download elevation (3DEP, 10 m)"}</Button>
                   <Button size="small" disabled={dataBusy || !dem} onClick={() => void makeContours()} title={dem ? `From ${dem.name}` : "Download or add an elevation layer first"}>2. Make contours and hillshade</Button>
+                  <Button size="small" disabled={dataBusy} onClick={() => void getFeatures()} title="Roads, trails, water and place names from USGS The National Map, clipped to this sheet">3. Add roads, trails, water and names</Button>
                 </div>
                 {dataMsg && <MessageBar intent="success"><MessageBarBody>{dataMsg}</MessageBarBody></MessageBar>}
               </div>

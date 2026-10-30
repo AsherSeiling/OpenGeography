@@ -267,6 +267,8 @@ export interface ScaleBarElement extends Placement {
   /** Also print "1 cm on the map = N units". */
   verbal?: boolean;
   color?: string;
+  /** Ground length of the whole bar in `units`; unset/0 = the longest round bar that fits. */
+  length?: number;
 }
 
 export interface NorthArrowElement extends Placement {
