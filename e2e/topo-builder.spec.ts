@@ -79,3 +79,30 @@ test("LW9 data step: contours (index lines labelled) and a hillshade are made fr
     await app.locator(".layout-page").screenshot({ path: process.env.TOPO_PNG });
   }
 });
+
+test("LW9 presets fill in the sheet, the sheet has a coordinate scale and adjoining sheets, and every preset's data exists", async ({ app }) => {
+  const ids = (await gis(app, async (g) => (await g.api.tnmDatasets()).map((d: any) => d.id))) as string[];
+  const { TOPO_PRESETS } = await import("../ui/src/layout/topoPresets");
+  for (const p of TOPO_PRESETS) for (const d of p.data) expect(ids, `${p.label}: ${d}`).toContain(d);
+
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /Topo Map/ }).click();
+  const dlg = app.getByRole("dialog", { name: "Topo Map Builder" });
+  await dlg.getByRole("combobox", { name: "Preset" }).click();
+  await app.getByRole("option", { name: "Trail map 1:25,000 Letter portrait" }).click();
+  await dlg.getByRole("combobox", { name: "Area" }).click();
+  await app.getByRole("option", { name: "A position I type" }).click();
+  await dlg.getByRole("textbox", { name: "Position" }).fill("39.7, -105.0");
+  await dlg.getByRole("button", { name: "Build the sheet" }).click();
+  await expect(dlg.getByTestId("topo-checks")).toBeVisible();
+  await expect(dlg.getByText(/Scale 1:25,000 on letter portrait/)).toBeVisible();
+  await expect(dlg.getByText(/Coordinate scale: 1 000 m is 40\.0 mm/)).toBeVisible();
+  const doc = (await gis(app, (g) => g.useLayouts.getState().doc)) as any;
+  const bar = doc.elements.find((e: any) => e.id === "sb4");
+  expect(bar).toMatchObject({ kind: "scale_bar", units: "m", segments: 10, length: 1000, style: "ticks" });
+  const adj = doc.elements.find((e: any) => e.id === "adjoining");
+  expect(adj.text).toMatch(/^ADJOINING SHEETS\nNW  \d{1,2}[C-X][A-Z]{2}\d{4}\nN /);
+  expect(doc.page.width).toBeLessThan(doc.page.height); // portrait
+  const warnings = (await gis(app, async (g) => (await g.api.renderLayoutPreview(g.layoutActions.layoutRequest(g.useLayouts.getState().doc), 72)).warnings)) as string[];
+  expect(warnings.filter((w) => /Scale bar|Declination|does not fit/i.test(w))).toEqual([]);
+});

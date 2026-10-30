@@ -173,7 +173,7 @@ pub struct BarPlan {
 
 /// Choose a round segment length so the bar fits `max_mm` (L3: the bar is
 /// ground truth at the frame centre, `D · k / scale` on the page).
-pub fn plan_bar(units: &str, segments: u32, k: f64, scale: f64, max_mm: f64) -> Option<BarPlan> {
+pub fn plan_bar(units: &str, segments: u32, k: f64, scale: f64, max_mm: f64, total: f64) -> Option<BarPlan> {
     let (unit, m) = unit_m(units);
     let n = segments.clamp(1, 10);
     if !(max_mm > 0.0 && k > 0.0 && scale > 0.0) {
@@ -181,7 +181,8 @@ pub fn plan_bar(units: &str, segments: u32, k: f64, scale: f64, max_mm: f64) -> 
     }
     // Page length of one unit of ground.
     let per_unit = geo::bar_length_mm(m, k, scale);
-    let segment = nice_floor(max_mm / n as f64 / per_unit);
+    // A fixed ground length (the coordinate scale: 1 000 m in ten 100 m parts) instead of the longest round bar that fits.
+    let segment = if total > 0.0 { total / n as f64 } else { nice_floor(max_mm / n as f64 / per_unit) };
     Some(BarPlan { unit, segment, segments: n, length_mm: segment * n as f64 * per_unit })
 }
 
@@ -201,6 +202,8 @@ pub struct BarOpts<'a> {
     /// A sentence under the bar: "1 cm on the map = 240 m".
     pub verbal: bool,
     pub color: &'a str,
+    /// Ground length of the whole bar in `units`; 0 = the longest round bar that fits.
+    pub length: f64,
 }
 
 /// "1 cm = 240 m" at the nominal scale (`unit` picked so the number is readable).
@@ -256,10 +259,14 @@ pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, o
     let reserve = 7.0;
     let segments = if o.segments == 0 { 4 } else { o.segments };
     let style = if o.style.is_empty() { "alternating" } else { o.style };
-    let Some(plan) = plan_bar(o.units, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) else {
+    let max_len = at.w - 1.0 - reserve;
+    let Some(plan) = plan_bar(o.units, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve, o.length) else {
         warnings.push(format!("Scale bar '{}' is too narrow to draw; make it wider", at.id));
         return;
     };
+    if o.length > 0.0 && plan.length_mm > max_len + 1e-6 {
+        warnings.push(format!("Scale bar '{}' is {:.0} mm long at this scale and does not fit its {:.0} mm box; make it wider", at.id, plan.length_mm, at.w));
+    }
     open_group(out, "scalebar", at);
     let x0 = at.x + 1.0;
     let bar_h = 2.0f64.min(at.h / 3.0);
@@ -267,7 +274,7 @@ pub fn scale_bar(out: &mut String, warnings: &mut Vec<String>, at: &Placement, o
     if style == "double" {
         // The same ground length again in the second unit, below the first bar's labels.
         let u2 = if o.units2.is_empty() { "mi" } else { o.units2 };
-        if let Some(p2) = plan_bar(u2, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve) {
+        if let Some(p2) = plan_bar(u2, segments, ctx.factors.k, ctx.scale, at.w - 1.0 - reserve, o.length) {
             let y2 = label_y + 1.2;
             label_y = draw_bar(out, at, x0, y2, bar_h, &p2, "alternating", o.color, true);
         }
@@ -701,14 +708,14 @@ mod tests {
     #[test]
     fn bar_plan_is_round_and_fits() {
         // 1:24,000 with k = 1: 1 km = 41.667 mm; 4 segments in 100 mm → 0.5 km segments.
-        let p = plan_bar("km", 4, 1.0, 24_000.0, 100.0).unwrap();
+        let p = plan_bar("km", 4, 1.0, 24_000.0, 100.0, 0.0).unwrap();
         assert_eq!((p.segment, p.segments), (0.5, 4));
         assert!(p.length_mm <= 100.0 && (p.length_mm - 83.333).abs() < 0.01, "{}", p.length_mm);
         // k > 1 shortens the ground a page millimetre covers, so the bar is longer per km.
-        let q = plan_bar("km", 4, 1.0004, 24_000.0, 100.0).unwrap();
+        let q = plan_bar("km", 4, 1.0004, 24_000.0, 100.0, 0.0).unwrap();
         assert!((q.length_mm / p.length_mm - 1.0004).abs() < 1e-9);
-        let m = plan_bar("mi", 2, 1.0, 100_000.0, 60.0).unwrap();
+        let m = plan_bar("mi", 2, 1.0, 100_000.0, 60.0, 0.0).unwrap();
         assert_eq!((m.unit, m.segment), ("mi", 1.0));
-        assert!(plan_bar("km", 4, 1.0, 24_000.0, 0.0).is_none());
+        assert!(plan_bar("km", 4, 1.0, 24_000.0, 0.0, 0.0).is_none());
     }
 }

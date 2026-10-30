@@ -293,9 +293,9 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
                     surround::legend(&mut s, &mut warnings, &mut legend_rows, at, &surround::LegendOpts { title, columns: *columns, overrides, custom, patch, text_pt: *text_size }, c, req, lookup);
                 }
             }
-            Element::ScaleBar { at, frame, units, segments, ratio, style, units2, verbal, color } => {
+            Element::ScaleBar { at, frame, units, segments, ratio, style, units2, verbal, color, length } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::scale_bar(&mut s, &mut warnings, at, &surround::BarOpts { units, segments: *segments, ratio: *ratio, style, units2, verbal: *verbal, color }, c);
+                    surround::scale_bar(&mut s, &mut warnings, at, &surround::BarOpts { units, segments: *segments, ratio: *ratio, style, units2, verbal: *verbal, color, length: *length }, c);
                 }
             }
             Element::NorthArrow { at, frame, style, north, color, source } => {

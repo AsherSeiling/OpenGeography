@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultDatum, parseCenter, quadCenter, todayIso } from "./topoArea";
+import { TOPO_PRESETS, defaultDatum, parseCenter, quadCenter, todayIso } from "./topoArea";
 
 describe("Topo Map Builder area", () => {
   it("reads latitude, longitude", () => {
@@ -29,6 +29,15 @@ describe("Topo Map Builder area", () => {
     expect(defaultDatum(-93, 42)).toBe("nad83");
     expect(defaultDatum(10, 50)).toBe("wgs84");
     expect(defaultDatum(-70, -33)).toBe("wgs84");
+  });
+  it("offers four presets with distinct names and sensible sheets", () => {
+    expect(TOPO_PRESETS.map((p) => p.id)).toEqual(["land24", "land25", "land50", "trail"]);
+    expect(new Set(TOPO_PRESETS.map((p) => p.label)).size).toBe(4);
+    for (const p of TOPO_PRESETS) {
+      expect(p.scale).toBeLessThanOrEqual(50000);
+      expect(p.data.length).toBeGreaterThan(3);
+    }
+    expect(TOPO_PRESETS.find((p) => p.id === "trail")!.landscape).toBe(false);
   });
   it("formats today", () => {
     expect(todayIso(new Date(2026, 0, 5))).toBe("2026-01-05");
