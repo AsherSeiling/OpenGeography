@@ -22,6 +22,8 @@ const TICK_MM: f64 = 2.5;
 pub struct GridOutput {
     /// Lines, drawn inside the frame's clip.
     pub lines: String,
+    /// A finer grid drawn lighter under the main lines (inside the clip too).
+    pub sub: String,
     /// Edge labels, drawn outside it.
     pub labels: String,
 }
@@ -228,7 +230,7 @@ fn graticule_text(body: &Body, v: f64, lon: bool, step: f64, d: usize, fmt: Labe
 
 /// Lines of longitude and latitude through the frame.
 pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, to_page: ToPage, warnings: &mut Vec<String>) -> GridOutput {
-    let mut out = GridOutput { lines: String::new(), labels: String::new() };
+    let mut out = GridOutput { lines: String::new(), sub: String::new(), labels: String::new() };
     // Longitude/latitude range of the frame, from a lattice over it.
     let mut ll = Vec::new();
     for i in 0..=16 {
@@ -304,7 +306,7 @@ pub fn graticule(body: &Body, crs: &FrameCrs, at: &Placement, extent: [f64; 4], 
 /// Straight grid lines at multiples of the interval, in frame-CRS units.
 /// `flip`: label the top and right edges, leaving the bottom and left to a graticule.
 pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, flip: bool, to_page: ToPage, warnings: &mut Vec<String>) -> GridOutput {
-    let mut out = GridOutput { lines: String::new(), labels: String::new() };
+    let mut out = GridOutput { lines: String::new(), sub: String::new(), labels: String::new() };
     if !crs.projected {
         warnings.push(format!("Frame '{}': a grid needs a projected coordinate system; use the graticule for geographic coordinates", at.id));
         return out;
@@ -334,6 +336,25 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         line_path(&mut out.lines, &format!("grid-{}-y{}", esc(&at.id), id_part(y)), &pts, spec, at);
         if spec.labels {
             parallel_label(&mut out.labels, at, "map_frame.grid_labels", &pts, &fmt(y), flip);
+        }
+    }
+    if let Some(sub) = spec.sub_interval {
+        // Fine lines only between the main ones, and only when they divide the interval evenly.
+        let ratio = step / sub;
+        if sub >= step || (ratio - ratio.round()).abs() > 1e-6 {
+            warnings.push(format!("Frame '{}': the sub-grid interval {} does not divide the grid interval {} evenly and is not drawn", at.id, num(sub), num(step)));
+        } else if multiples(extent[0], extent[2], sub).count() + multiples(extent[1], extent[3], sub).count() > MAX_LINES {
+            warnings.push(format!("Frame '{}': sub-grid interval {} would draw more than {MAX_LINES} lines; use a larger interval", at.id, num(sub)));
+        } else {
+            let main = |k: i64| k % (ratio.round() as i64) == 0;
+            for k in multiples(extent[0], extent[2], sub).filter(|k| !main(*k)) {
+                let x = k as f64 * sub;
+                line_path(&mut out.sub, &format!("subgrid-{}-x{}", esc(&at.id), id_part(x)), &[to_page(x, extent[1]), to_page(x, extent[3])], spec, at);
+            }
+            for k in multiples(extent[1], extent[3], sub).filter(|k| !main(*k)) {
+                let y = k as f64 * sub;
+                line_path(&mut out.sub, &format!("subgrid-{}-y{}", esc(&at.id), id_part(y)), &[to_page(extent[0], y), to_page(extent[2], y)], spec, at);
+            }
         }
     }
     if spec.style == GridStyle::Crosses {

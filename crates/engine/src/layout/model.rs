@@ -241,6 +241,9 @@ pub struct GridSpec {
     /// How the labels read; "auto" keeps the kind's default.
     #[serde(default, rename = "labelFormat")]
     pub label_format: LabelFormat,
+    /// Grid only: a finer set of lines drawn lighter between the main ones (CRS units, must divide the interval evenly; 1000 inside a 10 000 grid).
+    #[serde(default, rename = "subInterval")]
+    pub sub_interval: Option<f64>,
     /// Grid only, UTM frames: print the zone, latitude band and 100 km square ("15T WK") under the frame's lower-left corner.
     #[serde(default)]
     pub designation: bool,
@@ -292,6 +295,11 @@ impl GridSpec {
         if let Some(w) = g.width {
             if !(w.is_finite() && w > 0.0 && w <= 5.0) {
                 bail!("Invalid {what}: the line width must be between 0 and 5 mm");
+            }
+        }
+        if let Some(v) = g.sub_interval {
+            if !(v.is_finite() && v > 0.0) {
+                bail!("Invalid {what}: the sub-grid interval must be a positive number");
             }
         }
         if let Some(t) = g.tick_length {

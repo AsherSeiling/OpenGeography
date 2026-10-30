@@ -738,6 +738,23 @@ mod c24 {
     }
 
     #[test]
+    fn lw5_subgrid_draws_lighter_lines_between_the_main_ones_only() {
+        let e = Engine::new().unwrap();
+        let c = [500_000.0, 4_649_776.0];
+        let out = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 2000, "subInterval": 1000, "labels": false } })));
+        let svg = &out.svg;
+        assert!(svg.contains("id=\"subgrid-f1\""));
+        // 501000 lies between the 500000 and 502000 main lines: a sub line; 500000 itself is a main line only.
+        assert!(svg.contains("id=\"subgrid-f1-x501000\""));
+        assert!(!svg.contains("id=\"subgrid-f1-x500000\""));
+        assert!(svg.contains("id=\"grid-f1-x500000\""));
+        assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+        // An interval that does not divide the main one is refused in words.
+        let bad = render(&e, &frame_req("EPSG:26915", c, 24_000.0, 200.0, 160.0, json!({ "grid": { "interval": 2000, "subInterval": 750, "labels": false } })));
+        assert!(!bad.svg.contains("id=\"subgrid-f1\"") && bad.warnings.iter().any(|w| w.contains("does not divide")), "{:?}", bad.warnings);
+    }
+
+    #[test]
     fn model_rejects_bad_grid_specs_and_unprintable_basemaps() {
         let e = Engine::new().unwrap();
         for (extra, needle) in [
