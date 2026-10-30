@@ -168,10 +168,21 @@ function ModelCanvas() {
     if (problem) useApp.getState().setStatus(`Not inserted into the connection: ${problem}.`);
   };
 
+  /**
+   * The Add menu needs a node tree to add to. When no layer is selected (a project just opened, a layer removed, data added from the
+   * Catalog) the first layer in Contents is selected for the user instead of silently doing nothing; with no layers at all the
+   * status bar says so.
+   */
   const openMenu = (x: number, y: number) => {
     if (!useModel.getState().layer) {
-      useApp.getState().setStatus("Select a layer in Contents first: its node tree opens here.");
-      return;
+      const app = useApp.getState();
+      const first = app.order.find((id) => app.layers[id] && !app.layers[id].temporary);
+      if (!first) {
+        app.setStatus("Add data first (Data tab, or drag a file into the Catalog): every layer gets its own node tree here.");
+        return;
+      }
+      app.setActiveLayer(first); // the Model opens that layer's tree (App.tsx follows the active layer)
+      app.setStatus(`Selected "${app.layers[first].name}" so its node tree opens here.`);
     }
     setMenu({ x, y });
   };
@@ -204,7 +215,7 @@ function ModelCanvas() {
   const lastTyped = useRef(0);
   const [active, setActive] = useState<"off" | "on" | "editing">("off");
   const editorActive = (target?: Element | null) =>
-    !!useModel.getState().layer && (sawMove.current ? overCanvas() || !!target?.closest?.(".model .react-flow__node") : clickedIn.current);
+    sawMove.current ? overCanvas() || !!target?.closest?.(".model .react-flow__node") : clickedIn.current;
   const pointerOver = (el: Element | null | undefined) => {
     const m = mouse.current;
     const r = el?.getBoundingClientRect();
@@ -374,6 +385,8 @@ function ModelCanvas() {
       const combo = eventCombo(e);
       const action = combo && actionFor(useKeymap.getState().bindings, combo);
       if (!action) return;
+      // Without a layer there is no tree to act on; only Add does something (it picks a layer, see openMenu).
+      if (!useModel.getState().layer && action !== "add") return;
       e.preventDefault();
       e.stopPropagation();
       // A node field the pointer has left lets go, so the shortcut acts on the tree.
