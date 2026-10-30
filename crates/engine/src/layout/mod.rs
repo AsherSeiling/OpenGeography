@@ -17,6 +17,7 @@ pub mod slots;
 pub mod surround;
 pub mod templates;
 pub mod themes;
+pub mod topo;
 pub mod worldfile;
 pub mod svg;
 pub mod symbols;

@@ -874,6 +874,11 @@ impl Engine {
         layout::slots::SLOTS.to_vec()
     }
 
+    /// The Topo Map Builder's layout and self-check for a centre, scale and paper (`layout/topo.rs`).
+    pub fn build_topo_layout(&self, spec: &layout::topo::TopoSpec, today: &str) -> Result<layout::topo::TopoBuild> {
+        layout::topo::build(spec, today)
+    }
+
     /// Every datum grid PROJ-data offers, sorted by continent, country and purpose, with where each is installed.
     pub fn list_datum_grids(&self) -> Vec<grids::GridEntry> {
         grids::list()

@@ -332,7 +332,6 @@ pub fn grid(crs: &FrameCrs, at: &Placement, extent: [f64; 4], spec: &GridSpec, f
         warnings.push(format!("Frame '{}': grid interval {} would draw more than {MAX_LINES} lines; use a larger interval", at.id, num(step)));
         return out;
     }
-    let d = decimals(step);
     if spec.label_format == LabelFormat::Short && step * crs.unit_m < 999.9 {
         warnings.push(format!("Frame '{}': two-digit grid labels need an interval of 1000 m or more; full numbers are shown", at.id));
     }

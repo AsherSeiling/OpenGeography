@@ -1782,6 +1782,33 @@ fn lw6_declination_diagram_draws_gn_tn_mn_from_the_model_and_the_frame() {
     assert!(e.render_layout_svg(&req, &|| Ok(())).unwrap_err().to_string().contains("YYYY-MM-DD"));
 }
 
+// ---------------------------------------------------------------- Topo Map Builder (LW9)
+
+#[test]
+fn lw9_topo_sheet_renders_every_marginal_element_without_warnings() {
+    use engine::layout::topo::{build, TopoSpec};
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let spec: TopoSpec = serde_json::from_value(json!({ "center": [-93.0, 42.0], "scale": 24000, "paper": "tabloid", "landscape": true, "title": "Example Quadrangle", "date": "2026-01-01" })).unwrap();
+    let built = build(&spec, "2026-01-01").unwrap();
+    let mut req = request(&ids, categorized());
+    req.layout = built.layout.clone();
+    let out = render(&e, &req);
+    // Nothing is cut off or left out: no warning about any builder element, and each piece of marginalia is in the drawing.
+    let bad: Vec<_> = out.warnings.iter().filter(|w| !w.contains("skipped") && !w.contains("no coordinate system")).collect();
+    assert!(bad.is_empty(), "{bad:?}");
+    let svg = &out.svg;
+    for needle in ["declination-dc1-tn", "grid-f1-x500000", "graticule-f1-", "HOW TO GIVE A GRID REFERENCE", "Example Quadrangle", "Legend", "15T "] {
+        assert!(svg.contains(needle), "{needle}");
+    }
+    assert!(svg.contains("Scale 1:24,000") && svg.contains("NAD 83"), "the marginal note is filled in");
+    if let Ok(dir) = std::env::var("TOPO_DUMP") {
+        use base64::Engine as _;
+        let png = e.render_layout_preview(&req, 110.0).unwrap().png;
+        std::fs::write(std::path::Path::new(&dir).join("topo.png"), base64::engine::general_purpose::STANDARD.decode(png).unwrap()).unwrap();
+    }
+}
+
 // ---------------------------------------------------------------- text slots (docs/LAYOUT_REWORK_PLAN.md §4.2)
 
 use engine::layout::slots::{self, NO_TEXT, SLOTS};

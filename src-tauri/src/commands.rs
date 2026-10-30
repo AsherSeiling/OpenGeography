@@ -145,6 +145,11 @@ pub async fn layout_text_slots(engine: Eng<'_>) -> Res<Vec<engine::layout::slots
 }
 
 #[tauri::command]
+pub async fn build_topo_layout(engine: Eng<'_>, spec: engine::layout::topo::TopoSpec, today: String) -> Res<engine::layout::topo::TopoBuild> {
+    blocking(&engine, move |e| e.build_topo_layout(&spec, &today)).await
+}
+
+#[tauri::command]
 pub async fn list_datum_grids(engine: Eng<'_>) -> Res<Vec<engine::grids::GridEntry>> {
     blocking(&engine, move |e| Ok(e.list_datum_grids())).await
 }

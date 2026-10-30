@@ -289,6 +289,33 @@ export interface TransformReport {
 }
 
 /** One text slot of a layout element (engine `layout/slots.rs`). */
+export interface TopoSpec {
+  /** Longitude, latitude of the sheet's centre. */
+  center: [number, number];
+  scale: number;
+  paper: "letter" | "tabloid" | "a3" | "a4";
+  landscape: boolean;
+  units: "imperial" | "metric";
+  datum: "nad83" | "wgs84";
+  title: string;
+  /** YYYY-MM-DD for the declination; empty = today. */
+  date: string;
+}
+
+export interface TopoCheck {
+  level: "ok" | "note" | "warning";
+  text: string;
+}
+
+export interface TopoBuild {
+  layout: Layout;
+  checks: TopoCheck[];
+  crs: string;
+  zone: number;
+  groundM: [number, number];
+  contourInterval: string;
+}
+
 export interface TextSlot {
   kind: string;
   id: string;
@@ -629,6 +656,7 @@ export const api = {
   datumCoverage: () => invoke<[string, TransformReport][]>("datum_coverage"),
   /** Every text slot of every layout element (id, label, default size): the Properties Text section is built from this. */
   layoutTextSlots: () => invoke<TextSlot[]>("layout_text_slots"),
+  buildTopoLayout: (spec: TopoSpec, today: string) => invoke<TopoBuild>("build_topo_layout", { spec, today }),
   /** Every datum grid PROJ-data offers, with where each is installed. */
   listDatumGrids: () => invoke<DatumGrid[]>("list_datum_grids"),
   /** Download one grid (checksum-verified). Grids above 50 MB need `confirmed`. */

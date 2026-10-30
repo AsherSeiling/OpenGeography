@@ -127,8 +127,6 @@ const setTool = (t: MapTool) => () => app().setTool(t);
 const tool = (t: MapTool) => () => app().tool === t;
 const inLayout = () => !!useLayouts.getState().doc;
 const hasFrame = () => !!useLayouts.getState().doc?.elements.some((e) => e.kind === "map_frame");
-const comingSoon = (what: string, milestone: string) => () =>
-  app().setStatus(`${what} is planned for ${milestone}. See the project plan for details.`);
 
 const list: Command[] = [
   // Project
@@ -189,7 +187,7 @@ const list: Command[] = [
 
   // Insert tab (later milestones)
   { id: "newLayout", label: "New Layout", icon: <DocumentPdfRegular />, run: () => newLayout(), tip: "Create a print layout (Letter landscape); more page sizes are in the Insert tab's gallery" },
-  { id: "topoMap", label: "Topo Map", icon: <MountainTrailRegular />, run: comingSoon("The Topo Map Builder", "Milestone 4") },
+  { id: "topoMap", label: "Topo Map", icon: <MountainTrailRegular />, run: () => useDialog.getState().show({ kind: "topoMap" }), tip: "Build a land-navigation topographic sheet: UTM and MGRS grid, declination diagram, scale bars, grid-reference box and legend, for an area, scale and paper you choose" },
 
   // Layout contextual tab (shown while a layout tab is active)
   { id: "layoutMapFrame", label: "Map Frame", icon: <MapRegular />, run: insertMapFrame, enabled: inLayout, tip: "Insert a map frame in the map's coordinate system, centred on the map view" },
