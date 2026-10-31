@@ -8,9 +8,9 @@ use super::svg::{color, esc, mm};
 use anyhow::{bail, Result};
 use std::fmt::Write;
 
-pub const MARKERS: &[&str] = &["circle", "square", "triangle", "diamond", "star", "cross", "x", "svg"];
+pub const MARKERS: &[&str] = &["circle", "square", "triangle", "diamond", "star", "cross", "x", "svg", "ring", "tri_open", "plus_thin", "x_thin", "church"];
 pub const DASHES: &[&str] = &["solid", "dashed", "dotted", "dashdot"];
-pub const PATTERNS: &[&str] = &["hatch", "hatch2", "cross", "horizontal", "vertical", "grid", "dots"];
+pub const PATTERNS: &[&str] = &["hatch", "hatch2", "cross", "horizontal", "vertical", "grid", "dots", "marsh", "orchard", "vineyard", "scrub", "sand", "gravel"];
 
 pub fn check(marker: &str, marker_svg: &str, dash: &str, pattern: &str) -> Result<()> {
     if !marker.is_empty() && !MARKERS.contains(&marker) {
@@ -50,6 +50,27 @@ pub fn marker(out: &mut String, shape: &str, svg_uri: &str, cx: f64, cy: f64, r:
             let pts = [(-t, -1.0), (t, -1.0), (t, -t), (1.0, -t), (1.0, t), (t, t), (t, 1.0), (-t, 1.0), (-t, t), (-1.0, t), (-1.0, -t), (-t, -t)];
             let rot = if shape == "x" { format!(" transform=\"rotate(45 {} {})\"", mm(cx), mm(cy)) } else { String::new() };
             let _ = write!(out, "<polygon points=\"{}\"{rot}/>", pts.iter().map(|(x, y)| p(*x, *y)).collect::<Vec<_>>().join(" "));
+        }
+        "ring" => {
+            // An open circle: a donut (outer and inner circle, even-odd) so it takes the fill colour of the symbol.
+            let (o, i) = (r, r * 0.62);
+            let _ = write!(out, "<path fill-rule=\"evenodd\" d=\"M{} {}a{} {} 0 1 0 {} 0a{} {} 0 1 0 {} 0ZM{} {}a{} {} 0 1 1 {} 0a{} {} 0 1 1 {} 0Z\"/>", mm(cx - o), mm(cy), mm(o), mm(o), mm(2.0 * o), mm(o), mm(o), mm(-2.0 * o), mm(cx - i), mm(cy), mm(i), mm(i), mm(2.0 * i), mm(i), mm(i), mm(-2.0 * i));
+        }
+        "tri_open" => {
+            let outer = [(0.0, -1.0), (0.95, 0.75), (-0.95, 0.75)];
+            let inner = [(0.0, -0.45), (0.5, 0.45), (-0.5, 0.45)];
+            let path = |pts: &[(f64, f64)]| pts.iter().enumerate().map(|(k, (x, y))| format!("{}{} {}", if k == 0 { "M" } else { "L" }, mm(cx + x * r), mm(cy + y * r))).collect::<String>() + "Z";
+            let _ = write!(out, "<path fill-rule=\"evenodd\" d=\"{}{}\"/>", path(&outer), path(&inner));
+        }
+        "plus_thin" | "x_thin" => {
+            let t = 0.12;
+            let pts = [(-t, -1.0), (t, -1.0), (t, -t), (1.0, -t), (1.0, t), (t, t), (t, 1.0), (-t, 1.0), (-t, t), (-1.0, t), (-1.0, -t), (-t, -t)];
+            let rot = if shape == "x_thin" { format!(" transform=\"rotate(45 {} {})\"", mm(cx), mm(cy)) } else { String::new() };
+            let _ = write!(out, "<polygon points=\"{}\"{rot}/>", pts.iter().map(|(x, y)| p(*x, *y)).collect::<Vec<_>>().join(" "));
+        }
+        "church" => {
+            // A small cross standing on a square (school/church symbol).
+            let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"/><rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"/><rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"/>", mm(cx - r * 0.7), mm(cy), mm(r * 1.4), mm(r * 1.0), mm(cx - r * 0.12), mm(cy - r * 1.1), mm(r * 0.24), mm(r * 1.1), mm(cx - r * 0.5), mm(cy - r * 0.75), mm(r * 1.0), mm(r * 0.24));
         }
         "svg" if !svg_uri.is_empty() => {
             let _ = write!(out, "<image x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" preserveAspectRatio=\"xMidYMid meet\" href=\"{svg_uri}\"/>", mm(cx - r * 1.3), mm(cy - r * 1.3), mm(r * 2.6), mm(r * 2.6));
@@ -111,6 +132,27 @@ pub fn pattern_def(id: &str, kind: &str, bg: &str, fg: &str, s: f64) -> String {
         "grid" => {
             m.push_str(&line(0.0, s / 2.0, s, s / 2.0));
             m.push_str(&line(s / 2.0, 0.0, s / 2.0, s));
+        }
+        "marsh" => {
+            // The USGS marsh tuft: a short horizontal stroke with two small blades above it, every other row shifted.
+            m.push_str(&line(s * 0.15, s * 0.7, s * 0.55, s * 0.7));
+            m.push_str(&line(s * 0.25, s * 0.7, s * 0.25, s * 0.45));
+            m.push_str(&line(s * 0.35, s * 0.7, s * 0.35, s * 0.5));
+            m.push_str(&line(s * 0.45, s * 0.7, s * 0.45, s * 0.45));
+            m.push_str(&line(s * 0.65, s * 0.25, s * 0.95, s * 0.25));
+        }
+        "orchard" | "vineyard" | "scrub" | "sand" | "gravel" => {
+            let r = match kind { "gravel" => (s * 0.09).max(0.16), "vineyard" => (s * 0.06).max(0.1), _ => (s * 0.07).max(0.1) };
+            let dots: &[(f64, f64)] = match kind {
+                "orchard" => &[(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)],
+                "vineyard" => &[(0.17, 0.17), (0.5, 0.17), (0.83, 0.17), (0.17, 0.5), (0.5, 0.5), (0.83, 0.5), (0.17, 0.83), (0.5, 0.83), (0.83, 0.83)],
+                "scrub" => &[(0.3, 0.2), (0.8, 0.55), (0.2, 0.85)],
+                "sand" => &[(0.15, 0.2), (0.55, 0.12), (0.85, 0.4), (0.35, 0.55), (0.7, 0.8), (0.1, 0.85)],
+                _ => &[(0.25, 0.3), (0.7, 0.2), (0.5, 0.65), (0.15, 0.8), (0.85, 0.75)],
+            };
+            for (dx, dy) in dots {
+                let _ = write!(m, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{fg}\"/>", mm(s * dx), mm(s * dy), mm(r));
+            }
         }
         _ => {
             let _ = write!(m, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{fg}\"/>", mm(s / 2.0), mm(s / 2.0), mm((s * 0.14).max(0.12)));

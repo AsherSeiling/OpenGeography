@@ -1,6 +1,6 @@
 // Converts layer symbology into Mapbox-style layers (drawn by OpenLayers through ol-mapbox-style). Pure functions (tested).
 import type { GeomType } from "../ipc/api";
-import type { Basemap, LayerStyle } from "../store/store";
+import type { Basemap, LayerStyle, StrokeSpec } from "../store/store";
 
 /** ArcGIS-style cyan selection highlight. */
 export const SELECTION_COLOR = "#00ffff";
@@ -56,7 +56,23 @@ function selectionExpr(expr: ExpressionSpecification | string): ExpressionSpecif
 }
 
 export function layerIds(id: string): string[] {
-  return [`${id}-raster`, `${id}-fill`, `${id}-line`, `${id}-circle`];
+  const extra: string[] = [];
+  for (let k = 1; k < 8; k++) extra.push(`${id}-line-${k}`);
+  for (let c = 0; c < 64; c++) {
+    extra.push(`${id}-line-c${c}`);
+    for (let k = 1; k < 8; k++) extra.push(`${id}-line-c${c}-${k}`);
+  }
+  return [`${id}-raster`, `${id}-fill`, `${id}-line`, ...extra, `${id}-circle`];
+}
+
+/** A symbol stack as Mapbox line layers, bottom to top. Dash lengths are in multiples of the line width there. */
+function strokeLayers(idPrefix: string, strokes: StrokeSpec[], filter: ExpressionSpecification, common: object, opacity: number, topColor?: ExpressionSpecification | string): LayerSpecification[] {
+  return strokes.map((st, k) => {
+    const w = Math.max(st.width, 0.1);
+    const paint: Record<string, unknown> = { "line-color": k === strokes.length - 1 && topColor ? topColor : st.color, "line-width": st.width, "line-opacity": opacity };
+    if (st.dash?.length) paint["line-dasharray"] = st.dash.map((d) => Math.max(d / w, 0.01));
+    return { id: k === 0 ? idPrefix : `${idPrefix}-${k}`, type: "line", ...common, filter, layout: { "line-join": "round", "line-cap": st.cap ?? (st.dash?.length ? "butt" : "round") }, paint } as LayerSpecification;
+  });
 }
 
 /**
@@ -83,7 +99,24 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl
       paint: { "fill-color": withSelection(fill), "fill-opacity": style.opacity },
     });
   }
-  if (geom === "Polygon" || geom === "Line" || geom === "Mixed") {
+  const classStrokes = style.kind === "categorized" && style.field ? (style.classes ?? []).map((c, i) => ({ c, i })).filter((x) => x.c.strokes?.length) : [];
+  if ((geom === "Polygon" || geom === "Line" || geom === "Mixed") && (style.strokes?.length || classStrokes.length)) {
+    // A symbol stack: one line layer per stroke; classes with their own stack get a filtered copy, the rest keep the layer's.
+    const geomFilter: ExpressionSpecification = geom === "Line" ? ["==", ["geometry-type"], "LineString"] : ["!=", ["geometry-type"], "Point"];
+    const op = geom === "Line" ? style.opacity : 1;
+    const own = style.strokes?.length ? style.strokes : [{ color: geom === "Line" ? style.fill : style.stroke, width: style.strokeWidth }];
+    if (classStrokes.length) {
+      const values = classStrokes.map((x) => x.c.value);
+      const rest: ExpressionSpecification = ["all", geomFilter, ["!", ["in", ["to-string", ["get", style.field]], ["literal", values]]]];
+      out.push(...strokeLayers(`${id}-line`, own, rest, common, op));
+      for (const { c, i } of classStrokes) {
+        const f: ExpressionSpecification = ["all", geomFilter, ["==", ["to-string", ["get", style.field]], c.value]];
+        out.push(...strokeLayers(`${id}-line-c${i}`, c.strokes!, f, common, op));
+      }
+    } else {
+      out.push(...strokeLayers(`${id}-line`, own, geomFilter, common, op, forOl ? undefined : selectionExpr(own[own.length - 1].color)));
+    }
+  } else if (geom === "Polygon" || geom === "Line" || geom === "Mixed") {
     const lineColor = geom === "Line" ? fill : style.stroke;
     out.push({
       id: `${id}-line`,

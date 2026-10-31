@@ -1899,3 +1899,64 @@ fn element_opacity_fades_the_whole_element_and_old_layouts_load_unchanged() {
     assert_eq!(back["elements"][1]["name"], "Map title");
     assert!(back["elements"][0].get("textStyles").is_none() && back["elements"][0].get("opacity").is_none(), "{}", back["elements"][0]);
 }
+
+// ---------- Topo: symbol stacks, patterns and markers in legends ----------
+
+#[test]
+fn topo_a_line_can_be_a_stack_of_strokes_in_the_frame_and_the_legend() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = with_surround_topo(&ids);
+    let stack = json!([{ "color": "#000000", "width": 4.0 }, { "color": "#c8202f", "width": 2.5 }, { "color": "#000000", "width": 6.0, "dash": [0.9, 12.0], "cap": "butt" }]);
+    let mut v = serde_json::to_value(req.styles.get(&ids[1]).cloned().unwrap_or_default()).unwrap();
+    v["strokes"] = stack;
+    req.styles.insert(ids[1].clone(), serde_json::from_value(v).unwrap());
+    let svg = render(&e, &req).svg;
+    let g = &svg[svg.find(&format!("<g id=\"layer-{}\"", ids[1])).unwrap()..];
+    let g = &g[..g.find("</g></g>").map_or(g.len(), |i| i + 4)];
+    // Three stroke groups, bottom to top, the last with the tie dash.
+    let order: Vec<usize> = ["stroke=\"#000000\" stroke-opacity=\"1\" stroke-width=\"1.058\"", "stroke=\"#c8202f\"", "stroke-dasharray=\"0.238 3.175\""].iter().map(|k| g.find(k).unwrap_or_else(|| panic!("missing {k} in {g}"))).collect();
+    assert!(order.windows(2).all(|w| w[0] < w[1]), "{order:?}");
+    assert!(g.contains("stroke-linecap=\"butt\""));
+    // The legend swatch draws the same stack.
+    let lg = &svg[svg.find("<g id=\"legend-lg\"").unwrap()..];
+    assert!(lg.contains("<line") && lg.contains("stroke=\"#c8202f\"") && lg.contains("stroke-dasharray"), "the stack is in the legend");
+    // PDF export works with dashes and butt caps.
+    assert!(export::svg_to_pdf(&svg).unwrap().starts_with(b"%PDF"));
+}
+
+#[test]
+fn topo_classes_can_each_wear_their_own_stack() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, categorized());
+    let mut v = serde_json::to_value(req.styles.get(&ids[0]).unwrap()).unwrap();
+    v["classes"][0]["strokes"] = json!([{ "color": "#123456", "width": 3.0 }]);
+    req.styles.insert(ids[0].clone(), serde_json::from_value(v).unwrap());
+    let svg = render(&e, &req).svg;
+    assert_eq!(svg.matches("stroke=\"#123456\"").count() >= 1, true, "class A's outline stack is drawn");
+    // Class B has no stack of its own, so it keeps the layer's outline.
+    assert!(svg.contains("stroke=\"#4d4d4d\""), "the other classes keep the layer's stroke");
+}
+
+#[test]
+fn topo_legend_swatches_show_patterns_and_markers() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = with_surround_topo(&ids);
+    for (id, extra) in [(&ids[0], json!({ "pattern": "marsh", "patternSpacing": 6.0, "stroke": "#169bd0" })), (&ids[2], json!({ "marker": "tri_open", "radius": 5.0 }))] {
+        let mut v = serde_json::to_value(req.styles.get(id).cloned().unwrap_or_default()).unwrap();
+        v.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        req.styles.insert(id.clone(), serde_json::from_value(v).unwrap());
+    }
+    let svg = render(&e, &req).svg;
+    let lg = &svg[svg.find("<g id=\"legend-lg\"").unwrap()..];
+    assert!(lg.contains("<pattern id=\"swp-") && lg.contains("fill=\"url(#swp-"), "area swatch shows the pattern");
+    assert!(lg.contains("fill-rule=\"evenodd\""), "point swatch shows the open triangle");
+}
+
+fn with_surround_topo(ids: &[String; 4]) -> RenderRequest {
+    let mut req = request(ids, categorized());
+    req.layout.elements.push(serde_json::from_value(json!({ "kind": "legend", "id": "lg", "frame": "f1", "x": 215.0, "y": 30.0, "w": 55.0, "h": 80.0, "title": "Legend", "columns": 1 })).unwrap());
+    req
+}

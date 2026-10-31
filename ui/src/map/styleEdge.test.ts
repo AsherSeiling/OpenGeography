@@ -97,3 +97,24 @@ describe("buildLayers", () => {
     expect(() => buildLayers("L", "Polygon", { ...single, strokeWidth: 1e9, opacity: 7 })).not.toThrow();
   });
 });
+
+describe("symbol stacks on the map", () => {
+  const base = { kind: "single", fill: "#c1272d", stroke: "#000000", strokeWidth: 1, opacity: 1, radius: 3 } as const;
+  it("draws one line layer per stroke, bottom to top, with dashes in line-width multiples", () => {
+    const ls = buildLayers("L", "Line", { ...base, strokes: [{ color: "#000000", width: 3 }, { color: "#c1272d", width: 2 }, { color: "#000000", width: 4, dash: [1, 8], cap: "butt" }] }, true);
+    expect(ls.map((l) => l.id)).toEqual(["L-line", "L-line-1", "L-line-2"]);
+    expect(ls.map((l) => l.paint!["line-width"])).toEqual([3, 2, 4]);
+    expect(ls[2].paint!["line-dasharray"]).toEqual([0.25, 2]);
+    expect(ls[2].layout!["line-cap"]).toBe("butt");
+    expect(ls[0].layout!["line-cap"]).toBe("round");
+  });
+  it("gives classes with their own stack a filtered copy and keeps the rest on the layer's", () => {
+    const ls = buildLayers("L", "Line", { ...base, kind: "categorized", field: "TYPE", classes: [{ value: "idx", color: "#a8662f", label: "Index", strokes: [{ color: "#a8662f", width: 1.6 }] }, { value: "int", color: "#a8662f", label: "Intermediate" }] }, true);
+    expect(ls.map((l) => l.id)).toEqual(["L-line", "L-line-c0"]);
+    expect(JSON.stringify(ls[1].filter)).toContain('"idx"');
+    expect(JSON.stringify(ls[0].filter)).toContain('"literal"');
+  });
+  it("leaves plain styles alone", () => {
+    expect(buildLayers("L", "Line", base, true).map((l) => l.id)).toEqual(["L-line"]);
+  });
+});

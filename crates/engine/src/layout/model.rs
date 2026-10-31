@@ -753,6 +753,36 @@ pub struct StyleClass {
     pub value: String,
     pub color: String,
     pub label: String,
+    /// Line/outline strokes of this class (a symbol stack); unset = the layer's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strokes: Option<Vec<StrokeSpec>>,
+}
+
+/// One stroke of a symbol stack (QGIS "symbol layers"; ArcGIS "layered line symbols"): casings, fills and ticks are strokes drawn bottom to top.
+/// A railroad is a thin black line plus a thick black stroke with a very short dash, which paints the cross-ties.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StrokeSpec {
+    pub color: String,
+    /// CSS px, like `LayerStyle.strokeWidth`.
+    pub width: f64,
+    /// Dash and gap lengths, CSS px; empty = solid.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dash: Vec<f64>,
+    /// "butt" (default for dashes), "round" (default for solid lines) or "square".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap: Option<String>,
+}
+
+impl StrokeSpec {
+    /// The SVG attributes for this stroke (no leading `fill`), widths in page millimetres.
+    pub fn attrs(&self, op: &str) -> String {
+        use super::svg::{color, mm};
+        let px = super::frame::PX_MM;
+        let dash = if self.dash.is_empty() { String::new() } else { format!(" stroke-dasharray=\"{}\"", self.dash.iter().map(|d| mm(d.max(0.01) * px)).collect::<Vec<_>>().join(" ")) };
+        let cap = self.cap.as_deref().filter(|c| matches!(*c, "butt" | "round" | "square")).unwrap_or(if self.dash.is_empty() { "round" } else { "butt" });
+        format!("stroke=\"{}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"{cap}\" stroke-linejoin=\"round\"{dash}", color(&self.color, "#000000"), mm(self.width.max(0.0) * px))
+    }
 }
 
 /// Mirror of `LayerStyle` in ui/src/store/store.ts. A drift test compares it
@@ -777,6 +807,12 @@ pub struct LayerStyle {
     /// Feature labels (L1); layouts draw them from L2 on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<LabelStyle>,
+    /// Id of the topographic symbol (`topo_symbols.rs`) this style was made from, if any; the symbol's fields are copied into the style.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    /// Line and outline symbol as a stack of strokes, bottom to top (replaces the single stroke of lines).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strokes: Option<Vec<StrokeSpec>>,
     /// Point symbol in layouts: "" (circle) | square | triangle | diamond | star | cross | x | svg.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub marker: Option<String>,
@@ -1055,6 +1091,8 @@ impl Default for LayerStyle {
             breaks: None,
             colors: None,
             label: None,
+            symbol: None,
+            strokes: None,
             marker: None,
             marker_svg: None,
             dash: None,
