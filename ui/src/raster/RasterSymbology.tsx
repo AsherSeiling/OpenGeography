@@ -337,7 +337,7 @@ export function RasterSymbology({ id }: { id: string }) {
       {r.renderer !== "default" && (
         <>
           <Field label="Resampling when zoomed">
-            <Dropdown value={r.resampling ?? "bilinear"} selectedOptions={[r.resampling ?? "bilinear"]} onOptionSelect={(_, d) => set({ resampling: d.optionValue as RasterStyle["resampling"] })}>
+            <Dropdown value={r.resampling || (r.renderer === "pseudocolor" && r.mode === "discrete" ? "nearest" : "bilinear")} selectedOptions={[r.resampling || (r.renderer === "pseudocolor" && r.mode === "discrete" ? "nearest" : "bilinear")]} onOptionSelect={(_, d) => set({ resampling: d.optionValue as RasterStyle["resampling"] })}>
               {["nearest", "bilinear", "cubic"].map((k) => (
                 <Option key={k} value={k}>
                   {k}

@@ -437,7 +437,7 @@ pub fn render_extent_styled(info: &RasterInfo, style: &RasterStyle, crs: &str, e
     let target = crate::crs::resolve(crs);
     let src = Dataset::open(&info.path)?;
     let rgb = info.kind == "rgb" && !custom;
-    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", match (style.renderer, style.resampling.as_str()) { (Renderer::Paletted, _) | (_, "nearest") => "near", (_, "cubic") => "cubic", _ => "bilinear" }, "-dstalpha"].map(String::from).to_vec();
+    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", match (style.renderer, style.resampling.as_str()) { (Renderer::Paletted, _) | (_, "nearest") => "near", (Renderer::Pseudocolor, "") if style.mode == crate::raster_style::ColorMode::Discrete => "near", (_, "cubic") => "cubic", _ => "bilinear" }, "-dstalpha"].map(String::from).to_vec();
     args.extend(["-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(), "-ts".into(), w.to_string(), h.to_string()]);
     if rgb {
         args.extend(["-b", "1", "-b", "2", "-b", "3"].map(String::from));
