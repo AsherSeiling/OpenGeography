@@ -851,7 +851,7 @@ pub fn legend(info: &RasterInfo, style: &RasterStyle) -> Result<Option<RasterLeg
                 let n = b.len();
                 let items = (0..=n)
                     .map(|k| {
-                        let label = if k == 0 { format!("< {}", fmt_num(b[0])) } else if k == n { format!("≥ {}", fmt_num(b[n - 1])) } else { format!("{} – {}", fmt_num(b[k - 1]), fmt_num(b[k])) };
+                        let label = if k == 0 { format!("< {}", fmt_num(b[0])) } else if k == n { format!("{} or more", fmt_num(b[n - 1])) } else { format!("{} – {}", fmt_num(b[k - 1]), fmt_num(b[k])) };
                         (at(k as f32 / n as f32), label)
                     })
                     .collect();
@@ -1106,7 +1106,7 @@ mod tests {
         match legend(&i, &classed).unwrap().unwrap() {
             RasterLegend::Classes(c) => {
                 let l: Vec<&str> = c.iter().map(|x| x.1.as_str()).collect();
-                assert_eq!(l, ["< 3", "3 – 7", "≥ 7"]);
+                assert_eq!(l, ["< 3", "3 – 7", "7 or more"]);
                 assert_eq!(c[0].0, "#000000");
                 assert_eq!(c[2].0, "#ffffff");
             }

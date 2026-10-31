@@ -482,7 +482,7 @@ mod surround {
         let grad = json!({ "kind": "graduated", "fill": "#999999", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 1, "radius": 3.5, "field": "pop",
                            "breaks": [20, 40], "colors": ["#aa0000", "#00aa00", "#0000aa"] });
         let req = with_surround(&ids, grad);
-        assert_eq!(legend(&req)[4..], ["&lt; 20", "20 – 40", "≥ 40"]);
+        assert_eq!(legend(&req)[4..], ["&lt; 20", "20 – 40", "40 or more"]);
         // Swatch colours are the colours the frame draws.
         let svg = render(&e, &req).svg;
         let g = group(&svg, "legend-lg");
@@ -867,7 +867,7 @@ mod c24 {
         assert!(texts(&g).contains(&"300".to_string()) && texts(&g).contains(&"500".to_string()), "{:?}", texts(&g));
         // Classes.
         set(&mut req, &id, json!({ "renderer": "pseudocolor", "mode": "discrete", "breaks": [350.0, 450.0], "stretch": { "mode": "manual", "min": 300.0, "max": 500.0 } }));
-        assert_eq!(texts(&legend(&req))[2..], ["&lt; 350", "350 – 450", "≥ 450"]);
+        assert_eq!(texts(&legend(&req))[2..], ["&lt; 350", "350 – 450", "450 or more"]);
         // Unique values: only visible classes, with their labels.
         set(&mut req, &id, json!({ "renderer": "paletted", "entries": [{ "value": 1.0, "color": "#ff0000", "label": "Forest" }, { "value": 2.0, "color": "#00ff00", "label": "Water", "hidden": true }] }));
         let t = texts(&legend(&req));
