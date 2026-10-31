@@ -573,10 +573,10 @@ pub struct LegendRowInfo {
 #[allow(clippy::too_many_arguments)]
 pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<LegendRowInfo>, at: &Placement, o: &LegendOpts, ctx: &FrameCtx, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>) {
     let base_pt = if o.text_pt > 0.0 { o.text_pt } else { LEGEND_PT };
-    let text_pt = at.slot_pt("legend.entries", base_pt);
-    let head_pt = at.slot_pt("legend.headings", base_pt);
+    let mut text_pt = at.slot_pt("legend.entries", base_pt);
+    let mut head_pt = at.slot_pt("legend.headings", base_pt);
     let title_pt = at.slot_pt("legend.title", if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT });
-    let row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
+    let mut row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
     let mut rows: Vec<Row> = Vec::new();
     for id in &ctx.drawn {
         if let Some(info) = lookup(id) {
@@ -620,7 +620,22 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
         text_slot(out, at.x + LEGEND_PAD, top + title_pt * PT_MM * 0.85, &t, "sans-bold", title_pt, "start", at, "legend.title");
         top += title_pt * PT_MM + 3.0;
     }
-    let ncols = o.columns.clamp(1, 6) as usize;
+    let mut ncols = o.columns.clamp(1, 6) as usize;
+    // A legend that does not fit its box first takes a second or third column (while each stays 38 mm wide), then shrinks its
+    // rows and text down to 55 % (TP-7: the topo sheet's legend ran off the page).
+    let avail = at.y + at.h - LEGEND_PAD - top;
+    while rows.len().div_ceil(ncols) as f64 * row_mm > avail && ncols < 3 && (at.w - 2.0 * LEGEND_PAD) / (ncols as f64 + 1.0) >= 38.0 {
+        ncols += 1;
+    }
+    let need = rows.len().div_ceil(ncols) as f64 * row_mm;
+    // A size the user set on a legend text slot is kept.
+    let user_sized = (text_pt - base_pt).abs() > 1e-9 || (head_pt - base_pt).abs() > 1e-9;
+    if need > avail && avail > 0.0 && !user_sized {
+        let k = (avail / need).clamp(0.55, 1.0);
+        row_mm *= k;
+        text_pt *= k;
+        head_pt *= k;
+    }
     let per_col = rows.len().div_ceil(ncols).max(1);
     let col_w = (at.w - 2.0 * LEGEND_PAD) / ncols as f64;
     if top + per_col as f64 * row_mm + LEGEND_PAD > at.y + at.h + 1e-6 {

@@ -198,12 +198,19 @@ pub fn build(spec: &TopoSpec, today: &str) -> Result<TopoBuild> {
         "ADJOINING SHEETS\nNW  {}\nN  {}\nNE  {}\nW  {}\nE  {}\nSW  {}\nS  {}\nSE  {}",
         neighbour(-1.0, 1.0), neighbour(0.0, 1.0), neighbour(1.0, 1.0), neighbour(-1.0, 0.0), neighbour(1.0, 0.0), neighbour(-1.0, -1.0), neighbour(0.0, -1.0), neighbour(1.0, -1.0)
     );
-    let gridref_pt = 7.0;
-    let gridref = format!(
-        "HOW TO GIVE A GRID REFERENCE\n{}\n{}",
-        wrap("Read RIGHT along the bottom or top edge to the vertical grid line on the left of your point, then UP to the horizontal line below it. The numbers on the grid lines are the first digits; estimate tenths of a square for the last digit.", gw - 3.0, gridref_pt),
-        wrap(&format!("Example, the centre of this sheet: {centre_ref}"), gw - 3.0, gridref_pt)
-    );
+    // The grid-reference text shrinks until it fits its box (a narrow page gives it a narrow box: TP-7).
+    let how = "Read RIGHT along the bottom or top edge to the vertical grid line on the left of your point, then UP to the horizontal line below it. The numbers on the grid lines are the first digits; estimate tenths of a square for the last digit.";
+    let example = format!("Example, the centre of this sheet: {centre_ref}");
+    let mut gridref_pt = 7.0;
+    let mut gridref;
+    loop {
+        gridref = format!("HOW TO GIVE A GRID REFERENCE\n{}\n{}", wrap(how, gw - 3.0, gridref_pt), wrap(&example, gw - 3.0, gridref_pt));
+        let lines = gridref.lines().count() as f64;
+        if lines * gridref_pt * 0.3528 * 1.3 + 3.0 <= strip - 2.0 || gridref_pt <= 4.5 {
+            break;
+        }
+        gridref_pt -= 0.25;
+    }
     let info = format!(
         "Scale 1:{} · {{crs}} · {} datum · {} m UTM grid · contour interval {interval} · magnetic declination from the World Magnetic Model, {date}",
         group(spec.scale),
@@ -286,6 +293,20 @@ mod tests {
         assert_eq!(interval_metres("40 ft"), 12.192);
         assert_eq!(interval_metres("10 m"), 10.0);
         assert!((b.contour_interval_m - 12.192).abs() < 1e-9);
+    }
+
+    /// TP-7: on a narrow page the grid-reference text used to spill out of its box and over the next one.
+    #[test]
+    fn the_grid_reference_text_fits_its_box_on_a_narrow_page() {
+        let mut sp = spec();
+        sp.paper = "letter".into();
+        sp.landscape = false;
+        let b = build(&sp, "2026-01-01").unwrap();
+        let v = serde_json::to_value(&b.layout).unwrap();
+        let el = v["elements"].as_array().unwrap().iter().find(|e| e["id"] == "gridref").unwrap();
+        let (h, pt) = (el["h"].as_f64().unwrap(), el["size"].as_f64().unwrap());
+        let lines = el["text"].as_str().unwrap().lines().count() as f64;
+        assert!(lines * pt * 0.3528 * 1.3 <= h, "{lines} lines at {pt} pt in {h} mm");
     }
 
     #[test]
