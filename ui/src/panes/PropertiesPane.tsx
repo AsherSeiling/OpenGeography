@@ -16,7 +16,7 @@ import {
   Textarea,
 } from "@fluentui/react-components";
 import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@fluentui/react-icons";
-import { save } from "@tauri-apps/plugin-dialog";
+import { save } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";

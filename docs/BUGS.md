@@ -163,11 +163,11 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 - TP-7 [FIXED 2026-10-30] (T1-2, T2-2, T3-1, T3-2) Topo legend runs off the page; the grid-reference text overflows its box; Sources overprints the legend; legend names truncated.
 - TP-8 [FIXED 2026-10-30] (T5-3, T7-2, T8-6, T10-3, T11-5) "≥" prints as a missing-glyph box in every graduated legend; class labels print six decimals; integer counts get a "< 0" class.
 - TP-9 [FIXED 2026-10-30] (T5-4) Long layout titles neither wrap nor shrink (cut off at the page edges).
-- TP-10 (T7-1) Reclassified (categorical) rasters are resampled bilinearly and the legend shows blended breaks.
-- TP-11 (T6-3, T6-4, T6-6) Extract Streams with an unsuitable threshold gives an all-no-data raster without a warning; Flow Accumulation accepts a flow-direction raster silently; result rasters inherit the DEM renderer and are invisible until restyled.
-- TP-12 (T4-4, T10-4) Graduated colors defaults to the first numeric column (an ID: OGC_FID, CELL_ID).
-- TP-13 (T10-1) Overture download sat at 5 % for ~8 min with no sign of progress.
-- TP-14 (T14-2) Layout preview of a world frame with 264 Tissot polygons in Mollweide took ~2 min (devserver at 2.8 GB).
-- TP-15 (T9-5) Browser/dev mode: Export Features, Export Table, Save/Open and Add Data call the desktop-only file dialog and throw; only layout export has a prompt() fallback (desktop app unaffected).
+- TP-10 [FIXED 2026-10-30] (T7-1) Reclassified (categorical) rasters are resampled bilinearly and the legend shows blended breaks.
+- TP-11 [PARTLY FIXED 2026-10-30 (warnings added; result rasters still inherit the DEM renderer)] (T6-3, T6-4, T6-6) Extract Streams with an unsuitable threshold gives an all-no-data raster without a warning; Flow Accumulation accepts a flow-direction raster silently; result rasters inherit the DEM renderer and are invisible until restyled.
+- TP-12 [FIXED 2026-10-30] (T4-4, T10-4) Graduated colors defaults to the first numeric column (an ID: OGC_FID, CELL_ID).
+- TP-13 [FIXED 2026-10-30 (shows "still working, N min" and a creeping bar; the read itself is not faster)] (T10-1) Overture download sat at 5 % for ~8 min with no sign of progress.
+- TP-14 [NOT REPRODUCED 2026-10-30 (basemap warp of the world takes 0.3–1.3 s with a warm tile cache; the 2 minutes was probably the first, cold-cache tile download; time a cold run before changing code)] (T14-2) Layout preview of a world frame with 264 Tissot polygons in Mollweide took ~2 min (devserver at 2.8 GB).
+- TP-15 [FIXED 2026-10-30 (browser mode asks for a path; desktop unchanged)] (T9-5) Browser/dev mode: Export Features, Export Table, Save/Open and Add Data call the desktop-only file dialog and throw; only layout export has a prompt() fallback (desktop app unaffected).
 
 - TP-8 note: the bundled Noto Sans has no ≥ or ≤, so the last legend class now reads "N or more" instead of "≥ N" (adding a math font would be the alternative).

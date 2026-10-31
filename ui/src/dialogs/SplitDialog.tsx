@@ -1,6 +1,6 @@
 // Split by Attribute (B6): one new layer, or one file, per value of a field. Shows what will be made before anything is written.
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, Radio, RadioGroup } from "@fluentui/react-components";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
 import { runSplit } from "../actions";
 import { api, errorText, IN_TAURI, SPLIT_CONFIRM_ABOVE, SPLIT_MAX_OUTPUTS, type SplitGroup, type SplitTarget } from "../ipc/api";

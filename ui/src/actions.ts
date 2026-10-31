@@ -4,7 +4,7 @@ import { gridLabel, gridSizeFor, groundWidthM, usngGridStyle } from "./map/usngG
 import { bibliographyFiles } from "./sources/cite";
 import { useBibPrefs } from "./sources/prefs";
 import { track } from "./progress/progress";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "./ipc/dialogs";
 import { create } from "zustand";
 import { reportError } from "./errors/store";
 import { api, errorText, type TableExportSpec, type SplitTarget, type LayerInfo } from "./ipc/api";

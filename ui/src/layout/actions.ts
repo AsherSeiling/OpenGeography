@@ -1,5 +1,5 @@
 // Layout actions shared by the ribbon, Contents and the layout view.
-import { open as openDialog, save } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save } from "../ipc/dialogs";
 import { useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI, type TopoBuild, type TopoSpec } from "../ipc/api";

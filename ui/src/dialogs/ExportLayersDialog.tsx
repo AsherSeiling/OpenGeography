@@ -1,6 +1,6 @@
 // Export several layers at once: one GeoPackage per layer (GeoTIFF for rasters) in a folder. Existing files are never overwritten.
 import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input } from "@fluentui/react-components";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open } from "../ipc/dialogs";
 import { useState } from "react";
 import { runExportLayers } from "../actions";
 import { IN_TAURI } from "../ipc/api";
