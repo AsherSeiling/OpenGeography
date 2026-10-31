@@ -152,3 +152,20 @@ Second round (2026-10-30, user: "it still shows the little hand icon"): right-cl
 
 ## K-1 — Shift+A (Add node) did nothing after a text box elsewhere had been used (fixed 2026-10-29, browser-verified)
 Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the editor (the ribbon's Scale box, Properties fields, a search box) still had focus, even with the pointer over the Model canvas. Fix: the pointer decides (the box is blurred and the shortcut runs) unless keys were just being typed into the box (1.2 s); the Add menu opens at the middle of the canvas when no pointer position is known; when Shift+A is held back by a focused box the status bar says why. Regression tests: `e2e/shift-a.spec.ts` (fails on the old handler). **Not yet verified in the packaged app's WebView**: if Shift+A still fails there, the next step is the key-event diagnostic panel in the plan (docs/LAYOUT_REWORK_PLAN.md §2b, LW-K).
+
+## From the 20 test projects (2026-10-30; details and screenshots in docs/TEST_PROJECT_LOG.md and test-projects/)
+- TP-1 [FIXED 2026-10-30] (T8-1, T9-2) Style crash "failed to parse rgba(NaN,NaN,NaN,NaN) as color": graduated colours with tied quantile breaks ("step … strictly ascending") and unique-values styles after the layer's values change. Guard the style builder; de-duplicate breaks.
+- TP-2 [FIXED 2026-10-30] (T12-1) Imagery & DEM (Sentinel-2) date range "2024-06-01/2024-09-30" (the dialog's own example) is rejected by the STAC service with HTTP 400 "does not match RFC3339"; convert to `T00:00:00Z/T23:59:59Z`.
+- TP-3 [FIXED 2026-10-30] (T13-1) Add USNG / MGRS Field fails with "ST_X only supports POINT geometries" on layers stored as MULTIPOINT (National Map summits); use ST_PointOnSurface/ST_Centroid when the geometry is not a single POINT (`nodes/usng_tools.rs:57`).
+- TP-4 [FIXED 2026-10-30] (T19-1) Interpolate Points to Raster says "no points with a number in the value field" for a field produced by Sample Raster Values (17 of 26 rows numeric).
+- TP-5 [FIXED 2026-10-30] (T14-1) Tissot circles in a Mollweide with central meridian −96° give a raw GEOS TopologyException for circles crossing the cut.
+- TP-6 (T1-1, T2-1, T3-3) Contour labels on topo sheets are in metres with float noise ("3474.7200000000003", "1800.0") although the sheet is feet/imperial.
+- TP-7 (T1-2, T2-2, T3-1, T3-2) Topo legend runs off the page; the grid-reference text overflows its box; Sources overprints the legend; legend names truncated.
+- TP-8 (T5-3, T7-2, T8-6, T10-3, T11-5) "≥" prints as a missing-glyph box in every graduated legend; class labels print six decimals; integer counts get a "< 0" class.
+- TP-9 (T5-4) Long layout titles neither wrap nor shrink (cut off at the page edges).
+- TP-10 (T7-1) Reclassified (categorical) rasters are resampled bilinearly and the legend shows blended breaks.
+- TP-11 (T6-3, T6-4, T6-6) Extract Streams with an unsuitable threshold gives an all-no-data raster without a warning; Flow Accumulation accepts a flow-direction raster silently; result rasters inherit the DEM renderer and are invisible until restyled.
+- TP-12 (T4-4, T10-4) Graduated colors defaults to the first numeric column (an ID: OGC_FID, CELL_ID).
+- TP-13 (T10-1) Overture download sat at 5 % for ~8 min with no sign of progress.
+- TP-14 (T14-2) Layout preview of a world frame with 264 Tissot polygons in Mollweide took ~2 min (devserver at 2.8 GB).
+- TP-15 (T9-5) Browser/dev mode: Export Features, Export Table, Save/Open and Add Data call the desktop-only file dialog and throw; only layout export has a prompt() fallback (desktop app unaffected).
