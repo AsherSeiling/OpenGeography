@@ -1960,3 +1960,25 @@ fn with_surround_topo(ids: &[String; 4]) -> RenderRequest {
     req.layout.elements.push(serde_json::from_value(json!({ "kind": "legend", "id": "lg", "frame": "f1", "x": 215.0, "y": 30.0, "w": 55.0, "h": 80.0, "title": "Legend", "columns": 1 })).unwrap());
     req
 }
+
+#[test]
+fn topo_legend_entries_can_be_drawn_with_catalogue_symbols_and_the_layers_can_be_left_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = with_surround_topo(&ids);
+    let mut v = serde_json::to_value(&req.layout.elements[2]).unwrap();
+    v["auto"] = json!(false);
+    v["custom"] = json!([{ "label": "Primary highway", "symbol": "road_primary", "era": "classic" }, { "label": "Marsh", "symbol": "sub_marsh" }, { "label": "Plain", "color": "#123456" }]);
+    req.layout.elements[2] = serde_json::from_value(v).unwrap();
+    let svg = render(&e, &req).svg;
+    let lg = &svg[svg.find("<g id=\"legend-lg\"").unwrap()..];
+    assert!(lg.contains("stroke=\"#c8202f\"") && lg.contains("Primary highway"), "the highway swatch is the red-filled stack");
+    assert!(lg.contains("<pattern id=\"swp-marsh-"), "the marsh swatch carries its pattern");
+    assert!(lg.contains("#123456"), "a plain colour entry still works");
+    let texts: Vec<String> = lg.split("<text ").skip(1).map(|t| t.split_once('>').unwrap().1.split("</text>").next().unwrap().to_string()).collect();
+    assert_eq!(texts, ["Legend", "Primary highway", "Marsh", "Plain"], "auto: false leaves the layers out");
+    // The flag survives the layout JSON and is left out when true.
+    let back = serde_json::to_value(&req.layout.elements[2]).unwrap();
+    assert_eq!(back["auto"], false);
+    assert!(serde_json::to_value(with_surround_topo(&ids).layout.elements[2].clone()).unwrap().get("auto").is_none());
+}

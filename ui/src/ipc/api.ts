@@ -309,13 +309,17 @@ export interface TopoSpec {
   /** Longitude, latitude of the sheet's centre. */
   center: [number, number];
   scale: number;
-  paper: "letter" | "tabloid" | "a3" | "a4";
+  paper: "letter" | "tabloid" | "a3" | "a4" | "a2" | "a1";
   landscape: boolean;
   units: "imperial" | "metric";
   datum: "nad83" | "wgs84";
   title: string;
   /** YYYY-MM-DD for the declination; empty = today. */
   date: string;
+  /** "landnav" (default), "usgs" (classic quadrangle) or "military" (installation map). */
+  style?: "landnav" | "usgs" | "military";
+  /** "classic" (default) or "modern": the look of the sheet's symbols. */
+  era?: "classic" | "modern";
 }
 
 export interface TopoCheck {

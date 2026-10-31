@@ -23,3 +23,9 @@ _Sonnet session, 2026-10-30. User request: an old-school USGS style map maker ba
 
 ## Not in scope (decide later)
 Purple revision overlays, provisional-edition hand lettering, bathymetric and glacier symbols beyond the catalogue entries, automatic label placement in the USGS typefaces (the bundled Noto Sans is used), GeoPDF.
+
+## Status (2026-10-30)
+- [x] T1 stroke stacks (layout, legend, map view; fixtures; tests)
+- [x] T2 symbol catalogue (≈ 90 symbols incl. military overlay), patterns, markers, picker, legend entries by symbol id
+- [x] T3 USGS quadrangle sheet + auto-assign; [x] T4 military installation sheet; [x] T5 protocol (pixel tests, contact sheet, showcase pages)
+- Deferred (see TEST_PLAN TU-6): purple revision overlays, provisional-edition lettering, bathymetric/glacier sets, USGS-style label placement, data-driven facilities table.

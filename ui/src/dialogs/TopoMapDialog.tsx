@@ -8,6 +8,7 @@ import { contourStyle, hillshadeStyle, pickDem, sheetLabel } from "../layout/top
 import { buildTopoSheet } from "../layout/actions";
 import { defaultDatum, PAPERS, parseCenter, quadCenter, SCALES, todayIso, TOPO_PRESETS, type TopoPreset } from "../layout/topoArea";
 import { getCenterLonLat } from "../map/mapController";
+import { assignSymbols } from "../topo/assign";
 import { useApp } from "../store/store";
 
 /** What the project already holds for a land-navigation map, as checks next to the engine's own. */
@@ -34,8 +35,13 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
   const [units, setUnits] = useState<TopoSpec["units"]>("imperial");
   const [datum, setDatum] = useState<TopoSpec["datum"] | "auto">("auto");
   const [preset, setPreset] = useState<TopoPreset | null>(null);
+  const [style, setStyle] = useState<NonNullable<TopoSpec["style"]>>("landnav");
+  const [era, setEra] = useState<NonNullable<TopoSpec["era"]>>("classic");
   const applyPreset = (p: TopoPreset) => {
     setPreset(p);
+    setStyle(p.style ?? "landnav");
+    setEra(p.era ?? "classic");
+    if (p.title && !title.trim()) setTitle(p.title);
     setScale(p.scale);
     setPaper(p.paper);
     setLandscape(p.landscape);
@@ -95,6 +101,23 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  /** Step 4: the topographic symbol each layer's name and geometry suggest (roads, water, contours, military overlays). */
+  const applySymbols = async () => {
+    setErr(null);
+    setDataBusy(true);
+    try {
+      const symbols = await api.topoSymbols(era);
+      const app = useApp.getState();
+      const { changes, assigned, skipped } = assignSymbols(app.order, app.layers, app.styles, symbols);
+      for (const [id, st] of Object.entries(changes)) app.setStyle(id, st);
+      setDataMsg(`${assigned.length ? `Gave ${assigned.length} layer(s) a topographic symbol: ${assigned.map((a) => `${a.name} → ${a.symbol}`).join("; ")}.` : "No layer needed a symbol."}${skipped.length ? ` Left alone: ${skipped.join("; ")}. Choose one in Properties › Symbology › Topographic symbol.` : ""}`);
+    } catch (e) {
+      setErr(errorText(e));
+    } finally {
+      setDataBusy(false);
+    }
+  };
+
   /** Step 2: contours (index lines every fifth) and a hillshade from the elevation layer, drawn and ready for the sheet. */
   const makeContours = async () => {
     if (!built || !dem) return;
@@ -135,7 +158,7 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) return setErr("Write the declination date as YYYY-MM-DD.");
     setBusy(true);
     try {
-      const spec: TopoSpec = { center, scale, paper, landscape, units, datum: datum === "auto" ? defaultDatum(center[0], center[1]) : datum, title: name, date: date.trim() };
+      const spec: TopoSpec = { center, scale, paper, landscape, units, datum: datum === "auto" ? defaultDatum(center[0], center[1]) : datum, title: name, date: date.trim(), style, era };
       setBuilt(await buildTopoSheet(spec));
     } catch (e) {
       setErr(errorText(e));
@@ -156,6 +179,21 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
                 {TOPO_PRESETS.map((p) => <Option key={p.id} value={p.id}>{p.label}</Option>)}
               </Dropdown>
             </Field>
+            <Field label="Sheet style" size="small">
+              <Dropdown size="small" aria-label="Sheet style" value={{ landnav: "Land navigation (grid, declination, grid-reference box)", usgs: "USGS quadrangle (classic topographic sheet)", military: "Military installation map (overlay legend, mils declination)" }[style]} selectedOptions={[style]} onOptionSelect={(_, d) => setStyle(d.optionValue as typeof style)}>
+                <Option value="landnav">Land navigation (grid, declination, grid-reference box)</Option>
+                <Option value="usgs">USGS quadrangle (classic topographic sheet)</Option>
+                <Option value="military">Military installation map (overlay legend, mils declination)</Option>
+              </Dropdown>
+            </Field>
+            {style !== "landnav" && (
+              <Field label="Symbol look" size="small">
+                <Dropdown size="small" aria-label="Symbol look" value={era === "classic" ? "Classic (1970s–80s print)" : "Modern"} selectedOptions={[era]} onOptionSelect={(_, d) => setEra(d.optionValue as typeof era)}>
+                  <Option value="classic">Classic (1970s–80s print)</Option>
+                  <Option value="modern">Modern</Option>
+                </Dropdown>
+              </Field>
+            )}
             <Field label="Area" size="small">
               <Dropdown size="small" value={where === "view" ? "The centre of the map view" : "A position I type"} selectedOptions={[where]} onOptionSelect={(_, d) => setWhere(d.optionValue as "view" | "position")}>
                 <Option value="view">The centre of the map view</Option>
@@ -219,6 +257,7 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
                   <Button size="small" disabled={dataBusy} onClick={() => void getElevation()}>{plan ? "Download anyway" : "1. Download elevation (3DEP, 10 m)"}</Button>
                   <Button size="small" disabled={dataBusy || !dem} onClick={() => void makeContours()} title={dem ? `From ${dem.name}` : "Download or add an elevation layer first"}>2. Make contours and hillshade</Button>
                   <Button size="small" disabled={dataBusy} onClick={() => void getFeatures()} title="Roads, trails, water and place names from USGS The National Map, clipped to this sheet">3. Add roads, trails, water and names</Button>
+                  {style !== "landnav" && <Button size="small" disabled={dataBusy} onClick={() => void applySymbols()} title="Draw roads, water, contours and military overlay layers with the topographic symbols (by layer name)">4. Apply topographic symbols</Button>}
                 </div>
                 {dataMsg && <MessageBar intent="success"><MessageBarBody>{dataMsg}</MessageBarBody></MessageBar>}
               </div>

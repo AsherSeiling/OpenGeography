@@ -237,8 +237,10 @@ export interface LegendElement extends Placement {
   /** Renamed or hidden entries, by generated key (`LegendRow.key`). */
   overrides?: Record<string, { label?: string; hidden?: boolean }>;
   /** Hand-made entries at the end. */
-  custom?: { label: string; color: string }[];
+  custom?: { label: string; color: string; symbol?: string; era?: "classic" | "modern" }[];
   patch?: "square" | "rounded" | "circle";
+  /** List the frame's layers (default true); false = only the extra entries. */
+  auto?: boolean;
   /** Entry text size, pt; 0/unset = 8. */
   textSize?: number;
 }

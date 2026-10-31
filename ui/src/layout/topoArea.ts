@@ -2,7 +2,7 @@
 import { toPoint } from "mgrs";
 
 export const SCALES: [number, string][] = [[24000, "1:24,000 (USGS 7.5′ quad)"], [25000, "1:25,000 (military)"], [50000, "1:50,000"], [100000, "1:100,000"]];
-export const PAPERS: [string, string][] = [["letter", "Letter"], ["tabloid", "Tabloid (11 × 17 in)"], ["a4", "A4"], ["a3", "A3"]];
+export const PAPERS: [string, string][] = [["letter", "Letter"], ["tabloid", "Tabloid (11 × 17 in)"], ["a4", "A4"], ["a3", "A3"], ["a2", "A2 (420 × 594 mm)"], ["a1", "A1 (594 × 841 mm)"]];
 
 export { TOPO_PRESETS, type TopoPreset } from "./topoPresets";
 

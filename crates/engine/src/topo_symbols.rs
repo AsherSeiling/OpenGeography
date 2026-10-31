@@ -223,8 +223,8 @@ pub fn symbols(era: &str) -> Vec<TopoSymbol> {
         area("mil_cantonment", MIL, "Cantonment / built-up military area", "#9fb9cc", 0.7, Some(("#3d5f7a", 0.8)), None, None),
         line("mil_restricted_boundary", MIL, "Restricted area boundary line", vec![dashed(BLACK, 1.4, &[8.0, 3.0, 2.0, 3.0])]),
         line("mil_atc_boundary", MIL, "Air traffic control boundary", vec![st("#4aa6d6", 3.2)]),
-        point("mil_firing_point", MIL, "Firing point", "triangle", RED, 2.6),
-        point("mil_observation_point", MIL, "Observation point", "tri_open", RED, 2.6),
+        point("mil_firing_point", MIL, "Firing point", "triangle", RED, 3.6),
+        point("mil_observation_point", MIL, "Observation point", "tri_open", RED, 3.6),
         line("mil_grid_line", MIL, "Military grid line", vec![st("#8a6d3b", 0.5)]),
     ]
 }

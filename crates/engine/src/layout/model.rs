@@ -22,6 +22,9 @@ fn eight() -> usize {
 fn bar() -> String {
     "bar".into()
 }
+fn is_true(v: &bool) -> bool {
+    *v
+}
 fn rectangle() -> String {
     "rectangle".into()
 }
@@ -422,6 +425,9 @@ pub enum Element {
         /// Entry text size in points; 0 = default (8).
         #[serde(default, rename = "textSize", skip_serializing_if = "is_zero")]
         text_size: f64,
+        /// List the frame's layers (default); off = only the extra entries (a map-key box of symbols, like the USGS road classification).
+        #[serde(default = "yes", skip_serializing_if = "is_true")]
+        auto: bool,
     },
     ScaleBar {
         #[serde(flatten)]
@@ -874,6 +880,12 @@ pub struct LegendCustom {
     pub label: String,
     #[serde(default)]
     pub color: String,
+    /// A topographic symbol id (`topo_symbols.rs`): the entry is drawn with that symbol (stack, pattern, marker) instead of a colour chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    /// "classic" (default) or "modern", for `symbol`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub era: Option<String>,
 }
 
 /// A drop shadow under a layer in print layouts (QGIS "Draw effects → Drop shadow"; a solid offset copy, since blur is not reliable in PDF).

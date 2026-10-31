@@ -610,6 +610,8 @@ pub struct LegendOpts<'a> {
     pub patch: &'a str,
     /// Text size in points; 0 = 8 (title 10).
     pub text_pt: f64,
+    /// List the frame's layers; false = only the custom entries.
+    pub auto: bool,
 }
 
 /// One row of the legend as generated, for the editing list in Properties.
@@ -634,7 +636,7 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
     let title_pt = at.slot_pt("legend.title", if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT });
     let row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
     let mut rows: Vec<Row> = Vec::new();
-    for id in &ctx.drawn {
+    for id in ctx.drawn.iter().filter(|_| o.auto) {
         if let Some(info) = lookup(id) {
             let style = req.styles.get(id).cloned().unwrap_or_default();
             let start = rows.len();
@@ -666,7 +668,19 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
         })
         .collect();
     for c in o.custom {
-        rows.push(Row::new(Some((Sym::Poly, svg::color(&c.color, "#888888"))), c.label.clone(), &LayerStyle::default()));
+        match c.symbol.as_deref().and_then(|id| crate::topo_symbols::find(id, c.era.as_deref().unwrap_or("classic"))) {
+            Some(ts) => {
+                let style = ts.style.apply(&LayerStyle::default());
+                let sym = match ts.geom {
+                    "line" => Sym::Line,
+                    "point" => Sym::Point,
+                    _ => Sym::Poly,
+                };
+                let color = svg::color(&style.fill, "#808080");
+                rows.push(Row::new(Some((sym, color)), c.label.clone(), &style));
+            }
+            None => rows.push(Row::new(Some((Sym::Poly, svg::color(&c.color, "#888888"))), c.label.clone(), &LayerStyle::default())),
+        }
     }
     open_group(out, "legend", at);
     let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"#ffffff\" stroke=\"#999999\" stroke-width=\"0.25\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h));
