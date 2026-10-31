@@ -157,10 +157,64 @@ impl TaskHandle {
     pub fn check(&self) -> anyhow::Result<()> {
         check_id(self.id)
     }
+
+    /// Set the detail line and (never backwards) the absolute fraction from any thread.
+    pub fn report(&self, fraction: f64, detail: String) {
+        if let Some(t) = tasks().lock().get_mut(&self.id) {
+            t.fraction = Some(fraction.clamp(0.0, 1.0).max(t.fraction.unwrap_or(0.0)));
+            t.detail = detail;
+        }
+    }
+}
+
+/// While alive, tells the task every two seconds that work is still going ("… 3 min 10 s") and creeps the bar from `from` toward
+/// `to`, so a long single query (a remote read) does not look hung (TP-13).
+pub struct Heartbeat {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl Heartbeat {
+    pub fn start(handle: TaskHandle, what: &'static str, from: f64, to: f64) -> Heartbeat {
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        std::thread::spawn(move || {
+            let t0 = std::time::Instant::now();
+            while !flag.load(std::sync::atomic::Ordering::Relaxed) {
+                let secs = t0.elapsed().as_secs();
+                let when = if secs >= 60 { format!("{} min {} s", secs / 60, secs % 60) } else { format!("{secs} s") };
+                let frac = from + (to - from) * (1.0 - (-(secs as f64) / 240.0).exp());
+                handle.report(frac, format!("{what} — still working, {when}"));
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+        });
+        Heartbeat { stop }
+    }
+}
+
+impl Drop for Heartbeat {
+    fn drop(&mut self) {
+        self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 impl Drop for Task {
     fn drop(&mut self) {
         tasks().lock().remove(&self.id);
+    }
+}
+
+#[cfg(test)]
+mod heartbeat_tests {
+    use super::*;
+
+    #[test]
+    fn a_long_query_keeps_telling_the_task_it_is_working() {
+        let task = Task::start("Test remote read");
+        let beat = Heartbeat::start(task.handle(), "Reading", 0.05, 0.4);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let t = snapshot().into_iter().find(|t| t.id == task.id()).unwrap();
+        assert!(t.detail.contains("Reading — still working"), "{}", t.detail);
+        assert!(t.fraction.unwrap() >= 0.05);
+        drop(beat);
     }
 }

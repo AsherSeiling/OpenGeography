@@ -106,9 +106,11 @@ impl Engine {
             let filter = if has_bbox { bbox_filter } else { format!("ST_Intersects({geom}, ST_MakeEnvelope({w}, {s}, {e}, {n}))") };
             // One pass over the remote files: the matching rows go into a scratch table (not TEMP: the next step may run on another connection of the pool), which is counted, used as the layer's source, then dropped.
             let tmp = ident(&format!("__overture_{}", self.alloc_id()));
+            let beat = crate::progress::Heartbeat::start(task.handle(), "Reading Overture's remote files", 0.05, 0.38);
             let created = crate::history::cancellable(c, task.handle(), || {
                 c.execute_batch(&format!("CREATE OR REPLACE TABLE {tmp} AS SELECT {}, {geom} AS geom FROM {src} WHERE {filter}", fields.join(", "))).map_err(|x| anyhow!("Could not read the Overture data ({x})"))
             });
+            drop(beat);
             task.check()?;
             created?;
             let count: i64 = c.query_row(&format!("SELECT count(*) FROM {tmp}"), [], |r| r.get(0))?;
