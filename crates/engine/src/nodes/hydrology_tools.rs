@@ -42,6 +42,16 @@ fn restamp(out: &Path, src: &Path, crs: &str) -> Result<()> {
     Ok(())
 }
 
+/// (min, max, is a whole-number type) of band 1's valid cells; None when there are none or the file can't be read.
+fn band_range(path: &Path) -> Option<(f64, f64, bool)> {
+    let ds = gdal::Dataset::open(path).ok()?;
+    let band = ds.rasterband(1).ok()?;
+    let whole = matches!(band.band_type(), gdal::raster::GdalDataType::UInt8 | gdal::raster::GdalDataType::Int16 | gdal::raster::GdalDataType::UInt16 | gdal::raster::GdalDataType::Int32 | gdal::raster::GdalDataType::UInt32);
+    // Statistics skip NoData; with no valid cell GDAL fails (compute_raster_min_max would hand back NoData itself).
+    let st = band.get_statistics(true, false).ok().flatten()?;
+    Some((st.min, st.max, whole))
+}
+
 fn rout(path: PathBuf, i: &Rel) -> Result<Output> {
     Ok(Output::Raster { path: path.display().to_string(), crs: i.crs.clone() })
 }
@@ -90,8 +100,14 @@ impl Tool for FlowAccumulation {
                 Param::new("log", "Log-transform the result", ParamKind::Bool).default(false),
             ] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
+        // A flow-direction raster holds only 1, 2, 4 … 128; fed in here it gives a meaningless result without any error (TP-11).
+        if let Some((lo, hi, true)) = need_raster(i).ok().and_then(|s| band_range(Path::new(s))) {
+            if lo >= 0.0 && hi <= 128.0 {
+                c.add_note("The input values run only from 0 to 128 and are whole numbers, like a Flow Direction raster. Flow Accumulation takes the filled elevation raster, not the flow direction.".to_string());
+            }
+        }
         let ty = match p.str("out_type").as_deref() { Some("catchment area") => "catchment area", Some("specific contributing area") => "specific contributing area", _ => "cells" };
         let mut extra = vec![("out_type", ty.to_string())];
         if p.bool("log") {
@@ -122,13 +138,21 @@ impl Tool for ExtractStreams {
             inputs: vec![rin("in", "Flow accumulation raster")], output: Some(PortKind::Raster),
             params: vec![Param::new("threshold", "Threshold", ParamKind::Number).default(1000)] }
     }
-    fn build(&self, _c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+    fn build(&self, c: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let i = &inputs["in"];
         let t = p.f64("threshold").unwrap_or(f64::NAN);
         if !(t.is_finite() && t > 0.0) {
             bail!("The threshold must be a number greater than 0");
         }
-        rout(wbt_raster("ExtractStreams", i, "flow_accum", &[("threshold", t.to_string())], "streams")?, i)
+        let out = wbt_raster("ExtractStreams", i, "flow_accum", &[("threshold", t.to_string())], "streams")?;
+        if band_range(&out).is_none() {
+            let top = need_raster(i).ok().and_then(|s| band_range(Path::new(s))).map(|r| r.1);
+            c.add_note(match top {
+                Some(max) => format!("No cell reaches the threshold {t}, so no streams were made. The largest value in the flow accumulation raster is {max}; use a smaller threshold (a log-transformed accumulation has small values)."),
+                None => format!("No cell reaches the threshold {t}, so no streams were made; use a smaller threshold."),
+            });
+        }
+        rout(out, i)
     }
 }
 

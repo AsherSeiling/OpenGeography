@@ -175,3 +175,19 @@ fn h4_fill_depressions_survives_repeated_runs() {
         assert!(out.is_file());
     }
 }
+
+/// TP-11: a threshold nothing reaches, and a flow-direction raster fed to Flow Accumulation, are said out loud.
+#[test]
+fn tp11_empty_streams_and_a_wrong_accumulation_input_are_reported() {
+    if !have() { return; }
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let p = dir.path().join("dem.tif");
+    dem(&p, 32614, false);
+    let id = import(&e, &p);
+    let r = chain(&e, &id, &[("flow_accumulation", json!({"out_type": "cells"})), ("extract_streams", json!({"threshold": 1000000}))]);
+    done(&r[1]);
+    assert!(r[1].message.as_deref().unwrap_or("").contains("No cell reaches the threshold"), "{:?}", r[1].message);
+    let w = chain(&e, &id, &[("flow_direction", json!({})), ("flow_accumulation", json!({}))]);
+    assert!(w[1].message.as_deref().unwrap_or("").contains("like a Flow Direction raster"), "{:?}", w[1].message);
+}
