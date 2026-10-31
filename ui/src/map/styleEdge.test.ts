@@ -111,6 +111,8 @@ describe("TP-1 graduated styles never build an invalid step expression", () => {
   it("a colour list shorter than the breaks does not put undefined in the expression", () => {
     const layers = buildLayers("L", "Point", { ...base, breaks: [1, 2, 3], colors: ["#111111", "#222222"] } as never, true);
     expect(JSON.stringify(layers[0].paint)).not.toMatch(/null|undefined/);
+  });
+});
 
 describe("symbol stacks on the map", () => {
   const base = { kind: "single", fill: "#c1272d", stroke: "#000000", strokeWidth: 1, opacity: 1, radius: 3 } as const;
