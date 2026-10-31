@@ -239,3 +239,15 @@ fn polar_references_match_ngas_geotrans_in_every_zone_and_come_back_to_the_same_
     assert!(e1.contains("same number") || e1.contains("do not exist"), "{e1}");
     assert!(engine::usng::parse("AMM12").unwrap_err().to_string().contains("do not exist in polar zone A"));
 }
+
+/// TP-3: a layer of MULTIPOINT features (National Map names are stored that way) must get a reference, not "ST_X only supports POINT".
+#[test]
+fn add_usng_accepts_multipoint_features() {
+    let e = Engine::new().unwrap();
+    let (lo, la, m) = REFS[0];
+    let feats: Vec<(String, serde_json::Map<String, Value>)> = vec![(format!("MULTIPOINT(({lo} {la}))"), json!({ "expect": m }).as_object().unwrap().clone())];
+    let id = e.create_features("multi refs", &feats).unwrap().id;
+    let r = run(&e, &id, vec![("add_usng", json!({"field": "REF", "style": "mgrs", "precision": "5", "datum": "wgs84"}))]);
+    let row = &rows(&e, &format!("SELECT expect, REF FROM \"{}\"", r.output.as_ref().unwrap()))[0];
+    assert_eq!(row[1], row[0]);
+}
