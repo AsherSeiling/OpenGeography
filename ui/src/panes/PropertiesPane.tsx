@@ -1,3 +1,4 @@
+import { defaultClassField } from "./fieldPick";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -217,7 +218,7 @@ export function Symbology({ id }: { id: string }) {
             const kind = d.optionValue as LayerStyle["kind"];
             if (kind === "single") setStyle({ kind });
             else {
-              const f = (kind === "graduated" ? numericFields : info.fields)[0]?.name;
+              const f = defaultClassField(kind === "graduated" ? numericFields : info.fields);
               if (f) classify(f, kind);
               else setErr(kind === "graduated" ? "No numeric fields to classify." : "No fields to classify.");
             }
