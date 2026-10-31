@@ -890,7 +890,7 @@ impl Engine {
     /// Topo Map Builder, data step: contour lines (with ELEV and INDEX fields; every `index_every`-th line is an index contour) and a
     /// north-west-lit hillshade, both made from one elevation raster as new layers that keep its sources. `interval` is in the
     /// raster's units (metres for 3DEP).
-    pub fn topo_prepare_data(&self, dem: &str, interval: f64, index_every: u32, label: &str) -> Result<TopoData> {
+    pub fn topo_prepare_data(&self, dem: &str, interval: f64, index_every: u32, label: &str, units: &str) -> Result<TopoData> {
         let info = self.layer(dem)?;
         if info.raster.as_ref().map_or(true, |r| r.kind != "elevation") {
             return Err(anyhow!("'{}' is not an elevation raster; choose the elevation layer", info.name));
@@ -899,16 +899,20 @@ impl Engine {
             return Err(anyhow!("The contour interval must be greater than zero"));
         }
         let src = PathBuf::from(&info.raster.as_ref().unwrap().path);
+        // The numbers on the lines are in the sheet's units, whole (the field ELEV stays in the raster's metres): TP-6.
+        let label_expr = if units == "imperial" { "CAST(round(ELEV * 3.280839895) AS BIGINT)::VARCHAR" } else { "CAST(round(ELEV) AS BIGINT)::VARCHAR" };
         // Contours go through the same graph machinery as the Contour tool, so the layer is exactly what the tool would make.
         let graph: graph::Graph = serde_json::from_value(serde_json::json!({
             "nodes": [
                 { "id": "in", "tool": "input_layer", "params": { "layer": dem } },
                 { "id": "ct", "tool": "contours", "params": { "interval": interval, "base": 0, "index_every": index_every } },
+                { "id": "lb", "tool": "calculate_field", "params": { "field": "ELEV_LABEL", "expression": label_expr } },
                 { "id": "out", "tool": "add_to_map", "params": { "name": format!("Contours — {label}") } }
             ],
             "edges": [
                 { "source": "in", "target": "ct", "targetHandle": "in" },
-                { "source": "ct", "target": "out", "targetHandle": "in" }
+                { "source": "ct", "target": "lb", "targetHandle": "in" },
+                { "source": "lb", "target": "out", "targetHandle": "in" }
             ]
         }))?;
         let results = self.run_graph(&graph, None, &mut |_| {})?;

@@ -101,7 +101,7 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
     setErr(null);
     setDataBusy(true);
     try {
-      const made = await api.topoPrepareData(dem.id, built.contourIntervalM, 5, sheetLabel(built.layout.name));
+      const made = await api.topoPrepareData(dem.id, built.contourIntervalM, 5, sheetLabel(built.layout.name), units);
       const app = useApp.getState();
       app.addLayers([made.hillshade, made.contours]); // the contours end up on top of the hillshade
       app.setStyle(made.contours.id, contourStyle(useApp.getState().styles[made.contours.id]));

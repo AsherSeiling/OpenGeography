@@ -17,7 +17,7 @@ describe("Topo Map Builder data step", () => {
     expect(s.kind).toBe("categorized");
     expect(s.field).toBe("INDEX");
     expect(s.classes?.map((c) => c.value)).toEqual(["1", "0"]);
-    expect(s.label).toMatchObject({ enabled: true, field: "ELEV", indexOnly: true });
+    expect(s.label).toMatchObject({ enabled: true, field: "ELEV_LABEL", indexOnly: true });
   });
   it("draws the hillshade in grays", () => {
     expect(hillshadeStyle({ kind: "single" } as LayerStyle).raster).toMatchObject({ renderer: "gray", band: 1 });
