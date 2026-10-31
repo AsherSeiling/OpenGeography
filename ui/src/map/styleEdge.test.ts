@@ -97,3 +97,19 @@ describe("buildLayers", () => {
     expect(() => buildLayers("L", "Polygon", { ...single, strokeWidth: 1e9, opacity: 7 })).not.toThrow();
   });
 });
+
+describe("TP-1 graduated styles never build an invalid step expression", () => {
+  const base = { kind: "graduated", field: "m", fill: "#000000", stroke: "#000000", strokeWidth: 1, opacity: 1 } as never as LayerStyle;
+  it("drops tied breaks and breaks without a colour", () => {
+    const layers = buildLayers("L", "Point", { ...base, breaks: [10, 10, 10, 72], colors: ["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"] } as never, true);
+    const expr = JSON.stringify(layers[0].paint);
+    expect(expr).toContain('"step"');
+    expect(expr).not.toMatch(/NaN|undefined/);
+    const nums = JSON.parse(expr)["circle-color"].filter((x: unknown) => typeof x === "number" && x !== 0);
+    expect(nums).toEqual([10, 72]);
+  });
+  it("a colour list shorter than the breaks does not put undefined in the expression", () => {
+    const layers = buildLayers("L", "Point", { ...base, breaks: [1, 2, 3], colors: ["#111111", "#222222"] } as never, true);
+    expect(JSON.stringify(layers[0].paint)).not.toMatch(/null|undefined/);
+  });
+});
