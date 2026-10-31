@@ -39,14 +39,31 @@ export function labelField(style: LayerStyle): string | null {
   return style.label?.enabled && style.label.field ? style.label.field : null;
 }
 
+/** A usable CSS colour string (never undefined/NaN, which OpenLayers throws on). */
+export function validColor(c: unknown): c is string {
+  return typeof c === "string" && c.length > 0 && !/nan|undefined/i.test(c);
+}
+
 function colorExpr(style: LayerStyle, base: string): ExpressionSpecification | string {
   if (style.kind === "categorized" && style.field && style.classes?.length) {
-    const pairs = style.classes.flatMap((c) => [c.value, c.color]);
+    const seen = new Set<string>();
+    const pairs = style.classes.filter((c) => validColor(c.color) && !seen.has(String(c.value)) && seen.add(String(c.value))).flatMap((c) => [c.value, c.color]);
+    if (!pairs.length) return base;
     return ["match", ["to-string", ["get", style.field]], ...pairs, base] ;
   }
   if (style.kind === "graduated" && style.field && style.breaks?.length && style.colors?.length) {
-    const steps = style.breaks.flatMap((b, i) => [b, style.colors![i + 1]]);
-    return ["step", ["to-number", ["get", style.field], 0], style.colors[0], ...steps] ;
+    // `step` needs strictly rising numeric breaks and a colour for each; tied quantiles (10, 10, 10) or a short
+    // colour list used to give an invalid expression and "rgba(NaN…)" (TP-1). Drop such breaks.
+    const steps: (number | string)[] = [];
+    let last = -Infinity;
+    style.breaks.forEach((b, i) => {
+      const c = style.colors![i + 1];
+      if (Number.isFinite(b) && b > last && validColor(c)) {
+        steps.push(b, c);
+        last = b;
+      }
+    });
+    return ["step", ["to-number", ["get", style.field], 0], validColor(style.colors[0]) ? style.colors[0] : base, ...steps];
   }
   return base;
 }

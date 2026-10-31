@@ -147,7 +147,7 @@ fn d3_search_sends_the_filters_and_lists_scenes_with_readable_assets_only() {
     let items = stac::search(&spec(&m.base)).unwrap();
     let sent = m.bodies.lock().unwrap()[0].clone();
     assert_eq!(sent["collections"], json!(["sentinel-2-l2a"]));
-    assert_eq!(sent["datetime"], "2026-10-01/2026-10-31");
+    assert_eq!(sent["datetime"], "2026-10-01T00:00:00Z/2026-10-31T23:59:59Z");
     assert_eq!(sent["query"]["eo:cloud_cover"]["lte"], 30.0);
     assert_eq!(sent["limit"], 5);
     assert_eq!(sent["sortby"][0]["direction"], "desc");
@@ -234,4 +234,13 @@ fn d3_real_sentinel_and_copernicus_dem() {
     let l = e.stac_import(&ImportSpec { href: a.href.clone(), bbox, label: "Copernicus DEM".into(), collection: "cop-dem-glo-30".into(), item_id: items[0].id.clone(), asset: "data".into(), area_label: "Norman".into() }).unwrap();
     let r = l.raster.unwrap();
     assert!(r.min > 250.0 && r.max < 450.0, "Norman elevation {} {}", r.min, r.max);
+}
+
+/// TP-2: days are sent to the service as RFC 3339 date-times (it answered HTTP 400 to plain days).
+#[test]
+fn days_become_rfc3339_intervals() {
+    assert_eq!(stac::to_rfc3339("2024-06-01/2024-09-30"), "2024-06-01T00:00:00Z/2024-09-30T23:59:59Z");
+    assert_eq!(stac::to_rfc3339("2024-06-01"), "2024-06-01T00:00:00Z/2024-06-01T23:59:59Z");
+    assert_eq!(stac::to_rfc3339("../2024-09-30"), "../2024-09-30T23:59:59Z");
+    assert_eq!(stac::to_rfc3339("2024-06-01/.."), "2024-06-01T00:00:00Z/..");
 }

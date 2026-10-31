@@ -54,7 +54,8 @@ impl Tool for AddUsng {
         let field = p.req_str("field", "Field name")?;
         let style = Style::parse(&p.str("style").unwrap_or_default())?;
         let datum = Datum::parse(&p.str("datum").unwrap_or_default())?;
-        let pt = if ctx.dimension(i)? == 0 { "t.geom" } else { "ST_PointOnSurface(t.geom)" };
+        // A layer can say "Point" yet store MULTIPOINT (National Map names do); ST_X only takes a single POINT.
+        let pt = if ctx.dimension(i)? == 0 { "CASE WHEN ST_GeometryType(t.geom)::VARCHAR = 'POINT' THEN t.geom ELSE ST_PointOnSurface(t.geom) END" } else { "ST_PointOnSurface(t.geom)" };
         let (sql, skipped) = usng::add_field_sql(Some(ctx.conn), &i.table, &crs, pt, &field, precision(p), style, datum, None)?;
         if skipped > 0 {
             ctx.add_note(format!("{skipped} feature{} {} no {} reference because {} no location.", if skipped == 1 { "" } else { "s" }, if skipped == 1 { "has" } else { "have" }, style.name(), if skipped == 1 { "it has" } else { "they have" }));

@@ -146,3 +146,11 @@ fn r_w2_a_long_straight_edge_is_densified_so_it_curves() {
         assert!((lat - 45.0).abs() < 1e-6, "vertex at lat {lat}");
     }
 }
+
+/// TP-5: the 15° Tissot circles drawn in Mollweide with the cut at 84°E gave "TopologyException: side location conflict".
+#[test]
+fn tp5_tissot_circles_draw_in_a_mollweide_cut_at_the_far_meridian() {
+    let e = std::sync::Arc::new(Engine::new().unwrap());
+    let (l, _) = e.tissot_layer("EPSG:4326", 15.0, 500.0).unwrap();
+    wait_display(&e, &l.id, "world:+proj=moll +lon_0=-96 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
+}

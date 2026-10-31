@@ -170,6 +170,9 @@ fn densify_large(conn: &Connection, layer: &str, to_ll: &str, tag: &str) -> Resu
 /// SQL for the part of lon/lat geometry `g` (longitudes in -180..180) inside the world window, as one collection: the geometry
 /// is also tried shifted by ±360° so a window that reaches past ±180° (a cut meridian away from 180°) is filled from both sides.
 fn world_clip_sql(w: &WorldInfo, g: &str) -> String {
+    // Big circles near a pole can self-touch; GEOS then refuses the intersection ("side location conflict"), so repair first (TP-5).
+    let valid = format!("ST_MakeValid({g})");
+    let g = valid.as_str();
     let (lo, hi) = (w.lon0 - 180.0 + CUT_EPS, w.lon0 + 180.0 - CUT_EPS);
     let env = format!("ST_MakeEnvelope({lo}, {}, {hi}, {})", w.lat_south, w.lat_north);
     let mut parts = vec![format!("ST_Intersection({g}, {env})")];

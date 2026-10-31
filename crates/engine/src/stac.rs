@@ -104,6 +104,18 @@ pub fn check_datetime(d: &str) -> Result<()> {
     Ok(())
 }
 
+/// STAC wants RFC 3339 date-times; the dialog takes plain days. A day becomes its first and last second (UTC).
+pub fn to_rfc3339(d: &str) -> String {
+    let parts: Vec<&str> = d.split('/').collect();
+    let start = |s: &str| if s == ".." { s.to_string() } else { format!("{s}T00:00:00Z") };
+    let end = |s: &str| if s == ".." { s.to_string() } else { format!("{s}T23:59:59Z") };
+    match parts[..] {
+        [one] => format!("{}/{}", start(one), end(one)),
+        [a, b] => format!("{}/{}", start(a), end(b)),
+        _ => d.to_string(),
+    }
+}
+
 fn api_url(spec: &SearchSpec) -> Result<String> {
     match &spec.api {
         Some(u) => {
@@ -133,7 +145,7 @@ pub fn search(spec: &SearchSpec) -> Result<Vec<Item>> {
     let base = api_url(spec)?;
     let mut body = json!({ "collections": [spec.collection], "bbox": spec.bbox, "limit": limit, "sortby": [{ "field": "properties.datetime", "direction": "desc" }] });
     if let Some(d) = &spec.datetime {
-        body["datetime"] = json!(d);
+        body["datetime"] = json!(to_rfc3339(d));
     }
     if let Some(c) = spec.max_cloud {
         body["query"] = json!({ "eo:cloud_cover": { "lte": c } });
