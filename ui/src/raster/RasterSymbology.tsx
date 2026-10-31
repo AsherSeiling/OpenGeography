@@ -1,7 +1,7 @@
 // Raster symbology (RS3): renderer, band, stretch with a histogram, colour ramp, classes, transparency and image adjustments.
 // The style is `LayerStyle.raster`; the engine draws it (raster_style.rs).
 import { Button, Checkbox, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, OptionGroup, Slider, SpinButton } from "@fluentui/react-components";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "../ipc/dialogs";
 import { useEffect, useRef, useState } from "react";
 import { api, errorText, type RampInfo, type RasterHistogram, type RasterUniqueValues } from "../ipc/api";
 import { displayInfo, useApp, type LayerStyle, type RasterStyle } from "../store/store";
@@ -337,7 +337,7 @@ export function RasterSymbology({ id }: { id: string }) {
       {r.renderer !== "default" && (
         <>
           <Field label="Resampling when zoomed">
-            <Dropdown value={r.resampling ?? "bilinear"} selectedOptions={[r.resampling ?? "bilinear"]} onOptionSelect={(_, d) => set({ resampling: d.optionValue as RasterStyle["resampling"] })}>
+            <Dropdown value={r.resampling || (r.renderer === "pseudocolor" && r.mode === "discrete" ? "nearest" : "bilinear")} selectedOptions={[r.resampling || (r.renderer === "pseudocolor" && r.mode === "discrete" ? "nearest" : "bilinear")]} onOptionSelect={(_, d) => set({ resampling: d.optionValue as RasterStyle["resampling"] })}>
               {["nearest", "bilinear", "cubic"].map((k) => (
                 <Option key={k} value={k}>
                   {k}

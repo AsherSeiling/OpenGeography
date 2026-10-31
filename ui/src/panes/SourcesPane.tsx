@@ -4,7 +4,7 @@
 // to Markdown or BibTeX.
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input, Menu, MenuDivider, MenuGroup, MenuGroupHeader, MenuItem, MenuList, MenuPopover, MenuTrigger, Textarea, Tooltip } from "@fluentui/react-components";
 import { ArrowClockwiseRegular, ArrowDownloadRegular, CopyRegular, DeleteRegular, EditRegular, WarningRegular } from "@fluentui/react-icons";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save } from "../ipc/dialogs";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, IN_TAURI, type Citation, type SourceEntry } from "../ipc/api";

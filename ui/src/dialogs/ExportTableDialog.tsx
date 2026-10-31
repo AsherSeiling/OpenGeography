@@ -1,6 +1,6 @@
 // Export Table: a point layer's attributes plus its coordinates (X/Y or lon/lat) as CSV or Parquet, in a coordinate system the user picks.
 import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, Option, Radio, RadioGroup } from "@fluentui/react-components";
-import { save } from "@tauri-apps/plugin-dialog";
+import { save } from "../ipc/dialogs";
 import { useState } from "react";
 import { runExportTable } from "../actions";
 import { crsName } from "../crs/crs";

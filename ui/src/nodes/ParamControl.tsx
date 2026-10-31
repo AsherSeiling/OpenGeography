@@ -1,7 +1,7 @@
 // Compact, Blender-style parameter controls drawn inside Model nodes.
 // Native inputs keep nodes light; "nodrag" stops React Flow from treating
 // clicks in them as node drags.
-import { save } from "@tauri-apps/plugin-dialog";
+import { save } from "../ipc/dialogs";
 import { useShallow } from "zustand/react/shallow";
 import { useDialog } from "../actions";
 import { crsName } from "../crs/crs";

@@ -1,3 +1,4 @@
+import { defaultClassField } from "./fieldPick";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -15,7 +16,7 @@ import {
   Textarea,
 } from "@fluentui/react-components";
 import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@fluentui/react-icons";
-import { save } from "@tauri-apps/plugin-dialog";
+import { save } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
@@ -217,7 +218,7 @@ export function Symbology({ id }: { id: string }) {
             const kind = d.optionValue as LayerStyle["kind"];
             if (kind === "single") setStyle({ kind });
             else {
-              const f = (kind === "graduated" ? numericFields : info.fields)[0]?.name;
+              const f = defaultClassField(kind === "graduated" ? numericFields : info.fields);
               if (f) classify(f, kind);
               else setErr(kind === "graduated" ? "No numeric fields to classify." : "No fields to classify.");
             }
