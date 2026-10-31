@@ -312,7 +312,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "layout_text_slots" => json!(e.layout_text_slots()),
         "usng_grid_layer" => json!(e.usng_grid_layer(de(a, "bbox")?, a["interval"].as_f64().unwrap_or(1000.0), &s(a, "style").unwrap_or_default(), &s(a, "datum").unwrap_or_default(), &s(a, "name")?)?),
         "usng_crs_at" => json!(e.usng_crs_at(a["lon"].as_f64().unwrap_or(f64::NAN), a["lat"].as_f64().unwrap_or(f64::NAN), &s(a, "datum").unwrap_or_default())?),
-        "topo_prepare_data" => json!(e.topo_prepare_data(&s(a, "dem")?, a["interval"].as_f64().unwrap_or(10.0), a["indexEvery"].as_u64().unwrap_or(5) as u32, &s(a, "label")?)?),
+        "topo_prepare_data" => json!(e.topo_prepare_data(&s(a, "dem")?, a["interval"].as_f64().unwrap_or(10.0), a["indexEvery"].as_u64().unwrap_or(5) as u32, &s(a, "label")?, a["units"].as_str().unwrap_or("metric"))?),
         "build_topo_layout" => json!(e.build_topo_layout(&serde_json::from_value(a["spec"].clone())?, &s(a, "today")?)?),
         "download_datum_grid" => json!(e.download_datum_grid(&s(a, "name")?, a["confirmed"].as_bool().unwrap_or(false))?),
         "remove_datum_grid" => {

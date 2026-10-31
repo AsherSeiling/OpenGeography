@@ -68,7 +68,7 @@ test("LW9 data step: contours (index lines labelled) and a hillshade are made fr
   expect(st.c && st.h).toBe(true);
   expect(st.features).toBeGreaterThan(3);
   expect(st.style).toMatchObject({ kind: "categorized", field: "INDEX" });
-  expect(st.style.label).toMatchObject({ enabled: true, field: "ELEV", indexOnly: true });
+  expect(st.style.label).toMatchObject({ enabled: true, field: "ELEV_LABEL", indexOnly: true });
   expect(st.hillshadeRenderer).toBe("gray");
   expect(st.demVisible).toBe(false);
   expect(st.cTop).toBe(true);

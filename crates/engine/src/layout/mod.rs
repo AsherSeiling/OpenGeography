@@ -95,6 +95,10 @@ fn tokens(text: &str, req: &RenderRequest, drawn: &DrawnInfo) -> String {
 }
 
 fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, family: Option<&str>, size: f64, align: &str, color: &str) {
+    // A line wider than the box wraps; if the wrapped text is taller than the box the size shrinks (to 60 %) first, so a long title
+    // neither runs off the page nor out of its box (TP-9). Lines with *markup* are left alone.
+    let (text, size) = fit_text(text, font, size, at.w, at.h);
+    let text = text.as_str();
     let size_mm = size.max(0.1) * 25.4 / 72.0;
     let (weight, style) = match font {
         "sans-bold" => ("700", "normal"),
@@ -126,6 +130,25 @@ fn text_svg(out: &mut String, at: &model::Placement, text: &str, font: &str, fam
         }
     }
     out.push_str("</text>");
+}
+
+fn fit_text(text: &str, font: &str, size: f64, w: f64, h: f64) -> (String, f64) {
+    let f = if font == "sans-bold" { "sans-bold" } else { "sans" };
+    let too_wide = |pt: f64| text.split('\n').any(|l| !l.contains('*') && !l.contains('\\') && surround::text_width(l, f, pt) > w + 1e-6);
+    if w <= 0.0 || !too_wide(size) {
+        return (text.to_string(), size);
+    }
+    let wrapped = |pt: f64| -> Vec<String> { text.split('\n').flat_map(|l| if l.contains('*') || l.contains('\\') { vec![l.to_string()] } else { surround::wrap(l, f, pt, w) }).collect() };
+    let mut k = 1.0;
+    loop {
+        let pt = size * k;
+        let lines = wrapped(pt);
+        let height = pt * 25.4 / 72.0 * (1.0 + 1.25 * (lines.len().saturating_sub(1)) as f64) + pt * 25.4 / 72.0 * 0.3;
+        if height <= h || k <= 0.6 {
+            return (lines.join("\n"), pt);
+        }
+        k -= 0.05;
+    }
 }
 
 /// Split a line into runs: `**bold**` and `*italic*` toggle those styles; `\*` and `\\` are literal. `bold`/`italic` are the element's own style at the start.
@@ -541,4 +564,20 @@ fn user_templates_dir() -> Result<std::path::PathBuf> {
 pub struct TemplateList {
     pub templates: Vec<templates::TemplateInfo>,
     pub skipped: Vec<String>,
+}
+
+#[cfg(test)]
+mod fit_text_tests {
+    use super::fit_text;
+
+    #[test]
+    fn a_long_title_wraps_or_shrinks_to_its_box_and_a_short_one_is_untouched() {
+        let long = "Population density by census tract, Hennepin County, MN (2020 Census, people per km²)";
+        let (t, pt) = fit_text(long, "sans-bold", 18.0, 190.0, 14.0);
+        assert!(pt < 18.0 || t.contains('\n'), "{pt} {t}");
+        for l in t.lines() {
+            assert!(super::surround::text_width(l, "sans-bold", pt) <= 190.0 + 1e-6, "{l}");
+        }
+        assert_eq!(fit_text("Short", "sans-bold", 18.0, 190.0, 14.0), ("Short".to_string(), 18.0));
+    }
 }

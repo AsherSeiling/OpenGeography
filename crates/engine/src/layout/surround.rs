@@ -436,8 +436,34 @@ impl Row {
     }
 }
 
-fn format_break(v: f64) -> String {
-    num(v)
+/// Class breaks as legend text: the same number of decimals for all (enough to tell neighbours apart, at most 4) and thousands
+/// separators, so 1331.186372 reads "1,331.2" (TP-8).
+pub(super) fn format_breaks(b: &[f64]) -> Vec<String> {
+    let step = b.windows(2).map(|w| (w[1] - w[0]).abs()).filter(|d| *d > 0.0).fold(f64::INFINITY, f64::min);
+    let step = if step.is_finite() { step } else { b.first().map_or(1.0, |v| v.abs().max(1.0)) };
+    let dec = (1.0 - step.log10().floor()).clamp(0.0, 4.0) as usize;
+    let dec = if b.iter().all(|v| (v - v.round()).abs() < 1e-9) && step >= 1.0 { 0 } else { dec };
+    b.iter().map(|v| group_decimals(*v, dec)).collect()
+}
+
+fn group_decimals(v: f64, dec: usize) -> String {
+    let s = format!("{:.*}", dec, v.abs());
+    let (int, frac) = s.split_once('.').map_or((s.as_str(), None), |(a, b)| (a, Some(b)));
+    let mut out = String::new();
+    for (i, c) in int.chars().enumerate() {
+        if i > 0 && (int.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    if let Some(f) = frac {
+        out.push('.');
+        out.push_str(f);
+    }
+    if v < 0.0 && out.chars().any(|c| c.is_ascii_digit() && c != '0') {
+        out.insert(0, '-');
+    }
+    out
 }
 
 /// Legend rows for one drawn layer, mirroring how `frame.rs` colours it.
@@ -482,14 +508,16 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
         }
         StyleKind::Graduated if field_ok && style.breaks.as_ref().is_some_and(|b| !b.is_empty()) => {
             let b = style.breaks.as_ref().unwrap();
+            let f = format_breaks(b);
             (0..=b.len())
                 .map(|i| {
+                    // The bundled font has no ≥, so the last class reads "N or more" (a missing-glyph box before: TP-8).
                     let label = if i == 0 {
-                        format!("< {}", format_break(b[0]))
+                        format!("< {}", f[0])
                     } else if i == b.len() {
-                        format!("≥ {}", format_break(b[i - 1]))
+                        format!("{} or more", f[i - 1])
                     } else {
-                        format!("{} – {}", format_break(b[i - 1]), format_break(b[i]))
+                        format!("{} – {}", f[i - 1], f[i])
                     };
                     (label, class_color(style, i))
                 })
@@ -631,10 +659,10 @@ pub struct LegendRowInfo {
 #[allow(clippy::too_many_arguments)]
 pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<LegendRowInfo>, at: &Placement, o: &LegendOpts, ctx: &FrameCtx, req: &RenderRequest, lookup: &dyn Fn(&str) -> Option<LayerInfo>) {
     let base_pt = if o.text_pt > 0.0 { o.text_pt } else { LEGEND_PT };
-    let text_pt = at.slot_pt("legend.entries", base_pt);
-    let head_pt = at.slot_pt("legend.headings", base_pt);
+    let mut text_pt = at.slot_pt("legend.entries", base_pt);
+    let mut head_pt = at.slot_pt("legend.headings", base_pt);
     let title_pt = at.slot_pt("legend.title", if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT });
-    let row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
+    let mut row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
     let mut rows: Vec<Row> = Vec::new();
     for id in ctx.drawn.iter().filter(|_| o.auto) {
         if let Some(info) = lookup(id) {
@@ -690,7 +718,22 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
         text_slot(out, at.x + LEGEND_PAD, top + title_pt * PT_MM * 0.85, &t, "sans-bold", title_pt, "start", at, "legend.title");
         top += title_pt * PT_MM + 3.0;
     }
-    let ncols = o.columns.clamp(1, 6) as usize;
+    let mut ncols = o.columns.clamp(1, 6) as usize;
+    // A legend that does not fit its box first takes a second or third column (while each stays 38 mm wide), then shrinks its
+    // rows and text down to 55 % (TP-7: the topo sheet's legend ran off the page).
+    let avail = at.y + at.h - LEGEND_PAD - top;
+    while rows.len().div_ceil(ncols) as f64 * row_mm > avail && ncols < 3 && (at.w - 2.0 * LEGEND_PAD) / (ncols as f64 + 1.0) >= 38.0 {
+        ncols += 1;
+    }
+    let need = rows.len().div_ceil(ncols) as f64 * row_mm;
+    // A size the user set on a legend text slot is kept.
+    let user_sized = (text_pt - base_pt).abs() > 1e-9 || (head_pt - base_pt).abs() > 1e-9;
+    if need > avail && avail > 0.0 && !user_sized {
+        let k = (avail / need).clamp(0.55, 1.0);
+        row_mm *= k;
+        text_pt *= k;
+        head_pt *= k;
+    }
     let per_col = rows.len().div_ceil(ncols).max(1);
     let col_w = (at.w - 2.0 * LEGEND_PAD) / ncols as f64;
     if top + per_col as f64 * row_mm + LEGEND_PAD > at.y + at.h + 1e-6 {
@@ -787,5 +830,18 @@ mod tests {
         let m = plan_bar("mi", 2, 1.0, 100_000.0, 60.0, 0.0).unwrap();
         assert_eq!((m.unit, m.segment), ("mi", 1.0));
         assert!(plan_bar("km", 4, 1.0, 24_000.0, 0.0, 0.0).is_none());
+    }
+}
+
+#[cfg(test)]
+mod legend_number_tests {
+    use super::format_breaks;
+
+    #[test]
+    fn breaks_get_matching_decimals_and_thousands_separators() {
+        assert_eq!(format_breaks(&[891.061794, 1331.186372, 2073.510911, 3254.158067]), ["891", "1,331", "2,074", "3,254"]);
+        assert_eq!(format_breaks(&[0.0, 1.0, 3.0, 5.0]), ["0", "1", "3", "5"]);
+        assert_eq!(format_breaks(&[15856.0, 25364.0, 41001.0]), ["15,856", "25,364", "41,001"]);
+        assert_eq!(format_breaks(&[0.2051, 0.343, 0.557]), ["0.21", "0.34", "0.56"]);
     }
 }

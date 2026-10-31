@@ -689,7 +689,7 @@ export const api = {
   datumCoverage: () => invoke<[string, TransformReport][]>("datum_coverage"),
   /** Every text slot of every layout element (id, label, default size): the Properties Text section is built from this. */
   layoutTextSlots: () => invoke<TextSlot[]>("layout_text_slots"),
-  topoPrepareData: (dem: string, interval: number, indexEvery: number, label: string) => track(invoke<TopoData>("topo_prepare_data", { dem, interval, indexEvery, label })),
+  topoPrepareData: (dem: string, interval: number, indexEvery: number, label: string, units: "imperial" | "metric") => track(invoke<TopoData>("topo_prepare_data", { dem, interval, indexEvery, label, units })),
   usngGridLayer: (bbox: Extent, interval: number, style: "usng" | "mgrs", datum: "auto" | "nad83" | "wgs84", name: string) => track(invoke<LayerInfo>("usng_grid_layer", { bbox, interval, style, datum, name })),
   usngCrsAt: (lon: number, lat: number, datum: "auto" | "nad83" | "wgs84" = "auto") => invoke<UsngCrs>("usng_crs_at", { lon, lat, datum }),
   buildTopoLayout: (spec: TopoSpec, today: string) => invoke<TopoBuild>("build_topo_layout", { spec, today }),

@@ -13,7 +13,7 @@ export function pickDem(order: string[], layers: Record<string, LayerInfo>): Lay
 
 /** Brown contours; the index lines (INDEX = 1) darker, and only they carry the elevation numbers. */
 export function contourStyle(base: LayerStyle): LayerStyle {
-  const label: LabelStyle = { ...(base.label ?? ({} as LabelStyle)), enabled: true, field: "ELEV", size: 7, color: "#6b4423", haloColor: "#ffffff", haloWidth: 2, indexOnly: true, linePos: "on" };
+  const label: LabelStyle = { ...(base.label ?? ({} as LabelStyle)), enabled: true, field: "ELEV_LABEL", size: 7, color: "#6b4423", haloColor: "#ffffff", haloWidth: 2, indexOnly: true, linePos: "on" };
   return {
     ...base,
     kind: "categorized",
