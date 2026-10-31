@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 /// UI styles are in CSS pixels (96 per inch); the page is in millimetres.
-pub(super) const PX_MM: f64 = 25.4 / 96.0;
+pub(crate) const PX_MM: f64 = 25.4 / 96.0;
 /// Features are cut at the frame plus this much paper, so strokes reach the edge.
 const CLIP_MARGIN_MM: f64 = 2.0;
 /// Print generalization tolerance on the page (L3).
@@ -232,8 +232,10 @@ fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &
     let stroke = svg::color(&style.stroke, "#4d4d4d");
     let sw = style.stroke_width.max(0.0) * PX_MM;
     let op = opacity(style.opacity);
+    // A symbol stack (casing, fill, ticks) of this class, else of the layer.
+    let strokes = if style.kind == StyleKind::Categorized { style.classes.as_ref().and_then(|c| c.get(i)).and_then(|c| c.strokes.as_ref()) } else { None }.or(style.strokes.as_ref()).filter(|s| !s.is_empty());
     if !b.polys.is_empty() {
-        let (s, w) = if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
+        let (s, w) = if strokes.is_some() { ("none", "0".into()) } else if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
         let dash = style.dash.as_deref().map_or(String::new(), |d| format!("{}{}", super::symbols::dash_attr(d, sw), super::symbols::cap_attr(d)));
         let fill = match style.pattern.as_deref().filter(|p| !p.is_empty()) {
             Some(kind) => {
@@ -245,8 +247,15 @@ fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &
             None => color.clone(),
         };
         let _ = write!(out, "<g fill=\"{fill}\" fill-opacity=\"{op}\" fill-rule=\"evenodd\" stroke=\"{s}\" stroke-width=\"{w}\" stroke-linejoin=\"round\"{dash}>{}</g>", b.polys);
+        for st in strokes.into_iter().flatten() {
+            let _ = write!(out, "<g fill=\"none\" {}>{}</g>", st.attrs("1"), b.polys);
+        }
     }
-    if !b.lines.is_empty() {
+    if !b.lines.is_empty() && strokes.is_some() && info.geom_type == "Line" {
+        for st in strokes.into_iter().flatten() {
+            let _ = write!(out, "<g fill=\"none\" {}>{}</g>", st.attrs(&op), b.lines);
+        }
+    } else if !b.lines.is_empty() {
         let (c, o) = if info.geom_type == "Line" { (color.as_str(), op.as_str()) } else { (stroke.as_str(), "1") };
         let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
         let _ = write!(out, "<g fill=\"none\" stroke=\"{c}\" stroke-opacity=\"{o}\" stroke-width=\"{}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}>{}</g>", mm(sw), b.lines);

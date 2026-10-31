@@ -4,10 +4,22 @@ import type { LayerInfo } from "../ipc/api";
 
 export type SelectMode = "new" | "add" | "toggle" | "remove" | "subset";
 
+/** One stroke of a symbol stack: casing, fill and ticks are strokes drawn bottom to top (a railroad = thin line + a thick stroke with a tiny dash for the ties). */
+export interface StrokeSpec {
+  color: string;
+  /** CSS px. */
+  width: number;
+  /** Dash and gap lengths in CSS px; empty or unset = solid. */
+  dash?: number[];
+  cap?: "butt" | "round" | "square";
+}
+
 export interface StyleClass {
   value: string;
   color: string;
   label: string;
+  /** Line/outline symbol stack of this class; unset = the layer's own. */
+  strokes?: StrokeSpec[];
 }
 
 /** Feature labels of one layer (L1). One definition, used by the map view and, later, by layouts. */
@@ -121,12 +133,16 @@ export interface LayerStyle {
   colors?: string[];
   /** Feature labels; projects saved before L1 have none (off). */
   label?: LabelStyle;
+  /** Id of the topographic symbol this style was made from (the symbol's fields are copied in). */
+  symbol?: string;
+  /** Line and outline symbol as a stack of strokes (map and layouts); replaces the single stroke. */
+  strokes?: StrokeSpec[];
   /** Print layouts (the map keeps its plain symbols): point symbol, line style, polygon fill pattern. */
-  marker?: "circle" | "square" | "triangle" | "diamond" | "star" | "cross" | "x" | "svg";
+  marker?: "circle" | "square" | "triangle" | "diamond" | "star" | "cross" | "x" | "svg" | "ring" | "tri_open" | "plus_thin" | "x_thin" | "church";
   /** For marker "svg": a `data:image/svg+xml;base64,…` file. */
   markerSvg?: string;
   dash?: "solid" | "dashed" | "dotted" | "dashdot";
-  pattern?: "hatch" | "hatch2" | "cross" | "horizontal" | "vertical" | "grid" | "dots";
+  pattern?: "hatch" | "hatch2" | "cross" | "horizontal" | "vertical" | "grid" | "dots" | "marsh" | "orchard" | "vineyard" | "scrub" | "sand" | "gravel";
   /** CSS px between pattern repeats. */
   patternSpacing?: number;
   /** Layout-only: a drop shadow behind the layer (print layouts). */

@@ -288,9 +288,9 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
             Element::Picture { at, source, fit, opacity } => shapes::picture(&mut s, &mut warnings, at, source, fit, *opacity),
             Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
             Element::Text { at, text, font, family, size, align, color } => text_svg(&mut s, at, &tokens(text, req, &drawn_info), font, family.as_deref(), *size, align, color),
-            Element::Legend { at, frame, title, columns, overrides, custom, patch, text_size } => {
+            Element::Legend { at, frame, title, columns, overrides, custom, patch, text_size, auto } => {
                 if let Some(c) = ctx_of(frame, &mut warnings) {
-                    surround::legend(&mut s, &mut warnings, &mut legend_rows, at, &surround::LegendOpts { title, columns: *columns, overrides, custom, patch, text_pt: *text_size }, c, req, lookup);
+                    surround::legend(&mut s, &mut warnings, &mut legend_rows, at, &surround::LegendOpts { title, columns: *columns, overrides, custom, patch, text_pt: *text_size, auto: *auto }, c, req, lookup);
                 }
             }
             Element::ScaleBar { at, frame, units, segments, ratio, style, units2, verbal, color, length } => {

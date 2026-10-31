@@ -269,6 +269,12 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "read_picture" => json!(e.read_picture(std::path::Path::new(&s(a, "path")?))?),
         "layout_themes" => json!(e.layout_themes()),
         "apply_layout_theme" => json!(e.apply_layout_theme(&de(a, "layout")?, &s(a, "theme")?)?),
+        "topo_symbols" => json!(engine::topo_symbols::symbols(&s(a, "era")?)),
+        "topo_symbol_svg" => {
+            let id = s(a, "id")?;
+            let sym = engine::topo_symbols::find(&id, &s(a, "era")?).ok_or_else(|| anyhow!("Unknown symbol '{id}'"))?;
+            json!(engine::topo_symbols::preview_svg(&sym))
+        }
         "raster_ramps" => json!(e.raster_ramps()),
         "raster_histogram" => e.raster_histogram(&s(a, "id")?, f(a, "band")? as usize, f(a, "bins")? as usize)?,
         "raster_value" => json!(e.raster_value(&s(a, "id")?, f(a, "lon")?, f(a, "lat")?)?),

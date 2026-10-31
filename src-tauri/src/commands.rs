@@ -645,6 +645,17 @@ pub async fn apply_layout_theme(engine: Eng<'_>, layout: engine::layout::model::
 }
 
 #[tauri::command]
+pub async fn topo_symbols(era: String) -> Res<Vec<engine::topo_symbols::TopoSymbol>> {
+    Ok(engine::topo_symbols::symbols(&era))
+}
+
+#[tauri::command]
+pub async fn topo_symbol_svg(id: String, era: String) -> Res<String> {
+    let s = engine::topo_symbols::find(&id, &era).ok_or_else(|| format!("Unknown symbol '{id}'"))?;
+    Ok(engine::topo_symbols::preview_svg(&s))
+}
+
+#[tauri::command]
 pub async fn read_picture(engine: Eng<'_>, path: String) -> Res<String> {
     blocking(&engine, move |e| e.read_picture(std::path::Path::new(&path))).await
 }

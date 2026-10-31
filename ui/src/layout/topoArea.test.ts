@@ -30,9 +30,11 @@ describe("Topo Map Builder area", () => {
     expect(defaultDatum(10, 50)).toBe("wgs84");
     expect(defaultDatum(-70, -33)).toBe("wgs84");
   });
-  it("offers four presets with distinct names and sensible sheets", () => {
-    expect(TOPO_PRESETS.map((p) => p.id)).toEqual(["land24", "land25", "land50", "trail"]);
-    expect(new Set(TOPO_PRESETS.map((p) => p.label)).size).toBe(4);
+  it("offers presets with distinct names and sensible sheets (land navigation, USGS quadrangle, military installation)", () => {
+    expect(TOPO_PRESETS.map((p) => p.id)).toEqual(["land24", "land25", "land50", "usgs24", "usgs24m", "mil50", "trail"]);
+    expect(new Set(TOPO_PRESETS.map((p) => p.label)).size).toBe(TOPO_PRESETS.length);
+    expect(TOPO_PRESETS.filter((p) => p.style === "usgs").map((p) => p.era)).toEqual(["classic", "modern"]);
+    expect(TOPO_PRESETS.find((p) => p.id === "mil50")).toMatchObject({ style: "military", paper: "a2", scale: 50000 });
     for (const p of TOPO_PRESETS) {
       expect(p.scale).toBeLessThanOrEqual(50000);
       expect(p.data.length).toBeGreaterThan(3);

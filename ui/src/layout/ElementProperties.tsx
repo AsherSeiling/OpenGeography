@@ -280,6 +280,7 @@ function LegendFields({ el, set, layout }: { el: LegendElement; set: Set; layout
       </Field>
       <Num label="Columns" value={el.columns || 1} min={1} max={6} step={1} onChange={(columns) => set({ columns: Math.round(columns) }, "columns")} />
       <Num label="Entry text size (pt, 0 = 8)" value={el.textSize ?? 0} min={0} max={24} step={0.5} decimals={1} onChange={(textSize) => set({ textSize }, "textSize")} />
+      <Checkbox label="List the map's layers" checked={el.auto !== false} onChange={(_, d) => set({ auto: d.checked ? undefined : false })} />
       <Choice label="Area swatch shape" value={el.patch || "square"} options={[["square", "Square"], ["rounded", "Rounded"], ["circle", "Circle"]]} onPick={(patch) => set({ patch })} />
       <details open>
         <summary>Entries ({rows.length})</summary>

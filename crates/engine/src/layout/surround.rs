@@ -469,6 +469,10 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
         _ => Sym::Poly,
     };
     let field_ok = style.field.as_ref().is_some_and(|f| info.fields.iter().any(|x| &x.name == f));
+    let class_strokes: Vec<Option<Vec<super::model::StrokeSpec>>> = match (style.kind, style.classes.as_ref()) {
+        (StyleKind::Categorized, Some(cs)) => cs.iter().map(|c| c.strokes.clone()).collect(),
+        _ => Vec::new(),
+    };
     let classes: Vec<(String, String)> = match style.kind {
         StyleKind::Categorized if field_ok && style.classes.as_ref().is_some_and(|c| !c.is_empty()) => {
             let cs = style.classes.as_ref().unwrap();
@@ -497,7 +501,13 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
         return vec![Row::new(Some((sym, class_color(style, 0))), info.name.clone(), style)];
     }
     let mut rows = vec![Row::new(None, info.name.clone(), style)];
-    rows.extend(classes.into_iter().map(|(label, color)| Row::new(Some((sym, color)), label, style)));
+    rows.extend(classes.into_iter().enumerate().map(|(i, (label, color))| {
+        let mut st = style.clone();
+        if let Some(Some(s)) = class_strokes.get(i) {
+            st.strokes = Some(s.clone());
+        }
+        Row::new(Some((sym, color)), label, &st)
+    }));
     rows
 }
 
@@ -506,10 +516,22 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
     let stroke = svg::color(&style.stroke, "#4d4d4d");
     let op = opacity(style.opacity);
     let ymid = y + row_mm / 2.0;
+    let stack = style.strokes.as_ref().filter(|s| !s.is_empty());
     match sym {
         Sym::Poly => {
-            let (s, w) = if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
+            let (s, w) = if stack.is_some() { ("none", "0".into()) } else if sw > 0.0 { (stroke.as_str(), mm(sw)) } else { ("none", "0".into()) };
             let (yy, h) = (ymid - 1.75, 3.5);
+            // A fill pattern shows in the swatch as it does on the map.
+            let fill = match style.pattern.as_deref().filter(|p| !p.is_empty()) {
+                Some(kind) => {
+                    let pid = format!("swp-{}-{}-{}", kind, color.trim_start_matches('#'), stroke.trim_start_matches('#'));
+                    let spacing = style.pattern_spacing.unwrap_or(6.0).clamp(2.0, 40.0) * PX_MM;
+                    let _ = write!(out, "<defs>{}</defs>", super::symbols::pattern_def(&pid, kind, color, &stroke, spacing.min(1.6)));
+                    format!("url(#{pid})")
+                }
+                None => color.to_string(),
+            };
+            let color = fill.as_str();
             match patch {
                 "circle" => {
                     let _ = write!(out, "<ellipse cx=\"{}\" cy=\"{}\" rx=\"{}\" ry=\"1.75\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(SWATCH_W / 2.0));
@@ -521,9 +543,19 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
                     let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
                 }
             }
+            for st in stack.into_iter().flatten() {
+                let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"none\" {}/>", mm(x), mm(yy), mm(SWATCH_W), mm(h), st.attrs("1"));
+            }
         }
         Sym::Line => {
-            let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{color}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"round\"/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), mm(sw.max(0.3)));
+            if let Some(st) = stack {
+                for s in st {
+                    let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" {}/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), s.attrs(&op));
+                }
+            } else {
+                let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
+                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{color}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"round\"{dash}/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), mm(sw.max(0.3)));
+            }
         }
         Sym::Raster(ramped) => {
             let chips: Vec<String> = if ramped {
@@ -539,9 +571,33 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
         }
         Sym::Point => {
             let r = (style.radius.max(0.0) * PX_MM).min(1.8);
-            let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"#333333\" stroke-width=\"{}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(r), mm(0.6 * PX_MM));
+            let shape = style.marker.as_deref().unwrap_or("");
+            if shape.is_empty() || shape == "circle" {
+                let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"#333333\" stroke-width=\"{}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(r), mm(0.6 * PX_MM));
+            } else {
+                let _ = write!(out, "<g fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"#333333\" stroke-width=\"{}\">", mm(0.6 * PX_MM));
+                super::symbols::marker(out, shape, style.marker_svg.as_deref().unwrap_or(""), x + SWATCH_W / 2.0, ymid, r);
+                out.push_str("</g>");
+            }
         }
     }
+}
+
+/// A symbol sample as a small standalone SVG (7 × 5 mm viewBox) for the symbol pickers; `geom` is "line", "area" or "point".
+pub fn swatch_svg(style: &LayerStyle, geom: &str) -> String {
+    let sym = match geom {
+        "line" => Sym::Line,
+        "point" => Sym::Point,
+        _ => Sym::Poly,
+    };
+    let mut o = String::from("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 7 5\" width=\"70\" height=\"50\"><rect width=\"7\" height=\"5\" fill=\"#ffffff\"/>");
+    swatch(&mut o, 0.0, 0.0, sym, &class_color_of(style), style, ROW_MM, "");
+    o.push_str("</svg>");
+    o
+}
+
+fn class_color_of(style: &LayerStyle) -> String {
+    svg::color(&style.fill, "#808080")
 }
 
 /// Settings of a legend beyond its position.
@@ -554,6 +610,8 @@ pub struct LegendOpts<'a> {
     pub patch: &'a str,
     /// Text size in points; 0 = 8 (title 10).
     pub text_pt: f64,
+    /// List the frame's layers; false = only the custom entries.
+    pub auto: bool,
 }
 
 /// One row of the legend as generated, for the editing list in Properties.
@@ -578,7 +636,7 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
     let title_pt = at.slot_pt("legend.title", if o.text_pt > 0.0 { o.text_pt * 1.25 } else { TITLE_PT });
     let row_mm = ROW_MM.max(text_pt.max(head_pt) * PT_MM * 1.7);
     let mut rows: Vec<Row> = Vec::new();
-    for id in &ctx.drawn {
+    for id in ctx.drawn.iter().filter(|_| o.auto) {
         if let Some(info) = lookup(id) {
             let style = req.styles.get(id).cloned().unwrap_or_default();
             let start = rows.len();
@@ -610,7 +668,19 @@ pub fn legend(out: &mut String, warnings: &mut Vec<String>, infos: &mut Vec<Lege
         })
         .collect();
     for c in o.custom {
-        rows.push(Row::new(Some((Sym::Poly, svg::color(&c.color, "#888888"))), c.label.clone(), &LayerStyle::default()));
+        match c.symbol.as_deref().and_then(|id| crate::topo_symbols::find(id, c.era.as_deref().unwrap_or("classic"))) {
+            Some(ts) => {
+                let style = ts.style.apply(&LayerStyle::default());
+                let sym = match ts.geom {
+                    "line" => Sym::Line,
+                    "point" => Sym::Point,
+                    _ => Sym::Poly,
+                };
+                let color = svg::color(&style.fill, "#808080");
+                rows.push(Row::new(Some((sym, color)), c.label.clone(), &style));
+            }
+            None => rows.push(Row::new(Some((Sym::Poly, svg::color(&c.color, "#888888"))), c.label.clone(), &LayerStyle::default())),
+        }
     }
     open_group(out, "legend", at);
     let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"#ffffff\" stroke=\"#999999\" stroke-width=\"0.25\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h));

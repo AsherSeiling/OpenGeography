@@ -148,6 +148,8 @@ fn main() {
             commands::download_elevation,
             commands::raster_value,
             commands::raster_ramps,
+            commands::topo_symbols,
+            commands::topo_symbol_svg,
             commands::layout_themes,
             commands::apply_layout_theme,
             commands::read_picture,

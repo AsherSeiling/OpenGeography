@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
 import { api, errorText, type CrsInfo as CrsInfoT, type ToolParam, type TransformReport } from "../ipc/api";
+import { TopoSymbolPicker } from "../topo/TopoSymbolPicker";
 import { pickPicture } from "../layout/actions";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
@@ -327,6 +328,7 @@ export function Symbology({ id }: { id: string }) {
           <Slider min={1} max={14} step={0.5} value={style.radius} onChange={(_, d) => setStyle({ radius: d.value })} />
         </Field>
       )}
+      <TopoSymbolPicker id={id} />
       <details>
         <summary>Print layout symbols</summary>
         <div className="stack">
@@ -335,7 +337,7 @@ export function Symbology({ id }: { id: string }) {
             <>
               <Field label="Point symbol">
                 <Dropdown value={style.marker ?? "circle"} selectedOptions={[style.marker ?? "circle"]} onOptionSelect={(_, d) => setStyle({ marker: d.optionValue as LayerStyle["marker"] })}>
-                  {["circle", "square", "triangle", "diamond", "star", "cross", "x", "svg"].map((k) => (
+                  {["circle", "square", "triangle", "diamond", "star", "cross", "x", "ring", "tri_open", "plus_thin", "x_thin", "church", "svg"].map((k) => (
                     <Option key={k} value={k} text={k === "svg" ? "SVG file" : k}>
                       {k === "svg" ? "SVG file" : k}
                     </Option>
@@ -373,7 +375,7 @@ export function Symbology({ id }: { id: string }) {
             <>
               <Field label="Fill pattern (marks in the outline colour)">
                 <Dropdown value={style.pattern ?? "none"} selectedOptions={[style.pattern ?? "none"]} onOptionSelect={(_, d) => setStyle({ pattern: d.optionValue === "none" ? undefined : (d.optionValue as LayerStyle["pattern"]) })}>
-                  {["none", "hatch", "hatch2", "cross", "horizontal", "vertical", "grid", "dots"].map((k) => (
+                  {["none", "hatch", "hatch2", "cross", "horizontal", "vertical", "grid", "dots", "marsh", "orchard", "vineyard", "scrub", "sand", "gravel"].map((k) => (
                     <Option key={k} value={k}>
                       {k}
                     </Option>

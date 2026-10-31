@@ -309,13 +309,17 @@ export interface TopoSpec {
   /** Longitude, latitude of the sheet's centre. */
   center: [number, number];
   scale: number;
-  paper: "letter" | "tabloid" | "a3" | "a4";
+  paper: "letter" | "tabloid" | "a3" | "a4" | "a2" | "a1";
   landscape: boolean;
   units: "imperial" | "metric";
   datum: "nad83" | "wgs84";
   title: string;
   /** YYYY-MM-DD for the declination; empty = today. */
   date: string;
+  /** "landnav" (default), "usgs" (classic quadrangle) or "military" (installation map). */
+  style?: "landnav" | "usgs" | "military";
+  /** "classic" (default) or "modern": the look of the sheet's symbols. */
+  era?: "classic" | "modern";
 }
 
 export interface TopoCheck {
@@ -639,6 +643,10 @@ export const api = {
   rasterUniqueValues: (id: string, band: number, max: number) => invoke<RasterUniqueValues>("raster_unique_values", { id, band, max }),
   saveRasterStyle: (path: string, style: RasterStyle) => invoke<void>("save_raster_style", { path, style }),
   loadRasterStyle: (path: string) => invoke<RasterStyle>("load_raster_style", { path }),
+  /** The topographic symbol catalogue (USGS sheet + military overlay); `era` = "classic" | "modern". */
+  topoSymbols: (era: "classic" | "modern") => invoke<TopoSymbol[]>("topo_symbols", { era }),
+  /** A small SVG sample of one symbol, drawn by the layout renderer. */
+  topoSymbolSvg: (id: string, era: "classic" | "modern") => invoke<string>("topo_symbol_svg", { id, era }),
   layoutThemes: () => invoke<LayoutTheme[]>("layout_themes"),
   applyLayoutTheme: (layout: Layout, theme: string) => invoke<Layout>("apply_layout_theme", { layout, theme }),
   /** A PNG/JPEG/SVG file as the data URI a layout Picture stores. */
@@ -756,6 +764,16 @@ export const api = {
   exportLayout: (req: RenderRequest, format: "svg" | "pdf" | "png", dpi: number, path: string) =>
     track(invoke<string[]>("export_layout", { req, format, dpi, path })),
 };
+
+export interface TopoSymbol {
+  id: string;
+  /** The heading on the USGS sheet, or "Military overlay". */
+  category: string;
+  name: string;
+  geom: "line" | "area" | "point";
+  /** Merged over a layer's style to give it this symbol. */
+  style: Partial<import("../store/store").LayerStyle>;
+}
 
 export interface LayoutTheme {
   id: string;
