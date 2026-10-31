@@ -244,7 +244,7 @@ impl Tool for Interpolate {
         }
         let gpkg = raster::new_store_path("interpolate_in", "gpkg");
         ctx.conn.execute_batch(&format!(
-            "COPY (SELECT TRY_CAST({}::VARCHAR AS DOUBLE) AS v, geom FROM {} WHERE geom IS NOT NULL AND ST_GeometryType(geom) = 'POINT' AND TRY_CAST({}::VARCHAR AS DOUBLE) IS NOT NULL) TO {} (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'f', SRS {}, USE_TMP_FILE false)",
+            "COPY (SELECT TRY_CAST({}::VARCHAR AS DOUBLE) AS v, CASE WHEN ST_GeometryType(geom)::VARCHAR = 'POINT' THEN geom ELSE ST_PointOnSurface(geom) END AS geom FROM {} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom) AND TRY_CAST({}::VARCHAR AS DOUBLE) IS NOT NULL) TO {} (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'f', SRS {}, USE_TMP_FILE false)",
             ident(&field), ident(&i.table), ident(&field), lit(gpkg.to_str().unwrap()), lit(&crs)
         ))?;
         let out = ro::interpolate(&gpkg, p.str("method").as_deref().unwrap_or("idw"), p.f64("cell").unwrap_or(0.0), p.f64("power").unwrap_or(2.0), p.f64("radius").unwrap_or(0.0));

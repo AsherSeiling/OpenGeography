@@ -264,3 +264,23 @@ fn c1_c2_vertical_datums_are_recorded_inherited_and_mixing_is_flagged() {
     assert!(msg.contains("Warning, the Raster Calculator: the rasters use different vertical datums (EGM2008 and NAVD88)"), "{msg}");
     assert_eq!(engine::vertical::get(Path::new(r.output.as_ref().unwrap())), None, "different datums are not inherited");
 }
+
+/// TP-4: points stored as MULTIPOINT (National Map summits) were all dropped, giving "no points with a number".
+#[test]
+fn tp4_interpolate_takes_multipoint_features() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    let gpkg = dir.path().join("mp.gpkg");
+    let mut rows = vec![];
+    for i in 0..4 {
+        for j in 0..4 {
+            rows.push(format!("({}, ST_GeomFromText('MULTIPOINT(({} {}))'))", i + j, 600_000 + i * 100, 3_900_000 + j * 100));
+        }
+    }
+    c.execute_batch(&format!("COPY (SELECT * FROM (VALUES {}) t(val, geom)) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME 'p', SRS 'EPSG:32614', USE_TMP_FILE false)", rows.join(","), gpkg.display())).unwrap();
+    let id = import(&e, &gpkg);
+    let r = ok(&e, "interpolate", json!({"field": "val", "method": "idw", "cell": 50, "power": 2}), &[&id]);
+    assert!(r.output.is_some());
+}

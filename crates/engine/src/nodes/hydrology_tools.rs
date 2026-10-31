@@ -148,7 +148,7 @@ impl Tool for Watersheds {
         let geom = if crate::crs::same(pcrs, rcrs) { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, always_xy := true)", lit(&crate::crs::resolve(pcrs)), lit(&rres)) };
         let shp = raster::new_store_path("outlets", "shp");
         ctx.conn.execute_batch(&format!(
-            "COPY (SELECT {geom} AS geom FROM {} WHERE geom IS NOT NULL AND ST_GeometryType(geom) = 'POINT') TO {} (FORMAT GDAL, DRIVER 'ESRI Shapefile', SRS {}, USE_TMP_FILE false)",
+            "COPY (SELECT {geom} AS geom FROM (SELECT CASE WHEN ST_GeometryType(geom)::VARCHAR = 'POINT' THEN geom ELSE ST_PointOnSurface(geom) END AS geom FROM {} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom))) TO {} (FORMAT GDAL, DRIVER 'ESRI Shapefile', SRS {}, USE_TMP_FILE false)",
             ident(&pts.table), lit(shp.to_str().unwrap()), lit(&rres)
         ))?;
         let out = wbt_raster("Watershed", r, "d8_pntr", &[("pour_pts", shp.display().to_string()), ("esri_pntr", "true".to_string())], "watersheds");
