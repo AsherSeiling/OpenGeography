@@ -12,6 +12,7 @@ mod buffer;
 mod calculate_field;
 mod calculate_geometry;
 mod clip;
+pub mod keywords;
 mod dissolve;
 mod export;
 mod filter;
@@ -482,6 +483,8 @@ pub struct SpecOut {
     #[serde(flatten)]
     pub spec: ToolSpec,
     pub fields: OutFields,
+    /// Plain-language search words (`keywords::keywords`).
+    pub keywords: &'static [&'static str],
 }
 
 impl std::ops::Deref for SpecOut {

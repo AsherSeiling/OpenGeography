@@ -500,6 +500,8 @@ export interface ToolSpec {
   params: ToolParam[];
   /** How the output's fields follow from the inputs and settings (engine: nodes::OutFields). */
   fields: OutFieldsRule;
+  /** Plain-language search words for the Add menu (engine: nodes::keywords). */
+  keywords?: string[];
 }
 
 export interface OutFieldsRule {
