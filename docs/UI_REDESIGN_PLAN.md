@@ -49,7 +49,7 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 | `--sel-bg` | `#6FE0FF` | `#6FE0FF` | Highlight: selected rows, selected card ring. Lighter and brighter than the ribbon, at the user's request |
 | `--sel-text` | computed | computed | |
 | `--hover` | `rgba(18,26,32,.08)` | `rgba(255,255,255,.08)` | |
-| `--link` | accent darkened until AA, `#0562A8` by default | accent lightened until AA | Blue text: selected tab, on or pressed button (with semibold, so it does not rely on colour alone), links. Cyan itself fails AA as text on light panels |
+| `--link` | accent darkened until AA, `#0869A9` by default | accent lightened until AA | Blue text: selected tab, on or pressed button (with semibold, so it does not rely on colour alone), links. Cyan itself fails AA as text on light panels |
 | `--focus` | `--text` | `--link` | Focus ring: 2 px, 1 px offset |
 | `--error` | `#B3261E` | `#FF8A80` | |
 | `--warn` | `#8A5A00` | `#F2C14E` | |

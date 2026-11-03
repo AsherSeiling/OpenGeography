@@ -1031,3 +1031,18 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | TU-5 | **Topo Map Builder styles**: Sheet style (land navigation / USGS quadrangle / military installation), Symbol look (classic/modern), three new presets, A2 and A1 paper; "4. Apply topographic symbols" gives layers symbols by name and geometry and lists what it left alone | USGS sheet: title block, 3 scale bars, contour interval + vertical/horizontal datum notes, declination diagram, road-classification key (symbols only), adjoining quads. Military sheet: military legend, viewpoint and facilities boxes, mils declination, grid-reference box, km/mi/m scale bars | auto: topo.rs tests (every paper × both styles × both eras on the page), vitest assign.test.ts, e2e topo-styles.spec.ts (pixels), visual check of both pages |
 | TU-6 | Not built | purple revision overlays, provisional-edition hand lettering, bathymetric/glacier symbol sets beyond the catalogue entries, automatic USGS-style label placement, a table of range facilities filled from data, GeoPDF | — |
 | UI-K1 | **Add menu keyword search** (`keywords` in `tool_specs`): typing a plain word finds the tool, e.g. "cut" → Clip, Clip Raster, Erase; "merge" → Union, Merge, Mosaic Rasters | every tool except Layer Input/Output/Add to Map has ≥ 1 keyword; no keyword id without a tool | auto: engine nodes/keywords.rs tests; UI search by WP3 e2e |
+
+## UI redesign (`docs/UI_REDESIGN_PLAN.md`)
+
+| Id | Case | How |
+|---|---|---|
+| CAT-1 | All 8 Public Data rows open their dialog, by double-click and Enter | `e2e/catalog.spec.ts` |
+| CAT-2 | Catalog tree expands and collapses by keyboard | `e2e/catalog.spec.ts` |
+| CAT-3 | A layout reopens from the tree; Contents has no Layouts | `e2e/catalog.spec.ts` |
+| CAT-4 | Project files lists a file and offers its menu | `e2e/catalog.spec.ts` |
+| NC-1 | Choose a layer wires a Layer card into an empty input; undo removes both | `e2e/choose-layer.spec.ts`, `chooseLayer.test.ts` |
+| AP-1 | Colours panel changes colours live; Reset restores defaults | `e2e/appearance.spec.ts` |
+| AP-2 | Colour choices survive a restart | `e2e/appearance.spec.ts` |
+| AP-3 | Corrupt saved colours fall back to defaults | `e2e/appearance.spec.ts`, `appearance.test.ts` |
+| AP-4 | AA holds for every panel set, both modes and custom colours | `appearance.test.ts` |
+| AP-5 | Panel works from the keyboard and stays on screen at narrow widths | `e2e/appearance.spec.ts` |

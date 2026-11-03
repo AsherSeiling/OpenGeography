@@ -171,3 +171,5 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 - TP-15 [FIXED 2026-10-30 (browser mode asks for a path; desktop unchanged)] (T9-5) Browser/dev mode: Export Features, Export Table, Save/Open and Add Data call the desktop-only file dialog and throw; only layout export has a prompt() fallback (desktop app unaffected).
 
 - TP-8 note: the bundled Noto Sans has no ≥ or ≤, so the last legend class now reads "N or more" instead of "≥ N" (adding a math font would be the alternative).
+
+- **UI-1 (open, redesign, 2026-11-03):** link text on a hovered `--surface-0` is 4.05:1, below AA. Fix before the redesign is done.

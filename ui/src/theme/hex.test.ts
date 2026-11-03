@@ -35,7 +35,7 @@ const ALLOW: Record<string, Why> = {
   "theme/colorMath.ts": { why: "ink, white and black: the candidates the readable-text rule picks from" },
   // Chrome that a later work package restyles.
   "panes/ModelPane.tsx": { why: "node editor dot-grid colour: use var(--canvas-dot)", owner: "WP 3 (owns ModelPane.tsx)" },
-  "panes/ContentsPane.tsx": { why: "layer swatch outline colours", owner: "WP 4" },
+  "panes/ContentsPane.tsx": { why: "raster swatch ramp (content)" },
   "raster/RasterSymbology.tsx": { why: "histogram handle colours", owner: "WP 8" },
   "dialogs/DatumGridsDialog.tsx": { why: "var() fallbacks and row colours", owner: "WP 8" },
   "errors/ErrorDialog.tsx": { why: "var() fallback", owner: "WP 8" },
