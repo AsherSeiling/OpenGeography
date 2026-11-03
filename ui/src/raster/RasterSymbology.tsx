@@ -50,13 +50,13 @@ function Histogram({ hist, lo, hi, onChange }: { hist: RasterHistogram; lo: numb
       {bars.map((b, i) => (
         <rect key={i} x={i * bw} y={H - b * (H - 8)} width={Math.max(bw - 0.5, 0.5)} height={b * (H - 8)} fill="currentColor" opacity={0.45} />
       ))}
-      <rect x={0} y={0} width={x0} height={H} fill="var(--colorNeutralBackground1, #fff)" opacity={0.6} />
-      <rect x={x1} y={0} width={W - x1} height={H} fill="var(--colorNeutralBackground1, #fff)" opacity={0.6} />
+      <rect x={0} y={0} width={x0} height={H} fill="var(--surface-1)" opacity={0.6} />
+      <rect x={x1} y={0} width={W - x1} height={H} fill="var(--surface-1)" opacity={0.6} />
       {([["min", x0], ["max", x1]] as const).map(([w, x]) => (
         <g key={w} onPointerDown={drag(w)} style={{ cursor: "ew-resize" }}>
           <rect x={x - 5} y={0} width={10} height={H} fill="transparent" />
-          <line x1={x} x2={x} y1={0} y2={H} stroke="#d13438" strokeWidth={2} />
-          <rect x={x - 3} y={H / 2 - 8} width={6} height={16} rx={2} fill="#d13438" />
+          <line x1={x} x2={x} y1={0} y2={H} stroke="var(--error)" strokeWidth={2} />
+          <rect x={x - 3} y={H / 2 - 8} width={6} height={16} rx={2} fill="var(--error)" />
         </g>
       ))}
     </svg>
@@ -275,7 +275,7 @@ export function RasterSymbology({ id }: { id: string }) {
               value={r.ramp ?? "viridis"}
               selectedOptions={[r.ramp ?? "viridis"]}
               onOptionSelect={(_, d) => set({ ramp: d.optionValue })}
-              button={ramp ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 80, height: 12, background: rampCss(ramp.colors, r.invert), border: "1px solid #888" }} />{ramp.name}</span> : undefined}
+              button={ramp ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 80, height: 12, background: rampCss(ramp.colors, r.invert), border: "1px solid var(--rule)" }} />{ramp.name}</span> : undefined}
             >
               {GROUPS.map((g) => {
                 const items = ramps.filter((x) => x.group === g);
@@ -284,7 +284,7 @@ export function RasterSymbology({ id }: { id: string }) {
                     {items.map((x) => (
                       <Option key={x.name} value={x.name} text={`${x.name}${x.cbSafe ? " ✓" : ""}`}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ width: 90, height: 12, background: rampCss(x.colors), border: "1px solid #888" }} />
+                          <span style={{ width: 90, height: 12, background: rampCss(x.colors), border: "1px solid var(--rule)" }} />
                           {x.name}
                           {x.cbSafe ? " ✓" : ""}
                         </span>

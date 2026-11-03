@@ -117,7 +117,7 @@ export function newLayout(size = "Letter", orientation: Orientation = "landscape
   const layout = newLayoutDoc(newLayoutId(), `Layout ${n}`, size, orientation);
   useLayouts.getState().add(layout);
   openLayout(layout.id);
-  status(`Created ${layout.name} (${size} ${orientation}). Insert a Map Frame from the Layout tab.`);
+  status(`Created ${layout.name} (${size} ${orientation}). Insert a Map Frame from the Elements tab.`);
 }
 
 export function renameLayout(id: string) {
@@ -160,7 +160,7 @@ const SURROUND_NAMES = { legend: "legend", scale_bar: "scale bar", north_arrow: 
 /** Insert a legend, scale bar, north arrow or sources line for the selected (else first) map frame. */
 export function insertSurround(kind: keyof typeof SURROUND_NAMES) {
   const frame = targetFrame();
-  if (!frame) return status(`Insert a map frame first, then the ${SURROUND_NAMES[kind]} (Layout tab → Map Frame).`);
+  if (!frame) return status(`Insert a map frame first, then the ${SURROUND_NAMES[kind]} (Elements tab → Map Frame).`);
   addSurround(kind, frame.id);
 }
 
@@ -173,7 +173,7 @@ export function insertMapFrame() {
 export async function setFrameFromMapView(frameId?: string) {
   const frame = frameById(frameId);
   const map = getMap();
-  if (!frame || !map) return status("Insert a map frame first (Layout tab → Map Frame).");
+  if (!frame || !map) return status("Insert a map frame first (Elements tab → Map Frame).");
   if (!frame.crs) return status("Set a coordinate system for the map frame.");
   const c = getCenterInMapCrs();
   const mpp = getGroundPerPixel();
@@ -195,7 +195,7 @@ export async function setFrameFromMapView(frameId?: string) {
 
 export function pickFrameCrs(frameId?: string) {
   const frame = frameById(frameId);
-  if (!frame) return status("Insert a map frame first (Layout tab → Map Frame).");
+  if (!frame) return status("Insert a map frame first (Elements tab → Map Frame).");
   useDialog.getState().show({
     kind: "crs",
     title: "Map Frame Coordinate System",
@@ -220,7 +220,7 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = useExport
   if (!doc) return;
   const name = `${doc.name}.${format}`;
   if (!frames(doc).length) {
-    status("This layout has no map frame yet. Insert one (Layout tab → Map Frame) before exporting.");
+    status("This layout has no map frame yet. Insert one (Elements tab → Map Frame) before exporting.");
     return;
   }
   let path: string | null;
@@ -394,7 +394,7 @@ export async function choosePictureFor(id: string) {
 export function insertOverview() {
   const frame = targetFrame();
   const s = useLayouts.getState();
-  if (!frame || !s.doc) return status("Insert a map frame first (Layout tab → Map Frame), then its overview map.");
+  if (!frame || !s.doc) return status("Insert a map frame first (Elements tab → Map Frame), then its overview map.");
   const w = Math.min(60, frame.w / 3);
   const id = addMapFrame({ x: frame.x + frame.w - w - 3, y: frame.y + 3, w, h: w, crs: frame.crs, center: frame.center, scale: roundScaleUp(frame.scale * 10), indicator: { frame: frame.id }, border: { width: 0.35, color: "#000000" }, decor: { background: "#ffffff" }, sources: false });
   if (id) s.select([id]);

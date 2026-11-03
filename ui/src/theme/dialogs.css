@@ -82,3 +82,13 @@ select.qe-val { width: 160px; }
 .keyadd:hover { color: var(--link); border-color: var(--accent); }
 .tiger-year { display: flex; gap: 6px; align-items: center; }
 .tiger-year .fui-Dropdown { flex: 1; }
+
+/* ---------- Dialog chrome (Fluent dialogs through the theme) ---------- */
+.fui-DialogSurface { box-shadow: var(--e-float); border-radius: 0; }
+.fui-DialogTitle { font: var(--type-title); color: var(--text); }
+.fui-DialogActions { grid-column: 1 / -1; width: 100%; box-sizing: border-box; justify-content: flex-end; border-top: 1px solid var(--rule-soft); border-radius: 0; padding-top: 12px; margin-top: 8px; }
+.lp-nav-item:focus-visible, .lp-x:focus-visible, .lp-field-actions button:focus-visible, .keychip button:focus-visible, .keyadd:focus-visible, .qe-del:focus-visible, .crs-row:focus-visible, .qe-ctl:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.lp-title { border-bottom-color: var(--rule); }
+.lp-foot { border-top-color: var(--rule-soft); }
+/* Links on a hovered surface: --link on a hovered --surface-0 is 4.05:1 (BUGS UI-1), so use body text there. */
+.lp-nav-item:hover svg, .crs-row:hover a, .lp-field-actions button:hover, .keyadd:hover { color: var(--text); }
