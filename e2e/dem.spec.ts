@@ -1,8 +1,8 @@
-import { test, expect, addTestLayer, ribbon } from "./fixtures";
+import { test, expect, addTestLayer, publicData } from "./fixtures";
 
 test("D0 Elevation dialog shows the engine's plan, warns about coarsening and needs a confirmation for a large download", async ({ app }) => {
   await addTestLayer(app, "polygons", 20, [-100, 36, -99.9, 36.1]); // about 9 km: one request, no confirmation
-  await ribbon(app, "Data", /Elevation/);
+  await publicData(app, "elevation");
   const dlg = app.getByRole("dialog");
   await dlg.getByRole("combobox").first().click();
   await app.getByRole("option", { name: /Extent of/ }).click();
@@ -13,7 +13,7 @@ test("D0 Elevation dialog shows the engine's plan, warns about coarsening and ne
 
   // A continental box: coarsened (and it says so), geographic, and the Download button waits for the confirmation.
   await addTestLayer(app, "polygons", 21, [-125, 25, -66, 49]);
-  await ribbon(app, "Data", /Elevation/);
+  await publicData(app, "elevation");
   const d2 = app.getByRole("dialog");
   await d2.getByRole("combobox").first().click();
   await app.getByRole("option", { name: /Extent of Test polygons \(21\)/ }).click();

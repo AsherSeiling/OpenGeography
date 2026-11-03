@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test, expect, gis, addTestLayer, ribbon } from "./fixtures";
 
 const status = (page: any) => page.locator(".statusbar");
@@ -85,7 +88,7 @@ test("M-7 coordinate readout follows the pointer and ends on the last position",
 test("M-8 panes toggle and reset; dark theme", async ({ app }) => {
   const tabOf = (name: string) => app.locator(".dv-default-tab, .dv-tab").filter({ hasText: new RegExp(`^${name}$`) });
   await app.locator(".rtab", { hasText: /^View$/ }).click();
-  for (const [label, tab] of [["Contents", "Contents"], ["Attribute Table", "Attribute Table"], ["Properties", "Properties"], ["Geoprocessing", "Geoprocessing"], ["Catalog", "Catalog"]] as const) {
+  for (const [label, tab] of [["Map Layers", "Map Layers"], ["Attribute Table", "Attribute Table"], ["Properties", "Properties"], ["Node Editor", "Node Editor"], ["Catalog", "Catalog"], ["Sources", "Sources"]] as const) {
     const btn = app.locator(".rbtn", { hasText: new RegExp(`^${label}$`) }).first();
     await expect(tabOf(tab).first()).toBeVisible();
     await btn.click();
@@ -93,12 +96,129 @@ test("M-8 panes toggle and reset; dark theme", async ({ app }) => {
     await btn.click();
     await expect(tabOf(tab).first()).toBeVisible();
   }
-  await app.locator(".rbtn", { hasText: "Contents" }).first().click();
+  await app.locator(".rbtn", { hasText: /^Map Layers$/ }).first().click();
   await ribbon(app, null, "Reset Panes");
-  await expect(tabOf("Contents").first()).toBeVisible();
+  await expect(tabOf("Map Layers").first()).toBeVisible();
   const was = await gis(app, (g) => g.useApp.getState().dark);
   await ribbon(app, null, "Dark Theme");
   expect(await gis(app, (g) => g.useApp.getState().dark)).toBe(!was);
   await ribbon(app, null, "Dark Theme");
   expect(await gis(app, (g) => g.useApp.getState().dark)).toBe(was);
+});
+
+// ---- Shell (WP 6): default layout, the bottom panel that exists only when opened, and saved layouts ----
+const dockTab = (page: any, name: string) => page.locator(".dv-tab").filter({ hasText: new RegExp(`^${name}$`) });
+const box = async (loc: any) => (await loc.first().boundingBox())!;
+const groupOf = (page: any, tab: string) => page.locator(".dv-groupview", { has: dockTab(page, tab) });
+
+test.describe("shell with the bottom panel closed at start-up", () => {
+  test.use({ bottom: false });
+
+  test("WP6 default layout: Map Layers over Catalog, Properties over Sources, no bottom panel", async ({ app }) => {
+    for (const t of ["Map Layers", "Catalog", "Map", "Properties", "Sources"]) await expect(dockTab(app, t)).toHaveCount(1);
+    for (const t of ["Node Editor", "Attribute Table", "Geoprocessing"]) await expect(dockTab(app, t)).toHaveCount(0);
+    await expect(app.locator(".model-canvas")).toHaveCount(0);
+    const dock = await box(app.locator(".dock"));
+    const [layers, catalog, map, props, sources] = await Promise.all(["Map Layers", "Catalog", "Map", "Properties", "Sources"].map((t) => box(groupOf(app, t))));
+    // Left column about 15 % and right about 21 % of the window; the map takes the rest and the whole height.
+    expect(layers.width / dock.width).toBeGreaterThan(0.11);
+    expect(layers.width / dock.width).toBeLessThan(0.19);
+    expect(props.width / dock.width).toBeGreaterThan(0.17);
+    expect(props.width / dock.width).toBeLessThan(0.25);
+    expect(map.height).toBeGreaterThan(dock.height - 3);
+    // Stacked, not tabbed: Catalog sits under Map Layers, Sources under Properties, in the same column.
+    expect(catalog.y).toBeGreaterThan(layers.y + layers.height - 3);
+    expect(Math.abs(catalog.x - layers.x)).toBeLessThan(3);
+    expect(layers.height / (layers.height + catalog.height)).toBeLessThan(0.4);
+    expect(sources.y).toBeGreaterThan(props.y + props.height - 3);
+    expect(sources.height / (props.height + sources.height)).toBeLessThan(0.3);
+  });
+
+  test("WP6 the bottom panel appears when Node Editor or Attribute Table is opened and goes when the last one closes", async ({ app }) => {
+    const full = (await box(groupOf(app, "Map"))).height;
+    await ribbon(app, "Analysis", /^Node Editor$/);
+    await expect(dockTab(app, "Node Editor")).toHaveCount(1);
+    await expect(app.locator(".model-canvas")).toBeVisible();
+    const withPanel = (await box(groupOf(app, "Map"))).height;
+    expect(withPanel).toBeLessThan(full * 0.7); // the panel takes about 47 %
+    await ribbon(app, "Analysis", /^Attribute Table$/);
+    await expect(dockTab(app, "Attribute Table")).toHaveCount(1);
+    // Both are tabs of the one panel under the map.
+    expect(await groupOf(app, "Node Editor").locator(".dv-tab").filter({ hasText: /^Attribute Table$/ }).count()).toBe(1);
+    // Close one: the panel stays. Close the other: it is gone and the map fills the centre.
+    await dockTab(app, "Attribute Table").locator(".dv-default-tab-action").click();
+    await expect(dockTab(app, "Attribute Table")).toHaveCount(0);
+    await expect(app.locator(".model-canvas")).toBeVisible();
+    await dockTab(app, "Node Editor").locator(".dv-default-tab-action").click();
+    await expect(dockTab(app, "Node Editor")).toHaveCount(0);
+    await expect(app.locator(".model-canvas")).toHaveCount(0);
+    await expect.poll(async () => (await box(groupOf(app, "Map"))).height).toBeGreaterThan(full - 3);
+  });
+
+  test("WP6 picking a tool from the Shift+A menu opens the Node Editor; Run and Add Tool are on the Analysis tab", async ({ app }) => {
+    await addTestLayer(app, "points", 20);
+    await expect(dockTab(app, "Node Editor")).toHaveCount(0);
+    await app.locator(".rtab", { hasText: /^Analysis$/ }).click();
+    await expect(app.locator(".rbtn", { hasText: /^Run$/ })).toBeVisible();
+    await app.locator(".rbtn", { hasText: /^Add Tool$/ }).click();
+    await expect(app.locator(".toolmenu")).toBeVisible();
+    await app.keyboard.type("buffer");
+    await app.keyboard.press("Enter");
+    await expect(dockTab(app, "Node Editor")).toHaveCount(1);
+    await expect(app.locator(".model-canvas")).toBeVisible();
+    await expect.poll(() => gis(app, (g) => g.useModel.getState().nodes.some((n: any) => n.data.tool === "buffer"))).toBe(true);
+    // The favourites shelf lists what was just used.
+    await expect(app.getByTestId("tool-shelf")).toContainText("Buffer");
+  });
+
+  test("WP6 search finds a command, a tool and a layer; picking a tool places it like the menu", async ({ app }) => {
+    await addTestLayer(app, "points", 20);
+    const box = app.getByPlaceholder("Search commands and tools");
+    await app.keyboard.press("Alt+q");
+    await expect(box).toBeFocused();
+    await box.fill("coord");
+    await expect(app.getByRole("option", { name: /Coordinate System/ }).first()).toBeVisible();
+    await box.fill("test poi");
+    await expect(app.getByRole("option", { name: /Test points.*Layer/ })).toBeVisible();
+    await box.fill("cut"); // a plain word: Clip
+    await expect(app.getByRole("option", { name: /^Clip\s*Tool/ })).toBeVisible();
+    await app.getByRole("option", { name: /^Clip\s*Tool/ }).click();
+    await expect(dockTab(app, "Node Editor")).toHaveCount(1);
+    await expect.poll(() => gis(app, (g) => g.useModel.getState().nodes.some((n: any) => n.data.tool === "clip"))).toBe(true);
+    await box.fill("zzzzqq");
+    await expect(app.getByText(/Nothing matches/)).toBeVisible();
+  });
+
+  test("WP6 Public Data opens the Catalog if it is closed and puts the focus on the Public Data row", async ({ app }) => {
+    await gis(app, async () => { const m = await import("/src/panes/panes.ts"); m.togglePane("catalog"); });
+    await expect(dockTab(app, "Catalog")).toHaveCount(0);
+    await ribbon(app, "Map", /^Public Data/);
+    await expect(dockTab(app, "Catalog")).toHaveCount(1);
+    await expect(app.locator('[role="treeitem"][data-node="public"]')).toBeFocused();
+    await expect(app.locator('[role="treeitem"][data-node^="public:"]')).toHaveCount(8);
+  });
+
+  test("WP6 a saved layout of this version comes back; an old one falls back to the default and the project data is untouched", async ({ app }) => {
+    const info = await addTestLayer(app, "points", 20);
+    await ribbon(app, "Analysis", /^Node Editor$/);
+    await expect(dockTab(app, "Node Editor")).toHaveCount(1);
+    const dir = join(mkdtempSync(join(tmpdir(), "gis-e2e-dock-")), "dock.gproj");
+    await gis(app, (g, d) => g.useApp.setState({ projectDir: d }), dir);
+    await gis(app, (g) => g.actions.saveProject());
+    await expect.poll(() => gis(app, (g) => g.useApp.getState().dirty)).toBe(false);
+    await ribbon(app, "View", /^Reset Panes$/);
+    await expect(dockTab(app, "Node Editor")).toHaveCount(0);
+    await gis(app, (g, d) => g.actions.openProject(d), dir);
+    await expect(dockTab(app, "Node Editor")).toHaveCount(1); // this version's layout is restored
+    // Now a project saved by the old shell: raw dockview JSON, naming the removed Geoprocessing pane.
+    const old = join(mkdtempSync(join(tmpdir(), "gis-e2e-olddock-")), "old.gproj");
+    await gis(app, async (g, a: any) => {
+      const ui = { version: 1, order: [a.id], visible: { [a.id]: true }, styles: {}, mapCrs: null, basemap: "none", camera: null, trees: {}, dock: { grid: {}, panels: { map: { id: "map" }, tools: { id: "tools" }, model: { id: "model" } } } };
+      await g.api.saveProject(a.dir, JSON.stringify(ui));
+    }, { id: info.id, dir: old });
+    await gis(app, (g, d) => g.actions.openProject(d), old);
+    for (const t of ["Map Layers", "Catalog", "Map", "Properties", "Sources"]) await expect(dockTab(app, t)).toHaveCount(1);
+    for (const t of ["Node Editor", "Attribute Table", "Geoprocessing"]) await expect(dockTab(app, t)).toHaveCount(0);
+    expect(await gis(app, (g) => Object.keys(g.useApp.getState().layers).length)).toBe(1); // the data came with it
+  });
 });

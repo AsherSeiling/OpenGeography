@@ -1,7 +1,7 @@
-import { test, expect, ribbon } from "./fixtures";
+import { test, expect, publicData } from "./fixtures";
 
 test("D1 ArcGIS Services dialog lists the catalog with its citation and explains a bad address", async ({ app, errors }) => {
-  await ribbon(app, "Data", /ArcGIS Services/);
+  await publicData(app, "arcgis");
   const dlg = app.getByRole("dialog");
   await expect(dlg.getByRole("radio", { name: /Protected areas and land managers \(PAD-US\)/ })).toBeVisible({ timeout: 10_000 });
   for (const label of [/Flood hazard zones/, /Wetlands \(National Wetlands Inventory\)/, /Current wildfire perimeters/]) await expect(dlg.getByRole("radio", { name: label })).toBeVisible();
