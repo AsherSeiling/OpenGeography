@@ -103,7 +103,7 @@ export function StatusProgress() {
       <ProgressBar className="sb-progress-bar" value={t?.fraction ?? undefined} max={1} />
       {t?.fraction != null && <span className="sb-progress-pct">{Math.round(t.fraction * 100)}%</span>}
       {t?.cancellable && (
-        <button className="sb-progress-x" title="Cancel" onClick={() => api.cancelTask(t.id)}>
+        <button className="sb-progress-x" title="Cancel" aria-label="Cancel" onClick={() => api.cancelTask(t.id)}>
           ✕
         </button>
       )}

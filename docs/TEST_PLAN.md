@@ -1046,3 +1046,10 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | AP-3 | Corrupt saved colours fall back to defaults | `e2e/appearance.spec.ts`, `appearance.test.ts` |
 | AP-4 | AA holds for every panel set, both modes and custom colours | `appearance.test.ts` |
 | AP-5 | Panel works from the keyboard and stays on screen at narrow widths | `e2e/appearance.spec.ts` |
+| TM-1 | Every live tool is found by its full name and by a keyword | `e2e/shift-a.spec.ts` |
+| TM-2 | "cut" finds Clip; "merge" finds Union, Merge, Mosaic Rasters | `e2e/shift-a.spec.ts` |
+| TM-3 | Keyboard-only add | `e2e/shift-a.spec.ts` |
+| TM-4 | Works with the Node Editor closed or its tab hidden | `e2e/shift-a.spec.ts` |
+| TM-5 | No active layer: asks for a layer, or offers Add Data if none | `e2e/shift-a.spec.ts` |
+| TM-6 | Menu stays on screen in a narrow window | `e2e/shift-a.spec.ts` |
+| TM-7 | Placement rules: wire, selected node, Input to Output, unconnected; never a rejected connection | `e2e/shift-a.spec.ts`, `toolPlacement.test.ts` |

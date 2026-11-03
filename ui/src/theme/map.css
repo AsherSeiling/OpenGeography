@@ -36,7 +36,7 @@
 .map-notice.warn { background: var(--warn-bg); color: var(--text); border: 1px solid var(--warn); }
 .map-notice.warn .map-notice-x:focus-visible { outline-color: var(--focus); }
 .scalebar { position: absolute; bottom: 8px; left: 8px; z-index: 6; font: var(--type-small); color: var(--overlay-text); background: var(--overlay-bg); border: 1px solid var(--overlay-edge); padding: 3px 6px 4px; pointer-events: none; display: flex; flex-direction: column; gap: 2px; }
-.scalebar > div { border: 2px solid var(--overlay-text); border-top: none; padding: 0 3px; min-width: 20px; white-space: nowrap; }
+.scalebar > div { box-sizing: border-box; border: 2px solid var(--overlay-text); border-top: none; padding: 0 3px; min-width: 20px; white-space: nowrap; }
 
 
 /* ---------- Measure + Land Nav panels ---------- */
