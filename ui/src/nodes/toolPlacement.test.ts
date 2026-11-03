@@ -97,4 +97,21 @@ describe("placing a tool from the menu", () => {
     placeTool("buffer");
     expect(useModel.temporal.getState().pastStates).toHaveLength(1);
   });
+
+  it("no two cards overlap after adding three tools in a row, and it is still one undo step each", () => {
+    const hit = () => {
+      const ns = nodes();
+      const bad: string[] = [];
+      for (const a of ns) for (const b of ns) if (a.id < b.id && a.position.x < b.position.x + 220 && b.position.x < a.position.x + 220 && a.position.y < b.position.y + 130 && b.position.y < a.position.y + 130) bad.push(`${a.id}/${b.id}`);
+      return bad;
+    };
+    placeTool("clip");
+    expect(hit()).toEqual([]);
+    placeTool("buffer"); // clip is selected: rule 2 splices before Output, which has to move
+    expect(hit()).toEqual([]);
+    placeTool("buffer");
+    expect(hit()).toEqual([]);
+    expect(nodes()).toHaveLength(5);
+    expect(useModel.temporal.getState().pastStates).toHaveLength(3);
+  });
 });
