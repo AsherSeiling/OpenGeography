@@ -16,6 +16,8 @@ export interface EditorHandle {
   getInternalNode: (id: string) => InternalNode<Node> | undefined;
   /** The canvas box, or null while its tab is hidden. */
   rect: () => DOMRect | null;
+  /** Scroll or fit the view so the node is fully visible. */
+  reveal: (id: string) => void;
   /** A node is being moved with G: keys belong to that. */
   busy: () => boolean;
 }
@@ -130,7 +132,7 @@ const widthOf = (id: string) => editor?.getInternalNode(id)?.measured.width ?? C
  * Add `tool` (or a Layer card when `params.layer` is given) following the rules above. The node editor has to be on screen: the menu
  * opens it first (see `ensureEditor`). One undo step. Returns the new node's id.
  */
-export function placeTool(tool: string, opts: { at?: MenuPos | null; params?: Record<string, unknown>; wire?: string | null } = {}): string {
+function placeStep(tool: string, opts: { at?: MenuPos | null; params?: Record<string, unknown>; wire?: string | null } = {}): string {
   const end = beginStep();
   try {
     const m = useModel.getState();
@@ -151,11 +153,13 @@ export function placeTool(tool: string, opts: { at?: MenuPos | null; params?: Re
         else between(id, plan.splice);
       } else connectAfter(id, plan.from.id, first.id);
     }
+    makeRoom(id);
     selectNode(id);
     return id;
   } finally {
     end();
   }
+  // (reveal runs after the undo step is closed)
 }
 
 function connectAfter(id: string, from: string, port: string) {
@@ -172,4 +176,48 @@ function between(id: string, e: Edge) {
   const right = b.position.x - 20;
   const x = right - left >= CARD_W ? (left + right - CARD_W) / 2 : left;
   useModel.setState({ nodes: nodes.map((n) => (n.id === id ? { ...n, position: { x, y: a.position.y } } : n)) });
+}
+
+export function placeTool(tool: string, opts: Parameters<typeof placeStep>[1] = {}): string {
+  const id = placeStep(tool, opts);
+  editor?.reveal(id);
+  return id;
+}
+
+const GAP = 40;
+const CARD_H = 130;
+type Box = { x: number; y: number; w: number; h: number };
+
+const boxOf = (n: ModelNode): Box => {
+  const m = editor?.getInternalNode(n.id)?.measured;
+  return { x: n.position.x, y: n.position.y, w: m?.width ?? CARD_W, h: m?.height ?? CARD_H };
+};
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.w + GAP / 2 && b.x < a.x + a.w + GAP / 2 && a.y < b.y + b.h + GAP / 4 && b.y < a.y + a.h + GAP / 4;
+
+/**
+ * Keep cards from sitting on each other: cards downstream of the new one move right to clear it (all by the same amount, so their
+ * layout is kept); a card that is not downstream and is in the way makes the new card step down instead. Part of the add's undo step.
+ */
+function makeRoom(id: string) {
+  const { nodes, edges } = useModel.getState();
+  const me = nodes.find((n) => n.id === id);
+  if (!me) return;
+  const down = new Set<string>();
+  const walk = (from: string) => edges.filter((e) => e.source === from).forEach((e) => !down.has(e.target) && e.target !== id && (down.add(e.target), walk(e.target)));
+  walk(id);
+  const mine = boxOf(me);
+  let dx = 0;
+  for (const n of nodes) if (down.has(n.id)) {
+    const b = boxOf(n);
+    if (overlaps(mine, b)) dx = Math.max(dx, mine.x + mine.w + GAP - b.x);
+  }
+  let y = me.position.y;
+  const others = nodes.filter((n) => n.id !== id && !down.has(n.id)).map(boxOf);
+  for (let i = 0; i < 30; i++) {
+    const hit = others.find((b) => overlaps({ ...mine, y }, b));
+    if (!hit) break;
+    y = hit.y + hit.h + GAP / 2;
+  }
+  if (!dx && y === me.position.y) return;
+  useModel.setState({ nodes: nodes.map((n) => (down.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y } } : n.id === id ? { ...n, position: { x: n.position.x, y } } : n)) });
 }

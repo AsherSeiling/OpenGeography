@@ -7,7 +7,7 @@ import { useStore } from "zustand";
 import { addData, runModel, useDialog } from "../actions";
 import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
-import { nodeTypes } from "../nodes/ModelNodes";
+import { connectLayerTo, nodeTypes } from "../nodes/ModelNodes";
 import { NodeMenu } from "../nodes/NodeMenu";
 import { copySelection, cutLinks, deleteSelection, duplicateSelection, invertSelection, makeLinks, paste, selectAll, toggleCollapse, toggleMute } from "../nodes/graphOps";
 import { actionFor, displayCombo, eventCombo, useKeymap, type NodeAction } from "../nodes/keymap";
@@ -122,12 +122,7 @@ function ModelCanvas() {
           .sort((a, b) => a.d - b.d)[0];
         const preferred = nearest && spec?.inputs[nearest.i];
         const port = preferred && !taken.has(preferred.id) ? preferred : spec?.inputs.find((p) => !taken.has(p.id));
-        if (port) {
-          const id = useModel.getState().addNode("input_layer", { x: hit.position.x - 280, y: hit.position.y + 60 }, { layer: payload.id });
-          useModel.getState().connect({ source: id, sourceHandle: "out", target: hit.id, targetHandle: port.id });
-          selectNode(id);
-          return;
-        }
+        if (port && connectLayerTo(hit.id, port.id, payload.id)) return;
       }
       selectNode(useModel.getState().addNode("input_layer", pos, { layer: payload.id }));
     };
@@ -198,6 +193,17 @@ function ModelCanvas() {
         const shown = !!el && el.offsetParent !== null && (el.checkVisibility?.({ checkVisibilityCSS: true } as never) ?? true);
         return shown ? el.getBoundingClientRect() : null;
       },
+      reveal: (id) =>
+        setTimeout(() => {
+          // After React Flow has measured the card: fit the graph if the card is not fully on screen.
+          const n = flow.getInternalNode(id);
+          const r = wrap.current?.getBoundingClientRect();
+          if (!n || !r) return;
+          const { x, y, zoom } = flow.getViewport();
+          const [w, h] = [(n.measured.width ?? 200) * zoom, (n.measured.height ?? 100) * zoom];
+          const [sx, sy] = [n.internals.positionAbsolute.x * zoom + x, n.internals.positionAbsolute.y * zoom + y];
+          if (sx < 0 || sy < 0 || sx + w > r.width || sy + h > r.height) flow.fitView({ padding: 0.2, maxZoom: 1 });
+        }, 100),
       busy: () => !!grab.current,
     });
     return () => registerEditor(null);
