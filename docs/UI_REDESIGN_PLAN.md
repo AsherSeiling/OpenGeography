@@ -32,32 +32,34 @@ It is a wireframe, 824×491, so it fixes layout and character rather than finish
 
 Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]`. `ui/src/theme/fluentTheme.ts` maps them onto Fluent v9 `Theme` objects and dockview's variables, so Fluent controls, dockview and our own CSS read the same values. A vitest fails on a raw hex colour in chrome code; colours that are map or layout *content* (symbol defaults, ramps) are allow-listed.
 
-**Colour**
+**Colour.** Default palette below (panel set "Glacier"). Ribbon, highlight, panels and tool colours can all be changed by the user (§2a).
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--surface-0` | `#D9DBDC` | `#23272A` | Chrome: pane headers, tab row, status bar |
-| `--surface-1` | `#ECEDEE` | `#1A1D1F` | Pane bodies |
-| `--surface-2` | `#FAFAFA` | `#101214` | Fields, node card bodies, table cells |
-| `--canvas` | `#E3E5E6` | `#141618` | Node editor ground (dot grid `--canvas-dot`) |
-| `--canvas-dot` | `#BFC4C7` | `#32383C` | |
-| `--rule` | `#14181A` | `#566067` | Rules between panes, card and menu outlines |
-| `--rule-soft` | `#AEB3B6` | `#3A4146` | Rows, inner dividers |
-| `--text` | `#101416` | `#ECEFF1` | |
-| `--text-2` | `#41484C` | `#AEB7BC` | Secondary text (AA on every surface) |
-| `--band` | `#00C0E8` | `#0A5A70` | Ribbon band, active tab, menu head |
-| `--band-text` | `#06222B` | `#FFFFFF` | Text and icons on the band |
-| `--band-edge` | `#14181A` | `#00C0E8` | Rule under the band |
-| `--band-hover` | `rgba(6,34,43,.14)` | `rgba(255,255,255,.14)` | |
-| `--band-on-bg` / `--band-on-text` | `#06222B` / `#00C0E8` | `#00C0E8` / `#06222B` | Pressed or checked ribbon button |
-| `--sel-bg` / `--sel-text` | `#00C0E8` / `#06222B` | `#0A5A70` / `#FFFFFF` | Selected row |
-| `--hover` | `rgba(16,20,22,.08)` | `rgba(255,255,255,.08)` | |
-| `--link` | `#005A72` | `#5FDCF7` | Links and accent text; cyan itself fails AA as text on light |
-| `--focus` | `#06222B` | `#5FDCF7` | Focus ring: 2 px, 1 px offset |
+| `--surface-0` | `#E3E8EC` | `#262C32` | Chrome: pane headers, tab row, status bar |
+| `--surface-1` | `#F2F5F7` | `#1C2126` | Pane bodies |
+| `--surface-2` | `#FFFFFF` | `#13171B` | Fields, node card bodies, table cells |
+| `--canvas` / `--canvas-dot` | `#EAEEF1` / `#C3CCD3` | `#171B1F` / `#343C43` | Node editor ground and dot grid |
+| `--rule` | `#25323B` | `#5C6973` | Rules between panes, card and menu outlines |
+| `--rule-soft` | `#BCC6CE` | `#3B444C` | Rows, inner dividers |
+| `--text` | `#121A20` | `#EDF1F4` | |
+| `--text-2` | `#46535D` | `#AEB9C2` | Secondary text (AA on every surface) |
+| `--accent` (source value) | `#22CCF5` | `#22CCF5` | User-chosen; the tokens below derive from it |
+| `--band` | accent | accent mixed 50 % with black | Ribbon band, active tab, menu head |
+| `--band-text` | computed | computed | Text and icons on the band |
+| `--band-edge` | `--rule` | accent | Rule under the band |
+| `--band-on-bg` | accent mixed 60 % with white | accent | Pressed or checked ribbon button |
+| `--sel-bg` | `#6FE0FF` | `#6FE0FF` | Highlight: selected rows, selected card ring. Lighter and brighter than the ribbon, at the user's request |
+| `--sel-text` | computed | computed | |
+| `--hover` | `rgba(18,26,32,.08)` | `rgba(255,255,255,.08)` | |
+| `--link` | accent darkened until AA | accent lightened until AA | Links and accent text |
+| `--focus` | `--text` | `--link` | Focus ring: 2 px, 1 px offset |
 | `--error` | `#B3261E` | `#FF8A80` | |
 | `--warn` | `#8A5A00` | `#F2C14E` | |
 | `--ok` | `#1F6B3A` | `#7BD88F` | |
 
-**Tool families** (node card header and menu chip, same in both themes, always with `#06222B` text): Input `#00C0E8`, Vector `#8FD19E`, Raster `#F2C14E`, Hydrology `#9DB8FF`, Tables `#C9B6F2`, Coordinate Systems `#F2A9C4`, Analysis `#F7A072`, Styling `#D6D6A8`. Output and Save to File: `--rule` with white text.
+"Computed" means the first of `#06222B`, white or black that reaches 4.5:1 on that colour.
+
+**Tool families** (node card header and menu chip, same in both themes, user-changeable, text computed): Input `#22CCF5`, Vector `#9ADBB0`, Raster `#F5CF73`, Hydrology `#A9C4FF`, Tables `#D2C3F7`, Coordinate Systems `#F6B8CF`, Analysis `#F9B48C`, Styling `#DDE0A8`. Output and Save to File: `--rule` with white text.
 
 **Type.** Inter (SIL OFL, `@fontsource-variable/inter`, bundled). UI only; layout and map fonts stay as they are. Numbers use `font-variant-numeric: tabular-nums`. Coordinates use the system mono stack.
 | Token | Size / line / weight | Use |
@@ -81,6 +83,19 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 **Motion.** 90 ms for menus, 120 ms for panel changes, ease-out, opacity and small translate only. None under `prefers-reduced-motion`.
 
 **Sockets** are shape-coded, so they do not rely on colour: Vector circle, Raster square, Table diamond, Any ring.
+
+## 2a. Custom colours
+
+View › Appearance › **Colours** opens a floating panel, so changes show live on the real screen.
+- **Theme:** light or dark.
+- **Panels:** three panel sets: Glacier (default), Paper (warm), Wireframe (the reference's greys).
+- **Ribbon colour** and **Highlight colour:** six or seven swatches each, plus any custom colour.
+- **Tool colours:** one picker per family.
+- **Reset to default.**
+
+Readability is enforced, not advised: text and icons on a chosen colour are computed, and accent text is shifted until it reaches AA, so no choice can make a label unreadable. Checked across all panel sets, both themes and 53 test colours including random ones: lowest ratio 4.5:1.
+
+Colours are saved per user (not in the project), because a project opened by someone else should not change their app. Map and layout content never follows these colours.
 
 ## 3. Information architecture
 
@@ -176,14 +191,16 @@ Each is one Sonnet session in its own worktree, one commit, tests as stated. Eac
 | **6 Shell** | Top-left cell, ribbon tabs and commands, search, default layout, conditional bottom panel, remove Geoprocessing pane, layout version | `ribbon/*`, `panes/panes.ts`, `App.tsx`, `actions.ts`, `panes/ToolsPane.tsx` (delete), `theme/ribbon.css`, `theme/dock.css`, `e2e/ribbon-width`, `e2e/map`, `e2e/tool-categories` | Layout matches §1; panel appears and disappears; old projects open with the new layout; ribbon fits at 1024 px | 3, 4 |
 | **7 Panes and map chrome** | Properties, Sources, Items, Attribute Table, map overlays, status bar | `panes/PropertiesPane`, `SourcesPane`, `ItemsPane`, `AttributeTable`, `panes/table/*`, `statusbar/*`, map CSS | No raw hex; all states styled; content unchanged | 1 |
 | **8 Layout and dialogs** | Layout workspace, dialogs, error pop-up | `layout/*`, `dialogs/*` except `Dialogs.tsx`, `errors/*`, `topo/*`, `raster/*`, `crs/*`, `census/*`, `help/*` | No raw chrome hex; page stays white; export pixel tests unchanged | 3 |
-| **9 Verify** | Full walk-through, screenshots, docs | `docs/*`, `e2e/redesign.spec.ts`, `PROJECT_STATUS.md` | See §7 | all |
+| **8b Colours** | `theme/appearance.ts` (derivation, storage, tested contrast), `theme/AppearancePanel.tsx`, `theme/appearance.css` | those files only; WP6 adds the ribbon button | §2a works live in both themes; vitest proves AA for random colours; survives restart; Reset works | 1 |
+| **9 Verify** | Full walk-through, screenshots, docs | `docs/*`, `e2e/redesign.spec.ts`, `PROJECT_STATUS.md` | §7 and the control audit | all |
 
-**Order.** 1 and 2 together. Then 3, 4, 5, 7 together. Then 6 and 8 together. Then 9. No two run at once on the same file; WP1's CSS split is what makes this possible. The lead reviews each diff and the running UI before merging.
+**Order.** 1 and 2 together. Then 3, 4, 5, 7, 8b together. Then 6 and 8 together. Then 9. No two run at once on the same file; WP1's CSS split is what makes this possible. The lead reviews each diff and the running UI before merging.
 
 **Expected test edits.** Tests that name "Model", "Contents", "Geoprocessing", `.addmenu`, `Find Tools` or the Data tab change with the WP that changes the name. A test may change only for a renamed target, never to drop a check.
 
 ## 7. Done when
 
+- **Control audit:** an e2e test clicks every ribbon button on every tab, including contextual tabs, every menu item, the top-left cell and each pane's controls, and fails on any that does nothing or throws. It runs against the real app; anything dead is fixed or logged in `BUGS.md`. The mock-up passed this same kind of sweep, but that proves nothing about the app.
 - Real-UI run on the devserver: Shift+A, search, add three different tools, connect, run, export a layout. Light, dark, narrow window, keyboard only, Layout workspace.
 - `npx vitest run && npx tsc -p tsconfig.json`, `cargo test -p engine` and e2e pass.
 - AA contrast, visible focus, labels on icon-only buttons.

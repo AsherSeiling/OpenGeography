@@ -8,20 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root[data-theme="light"]{
-  --surface-0:#D9DBDC;--surface-1:#ECEDEE;--surface-2:#FAFAFA;--canvas:#E3E5E6;--canvas-dot:#BFC4C7;
-  --rule:#14181A;--rule-soft:#AEB3B6;--text:#101416;--text-2:#41484C;
-  --band:#00C0E8;--band-text:#06222B;--band-edge:#14181A;--band-hover:rgba(6,34,43,.14);--band-on-bg:#06222B;--band-on-text:#00C0E8;
-  --sel-bg:#00C0E8;--sel-text:#06222B;--hover:rgba(16,20,22,.08);--link:#005A72;--focus:#06222B;--error:#B3261E;--warn:#8A5A00;--ok:#1F6B3A;
-}
-:root[data-theme="dark"]{
-  --surface-0:#23272A;--surface-1:#1A1D1F;--surface-2:#101214;--canvas:#141618;--canvas-dot:#32383C;
-  --rule:#566067;--rule-soft:#3A4146;--text:#ECEFF1;--text-2:#AEB7BC;
-  --band:#0A5A70;--band-text:#FFFFFF;--band-edge:#00C0E8;--band-hover:rgba(255,255,255,.14);--band-on-bg:#00C0E8;--band-on-text:#06222B;
-  --sel-bg:#0A5A70;--sel-text:#FFFFFF;--hover:rgba(255,255,255,.08);--link:#5FDCF7;--focus:#5FDCF7;--error:#FF8A80;--warn:#F2C14E;--ok:#7BD88F;
-}
 :root{
-  --fam-Input:#00C0E8;--fam-Vector:#8FD19E;--fam-Raster:#F2C14E;--fam-Hydrology:#9DB8FF;--fam-Tables:#C9B6F2;--fam-Coordinate:#F2A9C4;--fam-Analysis:#F7A072;--fam-Styling:#D6D6A8;
   --ink:#06222B;--r-control:2px;--r-tab:10px 10px 0 0;--r-card:8px 8px 0 0;--e-float:0 8px 24px rgba(0,0,0,.28);
   --left:224px;--right:300px;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
@@ -36,7 +23,7 @@ svg.i{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.5;stroke
 .mockbar{flex:none;height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#000;color:#fff;font-size:11px}
 .mockbar button{border:1px solid #777;padding:1px 8px;color:#fff;border-radius:2px}
 .mockbar button:hover{background:#333}
-.mockbar :focus-visible{outline-color:#00C0E8}
+.mockbar :focus-visible{outline-color:#FFFFFF}
 .mockbar b{font-weight:600;margin-right:6px}
 .app{flex:1;min-height:0;display:grid;grid-template-rows:104px minmax(0,1fr) 24px}
 
@@ -144,7 +131,6 @@ td.num{text-align:right}
 .card{position:absolute;width:196px;background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r-card);text-align:left}
 .card:hover{cursor:default}
 .card.sel{box-shadow:0 0 0 3px var(--band-edge)}
-:root[data-theme="light"] .card.sel{box-shadow:0 0 0 3px #00C0E8}
 .card-h{height:24px;display:flex;align-items:center;gap:6px;padding:0 8px;color:var(--ink);border-radius:7px 7px 0 0;font-weight:600;border-bottom:1px solid var(--rule)}
 .card-h svg{font-size:14px}
 .card-h .sp{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -237,6 +223,60 @@ td.num{text-align:right}
 }
 @media (max-width:1100px){:root{--left:190px;--right:240px}}
 @media (max-width:820px){:root{--right:0px}.col.right{display:none}.search{width:150px}}
+/* v2: menus, dialogs, appearance panel */
+.card-h{color:var(--fam-text,var(--ink))}
+.card.sel{box-shadow:0 0 0 3px var(--sel-bg)!important}
+.card-h{cursor:grab}
+.card .fv{width:100%;font-size:11px}
+.card select.fv,.card input.fv{appearance:auto;padding:0 3px;min-width:0}
+.card input.fv:focus,.card select.fv:focus{outline:2px solid var(--focus);outline-offset:0}
+.card-state{font:500 10.5px/13px Inter,system-ui,sans-serif}
+.rb:disabled,.qat-row button:disabled{opacity:.42}
+.qat-row button:disabled:hover{background:none}
+.lyr{cursor:default}
+.lyr label{display:flex;align-items:center}
+.lyr.off .n{opacity:.55}
+.map svg.m{transition:transform 120ms ease-out;transform-origin:50% 50%}
+.map.grat::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(20,24,26,.28) 1px,transparent 1px),linear-gradient(90deg,rgba(20,24,26,.28) 1px,transparent 1px);background-size:120px 120px}
+.pop{position:fixed;z-index:30;min-width:180px;max-height:min(420px,70vh);overflow:auto;background:var(--surface-2);color:var(--text);border:1px solid var(--rule);box-shadow:var(--e-float);padding:4px 0}
+.pop button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:26px;padding:3px 12px;text-align:left}
+.pop button small{font-size:11px;line-height:14px;color:var(--text-2)}
+.pop button:hover,.pop button:focus-visible,.pop button.on{background:var(--sel-bg);color:var(--sel-text);outline:0}
+.pop button:hover small,.pop button.on small{color:inherit}
+.pop hr{border:0;border-top:1px solid var(--rule-soft);margin:4px 0}
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.28);display:grid;place-items:center}
+.dlg{width:min(440px,calc(100vw - 32px));background:var(--surface-1);border:1px solid var(--rule);border-radius:var(--r-tab);box-shadow:var(--e-float)}
+.dlg h2{margin:0;padding:10px 14px;font:600 16px/22px Inter,system-ui,sans-serif;background:var(--surface-0);border-radius:9px 9px 0 0;border-bottom:1px solid var(--rule-soft)}
+.dlg.err h2{color:var(--error)}
+.dlg p{margin:0;padding:14px;line-height:18px}
+.dlg footer{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--rule-soft)}
+.apr{position:fixed;z-index:20;right:12px;top:112px;width:320px;max-height:calc(100vh - 150px);display:flex;flex-direction:column;background:var(--surface-1);border:1px solid var(--rule);border-radius:var(--r-tab);box-shadow:var(--e-float)}
+.apr-h{display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 12px;height:36px;background:var(--band);color:var(--band-text);border-radius:9px 9px 0 0;font:600 13px/18px Inter,system-ui,sans-serif;flex:none}
+.apr-h :focus-visible{outline-color:var(--band-text)}
+.apr-h .ib:hover{background:var(--band-hover)}
+.apr-b{overflow:auto;padding:10px 12px;display:grid;gap:14px}
+.apr h3{margin:0 0 6px;font:600 12px/16px Inter,system-ui,sans-serif}
+.apr p{margin:4px 0 0;font-size:11px;line-height:14px;color:var(--text-2)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--rule);border-radius:var(--r-control)}
+.seg button{height:26px;font-size:12px}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button:hover{background:var(--hover)}
+.seg button[aria-pressed="true"]{background:var(--sel-bg);color:var(--sel-text);font-weight:600}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.swatch{width:26px;height:26px;border:1px solid var(--rule);border-radius:var(--r-control)}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--surface-1),0 0 0 4px var(--text)}
+.colorin{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-2)}
+input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);border-radius:var(--r-control);background:none}
+.famgrid{display:grid;grid-template-columns:1fr 30px;gap:4px 8px;align-items:center}
+.famgrid label{font-size:12px}
+.apr footer{flex:none;display:flex;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--rule-soft)}
+.searchpop{width:330px}
+.search{position:relative}
+.tree button.flash{background:var(--sel-bg);color:var(--sel-text)}
+.canvas{overflow:auto}
+.canvas>svg{inset:auto;left:0;top:0;width:100%;height:100%}
+.rb.on{box-shadow:inset 0 0 0 1px var(--band-text)}
+.card.out .card-h{background:var(--rule);color:#fff}
 </style>
 </head>
 <body>
@@ -287,78 +327,61 @@ td.num{text-align:right}
 <symbol id="server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7"/><rect x="4" y="13" width="16" height="7"/><path d="M8 7.500v.1M8 16.500v.1"/></symbol>
 <symbol id="building" viewBox="0 0 24 24"><path d="M4 21V8l7-4v17M11 21h9V11l-9-3M7 11v.1M7 15v.1M15 13v.1M15 17v.1"/></symbol>
 <symbol id="warn" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19zM12 10v5M12 17.500v.1"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.500L19 7.5"/></symbol>
 <symbol id="image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14"/><circle cx="9" cy="10" r="1.5"/><path d="m4 17 5-4 3 2 4-4 4.5 4"/></symbol>
 </defs></svg>
 
 <div class="page">
 <div class="mockbar" id="mockbar"><b>Mock-up controls, not part of the app</b>
-  <button id="mThemeBtn">Dark theme</button><button id="mMenuBtn">Hide tool menu</button><button id="mBottomBtn">Close bottom panel</button>
-  <span>Try it: press Shift+A, type "cut" or "merge", use the arrow keys, press Enter.</span></div>
+  <button id="mThemeBtn">Dark theme</button><button id="mColorBtn">Colours</button><button id="mMenuBtn">Hide tool menu</button><button id="mBottomBtn">Close bottom panel</button>
+  <span>Everything responds. Dialogs that already exist in the app stop at a short note. Shift+A adds a tool.</span></div>
 <div class="app">
   <header class="top">
     <div class="qat" role="toolbar" aria-label="Project and quick access">
-      <button class="qat-project" aria-haspopup="menu"><span>Madera County</span><svg class="i" style="font-size:12px"><use href="#chev"/></svg></button>
+      <button class="qat-project" id="qatProject" aria-haspopup="menu"><span id="projName">Madera County</span><svg class="i" style="font-size:12px"><use href="#chev"/></svg></button>
       <div class="qat-row">
-        <button><svg class="i"><use href="#save"/></svg>Save</button>
-        <button><svg class="i"><use href="#undo"/></svg>Undo</button>
-        <button><svg class="i"><use href="#redo"/></svg>Redo</button>
+        <button data-save><svg class="i"><use href="#save"/></svg>Save</button>
+        <button data-undo><svg class="i"><use href="#undo"/></svg>Undo</button>
+        <button data-redo><svg class="i"><use href="#redo"/></svg>Redo</button>
       </div>
     </div>
     <div class="rib">
-      <div class="tabs" role="tablist" aria-label="Ribbon" id="tabs"></div>
+      <div class="tabs" role="tablist" aria-label="Ribbon" id="tabs"><span class="sp"></span><label class="search"><svg class="i"><use href="#search"/></svg><input id="topSearch" aria-label="Search commands and tools" placeholder="Search commands and tools" autocomplete="off"><kbd>Alt+Q</kbd></label></div>
       <div class="band" id="band" role="tabpanel"></div>
     </div>
   </header>
 
-  <main class="work">
-    <div class="col left">
-      <section class="pane layers" aria-label="Map Layers">
-        <div class="pane-h">Map Layers<span class="sp"></span><button class="ib" aria-label="Add data"><svg class="i"><use href="#plain"/></svg></button></div>
+  <main class="work" id="work">
+    <div class="col left" id="colL">
+      <section class="pane layers" id="pLayers" aria-label="Map Layers">
+        <div class="pane-h">Map Layers<span class="sp"></span><button class="ib" id="addLyr" aria-label="Add data"><svg class="i"><use href="#plain"/></svg></button></div>
         <div class="pane-b">
           <div class="crsrow"><svg class="i" style="font-size:16px"><use href="#map"/></svg><div>Map<small>NAD83 / California zone 4 (ftUS)</small></div></div>
-          <button class="lyr sel"><input type="checkbox" checked aria-label="Show Streams (NHD)" tabindex="-1"><span class="sw" style="background:#1F6FB2"></span><span class="n">Streams (NHD)</span><span class="c">1,204</span></button>
-          <button class="lyr"><input type="checkbox" checked aria-label="Show Roads" tabindex="-1"><span class="sw" style="background:#B3532A"></span><span class="n">Roads</span><span class="c">386</span></button>
-          <button class="lyr"><input type="checkbox" checked aria-label="Show Forest boundary" tabindex="-1"><span class="sw" style="background:#DCE8D2"></span><span class="n">Forest boundary</span><span class="c">1</span></button>
-          <button class="lyr"><input type="checkbox" checked aria-label="Show Contours" tabindex="-1"><span class="sw" style="background:#B59F84"></span><span class="n">Contours (40 ft)</span><span class="c">2,718</span></button>
+          <div id="lyrList"></div>
         </div>
       </section>
-      <section class="pane catalog" aria-label="Catalog">
+      <section class="pane catalog" id="pCatalog" aria-label="Catalog">
         <div class="pane-h">Catalog</div>
-        <div class="pane-b tree">
-          <button class="d0 head"><svg class="i chev"><use href="#chev"/></svg><svg class="i"><use href="#book"/></svg>Project</button>
-          <button class="d1"><svg class="i chev"><use href="#chev"/></svg><svg class="i"><use href="#page"/></svg>Layouts</button>
-          <button class="d2"><svg class="i"><use href="#page"/></svg>Fire access map (A3)</button>
-          <button class="d2"><svg class="i"><use href="#page"/></svg>Stream buffers 1:24,000</button>
-          <button class="d1"><svg class="i chev"><use href="#chevr"/></svg><svg class="i"><use href="#doc"/></svg>Project files</button>
-          <button class="d0 head" style="margin-top:6px"><svg class="i chev"><use href="#chev"/></svg><svg class="i"><use href="#globe"/></svg>Public Data</button>
-          <button class="d1"><svg class="i"><use href="#pin"/></svg>Census TIGER/Line</button>
-          <button class="d1"><svg class="i"><use href="#map"/></svg>USGS National Map</button>
-          <button class="d1"><svg class="i"><use href="#mountain"/></svg>Elevation (3DEP)</button>
-          <button class="d1"><svg class="i"><use href="#image"/></svg>Imagery &amp; DEM (STAC)</button>
-          <button class="d1"><svg class="i"><use href="#building"/></svg>Overture Maps</button>
-          <button class="d1"><svg class="i"><use href="#warn"/></svg>Earthquakes &amp; Soils</button>
-          <button class="d1"><svg class="i"><use href="#server"/></svg>ArcGIS Services</button>
-          <button class="d1"><svg class="i"><use href="#server"/></svg>OGC API Features</button>
-        </div>
+        <div class="pane-b tree" id="treeBody"></div>
       </section>
     </div>
 
     <div class="center">
-      <div class="map" aria-label="Map">
+      <div class="map" id="map" aria-label="Map">
         <svg class="m" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sample map: contours, streams and a clipped stream buffer">
 <rect width="900" height="470" fill="#EEF0E8"/>
-<path d="M0 0H300L260 110 330 210 280 340 340 470H0Z" fill="#DCE8D2"/>
-<path d="M300 0L260 110 330 210 280 340 340 470" fill="none" stroke="#6E7F5E" stroke-width="1.6" stroke-dasharray="8 4"/>
-<g fill="none" stroke="#B59F84" stroke-width=".6"><path d="M0 440L6 448L12 456L17 464L23 472"/><path d="M50 472L44 464L38 456L32 448L24 437L16 426L9 416L4 408L0 403"/><path d="M76 472L69 464L62 456L56 448L48 438L40 427L32 416L27 408L22 400L16 391L8 378L2 368L0 365"/><path d="M103 472L94 464L87 456L79 448L72 440L64 430L56 419L48 408L43 400L39 392L32 380L26 368L21 360L16 350L8 336L4 328L0 322"/><path d="M109 0L109 16L107 32L104 48L103 56L98 72L95 80L88 96L85 104L80 113L72 126L65 136L59 144L53 152L47 160L40 168L32 179L25 192L23 200L22 216L24 225L28 240L32 252L36 264L40 277L43 288L48 304L50 312L55 328L57 336L62 352L65 360L72 375L77 384L81 392L88 402L96 412L104 421L112 428L120 435L128 442L137 448L148 456L159 464L168 470L170 472"/><path d="M221 0L221 16L216 24L200 31L192 33L176 36L167 40L155 48L147 56L140 64L134 72L128 82L120 96L116 104L111 112L104 125L98 136L94 144L88 154L81 168L77 176L72 190L69 200L66 216L66 232L67 248L69 264L71 280L72 288L75 304L78 320L80 332L83 344L88 358L92 368L96 376L104 388L112 398L120 407L128 414L136 420L144 426L154 432L167 440L176 445L184 450L193 456L203 464L212 472L212 472"/><path d="M289 0L292 16L293 32L291 48L284 64L279 72L271 80L260 88L248 93L239 96L224 99L208 100L192 101L178 104L168 107L160 112L150 120L142 128L135 136L128 147L121 160L117 168L112 180L108 192L104 208L103 216L102 232L102 248L102 264L103 280L104 296L104 304L106 320L109 336L112 346L118 360L122 368L128 377L136 385L144 393L154 400L168 408L176 412L184 416L199 424L208 429L216 435L224 441L232 448L240 456L248 465L254 472"/><path d="M328 0L331 16L333 32L332 48L329 64L327 72L320 87L314 96L308 104L301 112L291 120L280 127L272 132L262 136L248 141L236 144L224 147L208 150L200 153L184 159L176 164L168 171L160 181L153 192L150 200L146 216L144 227L143 240L142 256L142 272L143 288L144 304L145 312L148 328L152 338L160 351L168 359L176 366L184 371L193 376L208 384L216 388L224 393L235 400L245 408L253 416L261 424L268 432L274 440L280 449L288 461L295 472L295 472"/><path d="M405 0L408 13L410 24L411 40L412 56L411 72L409 88L407 96L403 112L400 120L392 136L388 144L383 152L376 162L368 172L360 181L352 190L344 199L337 208L330 216L324 224L319 232L312 246L309 256L308 272L311 288L313 296L318 312L322 320L328 333L333 344L338 352L344 364L351 376L356 384L361 392L368 403L376 414L384 423L392 432L400 438L408 444L416 448L432 452L448 449L456 445L464 440L472 432L480 423L488 414L496 405L504 397L512 389L520 381L528 375L538 368L552 361L560 358L576 355L592 357L600 361L611 368L619 376L625 384L632 399L635 408L638 424L639 440L639 456L637 472L637 472"/><path d="M461 0L464 12L467 24L471 40L472 48L475 64L478 80L480 93L481 104L482 120L482 136L480 147L476 160L472 168L464 180L456 190L448 198L440 206L432 215L424 224L418 232L413 240L408 250L403 264L402 280L404 296L408 306L416 318L424 325L432 330L448 333L464 329L472 326L483 320L494 312L504 305L512 298L520 291L528 285L536 279L547 272L560 267L576 265L592 269L600 273L611 280L620 288L628 296L635 304L641 312L648 323L654 336L658 344L664 360L666 368L669 384L672 399L673 408L674 424L674 440L674 456L673 472L673 472"/><path d="M549 0L553 8L560 23L564 32L569 40L576 54L582 64L587 72L592 80L600 93L608 104L613 112L618 120L624 128L632 140L640 152L645 160L650 168L656 177L664 192L668 200L672 208L679 224L682 232L687 248L689 256L692 272L695 288L696 296L698 312L700 328L701 344L702 360L703 376L703 392L703 408L703 424L703 440L702 456L702 472L702 472"/><path d="M646 0L650 8L656 20L663 32L667 40L672 49L680 63L685 72L690 80L696 90L704 103L709 112L714 120L720 132L726 144L730 152L736 166L740 176L744 191L746 200L748 216L749 232L749 248L747 264L745 280L744 291L742 304L740 320L737 336L736 346L734 360L733 376L731 392L730 408L729 424L728 440L728 452L728 464L728 472"/><path d="M829 0L834 8L840 19L847 32L852 40L857 48L864 61L870 72L873 80L880 96L883 104L887 120L888 128L889 144L888 156L886 168L880 184L877 192L872 202L864 216L859 224L854 232L848 242L840 255L834 264L829 272L824 281L816 295L811 304L807 312L800 328L797 336L792 349L788 360L784 374L781 384L778 400L776 412L774 424L773 440L772 456L772 472L772 472"/><path d="M904 233L896 241L888 249L880 257L872 265L864 274L856 284L848 295L841 304L836 312L831 320L824 333L818 344L815 352L808 368L805 376L801 392L799 400L796 416L793 432L792 448L792 456L792 472L792 472"/><path d="M904 273L895 280L886 288L878 296L871 304L864 312L856 322L848 334L842 344L837 352L832 363L826 376L823 384L819 400L816 411L814 424L812 440L811 456L811 472L811 472"/><path d="M904 302L896 309L888 316L880 325L872 334L865 344L860 352L855 360L848 374L844 384L840 394L836 408L833 424L831 432L830 448L830 464L830 472"/><path d="M904 358L896 368L891 376L887 384L880 400L878 408L875 424L873 440L873 456L874 472L874 472"/><path d="M904 408L901 424L901 440L902 456L904 469L904 469"/></g>
-<g fill="none" stroke="#8F7A60" stroke-width="1.1"><path d=""/><path d="M57 0L64 10L69 24L72 40L71 56L68 72L64 83L58 96L52 104L45 112L36 120L24 127L16 130L0 129L0 129M133 472L124 464L114 456L105 448L96 440L89 432L82 424L75 416L70 408L64 400L56 386L51 376L47 368L40 352L37 344L32 332L27 320L24 312L16 296L11 288L7 280L0 270L0 270"/><path d="M365 0L368 16L369 24L370 40L369 56L368 64L365 80L360 94L356 104L352 112L344 124L336 134L328 143L320 151L312 157L304 163L296 169L284 176L272 183L264 187L255 192L241 200L232 207L224 214L216 224L212 232L208 248L207 256L208 265L211 280L216 294L221 304L227 312L233 320L240 328L248 336L256 345L264 353L272 363L280 373L288 383L294 392L299 400L305 408L312 420L319 432L324 440L328 448L336 461L343 472L343 472"/><path d="M735 0L739 8L744 17L752 32L756 40L761 48L768 60L775 72L779 80L784 88L792 104L796 112L800 121L806 136L808 144L811 160L813 176L812 192L810 208L808 218L804 232L800 246L796 256L792 268L788 280L784 290L779 304L776 313L771 328L768 339L765 352L761 368L759 376L757 392L754 408L753 424L752 433L751 448L751 464L751 472"/><path d="M904 329L896 337L888 346L880 356L873 368L868 376L864 385L858 400L856 408L852 424L850 440L850 456L850 472L850 472"/></g>
+<g id="ml-forest"><path d="M0 0H300L260 110 330 210 280 340 340 470H0Z" fill="#DCE8D2"/>
+<path d="M300 0L260 110 330 210 280 340 340 470" fill="none" stroke="#6E7F5E" stroke-width="1.6" stroke-dasharray="8 4"/><text x="60" y="70" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#2E3A28">Forest boundary</text></g>
+<g id="ml-contours"><g fill="none" stroke="#B59F84" stroke-width=".6"><path d="M0 440L6 448L12 456L17 464L23 472"/><path d="M50 472L44 464L38 456L32 448L24 437L16 426L9 416L4 408L0 403"/><path d="M76 472L69 464L62 456L56 448L48 438L40 427L32 416L27 408L22 400L16 391L8 378L2 368L0 365"/><path d="M103 472L94 464L87 456L79 448L72 440L64 430L56 419L48 408L43 400L39 392L32 380L26 368L21 360L16 350L8 336L4 328L0 322"/><path d="M109 0L109 16L107 32L104 48L103 56L98 72L95 80L88 96L85 104L80 113L72 126L65 136L59 144L53 152L47 160L40 168L32 179L25 192L23 200L22 216L24 225L28 240L32 252L36 264L40 277L43 288L48 304L50 312L55 328L57 336L62 352L65 360L72 375L77 384L81 392L88 402L96 412L104 421L112 428L120 435L128 442L137 448L148 456L159 464L168 470L170 472"/><path d="M221 0L221 16L216 24L200 31L192 33L176 36L167 40L155 48L147 56L140 64L134 72L128 82L120 96L116 104L111 112L104 125L98 136L94 144L88 154L81 168L77 176L72 190L69 200L66 216L66 232L67 248L69 264L71 280L72 288L75 304L78 320L80 332L83 344L88 358L92 368L96 376L104 388L112 398L120 407L128 414L136 420L144 426L154 432L167 440L176 445L184 450L193 456L203 464L212 472L212 472"/><path d="M289 0L292 16L293 32L291 48L284 64L279 72L271 80L260 88L248 93L239 96L224 99L208 100L192 101L178 104L168 107L160 112L150 120L142 128L135 136L128 147L121 160L117 168L112 180L108 192L104 208L103 216L102 232L102 248L102 264L103 280L104 296L104 304L106 320L109 336L112 346L118 360L122 368L128 377L136 385L144 393L154 400L168 408L176 412L184 416L199 424L208 429L216 435L224 441L232 448L240 456L248 465L254 472"/><path d="M328 0L331 16L333 32L332 48L329 64L327 72L320 87L314 96L308 104L301 112L291 120L280 127L272 132L262 136L248 141L236 144L224 147L208 150L200 153L184 159L176 164L168 171L160 181L153 192L150 200L146 216L144 227L143 240L142 256L142 272L143 288L144 304L145 312L148 328L152 338L160 351L168 359L176 366L184 371L193 376L208 384L216 388L224 393L235 400L245 408L253 416L261 424L268 432L274 440L280 449L288 461L295 472L295 472"/><path d="M405 0L408 13L410 24L411 40L412 56L411 72L409 88L407 96L403 112L400 120L392 136L388 144L383 152L376 162L368 172L360 181L352 190L344 199L337 208L330 216L324 224L319 232L312 246L309 256L308 272L311 288L313 296L318 312L322 320L328 333L333 344L338 352L344 364L351 376L356 384L361 392L368 403L376 414L384 423L392 432L400 438L408 444L416 448L432 452L448 449L456 445L464 440L472 432L480 423L488 414L496 405L504 397L512 389L520 381L528 375L538 368L552 361L560 358L576 355L592 357L600 361L611 368L619 376L625 384L632 399L635 408L638 424L639 440L639 456L637 472L637 472"/><path d="M461 0L464 12L467 24L471 40L472 48L475 64L478 80L480 93L481 104L482 120L482 136L480 147L476 160L472 168L464 180L456 190L448 198L440 206L432 215L424 224L418 232L413 240L408 250L403 264L402 280L404 296L408 306L416 318L424 325L432 330L448 333L464 329L472 326L483 320L494 312L504 305L512 298L520 291L528 285L536 279L547 272L560 267L576 265L592 269L600 273L611 280L620 288L628 296L635 304L641 312L648 323L654 336L658 344L664 360L666 368L669 384L672 399L673 408L674 424L674 440L674 456L673 472L673 472"/><path d="M549 0L553 8L560 23L564 32L569 40L576 54L582 64L587 72L592 80L600 93L608 104L613 112L618 120L624 128L632 140L640 152L645 160L650 168L656 177L664 192L668 200L672 208L679 224L682 232L687 248L689 256L692 272L695 288L696 296L698 312L700 328L701 344L702 360L703 376L703 392L703 408L703 424L703 440L702 456L702 472L702 472"/><path d="M646 0L650 8L656 20L663 32L667 40L672 49L680 63L685 72L690 80L696 90L704 103L709 112L714 120L720 132L726 144L730 152L736 166L740 176L744 191L746 200L748 216L749 232L749 248L747 264L745 280L744 291L742 304L740 320L737 336L736 346L734 360L733 376L731 392L730 408L729 424L728 440L728 452L728 464L728 472"/><path d="M829 0L834 8L840 19L847 32L852 40L857 48L864 61L870 72L873 80L880 96L883 104L887 120L888 128L889 144L888 156L886 168L880 184L877 192L872 202L864 216L859 224L854 232L848 242L840 255L834 264L829 272L824 281L816 295L811 304L807 312L800 328L797 336L792 349L788 360L784 374L781 384L778 400L776 412L774 424L773 440L772 456L772 472L772 472"/><path d="M904 233L896 241L888 249L880 257L872 265L864 274L856 284L848 295L841 304L836 312L831 320L824 333L818 344L815 352L808 368L805 376L801 392L799 400L796 416L793 432L792 448L792 456L792 472L792 472"/><path d="M904 273L895 280L886 288L878 296L871 304L864 312L856 322L848 334L842 344L837 352L832 363L826 376L823 384L819 400L816 411L814 424L812 440L811 456L811 472L811 472"/><path d="M904 302L896 309L888 316L880 325L872 334L865 344L860 352L855 360L848 374L844 384L840 394L836 408L833 424L831 432L830 448L830 464L830 472"/><path d="M904 358L896 368L891 376L887 384L880 400L878 408L875 424L873 440L873 456L874 472L874 472"/><path d="M904 408L901 424L901 440L902 456L904 469L904 469"/></g>
+<g fill="none" stroke="#8F7A60" stroke-width="1.1"><path d=""/><path d="M57 0L64 10L69 24L72 40L71 56L68 72L64 83L58 96L52 104L45 112L36 120L24 127L16 130L0 129L0 129M133 472L124 464L114 456L105 448L96 440L89 432L82 424L75 416L70 408L64 400L56 386L51 376L47 368L40 352L37 344L32 332L27 320L24 312L16 296L11 288L7 280L0 270L0 270"/><path d="M365 0L368 16L369 24L370 40L369 56L368 64L365 80L360 94L356 104L352 112L344 124L336 134L328 143L320 151L312 157L304 163L296 169L284 176L272 183L264 187L255 192L241 200L232 207L224 214L216 224L212 232L208 248L207 256L208 265L211 280L216 294L221 304L227 312L233 320L240 328L248 336L256 345L264 353L272 363L280 373L288 383L294 392L299 400L305 408L312 420L319 432L324 440L328 448L336 461L343 472L343 472"/><path d="M735 0L739 8L744 17L752 32L756 40L761 48L768 60L775 72L779 80L784 88L792 104L796 112L800 121L806 136L808 144L811 160L813 176L812 192L810 208L808 218L804 232L800 246L796 256L792 268L788 280L784 290L779 304L776 313L771 328L768 339L765 352L761 368L759 376L757 392L754 408L753 424L752 433L751 448L751 464L751 472"/><path d="M904 329L896 337L888 346L880 356L873 368L868 376L864 385L858 400L856 408L852 424L850 440L850 456L850 472L850 472"/></g></g>
 <clipPath id="fb"><path d="M300 0H900V470H340L280 340 330 210 260 110Z"/></clipPath>
-<path d="M860 40L853 46L845 49L838 55L829 52L821 55L816 62L807 62L800 68L796 76L789 82L782 88L773 88L769 95L760 95L751 95L742 98L735 104L728 110L722 116L715 122L708 127L699 127L690 127L683 133L676 139L667 142L659 145L652 151L644 154L637 160L630 166L628 174L627 183L622 191L614 194L605 197L596 197L592 205L583 208L575 211L566 214L560 220L561 229L557 237L561 244L554 250L550 258L551 267L547 275L551 283L556 290L557 299L559 308L560 317L562 326L564 335L565 343L564 352L565 361L570 369L571 378L573 387L571 396L570 404L571 413L570 422L568 431L567 440L568 449L570 458L577 452M780 200L771 200L763 203L754 203L745 203L736 203L729 209L722 215L713 215L708 222L700 226L691 226L684 231L675 234L666 234L657 234L653 242L646 248L642 256L635 262L633 270L629 278L622 284L615 290L606 293L602 301L597 308L596 317L597 326L596 335L594 344L593 353L594 362L587 367L586 376L581 384L580 393L578 402L577 411L575 420L573 428L569 436L576 442L571 450L563 453L570 459M840 400L832 397L823 394L816 388L809 382L801 379L792 376L783 376L775 373L766 373L757 373L748 370L739 370L731 367L723 364L714 364L705 364L696 367L688 370L679 373L670 373L662 376L653 376L646 382L637 382L628 385L619 385L611 388L604 394L602 403L596 408L591 416L587 424L578 427L574 435L578 443M640 70L631 70L623 73L616 79L609 85L604 92L597 98L590 104L581 104L577 112L570 118L562 121L555 126L548 132L539 132L530 135L523 141L515 144L506 144L499 150L491 147L482 147L473 147L466 141L457 138L450 132L442 135L435 130L431 122L422 119L414 116L405 113L397 109L388 109L379 109L370 109L361 106L354 101L346 97L337 94L331 89L322 86L315 80L308 74L300 71L293 65L285 62L276 59L269 53L260 53L252 50L247 42L239 39L234 31L225 31L221 24L216 16L209 10L201 7L194 1L187 -5L179 -8L170 -5L163 -10" clip-path="url(#fb)" fill="none" stroke="#00C0E8" stroke-opacity=".42" stroke-width="22" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M860 40L853 46L845 49L838 55L829 52L821 55L816 62L807 62L800 68L796 76L789 82L782 88L773 88L769 95L760 95L751 95L742 98L735 104L728 110L722 116L715 122L708 127L699 127L690 127L683 133L676 139L667 142L659 145L652 151L644 154L637 160L630 166L628 174L627 183L622 191L614 194L605 197L596 197L592 205L583 208L575 211L566 214L560 220L561 229L557 237L561 244L554 250L550 258L551 267L547 275L551 283L556 290L557 299L559 308L560 317L562 326L564 335L565 343L564 352L565 361L570 369L571 378L573 387L571 396L570 404L571 413L570 422L568 431L567 440L568 449L570 458L577 452M780 200L771 200L763 203L754 203L745 203L736 203L729 209L722 215L713 215L708 222L700 226L691 226L684 231L675 234L666 234L657 234L653 242L646 248L642 256L635 262L633 270L629 278L622 284L615 290L606 293L602 301L597 308L596 317L597 326L596 335L594 344L593 353L594 362L587 367L586 376L581 384L580 393L578 402L577 411L575 420L573 428L569 436L576 442L571 450L563 453L570 459M840 400L832 397L823 394L816 388L809 382L801 379L792 376L783 376L775 373L766 373L757 373L748 370L739 370L731 367L723 364L714 364L705 364L696 367L688 370L679 373L670 373L662 376L653 376L646 382L637 382L628 385L619 385L611 388L604 394L602 403L596 408L591 416L587 424L578 427L574 435L578 443M640 70L631 70L623 73L616 79L609 85L604 92L597 98L590 104L581 104L577 112L570 118L562 121L555 126L548 132L539 132L530 135L523 141L515 144L506 144L499 150L491 147L482 147L473 147L466 141L457 138L450 132L442 135L435 130L431 122L422 119L414 116L405 113L397 109L388 109L379 109L370 109L361 106L354 101L346 97L337 94L331 89L322 86L315 80L308 74L300 71L293 65L285 62L276 59L269 53L260 53L252 50L247 42L239 39L234 31L225 31L221 24L216 16L209 10L201 7L194 1L187 -5L179 -8L170 -5L163 -10M610 320L608 329L604 337L599 344L595 352L593 361L589 369L587 378L589 387L584 394L583 403L581 412L580 421L578 430L569 430M500 190L491 190L486 182L480 176L478 168L470 164L461 161L457 154L448 151L440 154L433 148L426 142L417 139L411 133L402 133L393 130L385 127L378 121L373 113L365 110L358 105L349 101L343 96L334 93L326 90L317 86L310 81L302 78L293 75L286 69L280 63L271 63L262 60L254 57L249 49L242 43L235 37L231 30L224 24L217 18L216 9L209 3L200 0L196 -7L187 -4L179 -1L170 2L162 -1L153 2L145 -1L136 -4L127 -4L118 -4L110 -7L102 -4L95 1L86 1L77 1L68 5L61 10L54 16L50 24L43 30L35 33L28 39L26 47L22 55L23 64M440 40L432 43L423 43L414 40L406 37L397 40L389 37L380 37L371 37L362 34L353 34L345 37L336 37L327 40L319 43L310 43L301 40L293 37L284 37L275 37L268 31L259 31L250 31L243 25L235 22L226 22L221 14L213 18L208 10L200 7L191 4L183 1L178 -7L170 -10M690 440L681 440L673 437L664 440L656 437L647 434L638 434L629 434L621 431L612 428L604 431L595 434L586 434L578 437L573 445L569 453L573 460L578 453M380 330L373 336L365 339L358 345L351 350L344 356L336 359L327 359L318 362L310 365L303 371L296 377L287 380L279 383L272 389L264 392L257 398L250 404L243 409L236 415L231 423L230 432L225 440L219 445L212 451L207 459L203 467L198 475L194 482" fill="none" stroke="#1F6FB2" stroke-width="1.5" stroke-linejoin="round"/>
-<path d="M0 395C150 370 250 300 420 300S700 210 900 170" fill="none" stroke="#FFFFFF" stroke-width="4"/><path d="M0 395C150 370 250 300 420 300S700 210 900 170" fill="none" stroke="#B3532A" stroke-width="1.6"/>
-<g font-family="Inter,system-ui,sans-serif" font-size="11" fill="#2E3A28"><text x="60" y="70" font-weight="600">Forest boundary</text><text x="470" y="292" fill="#7A3A1C">County Road 415</text></g>
+<path id="ml-buffer" d="M860 40L853 46L845 49L838 55L829 52L821 55L816 62L807 62L800 68L796 76L789 82L782 88L773 88L769 95L760 95L751 95L742 98L735 104L728 110L722 116L715 122L708 127L699 127L690 127L683 133L676 139L667 142L659 145L652 151L644 154L637 160L630 166L628 174L627 183L622 191L614 194L605 197L596 197L592 205L583 208L575 211L566 214L560 220L561 229L557 237L561 244L554 250L550 258L551 267L547 275L551 283L556 290L557 299L559 308L560 317L562 326L564 335L565 343L564 352L565 361L570 369L571 378L573 387L571 396L570 404L571 413L570 422L568 431L567 440L568 449L570 458L577 452M780 200L771 200L763 203L754 203L745 203L736 203L729 209L722 215L713 215L708 222L700 226L691 226L684 231L675 234L666 234L657 234L653 242L646 248L642 256L635 262L633 270L629 278L622 284L615 290L606 293L602 301L597 308L596 317L597 326L596 335L594 344L593 353L594 362L587 367L586 376L581 384L580 393L578 402L577 411L575 420L573 428L569 436L576 442L571 450L563 453L570 459M840 400L832 397L823 394L816 388L809 382L801 379L792 376L783 376L775 373L766 373L757 373L748 370L739 370L731 367L723 364L714 364L705 364L696 367L688 370L679 373L670 373L662 376L653 376L646 382L637 382L628 385L619 385L611 388L604 394L602 403L596 408L591 416L587 424L578 427L574 435L578 443M640 70L631 70L623 73L616 79L609 85L604 92L597 98L590 104L581 104L577 112L570 118L562 121L555 126L548 132L539 132L530 135L523 141L515 144L506 144L499 150L491 147L482 147L473 147L466 141L457 138L450 132L442 135L435 130L431 122L422 119L414 116L405 113L397 109L388 109L379 109L370 109L361 106L354 101L346 97L337 94L331 89L322 86L315 80L308 74L300 71L293 65L285 62L276 59L269 53L260 53L252 50L247 42L239 39L234 31L225 31L221 24L216 16L209 10L201 7L194 1L187 -5L179 -8L170 -5L163 -10" clip-path="url(#fb)" fill="none" stroke="#22CCF5" stroke-opacity=".42" stroke-width="22" stroke-linejoin="round" stroke-linecap="round"/>
+<path id="ml-streams" d="M860 40L853 46L845 49L838 55L829 52L821 55L816 62L807 62L800 68L796 76L789 82L782 88L773 88L769 95L760 95L751 95L742 98L735 104L728 110L722 116L715 122L708 127L699 127L690 127L683 133L676 139L667 142L659 145L652 151L644 154L637 160L630 166L628 174L627 183L622 191L614 194L605 197L596 197L592 205L583 208L575 211L566 214L560 220L561 229L557 237L561 244L554 250L550 258L551 267L547 275L551 283L556 290L557 299L559 308L560 317L562 326L564 335L565 343L564 352L565 361L570 369L571 378L573 387L571 396L570 404L571 413L570 422L568 431L567 440L568 449L570 458L577 452M780 200L771 200L763 203L754 203L745 203L736 203L729 209L722 215L713 215L708 222L700 226L691 226L684 231L675 234L666 234L657 234L653 242L646 248L642 256L635 262L633 270L629 278L622 284L615 290L606 293L602 301L597 308L596 317L597 326L596 335L594 344L593 353L594 362L587 367L586 376L581 384L580 393L578 402L577 411L575 420L573 428L569 436L576 442L571 450L563 453L570 459M840 400L832 397L823 394L816 388L809 382L801 379L792 376L783 376L775 373L766 373L757 373L748 370L739 370L731 367L723 364L714 364L705 364L696 367L688 370L679 373L670 373L662 376L653 376L646 382L637 382L628 385L619 385L611 388L604 394L602 403L596 408L591 416L587 424L578 427L574 435L578 443M640 70L631 70L623 73L616 79L609 85L604 92L597 98L590 104L581 104L577 112L570 118L562 121L555 126L548 132L539 132L530 135L523 141L515 144L506 144L499 150L491 147L482 147L473 147L466 141L457 138L450 132L442 135L435 130L431 122L422 119L414 116L405 113L397 109L388 109L379 109L370 109L361 106L354 101L346 97L337 94L331 89L322 86L315 80L308 74L300 71L293 65L285 62L276 59L269 53L260 53L252 50L247 42L239 39L234 31L225 31L221 24L216 16L209 10L201 7L194 1L187 -5L179 -8L170 -5L163 -10M610 320L608 329L604 337L599 344L595 352L593 361L589 369L587 378L589 387L584 394L583 403L581 412L580 421L578 430L569 430M500 190L491 190L486 182L480 176L478 168L470 164L461 161L457 154L448 151L440 154L433 148L426 142L417 139L411 133L402 133L393 130L385 127L378 121L373 113L365 110L358 105L349 101L343 96L334 93L326 90L317 86L310 81L302 78L293 75L286 69L280 63L271 63L262 60L254 57L249 49L242 43L235 37L231 30L224 24L217 18L216 9L209 3L200 0L196 -7L187 -4L179 -1L170 2L162 -1L153 2L145 -1L136 -4L127 -4L118 -4L110 -7L102 -4L95 1L86 1L77 1L68 5L61 10L54 16L50 24L43 30L35 33L28 39L26 47L22 55L23 64M440 40L432 43L423 43L414 40L406 37L397 40L389 37L380 37L371 37L362 34L353 34L345 37L336 37L327 40L319 43L310 43L301 40L293 37L284 37L275 37L268 31L259 31L250 31L243 25L235 22L226 22L221 14L213 18L208 10L200 7L191 4L183 1L178 -7L170 -10M690 440L681 440L673 437L664 440L656 437L647 434L638 434L629 434L621 431L612 428L604 431L595 434L586 434L578 437L573 445L569 453L573 460L578 453M380 330L373 336L365 339L358 345L351 350L344 356L336 359L327 359L318 362L310 365L303 371L296 377L287 380L279 383L272 389L264 392L257 398L250 404L243 409L236 415L231 423L230 432L225 440L219 445L212 451L207 459L203 467L198 475L194 482" fill="none" stroke="#1F6FB2" stroke-width="1.5" stroke-linejoin="round"/>
+<g id="ml-roads"><path d="M0 395C150 370 250 300 420 300S700 210 900 170" fill="none" stroke="#FFFFFF" stroke-width="4"/><path d="M0 395C150 370 250 300 420 300S700 210 900 170" fill="none" stroke="#B3532A" stroke-width="1.6"/>
+<text x="470" y="292" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#7A3A1C">County Road 415</text></g>
 </svg>
 
-        <div class="mapctl"><button aria-label="Zoom in"><svg class="i"><use href="#plain"/></svg></button><button aria-label="Zoom out"><svg class="i"><path d="M5 12h14"/></svg></button><button aria-label="Zoom to full extent"><svg class="i"><use href="#extent"/></svg></button></div>
+        <div class="mapctl"><button id="zIn" aria-label="Zoom in"><svg class="i"><use href="#plain"/></svg></button><button id="zOut" aria-label="Zoom out"><svg class="i"><path d="M5 12h14"/></svg></button><button id="zFull" aria-label="Zoom to full extent"><svg class="i"><use href="#extent"/></svg></button></div>
         <div class="scale">2 mi<i></i></div>
       </div>
       <section class="bottom" id="bottom" aria-label="Node Editor and Attribute Table">
@@ -367,11 +390,11 @@ td.num{text-align:right}
           <button class="btab" role="tab" aria-selected="false" id="bt-table">Attribute Table<span class="x" aria-hidden="true"><svg class="i"><use href="#x"/></svg></span></button>
         </div>
         <div id="nodesView" style="display:flex;flex-direction:column;flex:1;min-height:0">
-          <div class="nbar"><span>Node tree: <b style="font-weight:600">Streams (NHD)</b></span>
-            <button class="btn pri"><svg class="i"><use href="#play"/></svg>Run</button>
+          <div class="nbar"><span>Node tree: <b style="font-weight:600" id="treeName">Streams (NHD)</b></span>
+            <button class="btn pri" id="runBtn"><svg class="i"><use href="#play"/></svg>Run</button>
             <button class="btn" id="addBtn"><svg class="i"><use href="#plain"/></svg>Add tool<span style="color:var(--text-2);font-size:10.5px">Shift+A</span></button>
             <span class="sp"></span>
-            <button class="ib" aria-label="Undo"><svg class="i"><use href="#undo"/></svg></button><button class="ib" aria-label="Redo"><svg class="i"><use href="#redo"/></svg></button></div>
+            <button class="ib" data-undo aria-label="Undo"><svg class="i"><use href="#undo"/></svg></button><button class="ib" data-redo aria-label="Redo"><svg class="i"><use href="#redo"/></svg></button></div>
           <div class="canvas" id="canvas"><svg id="wires" aria-hidden="true"></svg></div>
         </div>
         <div id="tableView" class="tablewrap" style="display:none">
@@ -385,27 +408,22 @@ td.num{text-align:right}
       </section>
     </div>
 
-    <div class="col right">
-      <section class="pane properties" aria-label="Properties">
+    <div class="col right" id="colR">
+      <section class="pane properties" id="pProps" aria-label="Properties">
         <div class="pane-h">Properties</div>
-        <div class="pane-b props">
-          <h3><svg class="i"><use href="#buffer"/></svg>Buffer</h3>
-          <p>Makes a zone at a set distance around each feature.</p>
-          <div class="sect"><h4>Input</h4><div class="kv"><span>Layer</span><span>Streams (NHD)</span><span>Geometry</span><span>Line · 1,204 features</span><span>CRS</span><span>NAD83 / California zone 4 (ftUS)</span></div></div>
-          <div class="sect"><h4>Result</h4><div class="kv"><span>CRS</span><span>Same as input</span><span>Distance</span><span>Geodesic</span><span>Status</span><span style="color:var(--ok)">Up to date · 1,204 features</span></div></div>
-        </div>
+        <div class="pane-b props" id="propBody"></div>
       </section>
-      <section class="pane sources" aria-label="Sources">
+      <section class="pane sources" id="pSources" aria-label="Sources">
         <div class="pane-h">Sources</div>
-        <div class="pane-b src"><p><b>National Hydrography Dataset</b>U.S. Geological Survey</p><p><b>TIGER/Line Roads</b>U.S. Census Bureau</p></div>
+        <div class="pane-b src" id="srcBody"></div>
       </section>
     </div>
   </main>
 
   <footer class="status">
-    <input value="1:48,000" aria-label="Map scale"><span>Ready</span><span class="sp"></span>
-    <span class="mono">6,412,880.2 E  2,104,551.7 N ftUS</span>
-    <a href="#" onclick="return false">NAD83 / California zone 4 (ftUS)</a>
+    <input id="scaleBox" value="1:48,000" aria-label="Map scale"><span id="statusText" aria-live="polite">Ready</span><span class="sp"></span>
+    <span class="mono" id="ptr">6,412,880.2 E  2,104,551.7 N ftUS</span>
+    <a href="#" id="crsLink">NAD83 / California zone 4 (ftUS)</a>
   </footer>
 </div>
 </div>
@@ -422,9 +440,22 @@ td.num{text-align:right}
   <div class="m-foot"><span><kbd>↑↓</kbd>move</span><span><kbd>←→</kbd>category</span><span><kbd>Enter</kbd>add</span><span><kbd>⌘D</kbd>favourite</span><span><kbd>Esc</kbd>close</span></div>
 </div>
 
+<div class="apr" id="apr" role="dialog" aria-label="Colours" style="display:none">
+  <div class="apr-h">Colours<button class="ib" id="aprClose" aria-label="Close colours"><svg class="i"><use href="#x"/></svg></button></div>
+  <div class="apr-b" id="aprBody"></div>
+  <footer><button class="btn" id="aprReset">Reset to default</button></footer>
+</div>
+
 <script>
 const TOOLS=[{"id":"input_layer","name":"Layer","category":"Data","role":"data","description":"Use a layer from the Contents pane as input.","inputs":[],"output":"table","nparams":2,"keywords":[]},{"id":"filter","name":"Definition Query","category":"Vector › Select and Clean","role":"tool","description":"Keep only features matching a query (build it point-and-click, in Python, or SQL).","inputs":[{"id":"in","kind":"table","label":"Input"}],"output":"table","nparams":1,"keywords":["where","sql","subset","attribute filter","query"]},{"id":"buffer","name":"Buffer","category":"Vector › Proximity","role":"tool","description":"Polygons around features at a distance. Geodesic: each feature is buffered in its own azimuthal equidistant projection, so the distance is true on the ellipsoid anywhere (like ArcGIS's geodesic buffer).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":5,"keywords":["zone","offset","radius","distance around","halo","setback"]},{"id":"clip","name":"Clip","category":"Vector › Overlay","role":"tool","description":"Cut input features to the area of the clip polygons. Keeps input attributes only.","inputs":[{"id":"in","kind":"vector","label":"Input"},{"id":"clip","kind":"vector","label":"Clip features"}],"output":"vector","nparams":0,"keywords":["cut","trim","crop","cookie cutter","extract by area"]},{"id":"intersect","name":"Intersect","category":"Vector › Overlay","role":"tool","description":"Geometric intersection of two layers. Output keeps attributes from both.","inputs":[{"id":"a","kind":"vector","label":"Input"},{"id":"b","kind":"vector","label":"Intersect features"}],"output":"vector","nparams":0,"keywords":["overlap","common area","and","overlay"]},{"id":"dissolve","name":"Dissolve","category":"Vector › Generalize","role":"tool","description":"Merge features, optionally grouped by a field. Adds a COUNT field.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":1,"keywords":["combine","aggregate","merge polygons","group boundaries","remove boundaries"]},{"id":"project","name":"Project","category":"Coordinate Systems","role":"tool","description":"Reproject features to another coordinate system.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":1,"keywords":["reproject","transform","change crs","convert coordinates","change projection"]},{"id":"spatial_join","name":"Spatial Join","category":"Vector › Overlay","role":"tool","description":"Attach attributes of join features to target features based on location.","inputs":[{"id":"target","kind":"vector","label":"Target features"},{"id":"join","kind":"vector","label":"Join features"}],"output":"vector","nparams":2,"keywords":["join by location","attach attributes by location","points in polygons"]},{"id":"attribute_join","name":"Join Field","category":"Tables","role":"tool","description":"Join a table to features on matching key fields (e.g. GEOID).","inputs":[{"id":"target","kind":"table","label":"Input"},{"id":"join","kind":"table","label":"Join table"}],"output":"table","nparams":3,"keywords":["join table","vlookup","link table","relate","add columns from table"]},{"id":"calculate_field","name":"Calculate Field","category":"Tables","role":"tool","description":"Add or update a field from an expression.","inputs":[{"id":"in","kind":"table","label":"Input"}],"output":"table","nparams":2,"keywords":["formula","expression","compute column","field calculator","new column"]},{"id":"calculate_geometry","name":"Calculate Geometry","category":"Tables","role":"tool","description":"Add geodesic area, length or perimeter, or centroid coordinates, as a field.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":4,"keywords":["area","length","perimeter","centroid coordinates","measure features"]},{"id":"erase","name":"Erase","category":"Vector › Overlay","role":"tool","description":"Remove the parts of input features that fall inside the erase polygons.","inputs":[{"id":"in","kind":"vector","label":"Input"},{"id":"erase","kind":"vector","label":"Erase features"}],"output":"vector","nparams":0,"keywords":["cut out","subtract","remove area","difference","punch hole"]},{"id":"union","name":"Union","category":"Vector › Overlay","role":"tool","description":"Overlay two layers, keeping every part of both: where they overlap (attributes from both) and where only one covers (the other's fields are empty). QGIS: Union, native:union.","inputs":[{"id":"a","kind":"vector","label":"Input"},{"id":"b","kind":"vector","label":"Overlay features"}],"output":"vector","nparams":0,"keywords":["merge","combine","overlay all","add together","or"]},{"id":"symmetrical_difference","name":"Symmetrical Difference","category":"Vector › Overlay","role":"tool","description":"The parts of either layer that the other does not cover (the overlap is dropped). QGIS: Symmetrical difference, native:symmetricaldifference.","inputs":[{"id":"a","kind":"vector","label":"Input"},{"id":"b","kind":"vector","label":"Overlay features"}],"output":"vector","nparams":0,"keywords":["xor","not overlapping","exclusive or","non-overlap"]},{"id":"collect","name":"Singlepart To Multipart","category":"Vector › Geometry","role":"tool","description":"Combine features into multipart features, optionally one per value of a field. Unlike Dissolve, shapes are not merged. Adds a COUNT field (QGIS: Collect geometries, native:collect).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":1,"keywords":["group parts","combine parts","make multipart"]},{"id":"delaunay","name":"Delaunay Triangulation","category":"Vector › Geometry","role":"tool","description":"Triangles joining the vertices of all input features so no vertex lies inside another triangle's circumcircle (QGIS: Delaunay triangulation, native:delaunaytriangulation). Triangulated in the layer's coordinates, so use a projected CRS for well-shaped triangles.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["tin","triangles","triangulate","triangle mesh"]},{"id":"merge","name":"Merge","category":"Vector › Select and Clean","role":"tool","description":"Combine the rows of two layers into one. Fields are matched by name; missing values are left empty.","inputs":[{"id":"a","kind":"table","label":"Input"},{"id":"b","kind":"table","label":"Merge with"}],"output":"table","nparams":1,"keywords":["append","combine","stack","concatenate","put together"]},{"id":"select_by_location","name":"Select by Location","category":"Vector › Select and Clean","role":"tool","description":"Keep input features based on where they are relative to another layer (shapes are not cut).","inputs":[{"id":"in","kind":"vector","label":"Input"},{"id":"by","kind":"vector","label":"Selecting features"}],"output":"vector","nparams":4,"keywords":["within","touching","near selection","spatial filter","inside"]},{"id":"feature_to_point","name":"Feature To Point","category":"Vector › Geometry","role":"tool","description":"One point per feature: its centroid, or a point guaranteed to be inside the shape.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":1,"keywords":["centroid","center point","middle point","label point"]},{"id":"bounding_geometry","name":"Minimum Bounding Geometry","category":"Vector › Geometry","role":"tool","description":"Convex hull, concave hull or bounding rectangle around each feature, each group, or everything.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":4,"keywords":["bounding box","envelope","convex hull","extent polygon","outline"]},{"id":"simplify","name":"Simplify","category":"Vector › Generalize","role":"tool","description":"Remove small bends from lines and polygon outlines. Tolerance is a real ground distance.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":3,"keywords":["generalize","reduce vertices","smooth","fewer points","thin"]},{"id":"explode","name":"Multipart To Singlepart","category":"Vector › Geometry","role":"tool","description":"Split multipart features (e.g. a county with islands) into one feature per part.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["split parts","break apart","ungroup parts","separate parts"]},{"id":"repair","name":"Repair Geometry","category":"Vector › Select and Clean","role":"tool","description":"Fix invalid shapes (self-crossing polygons, etc.) and drop empty ones.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["fix","invalid","clean","make valid","self-intersection"]},{"id":"symbology","name":"Symbology and Labels","category":"Styling","role":"tool","description":"Set how the layer is drawn: colours, line width and labels (e.g. index contours coloured and labelled with their elevation). The data is not changed.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":16,"keywords":["style","colour","color","labels","legend","draw"]},{"id":"summarize_within","name":"Summarize Within","category":"Analysis › Summaries","role":"tool","description":"For each polygon, count the features inside it and optionally sum/average one of their fields.","inputs":[{"id":"polys","kind":"vector","label":"Polygons"},{"id":"items","kind":"vector","label":"Features to summarize"}],"output":"vector","nparams":2,"keywords":["count points","points in polygon","sum by area","tally"]},{"id":"near","name":"Near","category":"Vector › Proximity","role":"tool","description":"Geodesic distance from each input feature to the closest near feature (NEAR_DIST), plus that feature's row (NEAR_ROW) (QGIS: Distance to nearest hub).","inputs":[{"id":"in","kind":"vector","label":"Input"},{"id":"near","kind":"vector","label":"Near features"}],"output":"vector","nparams":2,"keywords":["closest","nearest","distance to","proximity","how far"]},{"id":"fishnet","name":"Create Fishnet","category":"Vector › Sampling","role":"tool","description":"A grid of square or hexagonal cells (real ground size) covering the input's extent (QGIS: Create grid, native:creategrid).","inputs":[{"id":"in","kind":"vector","label":"Extent from"}],"output":"vector","nparams":4,"keywords":["grid","tessellation","cells","squares","net"]},{"id":"add_usng","name":"Add USNG / MGRS Field","category":"Coordinate Systems","role":"tool","description":"Add the United States National Grid or Military Grid Reference System reference of each feature (a point on lines and polygons) as a text field. The UTM zone is chosen for each feature.","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":4,"keywords":["military grid","grid reference","mgrs column","location code"]},{"id":"usng_to_points","name":"USNG / MGRS to Points","category":"Coordinate Systems","role":"tool","description":"Make points from a field of USNG or MGRS references (any spacing or case; fewer digits name a square). Rows that are not valid references are left out and counted.","inputs":[{"id":"in","kind":"table","label":"Table with references"}],"output":"vector","nparams":3,"keywords":["military grid","grid reference","decode mgrs","plot references"]},{"id":"usng_grid","name":"USNG / MGRS Grid","category":"Coordinate Systems","role":"tool","description":"Squares of the USNG/MGRS grid (100 km, 10 km, 1 km or 100 m) over the input's extent, in the UTM zone at its centre, each labelled with its reference.","inputs":[{"id":"in","kind":"vector","label":"Extent from"}],"output":"vector","nparams":5,"keywords":["military grid","grid lines","graticule","map grid"]},{"id":"summary_statistics","name":"Summary Statistics","category":"Analysis › Summaries","role":"tool","description":"Count, sum, mean, min and max of a field, overall or per category. Outputs a table.","inputs":[{"id":"in","kind":"table","label":"Input"}],"output":"table","nparams":2,"keywords":["average","mean","sum","count","pivot","group by","totals"]},{"id":"polygons_to_lines","name":"Polygons to Lines","category":"Vector › Geometry","role":"tool","description":"Outlines of polygons as lines (QGIS: Polygons to lines).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["outline","boundary","edges","border lines"]},{"id":"lines_to_polygons","name":"Lines to Polygons","category":"Vector › Geometry","role":"tool","description":"Polygons from closed lines (rings); open lines are skipped (QGIS: Lines to polygons).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["close lines","fill","make polygon","build areas"]},{"id":"extract_vertices","name":"Extract Vertices","category":"Vector › Geometry","role":"tool","description":"One point per vertex, with VERTEX_INDEX (QGIS: Extract vertices).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["corners","nodes","line to points","polygon to points"]},{"id":"delete_duplicates","name":"Delete Duplicate Geometries","category":"Vector › Select and Clean","role":"tool","description":"Keep one feature per identical shape (QGIS: Delete duplicate geometries).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":0,"keywords":["remove duplicates","dedupe","same geometry","clean"]},{"id":"remove_null","name":"Remove Null Geometries","category":"Vector › Select and Clean","role":"tool","description":"Drop features with no shape or an empty shape (QGIS: Remove null geometries).","inputs":[{"id":"in","kind":"table","label":"Input"}],"output":"vector","nparams":0,"keywords":["empty geometry","missing geometry","clean","drop blanks"]},{"id":"line_intersections","name":"Line Intersections","category":"Vector › Overlay","role":"tool","description":"Points where lines from two layers cross, with attributes from both (QGIS: Line intersections).","inputs":[{"id":"a","kind":"vector","label":"Input lines"},{"id":"b","kind":"vector","label":"Intersect lines"}],"output":"vector","nparams":0,"keywords":["crossings","crossing points","where lines meet","junctions"]},{"id":"random_points","name":"Random Points in Polygons","category":"Vector › Sampling","role":"tool","description":"A number of random points inside each polygon, keeping its attributes (QGIS: Random points in polygons).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":1,"keywords":["sample","sampling","scatter","survey locations"]},{"id":"voronoi","name":"Voronoi Polygons","category":"Vector › Geometry","role":"tool","description":"The area closest to each point, carrying that point's attributes (QGIS: Voronoi polygons).","inputs":[{"id":"in","kind":"vector","label":"Points"}],"output":"vector","nparams":1,"keywords":["thiessen","nearest area","proximity polygons","service area"]},{"id":"concave_hull","name":"Concave Hull","category":"Vector › Geometry","role":"tool","description":"A tighter-fitting outline around all features than a convex hull (QGIS: Concave hull).","inputs":[{"id":"in","kind":"vector","label":"Input"}],"output":"vector","nparams":3,"keywords":["alpha shape","outline points","wrap","footprint","boundary of points"]},{"id":"join_nearest","name":"Join Attributes by Nearest","category":"Vector › Proximity","role":"tool","description":"Attach the attributes of the closest feature from another layer, plus the geodesic distance (QGIS: Join attributes by nearest).","inputs":[{"id":"in","kind":"vector","label":"Input"},{"id":"near","kind":"vector","label":"Join features"}],"output":"vector","nparams":3,"keywords":["closest","attach nearest","nearest neighbour","nearest neighbor"]},{"id":"points_to_path","name":"Points to Path","category":"Vector › Geometry","role":"tool","description":"Connect points into lines in the order of a field, optionally one line per group (QGIS: Points to path).","inputs":[{"id":"in","kind":"vector","label":"Points"}],"output":"vector","nparams":2,"keywords":["connect the dots","track","gps track","route line","line from points"]},{"id":"points_along_lines","name":"Points Along Lines","category":"Vector › Geometry","role":"tool","description":"Points every set distance along lines or polygon outlines (QGIS: Points along geometry).","inputs":[{"id":"in","kind":"vector","label":"Lines or polygons"}],"output":"vector","nparams":2,"keywords":["interval","stations","mile markers","chainage","sample along"]},{"id":"contours","name":"Contour","category":"Raster › Terrain and Contours","role":"tool","description":"Contour lines from an elevation raster, with an ELEV field (in the raster's units, e.g. meters).","inputs":[{"id":"in","kind":"raster","label":"Elevation raster"}],"output":"vector","nparams":3,"keywords":["isolines","topo lines","elevation lines","contour lines"]},{"id":"hillshade","name":"Hillshade","category":"Raster › Terrain and Contours","role":"tool","description":"Shaded relief from an elevation raster.","inputs":[{"id":"in","kind":"raster","label":"Elevation raster"}],"output":"raster","nparams":4,"keywords":["relief","shaded relief","shadow","terrain shading"]},{"id":"slope","name":"Slope","category":"Raster › Terrain and Contours","role":"tool","description":"Steepness of an elevation raster, in degrees or percent.","inputs":[{"id":"in","kind":"raster","label":"Elevation raster"}],"output":"raster","nparams":1,"keywords":["steepness","gradient","grade","incline"]},{"id":"clip_raster","name":"Clip Raster by Extent","category":"Raster › Management","role":"tool","description":"Crop a raster to the bounding box of other features.","inputs":[{"id":"in","kind":"raster","label":"Raster"},{"id":"extent","kind":"vector","label":"Extent from"}],"output":"raster","nparams":0,"keywords":["cut","crop","trim","subset raster"]},{"id":"aspect","name":"Aspect","category":"Raster › Terrain and Contours","role":"tool","description":"Direction each slope faces, in degrees from north (QGIS: Aspect).","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":0,"keywords":["facing direction","compass direction of slope","exposure"]},{"id":"ruggedness","name":"Terrain Ruggedness","category":"Raster › Terrain and Contours","role":"tool","description":"Terrain Ruggedness Index, Topographic Position Index, or Roughness from an elevation raster (QGIS: TRI / TPI / Roughness).","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":1,"keywords":["tri","roughness","terrain roughness"]},{"id":"warp","name":"Warp (Reproject Raster)","category":"Raster › Management","role":"tool","description":"Reproject a raster to another coordinate system (QGIS: Warp (reproject)).","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":2,"keywords":["reproject","transform","change crs","georeference","change projection"]},{"id":"polygonize","name":"Polygonize (Raster to Vector)","category":"Raster › Conversion","role":"tool","description":"Polygons around connected cells that share a value, with that value in DN (QGIS: Polygonize). Best for classified rasters.","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"vector","nparams":0,"keywords":["raster to polygon","vectorize","trace","to vector"]},{"id":"raster_calc","name":"Raster Calculator","category":"Raster › Map Algebra","role":"tool","description":"A new raster from an expression of the input raster, called A: A * 0.3048, (A > 1000) * 1, sqrt(A), if(A < 0, 0, A). No-data cells stay no data; results that are not numbers become no data.","inputs":[{"id":"in","kind":"raster","label":"Raster (A)"}],"output":"raster","nparams":1,"keywords":["map algebra","formula","expression","math on raster"]},{"id":"raster_calc2","name":"Raster Calculator (A and B)","category":"Raster › Map Algebra","role":"tool","description":"A new raster from an expression of two rasters on the same grid, called A and B: (A - B) / (A + B). Use Align Raster first when the grids differ.","inputs":[{"id":"a","kind":"raster","label":"Raster A"},{"id":"b","kind":"raster","label":"Raster B"}],"output":"raster","nparams":1,"keywords":["map algebra","two rasters","difference","subtract rasters","add rasters"]},{"id":"reclassify","name":"Reclassify Raster","category":"Raster › Map Algebra","role":"tool","description":"Replace cell values by ranges. One rule per line: 0 to 10 = 1 (from 0 up to but not including 10), 5 = 2 (exactly 5), 20 to inf = 3, nodata = 0 (no-data cells get 0), else = nodata (cells no rule matches).","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":2,"keywords":["remap","classes","bin","recode","group values"]},{"id":"nodata","name":"NoData Cells","category":"Raster › Map Algebra","role":"tool","description":"Set the value that means no data, give no-data cells a value, or fill them by interpolating from the cells around them.","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":4,"keywords":["missing values","blank cells","transparent","mask values"]},{"id":"select_bands","name":"Select Bands","category":"Raster › Management","role":"tool","description":"Keep some bands of a multi-band raster, in the order given (for example 3,2,1).","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":1,"keywords":["extract band","channels","rgb","pick bands"]},{"id":"resample_raster","name":"Resample Raster","category":"Raster › Management","role":"tool","description":"Change the cell size (in the raster's own units: metres, or degrees for a geographic raster).","inputs":[{"id":"in","kind":"raster","label":"Raster"}],"output":"raster","nparams":2,"keywords":["change resolution","cell size","pixel size","upscale","downscale"]},{"id":"align_raster","name":"Align Raster","category":"Raster › Management","role":"tool","description":"Put a raster on another raster's grid: its coordinate system, extent and cell size, so the two can be combined cell by cell.","inputs":[{"id":"in","kind":"raster","label":"Raster to align"},{"id":"reference","kind":"raster","label":"Reference raster"}],"output":"raster","nparams":1,"keywords":["snap","match grid","same cells","register"]},{"id":"mosaic_rasters","name":"Mosaic Rasters","category":"Raster › Management","role":"tool","description":"Join two rasters into one covering both (the second wins where they overlap). Join more by chaining Mosaic nodes. The result is in the first raster's coordinate system.","inputs":[{"id":"a","kind":"raster","label":"First raster"},{"id":"b","kind":"raster","label":"Second raster"}],"output":"raster","nparams":1,"keywords":["merge","merge rasters","stitch","combine tiles","join rasters"]},{"id":"rasterize","name":"Rasterize (Vector to Raster)","category":"Raster › Conversion","role":"tool","description":"Burn features into a raster covering them: each cell takes the value of a number field, or 1 where there is a feature. The cell size is in the layer's units.","inputs":[{"id":"in","kind":"vector","label":"Features"}],"output":"raster","nparams":2,"keywords":["vector to grid","burn","polygons to raster","to raster"]},{"id":"interpolate","name":"Interpolate Points to Raster","category":"Raster › Interpolation","role":"tool","description":"Make a surface from points that have a number field. IDW: weighted by distance (the power sets how fast influence falls off); Linear: triangulated, no data outside the points' outline; Nearest: value of the closest point; Average: mean of points within the radius. Cell size and radius are in the layer's units. Points without a number are ignored.","inputs":[{"id":"in","kind":"vector","label":"Points"}],"output":"raster","nparams":5,"keywords":["idw","surface from points","gridding","natural neighbour","tin surface"]},{"id":"define_vertical_datum","name":"Define Vertical Datum","category":"Raster › Management","role":"tool","description":"Record which height reference an elevation raster uses (NAVD88, a geoid such as EGM2008, ellipsoidal heights from GPS, …). The values do not change. Raster Calculator, Align and Mosaic then warn when you combine rasters on different vertical datums, whose heights can differ by metres. USGS 3DEP downloads are recorded as NAVD88 and Copernicus DEM as EGM2008 automatically. Converting between datums needs a geoid grid and is not done here.","inputs":[{"id":"in","kind":"raster","label":"Elevation raster"}],"output":"raster","nparams":1,"keywords":["navd88","height reference","geoid","elevation datum"]},{"id":"morans_i","name":"Spatial Autocorrelation (Moran's I)","category":"Analysis › Spatial Statistics","role":"tool","description":"Do similar values cluster? Moran's I is near +1 when high values sit near high and low near low, near 0 for a random pattern, near -1 for a checkerboard. Neighbours are each feature's k nearest (by centroid); the layer must be in a projected coordinate system. Outputs a one-row table with I, the expected value, z-score and p-value (randomisation). Features without a number are left out and counted.","inputs":[{"id":"in","kind":"vector","label":"Features"}],"output":"table","nparams":2,"keywords":["clustering","autocorrelation","clustered or random","pattern"]},{"id":"hot_spots","name":"Hot Spot Analysis (Getis-Ord Gi*)","category":"Analysis › Spatial Statistics","role":"tool","description":"Find statistically significant clusters of high values (hot spots) and low values (cold spots). Each feature is compared with itself and its k nearest neighbours. Adds gi_z (z-score), gi_p (p-value) and hotspot (3, 2, 1 = hot at 99 %, 95 %, 90 %; -1, -2, -3 = cold; 0 = not significant). The layer must be in a projected coordinate system. Features without a number get empty results.","inputs":[{"id":"in","kind":"vector","label":"Features"}],"output":"vector","nparams":2,"keywords":["clusters","hotspot","cold spots","gi star","pattern"]},{"id":"kriging","name":"Kriging (Ordinary)","category":"Raster › Interpolation","role":"tool","description":"Make a surface from points with a number field, plus how uncertain it is. The spatial pattern of the values is measured (a variogram) and fitted with a spherical, exponential or Gaussian model, or all three with the best kept (Auto); leave nugget, sill and range empty to fit them, or fill all three to use your own. Band 1 is the prediction, band 2 the kriging variance (higher = less certain). The layer must be in a projected coordinate system; cell size and range are in its units. The fitted model is stored in the raster's VARIOGRAM metadata. Points at the same place are averaged.","inputs":[{"id":"in","kind":"vector","label":"Points"}],"output":"raster","nparams":7,"keywords":["geostatistics","variogram","surface from points","gridding"]},{"id":"fill_depressions","name":"Fill Depressions (Sinks)","category":"Hydrology","role":"tool","description":"Remove pits and sinks from an elevation raster so water can drain off it. Run this before Flow Direction and Flow Accumulation. With 'Fix flat areas' on, filled flats get a tiny slope toward their outlet so flow direction is defined everywhere (WhiteboxTools: FillDepressions).","inputs":[{"id":"in","kind":"raster","label":"Elevation raster"}],"output":"raster","nparams":1,"keywords":["sinks","pits","hydro conditioning","fill holes in dem"]},{"id":"flow_direction","name":"Flow Direction (D8)","category":"Hydrology","role":"tool","description":"Direction water leaves each cell toward its steepest downhill neighbour, using the ESRI codes 1 = east, 2 = south-east, 4 = south, 8 = south-west, 16 = west, 32 = north-west, 64 = north, 128 = north-east (WhiteboxTools: D8Pointer). Use a depression-filled DEM.","inputs":[{"id":"in","kind":"raster","label":"Filled elevation raster"}],"output":"raster","nparams":0,"keywords":["d8","downhill","drainage direction","water path"]},{"id":"flow_accumulation","name":"Flow Accumulation (D8)","category":"Hydrology","role":"tool","description":"How much area drains through each cell: the number of upstream cells, the catchment area, or the specific contributing area (area per unit of flow width). Streams show up as high values. Use a depression-filled DEM; log scale is easier to look at (WhiteboxTools: D8FlowAccumulation).","inputs":[{"id":"in","kind":"raster","label":"Filled elevation raster"}],"output":"raster","nparams":2,"keywords":["upstream area","contributing area","drainage area","runoff"]},{"id":"basins","name":"Drainage Basins","category":"Hydrology","role":"tool","description":"Label every drainage basin that reaches the edge of the raster with its own number, from a Flow Direction raster (WhiteboxTools: Basins).","inputs":[{"id":"in","kind":"raster","label":"Flow direction raster"}],"output":"raster","nparams":0,"keywords":["catchments","drainage areas","hydrologic units"]},{"id":"extract_streams","name":"Extract Streams","category":"Hydrology","role":"tool","description":"Mark cells as stream (value 1) where the Flow Accumulation value is at least the threshold; every other cell is no data. A smaller threshold gives a denser network. The threshold is in the units of the accumulation raster (cells, area, or log values) (WhiteboxTools: ExtractStreams).","inputs":[{"id":"in","kind":"raster","label":"Flow accumulation raster"}],"output":"raster","nparams":1,"keywords":["rivers","channels","stream network","drainage lines"]},{"id":"watersheds","name":"Watersheds (from Outlets)","category":"Hydrology","role":"tool","description":"The area that drains to each outlet point, from a Flow Direction raster. Each outlet gets its own number (1, 2, 3, in the order of the points). Place outlets exactly on a stream cell of a Flow Accumulation raster; a point off the stream gives a tiny watershed (WhiteboxTools: Watershed). Outlets are projected into the raster's coordinate system first.","inputs":[{"id":"pntr","kind":"raster","label":"Flow direction raster"},{"id":"pour","kind":"vector","label":"Outlet points"}],"output":"raster","nparams":0,"keywords":["catchment","pour points","drainage area","upstream of point"]},{"id":"spectral_index","name":"Spectral Index (NDVI, NDWI, NBR …)","category":"Raster › Remote Sensing","role":"tool","description":"A band-ratio index from two bands of an image. Band A and B mean: NDVI: A = near infrared, B = red; NDWI: A = green, B = near infrared; MNDWI: A = green, B = shortwave infrared 1; NBR: A = near infrared, B = shortwave infrared 2; NDBI: A = shortwave infrared 1, B = near infrared; SAVI: A = near infrared, B = red. Band numbers depend on the sensor (Sentinel-2: red 3, green 2, near infrared 7 or 8 in a stack of B2, B3, B4, B5, B6, B7, B8 …; check your file). Results run from -1 to 1; cells with no data in either band, or a zero denominator, are no data. 'Reflectance scale' only matters for SAVI: 1 if the bands are 0–1, 0.0001 for Sentinel-2 L2A numbers.","inputs":[{"id":"in","kind":"raster","label":"Multiband image"}],"output":"raster","nparams":4,"keywords":["ndvi","ndwi","nbr","vegetation","band ratio","satellite"]},{"id":"classify_kmeans","name":"Unsupervised Classification (K-means)","category":"Raster › Remote Sensing","role":"tool","description":"Group the cells of an image into classes of similar colour, without training areas. Bands are put on the same scale first, so a band with big numbers does not dominate. Classes are numbered 1, 2, 3 … from the lowest to the highest value of the first band; 0 is no data. The class centres are stored in the raster's CLASS_CENTRES metadata. Look at the result and name the classes yourself (water, forest …). Repeating the run gives the same map.","inputs":[{"id":"in","kind":"raster","label":"Multiband image"}],"output":"raster","nparams":3,"keywords":["land cover","clusters","unsupervised","image classes","satellite"]},{"id":"sample_raster","name":"Sample Raster Values","category":"Raster › Map Algebra","role":"tool","description":"Add the raster value under each point as a field (QGIS: Sample raster values).","inputs":[{"id":"in","kind":"vector","label":"Points"},{"id":"raster","kind":"raster","label":"Raster"}],"output":"vector","nparams":1,"keywords":["extract values","read elevation at points","point values","values to points"]},{"id":"zonal_statistics","name":"Zonal Statistics","category":"Raster › Map Algebra","role":"tool","description":"Count, mean, min and max of raster cells inside each polygon, added as fields (QGIS: Zonal statistics).","inputs":[{"id":"in","kind":"vector","label":"Zones (polygons)"},{"id":"raster","kind":"raster","label":"Raster"}],"output":"vector","nparams":1,"keywords":["average in polygon","mean by zone","raster stats by area","summarize raster"]},{"id":"layer_output","name":"Output","category":"Output","role":"output","description":"The layer shows whatever is connected here. The original data is not changed.","inputs":[{"id":"in","kind":"any","label":"Result"}],"output":null,"nparams":1,"keywords":[]},{"id":"add_to_map","name":"Add to Map","category":"Output","role":"output","description":"Add the result to the map as a layer. Re-running updates the same layer.","inputs":[{"id":"in","kind":"table","label":"Input"}],"output":null,"nparams":1,"keywords":[]},{"id":"export","name":"Export Features","category":"Output","role":"output","description":"Write the result to a file. The coordinate system is written with it.","inputs":[{"id":"in","kind":"any","label":"Input"}],"output":null,"nparams":3,"keywords":["save","save as","write file","download","shapefile","geopackage","geojson"]}];
-const LAYERS=[{id:"l1",name:"Roads",desc:"Line layer · 386 features"},{id:"l2",name:"Forest boundary",desc:"Polygon layer · 1 feature"},{id:"l3",name:"Contours (40 ft)",desc:"Line layer · 2,718 features"}];
+const LAYERS=[
+ {id:"l0",name:"Streams (NHD)",geom:"Line",count:1204,color:"#1F6FB2",g:"ml-streams",src:["National Hydrography Dataset","U.S. Geological Survey"]},
+ {id:"l1",name:"Roads",geom:"Line",count:386,color:"#B3532A",g:"ml-roads",src:["TIGER/Line Roads","U.S. Census Bureau"]},
+ {id:"l2",name:"Forest boundary",geom:"Polygon",count:1,color:"#DCE8D2",g:"ml-forest",src:["Forest boundary","U.S. Forest Service"]},
+ {id:"l3",name:"Contours (40 ft)",geom:"Line",count:2718,color:"#B59F84",g:"ml-contours",src:["Elevation (3DEP)","U.S. Geological Survey"]},
+];
+LAYERS.forEach(l=>{l.on=true;l.desc=`${l.geom} layer · ${l.count.toLocaleString()} ${l.count===1?"feature":"features"}`;l.description=l.desc;l.category="Layers";l.role="layer";l.inputs=[];l.output="vector";l.nparams=0;l.keywords=[]});
+const CRS="NAD83 / California zone 4 (ftUS)";
 const ICON={clip:"cut",clip_raster:"cut",erase:"cut",merge:"merge",union:"merge",mosaic_rasters:"merge",buffer:"buffer",project:"globe",warp:"globe",hillshade:"mountain",slope:"mountain",contours:"mountain",aspect:"compass",fishnet:"grid"};
 const FAMICON={Vector:"shapes",Raster:"grid",Hydrology:"drop",Tables:"table",Coordinate:"globe",Analysis:"chart",Styling:"brush",Output:"save",Input:"db"};
 const GROUPS=["Vector","Tables","Coordinate Systems","Raster","Hydrology","Analysis","Styling","Save to File"];
@@ -432,68 +463,350 @@ const fam=c=>{const g=c.split(" › ")[0];return g==="Coordinate Systems"?"Coord
 const groupOf=t=>t.role==="output"?"Save to File":t.category.split(" › ")[0];
 const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $=id=>document.getElementById(id);
+const toolByName=n=>TOOLS.find(t=>t.name===n||t.id===n);
 
-/* ribbon */
-const LG=(i,l,on)=>({i,l,on,k:"lg"}),SM=(i,l)=>({i,l,k:"sm"});
-const RIB={
- Map:[["Navigate",[LG("hand","Explore",1),LG("extent","Full Extent")]],["Layer",[LG("plus","Add Data"),LG("tree","Public Data"),LG("map","Basemap")]],["Selection",[LG("cursor","Select"),[SM("rect","By Rectangle"),SM("filter","By Attributes"),SM("pin","By Location")],LG("x","Clear")]],["Inquiry",[LG("info","Identify"),LG("ruler","Measure")]],["Land Nav",[[SM("compass","Resection"),SM("compass","Intersection"),SM("grid","MGRS Grid")]]],["Coordinate System",[LG("globe","Map CRS"),[SM("db","Datum Grids"),SM("beaker","Projection"),SM("buffer","Tissot")]]],["World",[[SM("globe","World View"),SM("grid","Graticule"),SM("shapes","Outline")]]]],
- Insert:[["Layouts",[LG("page","New Layout"),[SM("doc","Letter landscape"),SM("doc","A3 landscape"),SM("doc","From template")]]],["Maps",[LG("mountain","Topo Map")]]],
- View:[["Windows",[[SM("layers","Map Layers"),SM("tree","Catalog"),SM("nodes","Node Editor")],[SM("table","Attribute Table"),SM("info","Properties"),SM("book","Sources")],LG("reset","Reset Panes")]],["Appearance",[LG("moon","Dark Theme")]],["Performance",[[SM("chart","Frame Rate"),SM("beaker","Benchmark")]]],["Testing",[LG("db","Test Data")]]],
- Analysis:[["Geoprocessing",[LG("plus","Add Tool",1),LG("play","Run"),LG("nodes","Node Editor"),LG("table","Attribute Table")]],["Favourites",[[SM("buffer","Buffer"),SM("cut","Clip"),SM("merge","Dissolve")],[SM("globe","Project"),SM("mountain","Hillshade"),SM("mountain","Contour")]]]],
+/* ---------- appearance: every colour comes from here ---------- */
+const PALETTES={
+ Glacier:{light:{"surface-0":"#E3E8EC","surface-1":"#F2F5F7","surface-2":"#FFFFFF",canvas:"#EAEEF1","canvas-dot":"#C3CCD3",rule:"#25323B","rule-soft":"#BCC6CE",text:"#121A20","text-2":"#46535D",hover:"rgba(18,26,32,.08)"},
+  dark:{"surface-0":"#262C32","surface-1":"#1C2126","surface-2":"#13171B",canvas:"#171B1F","canvas-dot":"#343C43",rule:"#5C6973","rule-soft":"#3B444C",text:"#EDF1F4","text-2":"#AEB9C2",hover:"rgba(255,255,255,.08)"}},
+ Paper:{light:{"surface-0":"#E8E4DC","surface-1":"#F4F1EA","surface-2":"#FFFDF8",canvas:"#EDE9E1","canvas-dot":"#CFC8BA",rule:"#2E2A24","rule-soft":"#C9C2B4",text:"#1C1915","text-2":"#544E44",hover:"rgba(28,25,21,.08)"},
+  dark:{"surface-0":"#2C2925","surface-1":"#211F1B","surface-2":"#171512",canvas:"#1B1916","canvas-dot":"#3A362F",rule:"#6A6358","rule-soft":"#443F37",text:"#F1EDE5","text-2":"#B9B2A5",hover:"rgba(255,255,255,.08)"}},
+ Wireframe:{light:{"surface-0":"#D9DBDC","surface-1":"#ECEDEE","surface-2":"#FAFAFA",canvas:"#E3E5E6","canvas-dot":"#BFC4C7",rule:"#14181A","rule-soft":"#AEB3B6",text:"#101416","text-2":"#41484C",hover:"rgba(16,20,22,.08)"},
+  dark:{"surface-0":"#23272A","surface-1":"#1A1D1F","surface-2":"#101214",canvas:"#141618","canvas-dot":"#32383C",rule:"#566067","rule-soft":"#3A4146",text:"#ECEFF1","text-2":"#AEB7BC",hover:"rgba(255,255,255,.08)"}},
 };
-let tab="Analysis";
-function renderRib(){
- const tabs=[...Object.keys(RIB)].sort((a,b)=>["Map","Insert","View","Analysis"].indexOf(a)-["Map","Insert","View","Analysis"].indexOf(b));
- document.getElementById("tabs").innerHTML=tabs.map(t=>`<button class="tab" role="tab" aria-selected="${t===tab}" data-t="${t}">${t}</button>`).join("")+`<button class="tab" role="tab" aria-selected="false" data-t="ctx"><small>Layer</small>Feature Layer</button><span class="sp"></span><label class="search">${ic("search")}<input aria-label="Search commands and tools" placeholder="Search commands and tools"><kbd>Alt+Q</kbd></label>`;
- const item=x=>Array.isArray(x)?`<div class="rcol">${x.map(item).join("")}</div>`:`<button class="rb ${x.k}${x.on?" on":""}"${x.l==="Add Tool"?' id="ribAdd"':""}>${ic(x.i)}<span>${x.l}</span></button>`;
- document.getElementById("band").innerHTML=(RIB[tab]||[]).map(([l,it])=>`<div class="grp"><div class="grp-items">${it.map(item).join("")}</div><div class="grp-label">${l}</div></div>`).join("");
- document.querySelectorAll("#tabs .tab").forEach(b=>b.onclick=()=>{if(RIB[b.dataset.t]){tab=b.dataset.t;renderRib()}});
- const a=document.getElementById("ribAdd");if(a)a.onclick=()=>openMenu();
+const ACCENTS=[["Sky","#22CCF5"],["Azure","#3B9BFF"],["Teal","#19C9A6"],["Violet","#9B8CFF"],["Coral","#FF8A6B"],["Marigold","#FFC233"]];
+const HILITES=[["Bright sky","#6FE0FF"],["Ice","#A5ECFF"],["Azure","#8CC4FF"],["Mint","#7EECCB"],["Lilac","#C7BEFF"],["Peach","#FFC2AD"],["Lemon","#FFE680"]];
+const FAMS={Input:"#22CCF5",Vector:"#9ADBB0",Raster:"#F5CF73",Hydrology:"#A9C4FF",Tables:"#D2C3F7",Coordinate:"#F6B8CF",Analysis:"#F9B48C",Styling:"#DDE0A8"};
+const FAMNAME={Input:"Layer inputs",Vector:"Vector",Raster:"Raster",Hydrology:"Hydrology",Tables:"Tables",Coordinate:"Coordinate systems",Analysis:"Analysis",Styling:"Styling"};
+const APR_DEFAULT=()=>({mode:"light",palette:"Glacier",accent:"#22CCF5",hilite:"#6FE0FF",fam:{...FAMS}});
+let apr=(()=>{try{const v=JSON.parse(localStorage.getItem("mock.appearance")||"null");return v&&v.fam?v:APR_DEFAULT()}catch{return APR_DEFAULT()}})();
+const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const hex=a=>"#"+a.map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("").toUpperCase();
+const mix=(a,b,t)=>{const x=rgb(a),y=rgb(b);return hex(x.map((v,i)=>v+(y[i]-v)*t))};
+const lum=h=>{const[r,g,b]=rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b};
+const ratio=(a,b)=>{const x=lum(a),y=lum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+/* Text on any chosen colour picks itself, so a custom colour can never make a label unreadable. */
+const readable=c=>["#06222B","#FFFFFF","#000000"].find(t=>ratio(c,t)>=4.5);
+const untilAA=(c,toward,on)=>{let v=c;for(let t=.05;ratio(v,on)<4.5&&t<=1;t+=.05)v=mix(c,toward,t);return v};
+function applyTheme(){
+ const root=document.documentElement,P=PALETTES[apr.palette][apr.mode],dark=apr.mode==="dark",set=(k,v)=>root.style.setProperty("--"+k,v);
+ root.dataset.theme=apr.mode;
+ for(const k in P)set(k,P[k]);
+ const band=dark?mix(apr.accent,"#000000",.5):apr.accent,bt=readable(band),acT=readable(apr.accent);
+ set("band",band);set("band-text",bt);set("band-edge",dark?apr.accent:P.rule);
+ set("band-hover",bt==="#FFFFFF"?"rgba(255,255,255,.16)":"rgba(6,34,43,.14)");
+ const onBg=dark?apr.accent:mix(apr.accent,"#FFFFFF",.6);set("band-on-bg",onBg);set("band-on-text",readable(onBg));
+ set("sel-bg",apr.hilite);set("sel-text",readable(apr.hilite));
+ const link=untilAA(apr.accent,dark?"#FFFFFF":"#000000",P["surface-0"]);
+ set("link",link);set("focus",dark?link:P.text);
+ for(const k in apr.fam){set("fam-"+k,apr.fam[k]);set("fam-"+k+"-text",readable(apr.fam[k]))}
+ set("error",dark?"#FF8A80":"#B3261E");set("warn",dark?"#F2C14E":"#8A5A00");set("ok",dark?"#7BD88F":"#1F6B3A");
+ try{localStorage.setItem("mock.appearance",JSON.stringify(apr))}catch{}
+ if(booted)syncBtns();
 }
+var booted=false;
+applyTheme();
 
-/* node graph */
-let cards=[
- {id:"in",fam:"Input",title:"Layer Input",x:18,y:24,fixed:1,sub:"Streams (NHD) · Line · 1,204",out:{kind:"vector",label:"Features"}},
- {id:"buf",fam:"Vector",icon:"buffer",title:"Buffer",x:244,y:24,sel:1,ins:[{id:"in",label:"Input",kind:"vector",on:1}],out:{kind:"vector",label:"Features"},f:[["Distance","100 ft"],["Method","Geodesic"],["Dissolve","No"]]},
- {id:"out",fam:"Output",title:"Output",x:690,y:24,fixed:1,ins:[{id:"in",label:"Result",kind:"any",on:1}],sub:"Draws on the map. Source data is not changed."},
-];
-let edges=[["in","buf"],["buf","out"]];
+/* ---------- small helpers: status, dialogs, popups ---------- */
+function say(s){$("statusText").textContent=s}
+function dialog(title,text,err){
+ closePop();
+ const s=document.createElement("div");s.className="scrim";
+ s.innerHTML=`<div class="dlg ${err?"err":""}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h2>${esc(title)}</h2><p>${esc(text)}</p><footer><button class="btn pri">OK</button></footer></div>`;
+ document.body.appendChild(s);
+ const prev=document.activeElement,close=()=>{s.remove();prev?.focus?.()};
+ s.querySelector("button").onclick=close;
+ s.addEventListener("pointerdown",e=>{if(e.target===s)close()});
+ s.addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Escape"||e.key==="Tab"){e.preventDefault();if(e.key==="Escape")close()}});
+ s.querySelector("button").focus();
+}
+const stub=(name,what)=>dialog(name,`${what} In the app this opens the existing ${name} dialog; the mock-up stops here.`);
+let popEl=null;
+function closePop(){popEl?.remove();popEl=null}
+function popup(anchor,items,cls=""){
+ closePop();
+ const r=anchor.getBoundingClientRect(),p=document.createElement("div");p.className="pop "+cls;p.setAttribute("role","menu");
+ p.innerHTML=items.map((it,i)=>it==="-"?"<hr>":`<button role="menuitem" data-i="${i}" class="${it.on?"on":""}"><span>${esc(it.label)}</span>${it.hint?`<small>${esc(it.hint)}</small>`:""}</button>`).join("");
+ document.body.appendChild(p);
+ p.style.left=Math.max(4,Math.min(r.left,innerWidth-p.offsetWidth-4))+"px";p.style.top=Math.min(r.bottom+1,innerHeight-p.offsetHeight-4)+"px";
+ p.querySelectorAll("button").forEach(b=>b.onclick=()=>{const it=items[+b.dataset.i];closePop();it.run()});
+ p.addEventListener("keydown",e=>{const bs=[...p.querySelectorAll("button")],i=bs.indexOf(document.activeElement);
+  if(e.key==="Escape"){e.preventDefault();closePop();anchor.focus?.()}
+  else if(e.key==="ArrowDown"){e.preventDefault();bs[(i+1)%bs.length].focus()}
+  else if(e.key==="ArrowUp"){e.preventDefault();bs[(i-1+bs.length)%bs.length].focus()}});
+ popEl=p;p.querySelector("button")?.focus();
+}
+addEventListener("pointerdown",e=>{if(popEl&&!popEl.contains(e.target)&&!e.target.closest(".search"))closePop()},true);
+
+/* ---------- windows ---------- */
+const win={layers:true,catalog:true,properties:true,sources:true,nodes:true,table:true};
+let bTab="nodes";
+function layoutWindows(){
+ $("pLayers").style.display=win.layers?"":"none";$("pCatalog").style.display=win.catalog?"":"none";
+ $("pProps").style.display=win.properties?"":"none";$("pSources").style.display=win.sources?"":"none";
+ const leftOn=win.layers||win.catalog,rightOn=win.properties||win.sources;
+ $("colL").style.display=leftOn?"":"none";$("colR").style.display=rightOn?"":"none";
+ $("work").style.gridTemplateColumns=`${leftOn?"var(--left)":"0"} minmax(0,1fr) ${rightOn?"var(--right)":"0"}`;
+ $("bt-nodes").style.display=win.nodes?"":"none";$("bt-table").style.display=win.table?"":"none";
+ if(bTab==="nodes"&&!win.nodes)bTab="table";if(bTab==="table"&&!win.table)bTab="nodes";
+ const open=win.nodes||win.table;
+ $("bottom").style.display=open?"flex":"none";
+ $("bt-nodes").setAttribute("aria-selected",bTab==="nodes");$("bt-table").setAttribute("aria-selected",bTab==="table");
+ $("nodesView").style.display=bTab==="nodes"?"flex":"none";$("tableView").style.display=bTab==="table"?"block":"none";
+ renderRib();syncBtns();requestAnimationFrame(drawWires);
+}
+function openWin(k){win[k]=true;if(k==="nodes"||k==="table")bTab=k;layoutWindows()}
+function setBottom(v){win.nodes=v;if(v)bTab="nodes";else win.table=false;layoutWindows()}
+function resetPanes(){Object.keys(win).forEach(k=>win[k]=true);win.table=true;bTab="nodes";layoutWindows();say("Panes reset")}
+
+/* ---------- ribbon: every button goes through act() ---------- */
+const LG=(i,l)=>({i,l,k:"lg"}),SM=(i,l)=>({i,l,k:"sm"});
+const RIB={
+ Map:[["Navigate",[LG("hand","Explore"),LG("extent","Full Extent")]],["Layer",[LG("plus","Add Data"),LG("tree","Public Data"),LG("map","Basemap")]],["Selection",[LG("cursor","Select"),[SM("rect","By Rectangle"),SM("filter","By Attributes"),SM("pin","By Location")],LG("x","Clear")]],["Inquiry",[LG("info","Identify"),LG("ruler","Measure")]],["Land Nav",[[SM("compass","Resection"),SM("compass","Intersection"),SM("grid","MGRS Grid")]]],["Coordinate System",[LG("globe","Map CRS"),[SM("db","Datum Grids"),SM("beaker","Projection"),SM("buffer","Tissot")]]],["World",[[SM("globe","World View"),SM("grid","Graticule"),SM("shapes","Outline")]]]],
+ Insert:[["Layouts",[LG("page","New Layout"),[SM("doc","Letter landscape"),SM("doc","A3 landscape"),SM("doc","From template")]]],["Maps",[LG("mountain","Topo Map")]]],
+ View:[["Windows",[[SM("layers","Map Layers"),SM("tree","Catalog"),SM("nodes","Node Editor")],[SM("table","Attribute Table"),SM("info","Properties"),SM("book","Sources")],LG("reset","Reset Panes")]],["Appearance",[LG("moon","Dark Theme"),LG("brush","Colours")]],["Performance",[[SM("chart","Frame Rate"),SM("beaker","Benchmark")]]],["Testing",[LG("db","Test Data")]]],
+ Analysis:[["Geoprocessing",[LG("plus","Add Tool"),LG("play","Run"),LG("nodes","Node Editor"),LG("table","Attribute Table")]],["Favourites",[[SM("buffer","Buffer"),SM("cut","Clip"),SM("merge","Dissolve")],[SM("globe","Project"),SM("mountain","Hillshade"),SM("mountain","Contour")]]]],
+ "Feature Layer":[["Layer",[LG("info","Properties"),LG("extent","Zoom To"),LG("brush","Symbology"),LG("table","Open Table")]],["Fields",[[SM("plain","Add Field"),SM("beaker","Calculate Field"),SM("ruler","Calculate Geometry")]]],["Data",[[SM("filter","Definition Query"),SM("globe","Define Projection"),SM("save","Export")]]],["Remove",[LG("x","Remove Layer")]]],
+};
+const TAB_ORDER=["Map","Insert","View","Analysis"];
+let tab="Analysis",mapTool="Explore";
+const toggles={"World View":false,Graticule:false,Outline:false,"Frame Rate":false};
+const STUBS={"Add Data":"Choose files to add to the map.","Map CRS":"Choose the map's coordinate system; it is never guessed.","Datum Grids":"Download the datum shift grids.","Projection":"Build a custom projection.","Tissot":"Show distortion circles on the map.","Resection":"Find your position from two bearings.","Intersection":"Find a target from two positions.","MGRS Grid":"Draw an MGRS grid on the map.","Topo Map":"Build a topographic sheet, step by step.","From template":"Pick a saved layout template.","Benchmark":"Time how fast this layer draws.","Test Data":"Generate a test layer.","Symbology":"Style the active layer.","Add Field":"Add a column to the active layer.","Calculate Field":"Fill a column with a formula.","Calculate Geometry":"Fill a column with area or length.","Definition Query":"Show only the features that match.","Define Projection":"Record the CRS of a layer that has none.","Export":"Save the active layer to a file."};
+function act(l,el){
+ const zoomTo=()=>{zoom=1;applyZoom()};
+ switch(l){
+  case"Explore":case"Select":case"By Rectangle":case"By Attributes":case"By Location":case"Identify":case"Measure":mapTool=l;renderRib();return say(`${l} tool: active on the map`);
+  case"Clear":mapTool="Explore";renderRib();document.querySelectorAll("#tableView tr.sel").forEach(r=>r.classList.remove("sel"));return say("Selection cleared");
+  case"Full Extent":zoomTo();return say("Zoomed to full extent");
+  case"Zoom To":zoomTo();return say(`Zoomed to ${layer().name}`);
+  case"Basemap":return popup(el,["None","Topographic","Imagery","Streets"].map(n=>({label:n,on:basemap===n,run(){basemap=n;$("map").style.background=n==="Imagery"?"#B9C4AE":n==="Streets"?"#F6F4EF":"#EEF0E8";say(`Basemap: ${n}`)}})));
+  case"Public Data":win.catalog=true;treeOpen.public=true;layoutWindows();renderTree();{const h=document.querySelector('[data-node="public"]');h?.classList.add("flash");setTimeout(()=>h?.classList.remove("flash"),900);h?.focus()}return say("Public Data is in the Catalog");
+  case"New Layout":case"Letter landscape":case"A3 landscape":{const n=`Layout ${layouts.length+1}${l==="New Layout"?"":` (${l})`}`;layouts.push(n);treeOpen.layouts=true;win.catalog=true;layoutWindows();renderTree();return say(`${n} added under Layouts in the Catalog`)}
+  case"World View":case"Graticule":case"Outline":case"Frame Rate":toggles[l]=!toggles[l];if(l==="Graticule")$("map").classList.toggle("grat",toggles[l]);renderRib();return say(`${l}: ${toggles[l]?"on":"off"}`);
+  case"Map Layers":win.layers=!win.layers;return layoutWindows();
+  case"Catalog":win.catalog=!win.catalog;return layoutWindows();
+  case"Node Editor":if(win.nodes&&bTab!=="nodes"){bTab="nodes"}else{win.nodes=!win.nodes}return layoutWindows();
+  case"Attribute Table":if(win.table&&bTab!=="table"){bTab="table"}else{win.table=!win.table;if(win.table)bTab="table"}return layoutWindows();
+  case"Open Table":return openWin("table");
+  case"Properties":if(tab==="Feature Layer"){win.properties=true;cards.forEach(c=>c.sel=0);layoutWindows();renderCards();renderProps();return say(`Properties: ${layer().name}`)}win.properties=!win.properties;return layoutWindows();
+  case"Sources":win.sources=!win.sources;return layoutWindows();
+  case"Reset Panes":return resetPanes();
+  case"Dark Theme":apr.mode=apr.mode==="dark"?"light":"dark";applyTheme();renderApr();return renderRib();
+  case"Colours":return toggleApr();
+  case"Add Tool":return openMenu();
+  case"Run":return runTree();
+  case"Remove Layer":return removeLayer();
+ }
+ const fav={Buffer:"buffer",Clip:"clip",Dissolve:"dissolve",Project:"project",Hillshade:"hillshade",Contour:"contours"}[l];
+ if(fav){const t=toolByName(fav);openWin("nodes");addCard(t);return}
+ stub(l,STUBS[l]||"");
+}
+const isOn=l=>l===mapTool||toggles[l]||(l==="Dark Theme"&&apr.mode==="dark")||(l==="Colours"&&aprOpen)
+ ||(l==="Node Editor"&&win.nodes)||(l==="Attribute Table"&&win.table)||(l==="Map Layers"&&win.layers)||(l==="Catalog"&&win.catalog)||(tab==="View"&&l==="Properties"&&win.properties)||(l==="Sources"&&win.sources);
+function renderRib(){
+ $("tabs").querySelectorAll(".tab").forEach(e=>e.remove());
+ const sp=$("tabs").querySelector(".sp");
+ const mk=(t,html)=>{const b=document.createElement("button");b.className="tab";b.setAttribute("role","tab");b.setAttribute("aria-selected",t===tab);b.innerHTML=html;b.onclick=()=>{tab=t;renderRib()};$("tabs").insertBefore(b,sp)};
+ TAB_ORDER.forEach(t=>mk(t,t));
+ if(layer())mk("Feature Layer","<small>Layer</small>Feature Layer");else if(tab==="Feature Layer")tab="Map";
+ const item=x=>Array.isArray(x)?`<div class="rcol">${x.map(item).join("")}</div>`:`<button class="rb ${x.k}${isOn(x.l)?" on":""}" data-a="${esc(x.l)}" aria-pressed="${isOn(x.l)}">${ic(x.i)}<span>${x.l}</span></button>`;
+ $("band").innerHTML=RIB[tab].map(([l,it])=>`<div class="grp"><div class="grp-items">${it.map(item).join("")}</div><div class="grp-label">${l}</div></div>`).join("");
+}
+$("band").addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b)act(b.dataset.a,b)});
+
+/* ---------- top search: commands + tools + layers ---------- */
+function commandList(){const seen=new Set(),out=[];const walk=x=>{if(Array.isArray(x))x.forEach(walk);else if(!seen.has(x.l)){seen.add(x.l);out.push(x.l)}};Object.values(RIB).forEach(g=>g.forEach(([,it])=>it.forEach(walk)));return out}
+const searchEl=$("topSearch");
+function runTop(){
+ const q=searchEl.value.trim();if(!q)return closePop();
+ const w=q.toLowerCase();
+ const cmds=commandList().filter(c=>c.toLowerCase().split(/\s+/).some(x=>x.startsWith(w))||c.toLowerCase().startsWith(w)).slice(0,5).map(c=>({label:c,hint:"Command",run(){searchEl.value="";act(c,searchEl)}}));
+ const tools=search(q).slice(0,7).map(x=>({label:x.t.name,hint:x.t.role==="layer"?"Layer":"Tool",run(){searchEl.value="";x.t.role==="layer"?selectLayer(x.t.id):(openWin("nodes"),addCard(x.t))}}));
+ const items=[...cmds,...tools];
+ const keep=document.activeElement;
+ popup(searchEl.parentElement,items.length?items:[{label:`Nothing matches “${q}”`,run(){}}],"searchpop");keep.focus();
+}
+searchEl.addEventListener("input",runTop);
+searchEl.addEventListener("keydown",e=>{e.stopPropagation();
+ if(e.key==="ArrowDown"&&popEl){e.preventDefault();popEl.querySelector("button")?.focus()}
+ else if(e.key==="Enter"&&popEl){e.preventDefault();popEl.querySelector("button")?.click()}
+ else if(e.key==="Escape"){searchEl.value="";closePop()}});
+
+/* ---------- layers ---------- */
+let active="l0",basemap="Topographic",zoom=1;
+const layer=()=>LAYERS.find(l=>l.id===active);
+function renderLayers(){
+ $("lyrList").innerHTML=LAYERS.map(l=>`<div class="lyr ${l.id===active?"sel":""} ${l.on?"":"off"}" data-l="${l.id}"><label><input type="checkbox" ${l.on?"checked":""} aria-label="Show ${esc(l.name)}"></label><span class="sw" style="background:${l.color}"></span><button class="n" style="text-align:left">${esc(l.name)}</button><span class="c">${l.count.toLocaleString()}</span></div>`).join("")||`<div class="m-none">No layers. Use Add Data.</div>`;
+ $("lyrList").querySelectorAll(".lyr").forEach(r=>{
+  const l=LAYERS.find(x=>x.id===r.dataset.l);
+  r.querySelector("input").onchange=e=>{l.on=e.target.checked;applyMapLayers();renderLayers();say(`${l.name}: ${l.on?"shown":"hidden"}`)};
+  r.querySelector(".n").onclick=()=>selectLayer(l.id);
+ });
+}
+function applyMapLayers(){for(const l of LAYERS){const g=$(l.g);if(g)g.style.display=l.on?"":"none"}
+ for(const g of ["ml-streams","ml-roads","ml-forest","ml-contours"])if(!LAYERS.some(l=>l.g===g))$(g).style.display="none";
+ $("ml-buffer").style.display=LAYERS.find(l=>l.id==="l0")?.on&&trees.l0?.ran?"":"none"}
+function selectLayer(id){
+ if(active&&trees[active]){trees[active].cards=cards;trees[active].edges=edges;trees[active].hist=hist;trees[active].fut=fut}
+ active=id;ensureTree(id);({cards,edges,hist,fut}=trees[id]);
+ renderLayers();renderRib();renderCards();renderProps();renderSources();syncUndo();
+}
+function removeLayer(){
+ const l=layer();if(!l)return;
+ LAYERS.splice(LAYERS.indexOf(l),1);delete trees[l.id];active=null;
+ say(`${l.name} removed from the map. Its source data is unchanged.`);
+ if(LAYERS[0])selectLayer(LAYERS[0].id);else{cards=[];edges=[];renderLayers();renderRib();renderCards();renderProps();renderSources()}
+ applyMapLayers();
+}
+function renderSources(){const l=layer();$("srcBody").innerHTML=l?`<p><b>${esc(l.src[0])}</b>${esc(l.src[1])}</p>`:`<p>No layer selected.</p>`}
+function applyZoom(){document.querySelector("#map svg.m").style.transform=`scale(${zoom})`;const s=Math.round(48000/zoom);$("scaleBox").value="1:"+s.toLocaleString("en-US")}
+
+/* ---------- catalog tree ---------- */
+const layouts=["Fire access map (A3)","Stream buffers 1:24,000"];
+const treeOpen={project:true,layouts:true,files:false,public:true};
+const PUBLIC=[["pin","Census TIGER/Line","Download boundaries and roads."],["map","USGS National Map","Download roads, trails, water and names."],["mountain","Elevation (3DEP)","Download a DEM for the view."],["image","Imagery & DEM (STAC)","Search imagery and elevation catalogues."],["building","Overture Maps","Download buildings, places and roads."],["warn","Earthquakes & Soils","Download USGS earthquakes and SSURGO soils."],["server","ArcGIS Services","Download from an ArcGIS REST service."],["server","OGC API Features","Download from an OGC API server."]];
+const FILES=["streams_nhd.gpkg","roads_tiger.shp","forest_boundary.geojson","contours_40ft.gpkg"];
+function renderTree(){
+ const chev=o=>`<svg class="i chev"><use href="#${o?"chev":"chevr"}"/></svg>`;
+ const h=(k,d,icon,label,cls="")=>`<button class="d${d} ${cls}" data-node="${k}" aria-expanded="${treeOpen[k]}">${chev(treeOpen[k])}${ic(icon)}${esc(label)}</button>`;
+ let s=h("project",0,"book","Project","head");
+ if(treeOpen.project){
+  s+=h("layouts",1,"page","Layouts");
+  if(treeOpen.layouts)s+=layouts.map(n=>`<button class="d2" data-layout="${esc(n)}">${ic("page")}${esc(n)}</button>`).join("");
+  s+=h("files",1,"doc","Project files");
+  if(treeOpen.files)s+=FILES.map(n=>`<button class="d2" data-file="${esc(n)}">${ic("doc")}${esc(n)}</button>`).join("");
+ }
+ s+=`<div style="height:6px"></div>`+h("public",0,"globe","Public Data","head");
+ if(treeOpen.public)s+=PUBLIC.map(([i,n])=>`<button class="d1" data-public="${esc(n)}">${ic(i)}${esc(n)}</button>`).join("");
+ $("treeBody").innerHTML=s;
+}
+$("treeBody").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+ if(b.dataset.node){const k=b.dataset.node;treeOpen[k]=!treeOpen[k];renderTree();document.querySelector(`[data-node="${k}"]`)?.focus()}
+ else if(b.dataset.layout)dialog(b.dataset.layout,"In the app this opens the layout in the Layout workspace, with its contextual ribbon tabs.");
+ else if(b.dataset.file)say(`${b.dataset.file}: used by this project`);
+ else if(b.dataset.public)stub(b.dataset.public,PUBLIC.find(p=>p[1]===b.dataset.public)[2]);
+});
+
+/* ---------- node trees ---------- */
+const trees={};let cards=[],edges=[],hist=[],fut=[];
+function inputCard(l){return{id:"in",fam:"Input",title:"Layer Input",x:18,y:24,fixed:1,sub:`${l.name} · ${l.geom} · ${l.count.toLocaleString()}`,out:{kind:"vector",label:"Features"}}}
+const outputCard=x=>({id:"out",fam:"Output",title:"Output",x,y:24,fixed:1,ins:[{id:"in",label:"Result",kind:"any",on:1}],sub:"Draws on the map. Source data is not changed."});
+function ensureTree(id){
+ if(trees[id])return;
+ const l=LAYERS.find(x=>x.id===id);
+ if(id==="l0")trees[id]={ran:true,hist:[],fut:[],cards:[inputCard(l),{id:"buf",toolId:"buffer",fam:"Vector",icon:"buffer",title:"Buffer",x:244,y:24,sel:1,state:"done",ins:[{id:"in",label:"Input",kind:"vector",on:1}],out:{kind:"vector",label:"Features"},f:[{label:"Distance",value:"100 ft"},{label:"Method",value:"Geodesic",options:["Geodesic","Planar"]},{label:"Dissolve",value:"No",options:["No","Yes"]}]},outputCard(690)],edges:[["in","buf"],["buf","out"]]};
+ else trees[id]={ran:false,hist:[],fut:[],cards:[inputCard(l),outputCard(300)],edges:[["in","out"]]};
+}
+const snap=()=>JSON.stringify({cards,edges});
+function remember(){hist.push(snap());if(hist.length>50)hist.shift();fut.length=0;syncUndo();setDirty(true)}
+function restore(s){const v=JSON.parse(s);cards=v.cards;edges=v.edges;renderCards();renderProps()}
+function undo(){if(!hist.length)return;fut.push(snap());restore(hist.pop());syncUndo();setDirty(true);say("Undone")}
+function redo(){if(!fut.length)return;hist.push(snap());restore(fut.pop());syncUndo();setDirty(true);say("Redone")}
+function syncUndo(){document.querySelectorAll("[data-undo]").forEach(b=>b.disabled=!hist.length);document.querySelectorAll("[data-redo]").forEach(b=>b.disabled=!fut.length)}
+let dirty=false;
+function setDirty(v){dirty=v;$("projName").textContent="Madera County"+(v?" •":"")}
+function esca(s){return esc(s)}
 function renderCards(){
- const c=document.getElementById("canvas");c.querySelectorAll(".card").forEach(e=>e.remove());
+ const c=$("canvas");c.querySelectorAll(".card").forEach(e=>e.remove());
+ $("treeName").textContent=layer()?.name||"no layer";
  for(const k of cards){
-  const d=document.createElement("div");d.className=`card ${k.fam==="Output"?"out":""} ${k.sel?"sel":""}`;d.style.left=k.x+"px";d.style.top=k.y+"px";d.dataset.id=k.id;
-  const headBg=k.fam==="Output"?"":`style="background:var(--fam-${k.fam})"`;
-  d.innerHTML=`<div class="card-h" ${headBg}>${ic(k.icon||FAMICON[k.fam])}<span class="sp">${esc(k.title)}</span>${k.fixed?`<small>fixed</small>`:""}</div>`
+  const d=document.createElement("div");d.className=`card ${k.fam==="Output"?"out":""} ${k.sel?"sel":""}`;d.style.left=k.x+"px";d.style.top=k.y+"px";d.dataset.id=k.id;d.tabIndex=0;d.setAttribute("aria-label",k.title+" card");
+  const headBg=k.fam==="Output"?"":`style="background:var(--fam-${k.fam});--fam-text:var(--fam-${k.fam}-text)"`;
+  const field=(f,i)=>{
+   if(f.pick!==undefined)return `<div class="f"><span>${esc(f.label)}</span><select class="fv need" data-pick="${f.pick}" aria-label="${esc(f.full)}"><option value="">Choose a layer</option>${LAYERS.filter(l=>l.id!==active).map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join("")}</select></div>`;
+   if(f.options)return `<div class="f"><span>${esc(f.label)}</span><select class="fv" data-f="${i}" aria-label="${esc(f.label)}">${f.options.map(o=>`<option ${o===f.value?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
+   return `<div class="f"><span>${esc(f.label)}</span><input class="fv" data-f="${i}" value="${esc(f.value)}" aria-label="${esc(f.label)}"></div>`};
+  const st=k.state==="done"?`<small class="card-state">${ic("check")}</small>`:"";
+  d.innerHTML=`<div class="card-h" ${headBg}>${ic(k.icon||FAMICON[k.fam])}<span class="sp">${esc(k.title)}</span>${k.fixed?`<small>fixed</small>`:st}</div>`
    +(k.ins||[]).map((p,i)=>`<div class="port i" data-p="in${i}"><span class="sock ${p.kind}${p.on?" filled":""}"></span>${esc(p.label)}</div>`).join("")
    +(k.sub?`<div class="card-sub" style="padding-top:5px">${esc(k.sub)}</div>`:"")
-   +(k.f?`<div class="card-b">${k.f.map(([a,b,n])=>`<div class="f"><span>${esc(a)}</span><span class="fv${n?" need":""}">${esc(b)}${n?ic("chev"):""}</span></div>`).join("")}</div>`:"")
+   +(k.f?.length?`<div class="card-b">${k.f.map(field).join("")}</div>`:"")
    +(k.out?`<div class="port o" data-p="out">${esc(k.out.label)}<span class="sock ${k.out.kind} filled"></span></div>`:"");
   c.appendChild(d);
+  d.addEventListener("pointerdown",e=>{
+   if(e.target.closest("select,input"))return;
+   selectCard(k.id);
+   if(!e.target.closest(".card-h"))return;
+   const c0=cards.find(x=>x.id===k.id),sx=e.clientX,sy=e.clientY,ox=c0.x,oy=c0.y,el=c.querySelector(`.card[data-id="${k.id}"]`);let moved=false,before=snap();
+   const mv=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(!moved&&Math.abs(dx)+Math.abs(dy)<3)return;moved=true;c0.x=Math.max(0,ox+dx);c0.y=Math.max(0,oy+dy);el.style.left=c0.x+"px";el.style.top=c0.y+"px";drawWires()};
+   const up=()=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);if(moved){hist.push(before);fut.length=0;syncUndo();setDirty(true)}};
+   addEventListener("pointermove",mv);addEventListener("pointerup",up);
+  });
+  d.querySelectorAll("[data-f]").forEach(inp=>inp.onchange=()=>{remember();k.f[+inp.dataset.f].value=inp.value;markStale();say(`${k.title}: ${k.f[+inp.dataset.f].label} set to ${inp.value}`)});
+  d.querySelectorAll("[data-pick]").forEach(sel=>sel.onchange=()=>{if(sel.value)connectLayer(k.id,+sel.dataset.pick,sel.value)});
  }
  drawWires();
 }
+function selectCard(id){if(cards.find(c=>c.sel)?.id===id)return;cards.forEach(c=>c.sel=c.id===id?1:0);document.querySelectorAll(".card").forEach(e=>e.classList.toggle("sel",e.dataset.id===id));renderProps()}
 function drawWires(){
- const c=document.getElementById("canvas"),o=c.getBoundingClientRect();
- const s=(id,p)=>{const e=c.querySelector(`.card[data-id="${id}"] [data-p="${p}"] .sock`);if(!e)return null;const r=e.getBoundingClientRect();return[r.left+r.width/2-o.left,r.top+r.height/2-o.top]};
- document.getElementById("wires").innerHTML=edges.map(([a,b])=>{const p=s(a,"out"),q=s(b,"in0");if(!p||!q)return"";const m=Math.max(30,(q[0]-p[0])/2);return`<path d="M${p[0]} ${p[1]}C${p[0]+m} ${p[1]} ${q[0]-m} ${q[1]} ${q[0]} ${q[1]}"/>`}).join("");
+ const c=$("canvas"),o=c.getBoundingClientRect();
+ const s=(id,p)=>{const e=c.querySelector(`.card[data-id="${id}"] [data-p="${p}"] .sock`);if(!e)return null;const r=e.getBoundingClientRect();return[r.left+r.width/2-o.left+c.scrollLeft,r.top+r.height/2-o.top+c.scrollTop]};
+ const w=$("wires");w.style.width=c.scrollWidth+"px";w.style.height=c.scrollHeight+"px";
+ $("wires").innerHTML=edges.map(([a,b,port])=>{const p=s(a,"out"),q=s(b,"in"+(port||0));if(!p||!q)return"";const m=Math.max(30,Math.abs(q[0]-p[0])/2);return`<path d="M${p[0]} ${p[1]}C${p[0]+m} ${p[1]} ${q[0]-m} ${q[1]} ${q[0]} ${q[1]}"/>`}).join("");
 }
+function markStale(){cards.forEach(c=>{if(c.state)c.state=null});renderCards();renderProps()}
+function nextId(){return"n"+Date.now().toString(36)+Math.floor(Math.random()*1e3)}
 function addCard(t){
- const prev=edges.find(e=>e[1]==="out")[0],pc=cards.find(k=>k.id===prev);
- const id="n"+cards.length;
- cards.forEach(k=>k.sel=0);
+ if(!layer())return dialog("Add a layer first","Tools go into a layer's node tree. Use Add Data, then choose a layer.");
+ remember();
+ const toOut=edges.find(e=>e[1]==="out"),prevId=toOut?.[0],pc=cards.find(k=>k.id===prevId)||cards[0];
+ const id=nextId();cards.forEach(k=>k.sel=0);
  const out=cards.find(k=>k.id==="out");
- const nk={id,fam:fam(t.category),icon:ICON[t.id],title:t.name,x:pc.x+226,y:24,sel:1,ins:t.inputs.map((p,i)=>({id:p.id,label:p.label,kind:p.kind,on:i===0})),out:t.output?{kind:t.output,label:t.output==="raster"?"Raster":t.output==="table"?"Table":"Features"}:null,f:t.inputs.slice(1).map(p=>[p.label.split(" ")[0],"Choose a layer",1])};
- cards.push(nk);out.x=Math.max(out.x,nk.x+226);
- edges=edges.filter(e=>e[1]!=="out").concat([[prev,id],[id,"out"]]);
- renderCards();
+ const fits=pc.out&&t.inputs[0]&&(t.inputs[0].kind===pc.out.kind||t.inputs[0].kind==="any"||t.inputs[0].kind==="table");
+ const nk={id,toolId:t.id,fam:fam(t.category),icon:ICON[t.id],title:t.name,x:pc.x+226,y:fits?24:pc.y+150,sel:1,ins:t.inputs.map((p,i)=>({id:p.id,label:p.label,kind:p.kind,on:i===0&&fits})),out:t.output?{kind:t.output,label:t.output==="raster"?"Raster":t.output==="table"?"Table":"Features"}:null,
+  f:t.inputs.slice(1).map((p,i)=>({label:p.label.split(" ").slice(-2)[0].slice(0,9),full:p.label,pick:i+1})),sub:t.nparams?`${t.nparams} ${t.nparams===1?"setting":"settings"}, shown here in the app`:null};
+ cards.push(nk);
+ if(t.role==="output"){edges=edges.concat(fits?[[prevId,id]]:[])}
+ else if(fits&&t.output){edges=edges.filter(e=>e!==toOut).concat([[prevId,id],[id,"out"]]);out.x=Math.max(out.x,nk.x+226)}
+ renderCards();renderProps();
+ $("canvas").querySelector(`.card[data-id="${id}"]`)?.scrollIntoView({block:"nearest",inline:"nearest"});
+ say(fits?`${t.name} added after ${pc.title}`:`${t.name} placed unconnected: ${pc.title} gives ${pc.out?.kind||"nothing"}, ${t.name} needs ${t.inputs[0]?.kind||"nothing"}`);
 }
-
+function connectLayer(cardId,port,layerId){
+ remember();
+ const l=LAYERS.find(x=>x.id===layerId),k=cards.find(c=>c.id===cardId),id=nextId();
+ cards.push({id,fam:"Input",title:"Layer",x:Math.max(0,k.x-226),y:k.y+150,sub:`${l.name} · ${l.geom}`,out:{kind:"vector",label:"Features"}});
+ edges.push([id,cardId,port]);k.ins[port].on=1;
+ k.f=k.f.filter(f=>f.pick!==port);
+ markStale();say(`${l.name} connected to ${k.title}`);
+}
+function addLayerCard(l){
+ if(l.role!=="layer")return;
+ remember();cards.push({id:nextId(),fam:"Input",title:"Layer",x:18,y:150,sub:`${l.name} · ${l.geom}`,out:{kind:"vector",label:"Features"}});renderCards();say(`${l.name} added as an input`);
+}
+function deleteSelected(){
+ const k=cards.find(c=>c.sel);if(!k||k.fixed)return;
+ remember();
+ const inE=edges.find(e=>e[1]===k.id&&!e[2]),outs=edges.filter(e=>e[0]===k.id);
+ edges=edges.filter(e=>e[0]!==k.id&&e[1]!==k.id);
+ if(inE)outs.forEach(o=>edges.push([inE[0],o[1],o[2]]));
+ cards=cards.filter(c=>c!==k);renderCards();renderProps();say(`${k.title} deleted`);
+}
+function runTree(){
+ const missing=cards.flatMap(k=>(k.f||[]).filter(f=>f.pick!==undefined).map(f=>[k,f]));
+ if(missing.length){const[k,f]=missing[0];return dialog("This model can't run yet",`${k.title} needs ${f.full}. Choose a layer on its card, then run again.`,true)}
+ const loose=cards.find(k=>k.toolId&&k.ins?.[0]&&!k.ins[0].on);
+ if(loose)return dialog("This model can't run yet",`${loose.title} has nothing connected to ${loose.ins[0].label}. Connect it or delete the card.`,true);
+ say("Running…");
+ const steps=cards.filter(k=>k.toolId);let i=0;
+ const tick=()=>{if(i<steps.length){steps[i++].state="done";renderCards();setTimeout(tick,160)}else{trees[active].ran=true;applyMapLayers();renderProps();say(`Done. ${steps.length} ${steps.length===1?"step":"steps"} ran; source data unchanged.`)}};
+ tick();
+}
+function renderProps(){
+ const k=cards.find(c=>c.sel)||cards[0],p=$("propBody"),l=layer();
+ if(!k||!l){p.innerHTML=`<p>Select a layer or a card to see its properties.</p>`;return}
+ const t=k.toolId&&toolByName(k.toolId);
+ p.innerHTML=`<h3>${ic(k.icon||FAMICON[k.fam])}${esc(k.title)}</h3><p>${esc(t?t.description:k.fam==="Output"?"The tree's result. It draws on the map and never changes the source data.":"The layer this tree starts from.")}</p>
+ <div class="sect"><h4>Input</h4><div class="kv"><span>Layer</span><span>${esc(l.name)}</span><span>Geometry</span><span>${esc(l.geom)} · ${l.count.toLocaleString()} ${l.count===1?"feature":"features"}</span><span>CRS</span><span>${CRS}</span></div></div>
+ ${t?`<div class="sect"><h4>Result</h4><div class="kv"><span>CRS</span><span>Same as input</span><span>Status</span><span style="color:${k.state==="done"?"var(--ok)":"var(--text-2)"}">${k.state==="done"?"Up to date":"Not run yet"}</span></div></div>`:""}`;
+}
 /* menu: the prototype of nodes/toolSearch.ts */
 const store=(()=>{try{return JSON.parse(localStorage.getItem("mock.tools")||"null")}catch{return null}})()||{fav:["buffer","clip","dissolve"],rec:["project","hillshade","calculate_field"]};
 const save=()=>{try{localStorage.setItem("mock.tools",JSON.stringify(store))}catch{}};
 let qv="",cat="Start",hi=0,shown=[];
 const addable=TOOLS.filter(t=>t.role!=="data"&&t.id!=="layer_output"&&t.id!=="add_to_map");
-const layerItems=LAYERS.map(l=>({id:l.id,name:l.name,description:l.desc,category:"Layers",role:"layer",inputs:[],output:"vector",nparams:0,keywords:[]}));
+const otherLayers=()=>LAYERS.filter(l=>l.id!==active);
 const words=s=>s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 function score(t,w){
  const n=t.name.toLowerCase();
@@ -508,7 +821,7 @@ function score(t,w){
 }
 function search(q){
  const ws=words(q);if(!ws.length)return[];const r=[];
- for(const t of [...addable,...layerItems]){let tot=0,hit=null,ok=true;for(const w of ws){const m=score(t,w);if(!m){ok=false;break}tot+=m.s;hit=hit||m.hit}
+ for(const t of [...addable,...otherLayers()]){let tot=0,hit=null,ok=true;for(const w of ws){const m=score(t,w);if(!m){ok=false;break}tot+=m.s;hit=hit||m.hit}
   if(ok)r.push({t,tot,hit,fav:store.fav.includes(t.id)})}
  return r.sort((a,b)=>a.tot-b.tot||b.fav-a.fav||a.t.name.localeCompare(b.t.name));
 }
@@ -519,7 +832,7 @@ function build(){
   const by=id=>addable.find(t=>t.id===id);
   secs=[{title:"Favourites",items:store.fav.map(by).filter(Boolean).map(t=>({t}))},{title:"Recent",items:store.rec.map(by).filter(Boolean).map(t=>({t}))}];
   for(const g of GROUPS)secs.push({title:g,items:addable.filter(t=>groupOf(t)===g).sort((a,b)=>a.name.localeCompare(b.name)).map(t=>({t}))});
- }else if(cat==="Layers")secs=[{title:"Other layers, as extra inputs",items:layerItems.map(t=>({t}))}];
+ }else if(cat==="Layers")secs=[{title:"Other layers, as extra inputs",items:otherLayers().map(t=>({t}))}];
  else{
   const subs={};for(const t of addable.filter(t=>groupOf(t)===cat)){const s=t.category.split(" › ")[1]||"";(subs[s]=subs[s]||[]).push(t)}
   secs=Object.keys(subs).sort().map(s=>({title:s||null,items:subs[s].sort((a,b)=>a.name.localeCompare(b.name)).map(t=>({t}))}));
@@ -528,7 +841,7 @@ function build(){
 }
 function render(){
  document.getElementById("rail").innerHTML=["Start","Layers",...GROUPS].map(g=>{
-  const n=g==="Start"?"":g==="Layers"?LAYERS.length:addable.filter(t=>groupOf(t)===g).length;
+  const n=g==="Start"?"":g==="Layers"?otherLayers().length:addable.filter(t=>groupOf(t)===g).length;
   const chip=g==="Start"?ic("star"):g==="Layers"?ic("layers"):`<i class="chip" style="background:${fam(g)==="Output"?"var(--rule)":`var(--fam-${fam(g)})`}"></i>`;
   return `<button class="${!qv.trim()&&cat===g?"on":""}" data-c="${g}">${chip}<span>${g}</span><small>${n}</small></button>`}).join("");
  document.querySelectorAll("#rail button").forEach(b=>{b.onclick=()=>{cat=b.dataset.c;qv="";document.getElementById("q").value="";hi=0;render();document.getElementById("q").focus()}});
@@ -558,7 +871,7 @@ function preview(){
  if(!it){p.innerHTML="";return}
  const t=it.t;
  if(t.role==="layer"){p.innerHTML=`<h4>${esc(t.name)}</h4><div class="path">${esc(t.description)}</div><div class="m-conn"><b>Adds a Layer card</b> you can connect to any tool's second input.</div>`;return}
- const last=cards.find(k=>k.id===edges.find(e=>e[1]==="out")[0]);
+ const last=cards.find(k=>k.id===edges.find(e=>e[1]==="out")?.[0])||cards[0]||{title:"nothing"};
  const fits=t.inputs[0]&&(t.inputs[0].kind===last.out?.kind||t.inputs[0].kind==="any"||t.inputs[0].kind==="table");
  const kname={vector:"Features",raster:"Raster",table:"Table",any:"Anything"};
  p.innerHTML=`<div><h4>${esc(t.name)}</h4><div class="path">${esc(t.role==="output"?"Save to File":t.category)}</div></div>
@@ -570,7 +883,7 @@ function preview(){
 function pick(){
  const it=shown[hi];if(!it)return;const t=it.t;
  closeMenu();
- if(t.role==="layer")return;
+ if(t.role==="layer"){openWin("nodes");addLayerCard(t);return}
  store.rec=[t.id,...store.rec.filter(x=>x!==t.id)].slice(0,8);save();
  setBottom(true);addCard(t);
 }
@@ -603,33 +916,94 @@ addEventListener("keydown",e=>{
  const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||"");
  if(e.shiftKey&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&e.key.toLowerCase()==="a"&&!typing){e.preventDefault();openMenu()}
 });
-document.getElementById("canvas").addEventListener("contextmenu",e=>{e.preventDefault();openMenu("", {x:e.clientX,y:e.clientY})});
-document.getElementById("addBtn").onclick=()=>openMenu();
+$("canvas").addEventListener("contextmenu",e=>{e.preventDefault();openMenu("", {x:e.clientX,y:e.clientY})});
 
-/* bottom panel */
-const bottomEl=document.getElementById("bottom");
-function setBottom(v){bottomEl.style.display=v?"flex":"none";syncBtns();requestAnimationFrame(drawWires)}
-function setBTab(n){const a=n==="nodes";document.getElementById("bt-nodes").setAttribute("aria-selected",a);document.getElementById("bt-table").setAttribute("aria-selected",!a);document.getElementById("nodesView").style.display=a?"flex":"none";document.getElementById("tableView").style.display=a?"none":"block";if(a)requestAnimationFrame(drawWires)}
-document.getElementById("bt-nodes").onclick=e=>{e.target.closest(".x")?setBottom(false):setBTab("nodes")};
-document.getElementById("bt-table").onclick=e=>{e.target.closest(".x")?setBottom(false):setBTab("table")};
+/* ---------- appearance panel ---------- */
+let aprOpen=false;
+function toggleApr(v){aprOpen=v===undefined?!aprOpen:v;$("apr").style.display=aprOpen?"flex":"none";if(aprOpen){renderApr();$("apr").querySelector("button")?.focus()}renderRib();syncBtns()}
+function renderApr(){
+ if(!aprOpen)return;
+ const sw=(list,cur,kind)=>list.map(([n,c])=>`<button class="swatch" style="background:${c}" aria-label="${n}" title="${n}" aria-pressed="${cur.toUpperCase()===c.toUpperCase()}" data-${kind}="${c}"></button>`).join("");
+ $("aprBody").innerHTML=`
+ <div><h3>Theme</h3><div class="seg">${["light","dark"].map(m=>`<button aria-pressed="${apr.mode===m}" data-mode="${m}">${m[0].toUpperCase()+m.slice(1)}</button>`).join("")}</div></div>
+ <div><h3>Panels</h3><div class="seg">${Object.keys(PALETTES).map(p=>`<button aria-pressed="${apr.palette===p}" data-pal="${p}">${p}</button>`).join("")}</div></div>
+ <div><h3>Ribbon colour</h3><div class="swatches">${sw(ACCENTS,apr.accent,"acc")}<label class="colorin">Custom<input type="color" id="accIn" value="${apr.accent}"></label></div></div>
+ <div><h3>Highlight colour</h3><div class="swatches">${sw(HILITES,apr.hilite,"hil")}<label class="colorin">Custom<input type="color" id="hilIn" value="${apr.hilite}"></label></div><p>Selected rows, tabs in menus and selected node cards. Text on it stays readable by itself.</p></div>
+ <div><h3>Tool colours</h3><div class="famgrid">${Object.keys(FAMS).map(k=>`<label for="fam${k}">${FAMNAME[k]}</label><input type="color" id="fam${k}" data-fam="${k}" value="${apr.fam[k]}">`).join("")}</div></div>`;
+ const b=$("aprBody");
+ b.querySelectorAll("[data-mode]").forEach(x=>x.onclick=()=>{apr.mode=x.dataset.mode;commit(x)});
+ b.querySelectorAll("[data-pal]").forEach(x=>x.onclick=()=>{apr.palette=x.dataset.pal;commit(x)});
+ b.querySelectorAll("[data-acc]").forEach(x=>x.onclick=()=>{apr.accent=x.dataset.acc;commit(x)});
+ b.querySelectorAll("[data-hil]").forEach(x=>x.onclick=()=>{apr.hilite=x.dataset.hil;commit(x)});
+ $("accIn").oninput=e=>{apr.accent=e.target.value.toUpperCase();applyTheme()};$("accIn").onchange=()=>commit();
+ $("hilIn").oninput=e=>{apr.hilite=e.target.value.toUpperCase();applyTheme()};$("hilIn").onchange=()=>commit();
+ b.querySelectorAll("[data-fam]").forEach(x=>{x.oninput=()=>{apr.fam[x.dataset.fam]=x.value.toUpperCase();applyTheme()}});
+}
+function commit(el){applyTheme();renderApr();renderRib();if(el){const sel=[...el.attributes].find(a=>a.name.startsWith("data-"));if(sel)$("aprBody").querySelector(`[${sel.name}="${sel.value}"]`)?.focus()}}
+$("aprClose").onclick=()=>toggleApr(false);
+$("aprReset").onclick=()=>{const m=apr.mode;apr=APR_DEFAULT();apr.mode=m;commit();say("Colours reset")};
+$("apr").addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Escape")toggleApr(false)});
+
+/* ---------- top-left cell, map chrome, bottom tabs, table, status ---------- */
+$("qatProject").onclick=e=>popup(e.currentTarget,[
+ {label:"New project",hint:"⌘N",run(){stub("New Project","Start an empty project.")}},
+ {label:"Open…",hint:"⌘O",run(){stub("Open Project","Open a .gproj folder.")}},
+ "-",
+ {label:"Save",hint:"⌘S",run:doSave},
+ {label:"Save as…",hint:"⇧⌘S",run(){stub("Save As","Save this project under a new name.")}},
+ "-",
+ {label:"Sources",run(){win.sources=true;layoutWindows()}},
+].map(x=>x));
+function doSave(){setDirty(false);say("Project saved")}
+document.querySelectorAll("[data-save]").forEach(b=>b.onclick=doSave);
+document.querySelectorAll("[data-undo]").forEach(b=>b.onclick=undo);
+document.querySelectorAll("[data-redo]").forEach(b=>b.onclick=redo);
+$("zIn").onclick=()=>{zoom=Math.min(8,zoom*1.5);applyZoom()};
+$("zOut").onclick=()=>{zoom=Math.max(1,zoom/1.5);applyZoom()};
+$("zFull").onclick=()=>{zoom=1;applyZoom()};
+$("scaleBox").addEventListener("change",e=>{const n=parseFloat(e.target.value.replace(/^1:/,"").replace(/,/g,""));if(n>0){zoom=Math.max(1,48000/n);applyZoom();say(`Scale set to 1:${n.toLocaleString("en-US")}`)}else{applyZoom();dialog("That isn't a scale","Type a scale like 1:24,000.",true)}});
+$("map").addEventListener("pointermove",e=>{const r=e.currentTarget.getBoundingClientRect();const x=6400000+(e.clientX-r.left)*40/zoom,y=2120000-(e.clientY-r.top)*40/zoom;$("ptr").textContent=`${x.toLocaleString("en-US",{maximumFractionDigits:1,minimumFractionDigits:1})} E  ${y.toLocaleString("en-US",{maximumFractionDigits:1,minimumFractionDigits:1})} N ftUS`});
+$("map").addEventListener("click",()=>{if(mapTool==="Identify")dialog("Identify","Sample feature: Fresno River, Stream, 18,402.6 ft.");else if(mapTool!=="Explore")say(`${mapTool}: click registered on the map`)});
+$("crsLink").onclick=e=>{e.preventDefault();stub("Map CRS",STUBS["Map CRS"])};
+$("addLyr").onclick=()=>act("Add Data");
+$("bt-nodes").onclick=e=>{if(e.target.closest(".x")){win.nodes=false}else bTab="nodes";layoutWindows()};
+$("bt-table").onclick=e=>{if(e.target.closest(".x")){win.table=false}else bTab="table";layoutWindows()};
+$("runBtn").onclick=runTree;$("addBtn").onclick=()=>openMenu();
+document.querySelectorAll("#tableView tbody tr").forEach(r=>r.onclick=()=>{document.querySelectorAll("#tableView tr.sel").forEach(x=>x.classList.remove("sel"));r.classList.add("sel");say(`Selected: ${r.children[1].textContent}`)});
+addEventListener("keydown",e=>{
+ const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||"");
+ const mod=e.metaKey||e.ctrlKey;
+ if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();doSave()}
+ else if(mod&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!typing){e.preventDefault();undo()}
+ else if(mod&&e.shiftKey&&e.key.toLowerCase()==="z"&&!typing){e.preventDefault();redo()}
+ else if(e.altKey&&e.code==="KeyQ"){e.preventDefault();searchEl.focus()}
+ else if((e.key==="Delete"||e.key==="Backspace")&&!typing&&bTab==="nodes"){deleteSelected()}
+});
+$("canvas").addEventListener("pointerdown",e=>{if(e.target===$("canvas")){cards.forEach(c=>c.sel=0);document.querySelectorAll(".card.sel").forEach(x=>x.classList.remove("sel"))}});
 
 /* mock-up controls */
 function syncBtns(){
- const root=document.documentElement;
- document.getElementById("mThemeBtn").textContent=root.dataset.theme==="dark"?"Light theme":"Dark theme";
- document.getElementById("mMenuBtn").textContent=menuEl.style.display==="none"?"Show tool menu":"Hide tool menu";
- document.getElementById("mBottomBtn").textContent=bottomEl.style.display==="none"?"Open bottom panel":"Close bottom panel";
+ if(!$("mThemeBtn"))return;
+ $("mThemeBtn").textContent=apr.mode==="dark"?"Light theme":"Dark theme";
+ $("mMenuBtn").textContent=menuEl.style.display==="none"?"Show tool menu":"Hide tool menu";
+ $("mBottomBtn").textContent=$("bottom").style.display==="none"?"Open bottom panel":"Close bottom panel";
+ $("mColorBtn").textContent=aprOpen?"Hide colours":"Colours";
 }
-document.getElementById("mThemeBtn").onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==="dark"?"light":"dark";syncBtns()};
-document.getElementById("mMenuBtn").onclick=()=>{menuEl.style.display==="none"?openMenu("cut"):closeMenu()};
-document.getElementById("mBottomBtn").onclick=()=>setBottom(bottomEl.style.display==="none");
+$("mThemeBtn").onclick=()=>{apr.mode=apr.mode==="dark"?"light":"dark";applyTheme();renderApr();renderRib()};
+$("mMenuBtn").onclick=()=>{menuEl.style.display==="none"?openMenu("cut"):closeMenu()};
+$("mBottomBtn").onclick=()=>setBottom($("bottom").style.display==="none");
+$("mColorBtn").onclick=()=>toggleApr();
 
+booted=true;
 const P=new URLSearchParams(location.search);
-if(P.get("theme"))document.documentElement.dataset.theme=P.get("theme");
-if(P.has("shot"))document.getElementById("mockbar").style.display="none";
+if(P.get("theme")){apr.mode=P.get("theme");applyTheme()}
+if(P.has("shot"))$("mockbar").style.display="none";
 if(P.get("tab")&&RIB[P.get("tab")])tab=P.get("tab");
-renderRib();renderCards();
-if(P.get("bottom")==="0")setBottom(false);
+ensureTree(active);({cards,edges,hist,fut}=trees[active]);
+renderLayers();renderTree();renderSources();renderProps();renderCards();applyMapLayers();syncUndo();
+if(P.get("bottom")==="0"){win.nodes=false;win.table=false}
+layoutWindows();
+if(P.has("colours"))toggleApr(true);
 addEventListener("resize",drawWires);
 (document.fonts?.ready||Promise.resolve()).then(()=>{drawWires();if(P.get("menu")!=="0")openMenu(P.get("q")??"cut");else syncBtns()});
 </script>
