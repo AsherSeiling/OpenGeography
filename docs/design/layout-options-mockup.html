@@ -85,6 +85,19 @@ svg.i{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.5;stroke
 .tile{background:var(--surface-2);border:1px solid var(--rule);text-align:left;border-radius:var(--r-tab);overflow:hidden}.tile.on{outline:3px solid var(--accent)}
 .thumb{height:118px;background:#F4F5F5;position:relative;border-bottom:1px solid var(--rule-soft)}.thumb i{position:absolute;background:#DCE8D2;border:1px solid #666}.thumb u{position:absolute;background:#333;height:3px;text-decoration:none}
 .tile b{display:block;padding:7px 10px 0;font-weight:600}.tile small{display:block;padding:0 10px 8px;font-size:11px;line-height:14px;color:var(--text-2)}
+.backmap{flex:1;display:flex;align-items:center;gap:6px;padding:0 12px;font:600 13px/18px Inter,system-ui,sans-serif;color:var(--link);text-align:left}.backmap svg{font-size:16px}
+button.it.w{width:100%;text-align:left}.it:hover{background:var(--hover)}.it.sel:hover{background:var(--sel-bg)}
+.ctxtab small{margin-right:2px}
+.el{cursor:default}
+.rail{width:72px;overflow:auto}.rail button{text-align:center;padding:4px 2px}.rail button:hover{background:var(--hover)}.rl{font:500 10.5px/13px Inter,system-ui,sans-serif;color:var(--text-2);text-align:center;padding:3px 2px 1px}.rhead{font:600 12px/16px Inter,system-ui,sans-serif;color:var(--link);text-align:center;padding:2px 0 2px;border-bottom:1.5px solid var(--accent)}
+.mb{height:26px;padding:0 10px;font:500 13px/18px Inter,system-ui,sans-serif}.mb:hover{background:var(--hover)}.mb small{font:500 10.5px/13px Inter,system-ui,sans-serif;color:var(--link)}
+.lg:hover,.sm:hover{background:var(--hover)}
+.pop{position:fixed;z-index:30;min-width:180px;max-height:70vh;overflow:auto;background:var(--surface-2);border:1px solid var(--rule);box-shadow:var(--e-float);padding:4px 0}.pop button{display:block;width:100%;min-height:24px;padding:3px 12px;text-align:left}.pop button:hover,.pop button:focus-visible{background:var(--sel-bg);color:var(--sel-text);outline:0}.pop hr{border:0;border-top:1px solid var(--rule-soft);margin:4px 0}.pt{padding:3px 12px 4px;font:600 10.5px/13px Inter,system-ui,sans-serif;color:var(--text-2);border-bottom:1px solid var(--rule-soft);margin-bottom:3px}
+.mm{height:100%;overflow:auto;background:var(--surface-1);padding:20px 24px;display:flex;flex-direction:column;gap:14px}.mm header h1{margin:0;font:600 22px/28px Inter,system-ui,sans-serif}.mm header p{margin:2px 0 0;color:var(--text-2);font-size:13px;line-height:18px}
+.mcols{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.mc{background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r-tab);padding:10px 12px}.mc.ctxc{border:1.5px dashed var(--accent)}.mc h3{margin:0;font:600 15px/20px Inter,system-ui,sans-serif;color:var(--link)}.mc>p{margin:0 0 4px;color:var(--text-2);font-size:11px;line-height:14px;min-height:28px}.mc h4{margin:8px 0 2px;font:600 11px/14px Inter,system-ui,sans-serif;border-top:1px solid var(--rule-soft);padding-top:6px}.mc ul{margin:0;padding:0;list-style:none}.mc li{font-size:12px;line-height:18px}.mc em{font-style:normal;font-size:10.5px;color:var(--text-2)}
+.mlow{display:grid;grid-template-columns:1fr 1fr;gap:16px}.mlow h3{margin:0 0 6px;font:600 13px/18px Inter,system-ui,sans-serif}.mlow table{border-collapse:collapse;width:100%;background:var(--surface-2)}.mlow th,.mlow td{border:1px solid var(--rule-soft);padding:3px 8px;text-align:left;font-size:12px;line-height:16px}.mlow th{font-weight:600;white-space:nowrap;width:96px}.rules{margin:0;padding-left:16px;line-height:18px}
+.qa{display:flex;align-items:center;gap:2px;margin:0 8px 4px 0;height:22px}.qa button{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 6px;font-size:12px;line-height:16px;border-radius:var(--r-control)}.qa button svg{font-size:15px}.qa button:hover:not(:disabled){background:var(--hover)}.qa button:disabled{opacity:.42}
+.qat b{flex:1;display:flex;align-items:center}.backmap{flex:1;border-top:1px solid var(--rule-soft)}
 </style>
 </head>
 <body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -153,68 +166,152 @@ svg.i{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.5;stroke
 </template>
 <script>
 const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const opt=(new URLSearchParams(location.search).get("opt")||"A").toUpperCase();
 const mapSvg=document.getElementById("mapsvg").innerHTML;
-const page=(u,extras="")=>`<div class="page" style="--u:${u}px">
- <div class="el ti" style="left:calc(var(--u)*10);top:calc(var(--u)*8)">Stream buffers, Madera County</div>
- <div class="el st" style="left:calc(var(--u)*10);top:calc(var(--u)*17.5)">100 ft geodesic buffer on NHD streams, clipped to the forest boundary</div>
- <div class="el fr" style="left:calc(var(--u)*10);top:calc(var(--u)*25);width:calc(var(--u)*190);height:calc(var(--u)*181)">${mapSvg}</div>
- <div class="el lg2 selbox" style="left:calc(var(--u)*207);top:calc(var(--u)*25);width:calc(var(--u)*62)"><b>Legend</b><div><i style="background:#1F6FB2"></i>Streams (NHD)</div><div><i style="background:#8ee4f7"></i>Stream buffer</div><div><i style="background:#B3532A"></i>Roads</div><div><i style="background:#DCE8D2"></i>Forest boundary</div><div><i style="background:#B59F84"></i>Contours (40 ft)</div></div>
- <div class="el sb" style="left:calc(var(--u)*207);top:calc(var(--u)*90)"><u></u>0 &nbsp; 1 &nbsp; 2 mi · 1:48,000</div>
- <div class="el na" style="left:calc(var(--u)*207);top:calc(var(--u)*106);width:calc(var(--u)*14)">N<br>↑</div>
- <div class="el src" style="left:calc(var(--u)*207);top:calc(var(--u)*182);width:calc(var(--u)*62)">NAD83 / California zone 4 (ftUS). Sources: USGS NHD; U.S. Census TIGER/Line; USGS 3DEP. Basemap: none.</div>
- ${extras}</div>`;
-const qat=`<div class="qat"><b>Madera County</b><div class="qr"><button>${ic("save")}Save</button><button>${ic("undo")}Undo</button><button>${ic("redo")}Redo</button></div></div>`;
-const tabs=(on,all=["Map","Insert","View","Analysis"])=>`<div class="tabs">${all.map(t=>`<button class="tab">${t}</button>`).join("")}${["Page","Elements","Format","Export"].map(t=>`<button class="tab ${t===on?"on":""}">${t==="Page"?"<small>Layout</small>":""}${t}</button>`).join("")}<span class="sp"></span><div class="search">${ic("search")}Search commands</div></div>`;
-const L=(i,l)=>`<button class="lg">${ic(i)}<span>${l}</span></button>`,S=(i,l)=>`<button class="sm">${ic(i)}${l}</button>`;
-const items=`<div class="ph">Items</div><div class="pb" style="flex:0 0 auto">
- <div class="it">${ic("doc")}Title</div><div class="it">${ic("doc")}Subtitle</div>
- <div class="it">${ic("map")}Map frame<span class="e">Overview</span></div>
- <div class="it d1">${ic("layers")}Streams (NHD)</div><div class="it d1">${ic("layers")}Roads</div><div class="it d1">${ic("layers")}Forest boundary</div>
- <div class="it sel">${ic("tree")}Legend</div><div class="it">${ic("ruler")}Scale bar</div><div class="it">${ic("compass")}North arrow</div><div class="it">${ic("book")}Sources</div></div>`;
-const maps=`<div class="ph" style="border-top:1px solid var(--rule)">Maps</div><div class="pb"><div class="mapcard"><i></i><div><b style="font-weight:600">Overview</b><small>Drag onto the page for a frame.</small></div></div><div class="mapcard"><i style="background:#E6E9EA"></i><div><b style="font-weight:600">Fire access</b><small>Not on this page</small></div></div></div>`;
-const insp=(on="Style")=>`<div class="ph">Legend</div><div class="itabs">${["Style","Text","Data","Position"].map(t=>`<button class="${t===on?"on":""}">${t}</button>`).join("")}</div><div class="pb form">
- <h4>Entries</h4><div class="f"><span>Columns</span><div class="fv2">1</div></div><div class="f"><span>Patch size</span><div class="fv2">5 × 2.6 mm</div></div><div class="f"><span>Show</span><div class="fv2">Layers in frame</div></div>
- <h4>Box</h4><div class="f"><span>Background</span><div class="fv2">None</div></div><div class="f"><span>Frame</span><div class="fv2">None</div></div>
- <h4>Text style</h4><div class="f"><span>Style</span><div class="fv2">Legend body ${ic("chev").replace('class="i"','class="i" style="font-size:9px"')}</div></div><div class="f"><span>Font</span><div class="fv2">Inter 8 pt</div></div></div>`;
+
+/* LEVEL 1-4: one definition of the layout menus. tab > group > command > dropdown. Options A to D only show it differently. */
+const B=(i,l,menu)=>({i,l,menu}),s=(i,l,menu)=>({i,l,menu,small:1});
+const ARR={
+ order:["Bring to Front","Bring Forward","Send Backward","Send to Back"],
+ align:["Align Left","Align Centre","Align Right","-","Align Top","Align Middle","Align Bottom"],
+ dist:["Distribute Horizontally","Distribute Vertically"],
+ size:["Same Width as First","Same Height as First"],
+};
+const TABS={
+ Page:{q:"What sheet is this?",groups:[
+  ["Sheet",[B("page","Size",["Letter","Legal","Tabloid","A4","A3","A2","A1"]),B("reset","Orientation",["Landscape","Portrait"]),B("doc","Page Setup…")]],
+  ["Look",[B("brush","Theme",["Page only: Topographic","Page only: Thematic","Page only: Minimalist","-","Page and layer colours: Topographic","Page and layer colours: Thematic","Page and layer colours: Minimalist"])]],
+  ["Template",[s("save","Save as Template…"),s("x","Delete Template",["No templates of yours yet"])]],
+  ["Map Series",[B("grid","Set Up Series…"),s("chevr","Previous Page"),s("chevr","Next Page")]],
+ ]},
+ Insert:{q:"What goes on the page?",groups:[
+  ["Maps",[B("map","Map Frame",["Overview","Fire access","-","Empty frame"]),B("globe","Overview Map")]],
+  ["Map Furniture",[B("tree","Legend"),B("ruler","Scale Bar"),B("compass","North Arrow"),B("compass","Declination")]],
+  ["Text and Data",[B("doc","Text"),B("book","Sources"),B("table","Table"),B("chart","Chart")]],
+  ["Graphics",[B("rect","Shape",["Rectangle","Ellipse","Triangle","Line","Arrow"]),B("image","Picture")]],
+ ]},
+ Arrange:{q:"How do things sit together?",groups:[
+  ["Order",[B("layers","Order",ARR.order)]],
+  ["Line Up",[B("reset","Align",ARR.align),B("grid","Distribute",ARR.dist),B("extent","Same Size",ARR.size)]],
+  ["Group",[s("shapes","Group"),s("shapes","Ungroup"),s("lock","Lock")]],
+ ]},
+ View:{q:"How do I see it?",groups:[
+  ["Zoom",[B("extent","Fit Page"),B("search","100%"),s("plain","Zoom In"),s("x","Zoom Out")]],
+  ["Panes",[s("tree","Items"),s("info","Properties"),s("book","Sources")]],
+  ["Appearance",[B("moon","Dark Theme"),B("brush","Colours")]],
+ ]},
+ Export:{q:"How does it leave the app?",groups:[
+  ["This Page",[B("doc","PDF"),B("image","PNG"),B("shapes","SVG")]],
+  ["Quality",[B("grid","Resolution",["150 dpi","300 dpi","600 dpi"])]],
+  ["Map Series",[s("doc","One PDF with Every Page"),s("image","One PNG per Page…")]],
+ ]},
+};
+const FRAME_TAB={q:"Only while a map frame is selected",groups:[
+ ["Map",[B("map","Which Map",["Overview","Fire access"]),B("extent","Set from Map View")]],
+ ["Scale and CRS",[B("ruler","Scale",["1:24,000","1:48,000","1:100,000","Other…"]),B("globe","Frame CRS…")]],
+]};
+const RAIL_TABS=["Page","Arrange","View","Export"]; /* In B the rail is Insert, so it has no tab. */
+
+/* LEVEL 5: what Properties shows depends on what is selected, always what-it-is first, Position last. */
+const POS=[["Position",[["X, Y","207.0, 25.0 mm"],["Width, Height","62.0 × 52.4 mm"],["Rotation","0°"],["Locked","No"]]]];
+const LOOK=[["Style",[["Background","None"],["Frame","None"],["Shadow","None"],["Opacity","100%"]]]];
+const INSP={
+ page:{t:"Page",icon:"page",tabs:[["Sheet",[["Size","Letter"],["Orientation","Landscape"],["Margin","10 mm"],["Bleed","None"]]],["Guides",[["Guides","On"],["Snap","On"]]],["Info",[["Author","None"],["World file","Off"]]]]},
+ frame:{t:"Map Frame",icon:"map",tabs:[["Map",[["Map","Overview"],["Scale","1:48,000"],["CRS","NAD83 / California zone 4 (ftUS)"],["Basemap","None"]]],["Layers",[["Follows","The map"],["Showing","4 of 4 layers"]]],["Grid",[["Grid","None"],["Graticule","None"]]],...LOOK,...POS]},
+ legend:{t:"Legend",icon:"tree",tabs:[["Entries",[["Show","Layers in frame"],["Columns","1"],["Patch size","5 × 2.6 mm"]]],["Text",[["Style","Legend body"],["Font","Inter 8 pt"]]],...LOOK,...POS]},
+ title:{t:"Text",icon:"doc",tabs:[["Text",[["Content","Stream buffers…"],["Style","Title"],["Font","Inter 21 pt"],["Align","Left"]]],...LOOK,...POS]},
+ scale:{t:"Scale Bar",icon:"ruler",tabs:[["Scale",[["Style","Alternating"],["Units","Miles"],["Linked to","Map Frame"]]],["Text",[["Font","Inter 8 pt"]]],...POS]},
+ north:{t:"North Arrow",icon:"compass",tabs:[["Arrow",[["Style","Simple"],["Points to","True north"]]],...POS]},
+ sources:{t:"Sources",icon:"book",tabs:[["Text",[["Style","Small print"],["Font","Inter 7 pt"]]],...POS]},
+};
+const ITEMS=[["title","doc","Title"],["frame","map","Map Frame"],["legend","tree","Legend"],["scale","ruler","Scale Bar"],["north","compass","North Arrow"],["sources","book","Sources"]];
+const CTX={
+ page:["Paste","-","Insert… (Shift+A)","-","Page Setup…"],
+ element:["Cut","Copy","Duplicate","Delete","-","Order ▸","Align ▸","Group","Lock"],
+ frame:["Set from Map View","Which Map ▸","-","Cut","Copy","Duplicate","Delete","-","Order ▸","Align ▸","Group","Lock"],
+};
+const allCommands=()=>{const out=[];const walk=g=>g.forEach(([,it])=>it.forEach(c=>{out.push(c.l);(c.menu||[]).forEach(m=>m!=="-"&&out.push(m))}));Object.values(TABS).forEach(t=>walk(t.groups));walk(FRAME_TAB.groups);return out};
+
+/* state */
+let tab=opt==="D"?"Insert":opt==="B"?"Page":"Insert",sel=opt==="D"?"page":"legend",iTab=0,pop=null,statusMsg="";
+const empty=opt==="D";
+
+const page=(u,extras="")=>{const c=k=>sel===k?"selbox":"";return `<div class="page" data-el="page" style="--u:${u}px">
+ <div class="el ti ${c("title")}" data-el="title" style="left:calc(var(--u)*10);top:calc(var(--u)*8)">Stream buffers, Madera County</div>
+ <div class="el st" data-el="title" style="left:calc(var(--u)*10);top:calc(var(--u)*17.5)">100 ft geodesic buffer on NHD streams, clipped to the forest boundary</div>
+ <div class="el fr ${c("frame")}" data-el="frame" style="left:calc(var(--u)*10);top:calc(var(--u)*25);width:calc(var(--u)*190);height:calc(var(--u)*181)">${mapSvg}</div>
+ <div class="el lg2 ${c("legend")}" data-el="legend" style="left:calc(var(--u)*207);top:calc(var(--u)*25);width:calc(var(--u)*62)"><b>Legend</b><div><i style="background:#1F6FB2"></i>Streams (NHD)</div><div><i style="background:#8ee4f7"></i>Stream buffer</div><div><i style="background:#B3532A"></i>Roads</div><div><i style="background:#DCE8D2"></i>Forest boundary</div><div><i style="background:#B59F84"></i>Contours (40 ft)</div></div>
+ <div class="el sb ${c("scale")}" data-el="scale" style="left:calc(var(--u)*207);top:calc(var(--u)*90)"><u></u>0 &nbsp; 1 &nbsp; 2 mi · 1:48,000</div>
+ <div class="el na ${c("north")}" data-el="north" style="left:calc(var(--u)*207);top:calc(var(--u)*106);width:calc(var(--u)*14)">N<br>↑</div>
+ <div class="el src ${c("sources")}" data-el="sources" style="left:calc(var(--u)*207);top:calc(var(--u)*182);width:calc(var(--u)*62)">NAD83 / California zone 4 (ftUS). Sources: USGS NHD; U.S. Census TIGER/Line; USGS 3DEP. Basemap: none.</div>
+ ${extras}</div>`};
+const qat=`<div class="qat"><b>Madera County</b><button class="backmap">${ic("map")}Back to Map</button></div>`;
+const tabNames=()=>opt==="B"?RAIL_TABS:Object.keys(TABS);
+const tabsHtml=()=>`<div class="tabs" role="tablist">${tabNames().map(t=>`<button class="tab ${t===tab?"on":""}" role="tab" aria-selected="${t===tab}" data-tab="${t}">${t}</button>`).join("")}${sel==="frame"?`<button class="tab ctxtab ${tab==="Map Frame"?"on":""}" role="tab" data-tab="Map Frame"><small>Selected</small>Map Frame</button>`:""}<span class="sp"></span><div class="qa"><button>${ic("save")}Save</button><button>${ic("undo")}Undo</button><button>${ic("redo")}Redo</button></div><div class="search">${ic("search")}Search commands</div></div>`;
+const cmd=c=>`<button class="${c.small?"sm":"lg"}" data-cmd="${esc(c.l)}">${ic(c.i)}<span>${esc(c.l)}${c.menu?" ▾":""}</span></button>`;
+const groupsHtml=g=>g.map(([l,it])=>{const sm=it.filter(c=>c.small),lg=it.filter(c=>!c.small);return `<div class="grp"><div>${lg.map(cmd).join("")}${sm.length?`<div class="rcol">${sm.map(cmd).join("")}</div>`:""}</div><div class="gl">${l}</div></div>`}).join("");
+const curTab=()=>tab==="Map Frame"?FRAME_TAB:TABS[tab]||TABS[tabNames()[0]];
+const bandHtml=()=>`<div class="band">${groupsHtml(curTab().groups)}</div>`;
+const itemsHtml=()=>`<div class="ph">Items</div><div class="pb" style="flex:0 0 auto">${empty?`<div class="it" style="color:var(--text-2)">Nothing on the page yet</div>`:`<button class="it w ${sel==="page"?"sel":""}" data-el="page">${ic("page")}Page<span class="e">Letter</span></button>`+ITEMS.map(([k,i,n])=>`<button class="it w ${sel===k?"sel":""}" data-el="${k}">${ic(i)}${n}${k==="frame"?'<span class="e">Overview</span>':""}</button>`+(k==="frame"?["Streams (NHD)","Roads","Forest boundary"].map(l=>`<div class="it d1">${ic("layers")}${l}</div>`).join(""):"")).join("")}</div>`;
+const mapsHtml=`<div class="ph" style="border-top:1px solid var(--rule)">Maps</div><div class="pb"><div class="mapcard"><i></i><div><b style="font-weight:600">Overview</b><small>Drag onto the page for a frame.</small></div></div><div class="mapcard"><i style="background:#E6E9EA"></i><div><b style="font-weight:600">Fire access</b><small>Not on this page</small></div></div></div>`;
+const inspHtml=()=>{const d=INSP[sel];if(iTab>=d.tabs.length)iTab=0;const[,fields]=d.tabs[iTab];return `<div class="ph">${d.t}</div><div class="itabs" style="grid-template-columns:repeat(${d.tabs.length},1fr)">${d.tabs.map(([t],i)=>`<button class="${i===iTab?"on":""}" data-itab="${i}">${t}</button>`).join("")}</div><div class="pb form">${fields.map(([a,b])=>`<div class="f"><span>${a}</span><div class="fv2">${esc(b)}</div></div>`).join("")}</div>`};
 const preflight=`<div class="form" style="padding-top:8px"><div class="chk">${ic("check")}CRS named on the page</div><div class="chk">${ic("check")}Sources listed</div><div class="chk">${ic("check")}Scale bar matches frame</div><div class="chk w">${ic("warn")}Legend lists a hidden layer</div><div class="f"><span>Format</span><div class="fv2">PDF, 300 dpi</div></div><button class="btn">${ic("save")}Export PDF</button></div>`;
-const status=`<div class="status"><span>Letter landscape · 279.4 × 215.9 mm</span><span>Pointer 214.0, 31.5 mm</span><span class="sp"></span><span>Legend 62.0 × 52.4 mm</span><a>NAD83 / California zone 4 (ftUS)</a></div>`;
+const status=()=>`<div class="status"><span>Letter landscape · 279.4 × 215.9 mm</span><span id="msg">${esc(statusMsg)}</span><span class="sp"></span><span>${INSP[sel].t}</span><a>NAD83 / California zone 4 (ftUS)</a></div>`;
 const rulers=c=>`<div class="ruler-h">0 50 100 150 200 250</div><div class="deskrow"><div class="ruler-v"></div><div class="desk">${c}</div></div>`;
-const zoom=`<div class="zbar"><div class="seg"><span class="on">Fit page</span><span>100%</span></div><b>78%</b><span class="sp"></span><small>Snap on · Guides on</small></div>`;
-let html="";
-if(opt==="A"){ /* focused ribbon */
- html=`<div class="top">${qat}<div>${tabs("Elements")}<div class="band"><div class="grp"><div>${L("map","Map Frame")}${L("doc","Text")}${L("tree","Legend")}${L("ruler","Scale Bar")}${L("compass","North Arrow")}</div><div class="gl">Insert</div></div><div class="grp"><div>${L("image","Picture")}${L("table","Table")}${L("chart","Chart")}${L("book","Sources")}</div><div class="gl">More</div></div><div class="grp"><div><div class="rcol">${S("rect","Rectangle")}${S("buffer","Ellipse")}${S("ruler","Line")}</div></div><div class="gl">Graphics</div></div></div></div></div>
- <div class="work"><div class="col l">${items}${maps}</div><div class="stage">${zoom}${rulers(page(2.95))}</div><div class="col r">${insp()}</div></div>${status}`;
-}else if(opt==="B"){ /* tool rail, context bar, Shift+A */
- html=`<div class="top">${qat}<div>${tabs("Page")}<div class="band slim" style="height:74px">${S("page","Letter landscape")}${S("reset","Page Setup")}<span class="vsep"></span>${S("doc","Template")}${S("brush","Theme")}<span class="vsep"></span>${S("grid","Map Series")}<span class="sp"></span>${S("save","Export")}</div></div></div>
- <div class="work"><div class="col l">${items}${maps}</div>
- <div class="rail" role="toolbar" aria-label="Insert"><button class="on">${ic("cursor")}Select</button><hr><button>${ic("map")}Map</button><button>${ic("doc")}Text</button><button>${ic("tree")}Legend</button><button>${ic("ruler")}Scale</button><button>${ic("compass")}North</button><hr><button>${ic("image")}Picture</button><button>${ic("rect")}Shape</button><button>${ic("table")}Table</button><button>${ic("chart")}Chart</button><button>${ic("plus")}All…</button></div>
- <div class="stage">${zoom}${rulers(page(2.55,`<div class="guide gv" style="left:calc(var(--u)*207);top:0;bottom:0"></div><div class="dim" style="left:calc(var(--u)*196);top:calc(var(--u)*50)">7.0 mm</div>
- <div class="ctx" style="right:calc(var(--u)*2);top:calc(var(--u)*11)"><span class="fv">Legend body ${ic("chev")}</span><span class="fv">8 pt ${ic("chev")}</span><span class="sw" style="background:#111"></span><button class="ib" aria-label="Align">${ic("reset")}</button><button class="ib" aria-label="Lock">${ic("lock")}</button><button class="ib" aria-label="More">${ic("chevr")}</button></div>
- <div class="menu" style="left:calc(var(--u)*30);top:calc(var(--u)*62);color:var(--text)"><header>${ic("search")}<span>north</span></header><div class="mr on">${ic("compass")}<div><b>North Arrow</b><small>8 styles, true or grid north</small></div></div><div class="mr">${ic("compass")}<div><b>Declination Diagram</b><small>True, grid and magnetic north</small></div></div></div>`))}
- <div class="pages"><div class="pg on"><i></i><small>Page 1</small></div><div class="pg"><i></i><small>Sheet 2</small></div><div class="pg"><i></i><small>Sheet 3</small></div><div class="pg"><i></i><small>Sheet 4</small></div><span style="color:var(--text-2);font-size:11px">Map series, shown only when the layout has one</span></div></div>
- <div class="col r">${insp()}</div></div>${status}`;
-}else if(opt==="C"){ /* studio: page fills the window */
- html=`<div class="studiotop"><button class="back">${ic("chevr").replace('class="i"','class="i" style="transform:rotate(180deg);font-size:11px"')}Back to map</button><b>Stream buffers 1:48,000</b><span class="vsep"></span>${S("map","Map")}${S("doc","Text")}${S("tree","Legend")}${S("ruler","Scale")}${S("compass","North")}${S("image","Picture")}${S("rect","Shape")}${S("plus","All… Shift+A")}<span class="sp"></span>${S("undo","Undo")}${S("redo","Redo")}<div class="seg"><span class="on">Fit page</span><span>100%</span></div><b style="font-size:12px">94%</b></div>
- <div class="work"><div class="stage"><div class="desk">${page(2.82)}
- <div class="fl" style="left:12px;top:12px;width:208px">${items}</div>
- <div class="fl" style="right:12px;top:12px;width:268px;max-height:330px">${insp()}</div>
- <div class="fl" style="right:12px;bottom:12px;width:268px"><div class="ph">Export</div>${preflight}</div>
- </div></div></div>${status}`;
-}else{ /* D: start gallery on an empty layout */
- const tile=(t,d,th,on)=>`<button class="tile ${on?"on":""}"><div class="thumb">${th}</div><b>${t}</b><small>${d}</small></button>`;
- const T=(x,y,w,h)=>`<i style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"></i>`,U=(x,y,w)=>`<u style="left:${x}%;top:${y}%;width:${w}%"></u>`;
- html=`<div class="top">${qat}<div>${tabs("Page")}<div class="band slim" style="height:74px">${S("page","Letter landscape")}${S("reset","Page Setup")}<span class="vsep"></span>${S("doc","Template")}${S("brush","Theme")}<span class="sp"></span></div></div></div>
- <div class="work"><div class="col l"><div class="ph">Items</div><div class="pb" style="flex:0 0 auto"><div class="it" style="color:var(--text-2)">Nothing on the page yet</div></div>${maps}</div><div class="stage">${zoom}<div class="desk"><div class="gal"><h2>Start this layout</h2><p>Each one uses the Overview map, your layers and your project's sources. Everything stays editable.</p>
- ${tile("Thematic map","Title, map, legend, scale bar, sources",T(6,18,62,74)+U(6,8,50)+U(72,20,20)+U(72,30,16)+U(72,40,18),1)}
- ${tile("Land navigation","Grid, declination, coordinate scales",T(5,6,90,70)+U(10,82,24)+U(40,82,24)+U(70,82,20))}
- ${tile("USGS quadrangle","1:24,000 collar, adjoining quads",T(10,8,80,72)+U(10,86,30)+U(50,86,40))}
- ${tile("Two maps side by side","Compare Overview and Fire access",T(5,18,43,72)+T(52,18,43,72)+U(5,8,60))}
- ${tile("Map with inset","Main map plus a locator",T(5,6,90,88)+`<i style="left:68%;top:60%;width:24%;height:30%;background:#fff"></i>`)}
- ${tile("Blank page","Start empty; Shift+A adds an element",U(40,50,20))}
- </div></div></div><div class="col r"><div class="ph">Properties</div><div class="pb form"><p style="margin:0;color:var(--text-2)">Pick a starting point, or press Shift+A to add one element at a time.</p></div></div></div>${status}`;
+const zoom=`<div class="zbar"><div class="seg"><span class="on">Fit Page</span><span>100%</span></div><b>78%</b><span class="sp"></span><small>Snap on · Guides on</small></div>`;
+
+function render(){
+ let html="";
+ if(opt==="A"){
+  html=`<div class="top">${qat}<div>${tabsHtml()}${bandHtml()}</div></div><div class="work"><div class="col l">${itemsHtml()}${mapsHtml}</div><div class="stage">${zoom}${rulers(page(2.95))}</div><div class="col r">${inspHtml()}</div></div>${status()}`;
+ }else if(opt==="B"){
+  const rail=TABS.Insert.groups.map(([l,it],gi)=>`${gi?"<hr>":""}<div class="rl">${l}</div>`+it.map(c=>`<button data-cmd="${esc(c.l)}">${ic(c.i)}${esc(c.l)}${c.menu?" ▾":""}</button>`).join("")).join("");
+  html=`<div class="top">${qat}<div>${tabsHtml()}${bandHtml()}</div></div><div class="work"><div class="col l">${itemsHtml()}${mapsHtml}</div><div class="rail" role="toolbar" aria-label="Insert"><div class="rhead">Insert</div>${rail}</div><div class="stage">${zoom}${rulers(page(2.6))}</div><div class="col r">${inspHtml()}</div></div>${status()}`;
+ }else if(opt==="C"){
+  html=`<div class="studiotop"><button class="back">${ic("map")}Back to Map</button><span class="vsep"></span>${Object.keys(TABS).map(t=>`<button class="mb" data-mb="${t}">${t} ▾</button>`).join("")}${sel==="frame"?`<button class="mb ctxtab" data-mb="Map Frame"><small>Selected</small> Map Frame ▾</button>`:""}<span class="sp"></span><button class="sm">${ic("undo")}Undo</button><button class="sm">${ic("redo")}Redo</button><button class="sm">${ic("save")}Save</button><div class="seg"><span class="on">Fit Page</span><span>100%</span></div></div>
+  <div class="work"><div class="stage"><div class="desk">${page(2.82)}<div class="fl" style="left:12px;top:12px;width:208px">${itemsHtml()}</div><div class="fl" style="right:12px;top:12px;width:268px;max-height:330px">${inspHtml()}</div><div class="fl" style="right:12px;bottom:12px;width:268px"><div class="ph">Export</div>${preflight}</div></div></div></div>${status()}`;
+ }else if(opt==="D"){
+  const tile=(t,d,th,on)=>`<button class="tile ${on?"on":""}"><div class="thumb">${th}</div><b>${t}</b><small>${d}</small></button>`;
+  const T=(x,y,w,h)=>`<i style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"></i>`,U=(x,y,w)=>`<u style="left:${x}%;top:${y}%;width:${w}%"></u>`;
+  html=`<div class="top">${qat}<div>${tabsHtml()}${bandHtml()}</div></div><div class="work"><div class="col l">${itemsHtml()}${mapsHtml}</div><div class="stage">${zoom}<div class="desk"><div class="gal"><h2>Start this layout</h2><p>Each one uses the Overview map, your layers and your project's sources. Everything stays editable.</p>
+  ${tile("Thematic map","Title, map, legend, scale bar, sources",T(6,18,62,74)+U(6,8,50)+U(72,20,20)+U(72,30,16)+U(72,40,18),1)}
+  ${tile("Land navigation","Grid, declination, coordinate scales",T(5,6,90,70)+U(10,82,24)+U(40,82,24)+U(70,82,20))}
+  ${tile("USGS quadrangle","1:24,000 collar, adjoining quads",T(10,8,80,72)+U(10,86,30)+U(50,86,40))}
+  ${tile("Two maps side by side","Compare Overview and Fire access",T(5,18,43,72)+T(52,18,43,72)+U(5,8,60))}
+  ${tile("Map with inset","Main map plus a locator",T(5,6,90,88)+`<i style="left:68%;top:60%;width:24%;height:30%;background:#fff"></i>`)}
+  ${tile("Blank page","Start empty; Shift+A adds an element",U(40,50,20))}
+  </div></div></div><div class="col r">${inspHtml()}</div></div>${status()}`;
+ }else{ /* M: the menu map */
+  const col=(name,t,cls="")=>`<section class="mc ${cls}"><h3>${name}</h3><p>${t.q}</p>${t.groups.map(([g,it])=>`<h4>${g}</h4><ul>${it.map(c=>`<li>${esc(c.l)}${c.menu?` <em>${c.menu.filter(m=>m!=="-").length===1?"list":c.menu.filter(m=>m!=="-").length+" choices"}</em>`:""}</li>`).join("")}</ul>`).join("")}</section>`;
+  const insp=Object.values(INSP).map(d=>`<tr><th>${d.t}</th><td>${d.tabs.map(([t])=>t).join(" · ")}</td></tr>`).join("");
+  html=`<div class="mm"><header><h1>Layout menus, level by level</h1><p>Tab, then group, then command, then at most one dropdown. Each tab answers one question, and every command has one home.</p></header>
+  <div class="mcols">${Object.keys(TABS).map(k=>col(k,TABS[k])).join("")}${col("Map Frame",FRAME_TAB,"ctxc")}</div>
+  <div class="mlow"><section><h3>Properties, by what is selected</h3><table>${insp}</table></section>
+  <section><h3>Right-click, by what is under the pointer</h3><table><tr><th>Empty page</th><td>${CTX.page.filter(x=>x!=="-").join(" · ")}</td></tr><tr><th>Element</th><td>${CTX.element.filter(x=>x!=="-").join(" · ")}</td></tr><tr><th>Map frame</th><td>Set from Map View · Which Map, then the same as Element</td></tr></table>
+  <h3 style="margin-top:12px">Rules</h3><ul class="rules"><li>"Insert" and "View" mean the same in the map and the layout.</li><li>Map tabs leave while in a layout; Back to Map is always top left.</li><li>Commands grey out rather than move. Only Map Frame comes and goes.</li></ul></section></div></div>`;
+ }
+ document.getElementById("app").innerHTML=html;
+ bind();
 }
-document.getElementById("app").innerHTML=html;
+function say(m){statusMsg=m;const e=document.getElementById("msg");if(e)e.textContent=m}
+function closePop(){pop?.remove();pop=null}
+function popup(x,y,items,title){closePop();const p=document.createElement("div");p.className="pop";p.setAttribute("role","menu");p.innerHTML=(title?`<div class="pt">${esc(title)}</div>`:"")+items.map(i=>i==="-"?"<hr>":`<button role="menuitem">${esc(i)}</button>`).join("");document.body.appendChild(p);p.style.left=Math.min(x,innerWidth-p.offsetWidth-6)+"px";p.style.top=Math.min(y,innerHeight-p.offsetHeight-6)+"px";p.querySelectorAll("button").forEach(b=>b.onclick=()=>{say(`${title?title+": ":""}${b.textContent}`);closePop()});pop=p;p.querySelector("button")?.focus()}
+function findCmd(l){for(const t of [...Object.values(TABS),FRAME_TAB])for(const[,it]of t.groups)for(const c of it)if(c.l===l)return c}
+function bind(){
+ const a=document.getElementById("app");
+ a.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+ a.querySelectorAll("[data-cmd]").forEach(b=>b.onclick=()=>{const c=findCmd(b.dataset.cmd),r=b.getBoundingClientRect();if(c?.menu)popup(r.left,r.bottom+2,c.menu,c.l);else say(c?.l||b.dataset.cmd)});
+ a.querySelectorAll("[data-mb]").forEach(b=>b.onclick=()=>{const t=b.dataset.mb==="Map Frame"?FRAME_TAB:TABS[b.dataset.mb],r=b.getBoundingClientRect();const items=t.groups.flatMap(([,it],i)=>[...(i?["-"]:[]),...it.map(c=>c.l+(c.menu?" ▸":""))]);popup(r.left,r.bottom+2,items,b.dataset.mb)});
+ a.querySelectorAll("[data-itab]").forEach(b=>b.onclick=()=>{iTab=+b.dataset.itab;render()});
+ a.querySelectorAll("[data-el]").forEach(e=>{
+  e.addEventListener("click",ev=>{ev.stopPropagation();const k=e.dataset.el;if(k!==sel){sel=k;iTab=0;if(sel!=="frame"&&tab==="Map Frame")tab=tabNames()[0];render()}});
+  e.addEventListener("contextmenu",ev=>{ev.preventDefault();ev.stopPropagation();const k=e.dataset.el;sel=k;iTab=0;render();popup(ev.clientX,ev.clientY,k==="page"?CTX.page:k==="frame"?CTX.frame:CTX.element,INSP[k].t)});
+ });
+}
+addEventListener("pointerdown",e=>{if(pop&&!pop.contains(e.target))closePop()},true);
+addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
+render();
 </script>
 </body>
 </html>

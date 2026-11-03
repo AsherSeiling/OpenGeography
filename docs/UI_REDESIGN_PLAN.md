@@ -15,7 +15,7 @@ It is a wireframe, 824×491, so it fixes layout and character rather than finish
 **Layout (share of the window, used for default sizes)**
 | Area | Size | Content |
 |---|---|---|
-| Top-left cell | left column wide, full ribbon height | "Standard Save, Undo, Redo" |
+| Top-left cell | left column wide, full ribbon height | "Standard Save, Undo, Redo" (moved to the tab row at the user's request) |
 | Tab row | ≈ 3.5 % high | Map, Insert, View, Analysis; search bar far right |
 | Band | ≈ 8 % high | Ribbon commands |
 | Left column | 15 % wide | Map Layers (top 26 %), Catalog / Project Tree (74 %) |
@@ -43,13 +43,13 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 | `--rule-soft` | `#BCC6CE` | `#3B444C` | Rows, inner dividers |
 | `--text` | `#121A20` | `#EDF1F4` | |
 | `--text-2` | `#46535D` | `#AEB9C2` | Secondary text (AA on every surface) |
-| `--accent` (source value) | `#22CCF5` | `#22CCF5` | User-chosen. Outlines only: ribbon band, active tab, pressed buttons, menus. Never a filled band (user, 2026-11-03) |
+| `--accent` (source value) | `#22CCF5` | `#22CCF5` | User-chosen. Outlines the shape of the open tab and its pane as one, plus menus. No filled band and no outline on individual buttons (user, 2026-11-03) |
 | `--band` | `--surface-2` | `--surface-2` | Ribbon band, active tab, menu head |
 | `--band-text` | `--text` | `--text` | Text and icons on the band |
 | `--sel-bg` | `#6FE0FF` | `#6FE0FF` | Highlight: selected rows, selected card ring. Lighter and brighter than the ribbon, at the user's request |
 | `--sel-text` | computed | computed | |
 | `--hover` | `rgba(18,26,32,.08)` | `rgba(255,255,255,.08)` | |
-| `--link` | accent darkened until AA, `#0562A8` by default | accent lightened until AA | Blue text: selected tab, pressed button, links. Cyan itself fails AA as text on light panels |
+| `--link` | accent darkened until AA, `#0562A8` by default | accent lightened until AA | Blue text: selected tab, on or pressed button (with semibold, so it does not rely on colour alone), links. Cyan itself fails AA as text on light panels |
 | `--focus` | `--text` | `--link` | Focus ring: 2 px, 1 px offset |
 | `--error` | `#B3261E` | `#FF8A80` | |
 | `--warn` | `#8A5A00` | `#F2C14E` | |
@@ -72,7 +72,7 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 
 **Spacing:** 2, 4, 6, 8, 12, 16, 24 px.
 
-**Shape.** Panes and bands are square. `--r-control: 2px`. The reference's single curve becomes the motif, on anything that is "a tab of something": `--r-tab: 10px 10px 0 0` (ribbon tabs, pane tabs, Shift+A menu) and `--r-card` (node cards: top corners rounded 8 px, bottom corners bevelled 45° by 9 px, user 2026-11-03; drawn with `clip-path` on pseudo-elements so sockets on the edges are not clipped).
+**Shape.** Panes and bands are square. `--r-control: 2px`. The reference's single curve becomes the motif, on anything that is "a tab of something": `--r-tab: 10px 10px 0 0` (ribbon tabs, pane tabs, Shift+A menu) and `--r-card: 8px` (node cards: rounded on all four corners, user 2026-11-03).
 
 **Elevation.** Docked things have none, only rules. Floating things only: `--e-float: 0 8px 24px rgba(0,0,0,.28)` plus a 1 px `--rule` outline.
 
@@ -134,7 +134,8 @@ Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), an
 
 | What | Where | Why |
 |---|---|---|
-| Project menu, Save, Undo, Redo | Top-left cell, as wide as the left column | Reference. Undo acts on whatever is active (layout, else node tree). |
+| Project name and menu | Top-left cell, as wide as the left column | Reference. |
+| Save, Undo, Redo | Tab row, upper right, in line with the tabs and search (user, 2026-11-03; replaces the reference) | Undo acts on whatever is active (layout, else node tree). |
 | Commands | Ribbon: Map, Insert, View, Analysis, plus contextual tabs | Reference. |
 | Search (commands, tools, layers) | Tab row, right; Alt+Q | Reference. Uses the same matcher as the menu. |
 | Layers | Map Layers pane (renamed from Contents), top left, always visible | Reference. Not tabbed with Catalog any more. |
@@ -163,8 +164,8 @@ Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), an
 
 ## 4. Screen by screen
 
-- **Top-left cell.** Row 1: project name with a chevron (New, Open, Save As). Row 2: Save, Undo, Redo, with labels. Its width follows the left column (minimum 190 px), or 190 px when that column is closed.
-- **Ribbon.** Tab row 30 px on `--surface-0`; active tab is `--band` with `--r-tab`, joined to the band. Band 74 px with `--band-text` icons and labels; rule between groups; `--band-on-*` for checked tools. `ribbonFit.ts` keeps adapting to width, measuring the smaller space. Contextual tabs keep their band name as a small `--link` label, now beside the tab name. Keytips stay.
+- **Top-left cell.** Project name with a chevron (New, Open, Save As). In a layout it also holds Back to Map. Its width follows the left column (minimum 190 px), or 190 px when that column is closed.
+- **Ribbon.** Tab row 30 px on `--surface-0`, with Save, Undo, Redo and search at the right; active tab is `--band` with `--r-tab`, joined to the band. Band 74 px with `--band-text` icons and labels; rule between groups; `--band-on-*` for checked tools. `ribbonFit.ts` keeps adapting to width, measuring the smaller space. Contextual tabs keep their band name as a small `--link` label, now beside the tab name. Keytips stay.
 - **Analysis tab.** Add Tool (large), Run, Node Editor, Attribute Table, and a shelf of favourite tools (the old Tool Gallery, now showing favourites and recents).
 - **Map Layers.** Map row with the CRS always visible, then layers; active layer is `--sel-bg`. Drawing order, drag, multi-select and context menus unchanged. Layouts section leaves.
 - **Catalog.** One tree: Project (Layouts, Project Files, the existing "This project" list), Public Data (grouped by theme; double-click opens the existing dialog). No new data sources.

@@ -11,6 +11,35 @@ _Written 2026-11-03 for the user's approval. Nothing here is built. Mock-up: `do
 5. An empty layout gives no starting point, though presets exist for the Topo builder.
 6. Inserting an element takes a tab change, and the settings are long forms.
 
+## Menu levels (applies to every option)
+
+Today the tabs overlap. There are two Inserts (the Insert tab and Elements › Insert), Format holds only map-frame and arrange commands, Spread mixes distribute, same size and group, series export sits apart from Export, and Analysis and Feature Layer stay visible in a layout.
+
+**Tab, group, command, then at most one dropdown.** Each tab answers one question:
+| Tab | Question | Groups |
+|---|---|---|
+| Page | What sheet is this? | Sheet, Look, Template, Map Series |
+| Insert | What goes on the page? | Maps, Map Furniture, Text and Data, Graphics |
+| Arrange | How do things sit together? | Order, Line Up, Group |
+| View | How do I see it? | Zoom, Panes, Appearance |
+| Export | How does it leave the app? | This Page, Quality, Map Series |
+| Map Frame | Only while a frame is selected | Map, Scale and CRS |
+
+**Rules.** Insert and View mean the same in the map and the layout. Map tabs leave while in a layout, and Back to Map stays top left. Commands grey out rather than move; only Map Frame comes and goes. Text formatting lives in Properties and the context bar, not a tab.
+
+**Properties, by what is selected:** what it is first, Position last.
+- Page: Sheet, Guides, Info
+- Map Frame: Map, Layers, Grid, Style, Position
+- Legend: Entries, Text, Style, Position
+- Text: Text, Style, Position
+- Scale Bar: Scale, Text, Position
+- North Arrow: Arrow, Position
+- Sources: Text, Position
+
+**Right-click, by what is under the pointer.** Empty page: Paste, Insert, Page Setup. Element: Cut, Copy, Duplicate, Delete, Order, Align, Group, Lock. Map frame: Set from Map View and Which Map, then the same.
+
+**How each option shows it.** A: tabs. B: the rail is Insert, so there is no Insert tab. C: the same five as drop-down menus. Checked against the current app: all 54 current layout commands have a home. "Sources" appears twice on purpose: the element in Insert and the pane in View. Which Map is new, for multiple maps. Rename and move only; no tool behaviour changes. Exact property fields are illustrative until built.
+
 ## Choose one arrangement
 
 | Option | Idea | Good for | Cost |

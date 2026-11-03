@@ -282,7 +282,8 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
 .tab[aria-selected="true"]{color:var(--link);font-weight:600;background:var(--band);border:1.5px solid var(--accent);border-bottom:0;margin-bottom:-1.5px;height:31.5px}
 .tab[aria-selected="true"] small{color:var(--link)}
 .grp{border-right-color:var(--rule-soft)}
-.rb.on{background:transparent;color:var(--link);font-weight:600;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.rb.on{background:transparent;color:var(--link);font-weight:600}
+.rb.on:hover{background:var(--band-hover)}
 .m-head{border-bottom:1.5px solid var(--accent)}
 .menu{border:1.5px solid var(--accent)}
 .m-head input:focus-visible{outline:2px solid var(--accent)}
@@ -290,15 +291,10 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
 .apr-h{border-bottom:1.5px solid var(--accent)}
 .btn.pri{background:var(--surface-2);color:var(--link);border:1.5px solid var(--accent)}
 .btn.pri:hover{background:var(--hover);filter:none}
-/* v3: node cards with bevelled bottom corners */
-.card{--bevel:9px;background:transparent;border:0;border-radius:0;padding-bottom:7px;isolation:isolate}
-.card::before,.card::after{content:"";position:absolute;z-index:-1;clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bevel)),calc(100% - var(--bevel)) 100%,var(--bevel) 100%,0 calc(100% - var(--bevel)));border-radius:8px 8px 0 0}
-.card::before{inset:0;background:var(--rule)}
-.card::after{inset:1px;background:var(--surface-2);border-radius:7px 7px 0 0}
-.card.sel{box-shadow:none!important}
-.card.sel::before{inset:-3px;background:var(--sel-bg);border-radius:10px 10px 0 0;--bevel:11px}
-.card-h{border-radius:7px 7px 0 0;margin:1px 1px 0}
-.card-b{padding-bottom:4px}
+/* v4: node cards rounded on all four corners */
+.card{border-radius:8px;padding-bottom:4px}
+.card.sel{box-shadow:0 0 0 3px var(--sel-bg)!important}
+.card-h{border-radius:7px 7px 0 0}
 /* v3: map tabs and credits */
 .maptabs{background:var(--surface-0);height:28px;flex:none}
 .maptabs .btab svg{font-size:13px}
@@ -308,6 +304,7 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
 .attrib{position:absolute;right:0;bottom:0;background:rgba(250,250,250,.86);color:#101416;font-size:10.5px;line-height:13px;padding:1px 6px}
 .tree button.cur{color:var(--link);font-weight:600}
 .crsrow small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qa{display:flex;align-items:center;gap:2px;margin:0 8px 4px 0;height:22px}.qa button{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 6px;font-size:12px;line-height:16px;border-radius:var(--r-control)}.qa button svg{font-size:15px}.qa button:hover:not(:disabled){background:var(--hover)}.qa button:disabled{opacity:.42}
 </style>
 </head>
 <body>
@@ -370,14 +367,9 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
   <header class="top">
     <div class="qat" role="toolbar" aria-label="Project and quick access">
       <button class="qat-project" id="qatProject" aria-haspopup="menu"><span id="projName">Madera County</span><svg class="i" style="font-size:12px"><use href="#chev"/></svg></button>
-      <div class="qat-row">
-        <button data-save><svg class="i"><use href="#save"/></svg>Save</button>
-        <button data-undo><svg class="i"><use href="#undo"/></svg>Undo</button>
-        <button data-redo><svg class="i"><use href="#redo"/></svg>Redo</button>
       </div>
-    </div>
     <div class="rib">
-      <div class="tabs" role="tablist" aria-label="Ribbon" id="tabs"><span class="sp"></span><label class="search"><svg class="i"><use href="#search"/></svg><input id="topSearch" aria-label="Search commands and tools" placeholder="Search commands and tools" autocomplete="off"><kbd>Alt+Q</kbd></label></div>
+      <div class="tabs" role="tablist" aria-label="Ribbon" id="tabs"><span class="sp"></span><div class="qa" role="toolbar" aria-label="Quick access"><button data-save><svg class="i"><use href="#save"/></svg>Save</button><button data-undo><svg class="i"><use href="#undo"/></svg>Undo</button><button data-redo><svg class="i"><use href="#redo"/></svg>Redo</button></div><label class="search"><svg class="i"><use href="#search"/></svg><input id="topSearch" aria-label="Search commands and tools" placeholder="Search commands and tools" autocomplete="off"><kbd>Alt+Q</kbd></label></div>
       <div class="band" id="band" role="tabpanel"></div>
     </div>
   </header>
