@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout editor options</title>
+<!-- Mock-up only: the app bundles Inter and makes no network request. Names and numbers are sample content. Pick an option with ?opt=A, B, C or D. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--surface-0:#E3E8EC;--surface-1:#F2F5F7;--surface-2:#FFFFFF;--rule:#25323B;--rule-soft:#BCC6CE;--text:#121A20;--text-2:#46535D;--accent:#22CCF5;--link:#0562A8;--sel-bg:#6FE0FF;--sel-text:#06222B;--hover:rgba(18,26,32,.08);--desk:#6E7A83;--ok:#1F6B3A;--warn:#8A5A00;--r-control:2px;--r-tab:10px 10px 0 0;--e-float:0 8px 24px rgba(0,0,0,.28);--left:224px;--right:300px}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font:400 12px/16px Inter,system-ui,sans-serif;color:var(--text);background:var(--surface-0);overflow:hidden;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}button{background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--text);outline-offset:1px}
+svg.i{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none;display:block}
+.app{height:100%;display:flex;flex-direction:column}
+.top{flex:none;display:grid;grid-template-columns:var(--left) minmax(0,1fr)}
+.qat{border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;flex-direction:column}
+.qat b{flex:1;display:flex;align-items:center;padding:0 12px;font:600 13px/18px Inter,system-ui,sans-serif}
+.qr{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule-soft)}
+.qr button{height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;line-height:14px}.qr svg{font-size:20px}.qr button+button{border-left:1px solid var(--rule-soft)}
+.tabs{height:30px;display:flex;align-items:flex-end;position:relative;z-index:1}
+.tab{height:30px;padding:0 16px;font:500 13px/18px Inter,system-ui,sans-serif;display:flex;align-items:center;gap:6px}
+.tab.on{color:var(--link);font-weight:600;background:var(--surface-2);border:1.5px solid var(--accent);border-bottom:0;border-radius:var(--r-tab);margin-bottom:-1.5px;height:31.5px}
+.tab small{font:500 10.5px/13px Inter,system-ui,sans-serif;color:var(--link)}
+.sp{flex:1}
+.search{width:230px;height:22px;margin:0 8px 4px 0;display:flex;align-items:center;gap:6px;padding:0 6px;background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r-control);color:var(--text-2)}
+.band{height:74px;background:var(--surface-2);border:1.5px solid var(--accent);display:flex;padding:2px}
+.band.slim{height:38px;align-items:center;gap:2px;padding:0 6px}
+.grp{display:flex;flex-direction:column;padding:0 4px;border-right:1px solid var(--rule-soft)}.grp>div:first-child{flex:1;display:flex;gap:1px}
+.gl{font:500 10.5px/13px Inter,system-ui,sans-serif;text-align:center;padding-bottom:1px;white-space:nowrap}
+.lg{display:flex;flex-direction:column;align-items:center;width:56px;padding-top:3px;gap:2px;font-size:11px;line-height:13px;text-align:center}.lg svg{font-size:24px}
+.sm{display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 6px 0 4px;font-size:11px;line-height:14px;white-space:nowrap}.sm svg{font-size:14px}
+.band.slim .sm{height:26px;padding:0 8px}
+.vsep{width:1px;height:20px;background:var(--rule-soft);margin:0 4px}
+.rcol{display:flex;flex-direction:column}
+.work{flex:1;min-height:0;display:flex}
+.col{flex:none;display:flex;flex-direction:column;background:var(--surface-1);min-height:0}
+.col.l{width:var(--left);border-right:1px solid var(--rule)}.col.r{width:var(--right);border-left:1px solid var(--rule)}
+.ph{flex:none;height:26px;display:flex;align-items:center;padding:0 12px;background:var(--surface-0);border-bottom:1px solid var(--rule-soft);font:500 13px/18px Inter,system-ui,sans-serif}
+.pb{flex:1;min-height:0;overflow:auto}
+.ph+.pb+.ph{border-top:1px solid var(--rule)}
+.it{display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;white-space:nowrap}.it svg{font-size:14px}.it.sel{background:var(--sel-bg);color:var(--sel-text)}.it .e{margin-left:auto;font-size:11px;color:var(--text-2)}.it.d1{padding-left:26px}
+.it.sel .e{color:inherit}
+.mapcard{margin:8px 10px;border:1px solid var(--rule-soft);background:var(--surface-2);display:grid;grid-template-columns:44px 1fr;gap:8px;padding:6px;align-items:center}.mapcard i{display:block;height:32px;background:#DCE8D2;border:1px solid var(--rule-soft)}.mapcard small{display:block;font-size:11px;line-height:14px;color:var(--text-2)}
+.rail{flex:none;width:58px;background:var(--surface-1);border-right:1px solid var(--rule);display:flex;flex-direction:column;align-items:stretch;padding:4px 0;gap:1px}
+.rail button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 0;font-size:10.5px;line-height:13px}.rail svg{font-size:20px}.rail button.on{color:var(--link);font-weight:600;box-shadow:inset 0 0 0 1.5px var(--accent)}.rail hr{width:32px;border:0;border-top:1px solid var(--rule-soft);margin:3px auto}
+.stage{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;min-height:0}
+.zbar{flex:none;height:28px;display:flex;align-items:center;gap:10px;padding:0 10px;background:var(--surface-1);border-bottom:1px solid var(--rule-soft)}
+.zbar b{font-weight:600}.zbar small{font-size:11px;color:var(--text-2)}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:var(--r-control)}.seg span{padding:0 8px;line-height:18px;font-size:11px}.seg span+span{border-left:1px solid var(--rule)}.seg .on{color:var(--link);font-weight:600}
+.ruler-h{flex:none;height:18px;background:var(--surface-0);border-bottom:1px solid var(--rule-soft);background-image:repeating-linear-gradient(90deg,var(--rule-soft) 0 1px,transparent 1px 22px);margin-left:18px;font-size:10.5px;line-height:18px;color:var(--text-2);white-space:nowrap;overflow:hidden;word-spacing:190px;padding-left:96px}
+.deskrow{flex:1;min-height:0;display:flex}
+.ruler-v{flex:none;width:18px;background:var(--surface-0);border-right:1px solid var(--rule-soft);background-image:repeating-linear-gradient(0deg,var(--rule-soft) 0 1px,transparent 1px 22px)}
+.desk{flex:1;min-width:0;background:var(--desk);display:grid;place-items:center;position:relative;overflow:hidden}
+.page{position:relative;width:calc(var(--u)*279);height:calc(var(--u)*216);background:#fff;color:#111;box-shadow:0 2px 14px rgba(0,0,0,.35)}
+.el{position:absolute}.fr{border:1px solid #111;overflow:hidden}.fr svg{width:100%;height:100%;display:block}
+.ti{font:600 calc(var(--u)*7.5)/1.15 Inter,system-ui,sans-serif}.st{font-size:calc(var(--u)*3.8);line-height:1.25;color:#333}
+.lg2{font-size:calc(var(--u)*3.2);line-height:1.55}.lg2 b{display:block;font-weight:600;font-size:calc(var(--u)*3.6)}.lg2 i{display:inline-block;width:calc(var(--u)*5);height:calc(var(--u)*2.6);border:1px solid #333;margin-right:calc(var(--u)*1.5);vertical-align:-1px}
+.sb{font-size:calc(var(--u)*2.8);line-height:1.3}.sb u{display:block;height:calc(var(--u)*1.6);width:calc(var(--u)*48);text-decoration:none;background:linear-gradient(90deg,#111 25%,#fff 25% 50%,#111 50% 75%,#fff 75%);border:1px solid #111}
+.na{font:600 calc(var(--u)*6)/1 Inter,system-ui,sans-serif;text-align:center}.src{font-size:calc(var(--u)*2.5);line-height:1.3;color:#444}
+.selbox{outline:1.5px solid var(--accent);outline-offset:1px}
+.selbox::before,.selbox::after{content:"";position:absolute;width:7px;height:7px;background:#fff;border:1.5px solid var(--link)}
+.selbox::before{left:-5px;top:-5px}.selbox::after{right:-5px;bottom:-5px}
+.guide{position:absolute;background:#E0339A}.gv{width:1px}.gh{height:1px}
+.dim{position:absolute;background:#E0339A;color:#fff;font:600 10.5px/13px Inter,system-ui,sans-serif;padding:0 4px;white-space:nowrap}
+.ctx{position:absolute;z-index:3;display:flex;align-items:center;gap:2px;height:32px;padding:0 6px;background:var(--surface-2);color:var(--text);border:1px solid var(--rule);box-shadow:var(--e-float);border-radius:var(--r-control);white-space:nowrap}
+.ctx .fv{height:22px;display:inline-flex;align-items:center;gap:6px;padding:0 6px;border:1px solid var(--rule-soft);border-radius:var(--r-control);font-size:11px}.ctx .fv svg{font-size:9px}.ctx .sw{width:18px;height:18px;border:1px solid var(--rule);border-radius:2px;margin:0 2px}
+.ctx .ib{width:24px;height:24px;display:grid;place-items:center;font-size:15px}
+.itabs{flex:none;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface-0);border-bottom:1px solid var(--rule-soft)}.itabs button{height:28px;font-size:12px}.itabs .on{color:var(--link);font-weight:600;background:var(--surface-1);box-shadow:inset 0 -2px 0 var(--accent)}
+.form{padding:10px 12px;display:grid;gap:8px;align-content:start}.form h4{margin:6px 0 0;font:600 12px/16px Inter,system-ui,sans-serif;border-top:1px solid var(--rule-soft);padding-top:8px}.form h4:first-child{border:0;padding:0;margin:0}
+.f{display:grid;grid-template-columns:78px 1fr;gap:6px;align-items:center;color:var(--text-2);font-size:11px;line-height:14px}.fv2{height:22px;padding:0 6px;background:var(--surface-2);border:1px solid var(--rule-soft);border-radius:var(--r-control);display:flex;align-items:center;justify-content:space-between;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden}.two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text)}.chk svg{font-size:14px;color:var(--ok)}.chk.w svg{color:var(--warn)}
+.status{flex:none;height:24px;display:flex;align-items:center;gap:12px;padding:0 8px;background:var(--surface-0);border-top:1px solid var(--rule);font-size:11px;line-height:14px}.status a{color:var(--link);font-weight:500}
+.pages{flex:none;height:86px;border-top:1px solid var(--rule);background:var(--surface-1);display:flex;align-items:center;gap:10px;padding:0 12px;overflow:hidden}.pg{flex:none;width:82px;height:62px;background:#fff;border:1px solid var(--rule-soft);position:relative}.pg.on{outline:2px solid var(--accent)}.pg i{position:absolute;inset:6px 6px 16px;background:#DCE8D2;border:1px solid #777}.pg small{position:absolute;left:6px;bottom:2px;font-size:10.5px;line-height:13px;color:#333}
+.fl{position:absolute;z-index:2;background:var(--surface-1);border:1px solid var(--rule);box-shadow:var(--e-float);border-radius:var(--r-tab);display:flex;flex-direction:column;overflow:hidden}.fl .ph{background:var(--surface-0)}
+.studiotop{flex:none;height:38px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--surface-2);border-bottom:1.5px solid var(--accent)}.studiotop b{font-weight:600;font-size:13px}.studiotop .back{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border:1px solid var(--rule);border-radius:var(--r-control)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:24px;padding:0 10px;border:1.5px solid var(--accent);border-radius:var(--r-control);color:var(--link);font-weight:600;background:var(--surface-2)}
+.menu{position:absolute;z-index:4;width:420px;background:var(--surface-1);border:1.5px solid var(--accent);border-radius:var(--r-tab);box-shadow:var(--e-float);overflow:hidden}
+.menu header{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-bottom:1.5px solid var(--accent);background:var(--surface-2)}.menu header svg{font-size:16px}.menu header span{flex:1;height:26px;line-height:24px;padding:0 8px;border:1px solid var(--rule);border-radius:var(--r-control);font-size:14px}
+.mr{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:center;padding:4px 10px}.mr svg{font-size:18px}.mr b{display:block;font-weight:600}.mr small{display:block;font-size:11px;line-height:14px;color:var(--text-2)}.mr.on{background:var(--sel-bg);color:var(--sel-text)}.mr.on small{color:inherit}
+.gal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;width:min(760px,calc(100% - 48px))}
+.gal h2{grid-column:1/-1;margin:0;color:#fff;font:600 16px/22px Inter,system-ui,sans-serif}.gal p{grid-column:1/-1;margin:-10px 0 0;color:#fff;font-size:12px}
+.tile{background:var(--surface-2);border:1px solid var(--rule);text-align:left;border-radius:var(--r-tab);overflow:hidden}.tile.on{outline:3px solid var(--accent)}
+.thumb{height:118px;background:#F4F5F5;position:relative;border-bottom:1px solid var(--rule-soft)}.thumb i{position:absolute;background:#DCE8D2;border:1px solid #666}.thumb u{position:absolute;background:#333;height:3px;text-decoration:none}
+.tile b{display:block;padding:7px 10px 0;font-weight:600}.tile small{display:block;padding:0 10px 8px;font-size:11px;line-height:14px;color:var(--text-2)}
+</style>
+</head>
+<body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-7h8v7"/></symbol>
+<symbol id="undo" viewBox="0 0 24 24"><path d="M8 5 4 9l4 4M4 9h10a5 5 0 0 1 0 10H9"/></symbol>
+<symbol id="redo" viewBox="0 0 24 24"><path d="m16 5 4 4-4 4M20 9H10a5 5 0 0 0 0 10h5"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="chevr" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+<symbol id="star" viewBox="0 0 24 24"><path d="m12 3.5 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1-5.4-3-5.4 3 1.1-6.1-4.5-4.3 6.1-.8z"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></symbol>
+<symbol id="plain" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+<symbol id="nodes" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6"/><rect x="14" y="14" width="7" height="6"/><path d="M10 7h3a2 2 0 0 1 2 2v5"/></symbol>
+<symbol id="table" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14"/><path d="M3.5 10h17M3.5 14.5h17M10 5v14"/></symbol>
+<symbol id="hand" viewBox="0 0 24 24"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11m0-1V4.5a1.5 1.5 0 0 1 3 0V11m0-5.5a1.5 1.5 0 0 1 3 0V12m0-4.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1c-3 0-4.5-1.5-6-4l-2-3.5c-.8-1.5 1.2-2.7 2.3-1.5L8 13.5"/></symbol>
+<symbol id="extent" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+<symbol id="layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5"/></symbol>
+<symbol id="tree" viewBox="0 0 24 24"><rect x="3" y="3.5" width="7" height="5"/><rect x="13" y="10" width="8" height="4.5"/><rect x="13" y="16.5" width="8" height="4.5"/><path d="M6.5 8.5V19H13M6.5 12H13"/></symbol>
+<symbol id="globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5z"/></symbol>
+<symbol id="cursor" viewBox="0 0 24 24"><path d="m6 3 13 9-6 1.5L10 20z"/></symbol>
+<symbol id="rect" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" stroke-dasharray="3 2"/></symbol>
+<symbol id="filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.800v.2"/></symbol>
+<symbol id="ruler" viewBox="0 0 24 24"><path d="m3 16 13-13 5 5-13 13zM7 12l2 2M10 9l3 3M13 6l2 2"/></symbol>
+<symbol id="compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+<symbol id="grid" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M4 9.300h16M4 14.700h16M9.3 4v16M14.7 4v16"/></symbol>
+<symbol id="map" viewBox="0 0 24 24"><path d="m3.5 6 5.5-2 6 2 5.5-2v14l-5.5 2-6-2-5.5 2zM9 4v14M15 6v14"/></symbol>
+<symbol id="page" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4"/></symbol>
+<symbol id="mountain" viewBox="0 0 24 24"><path d="m2.5 20 7-13 4 7 2-3 6 9z"/></symbol>
+<symbol id="drop" viewBox="0 0 24 24"><path d="M12 3s7 7 7 11.500a7 7 0 0 1-14 0C5 10 12 3 12 3z"/></symbol>
+<symbol id="shapes" viewBox="0 0 24 24"><path d="m4 9 5-5 5 3-1 6-6 1z"/><circle cx="16.5" cy="16.5" r="4"/></symbol>
+<symbol id="chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16v-5M12.5 16V7M17 16v-8"/></symbol>
+<symbol id="brush" viewBox="0 0 24 24"><path d="M20 4 10 14l-2.5-.5.5-2.500L18 3zM8 15c-3 0-3 2-3.5 3.500S3 20 3 20s5 1 6.5-1 .5-4-1.5-4z"/></symbol>
+<symbol id="cut" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 16 4M16.5 16 8 4"/></symbol>
+<symbol id="merge" viewBox="0 0 24 24"><path d="M6 3v5c0 4 6 4 6 8v5M18 3v5c0 4-6 4-6 8M9 18l3 3 3-3"/></symbol>
+<symbol id="buffer" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.5"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5.5" y="11" width="13" height="9"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="moon" viewBox="0 0 24 24"><path d="M20 14.500A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.500z"/></symbol>
+<symbol id="reset" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M4 9h16M10 9v11"/></symbol>
+<symbol id="beaker" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5.5 9.500A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.500L14 9V3"/></symbol>
+<symbol id="doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12h6M9 16h6"/></symbol>
+<symbol id="book" viewBox="0 0 24 24"><path d="M5 4h13v16H7a2 2 0 0 1-2-2zM5 18a2 2 0 0 1 2-2h11"/></symbol>
+<symbol id="db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"/></symbol>
+<symbol id="server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7"/><rect x="4" y="13" width="16" height="7"/><path d="M8 7.500v.1M8 16.500v.1"/></symbol>
+<symbol id="building" viewBox="0 0 24 24"><path d="M4 21V8l7-4v17M11 21h9V11l-9-3M7 11v.1M7 15v.1M15 13v.1M15 17v.1"/></symbol>
+<symbol id="warn" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19zM12 10v5M12 17.500v.1"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+<symbol id="image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14"/><circle cx="9" cy="10" r="1.5"/><path d="m4 17 5-4 3 2 4-4 4.5 4"/></symbol>
+</defs></svg>
+<div class="app" id="app"></div>
+<template id="mapsvg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sample map: contours, streams and a clipped stream buffer">
+<rect width="900" height="470" fill="#EEF0E8"/>
+<g id="ml-forest"><path d="M0 0H300L260 110 330 210 280 340 340 470H0Z" fill="#DCE8D2"/>
+<path d="M300 0L260 110 330 210 280 340 340 470" fill="none" stroke="#6E7F5E" stroke-width="1.6" stroke-dasharray="8 4"/><text x="60" y="70" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#2E3A28">Forest boundary</text></g>
+<g id="ml-contours"><g fill="none" stroke="#B59F84" stroke-width=".6"><path d="M0 440L6 448L12 456L17 464L23 472"/><path d="M50 472L44 464L38 456L32 448L24 437L16 426L9 416L4 408L0 403"/><path d="M76 472L69 464L62 456L56 448L48 438L40 427L32 416L27 408L22 400L16 391L8 378L2 368L0 365"/><path d="M103 472L94 464L87 456L79 448L72 440L64 430L56 419L48 408L43 400L39 392L32 380L26 368L21 360L16 350L8 336L4 328L0 322"/><path d="M109 0L109 16L107 32L104 48L103 56L98 72L95 80L88 96L85 104L80 113L72 126L65 136L59 144L53 152L47 160L40 168L32 179L25 192L23 200L22 216L24 225L28 240L32 252L36 264L40 277L43 288L48 304L50 312L55 328L57 336L62 352L65 360L72 375L77 384L81 392L88 402L96 412L104 421L112 428L120 435L128 442L137 448L148 456L159 464L168 470L170 472"/><path d="M221 0L221 16L216 24L200 31L192 33L176 36L167 40L155 48L147 56L140 64L134 72L128 82L120 96L116 104L111 112L104 125L98 136L94 144L88 154L81 168L77 176L72 190L69 200L66 216L66 232L67 248L69 264L71 280L72 288L75 304L78 320L80 332L83 344L88 358L92 368L96 376L104 388L112 398L120 407L128 414L136 420L144 426L154 432L167 440L176 445L184 450L193 456L203 464L212 472L212 472"/><path d="M289 0L292 16L293 32L291 48L284 64L279 72L271 80L260 88L248 93L239 96L224 99L208 100L192 101L178 104L168 107L160 112L150 120L142 128L135 136L128 147L121 160L117 168L112 180L108 192L104 208L103 216L102 232L102 248L102 264L103 280L104 296L104 304L106 320L109 336L112 346L118 360L122 368L128 377L136 385L144 393L154 400L168 408L176 412L184 416L199 424L208 429L216 435L224 441L232 448L240 456L248 465L254 472"/><path d="M328 0L331 16L333 32L332 48L329 64L327 72L320 87L314 96L308 104L301 112L291 120L280 127L272 132L262 136L248 141L236 144L224 147L208 150L200 153L184 159L176 164L168 171L160 181L153 192L150 200L146 216L144 227L143 240L142 256L142 272L143 288L144 304L145 312L148 328L152 338L160 351L168 359L176 366L184 371L193 376L208 384L216 388L224 393L235 400L245 408L253 416L261 424L268 432L274 440L280 449L288 461L295 472L295 472"/><path d="M405 0L408 13L410 24L411 40L412 56L411 72L409 88L407 96L403 112L400 120L392 136L388 144L383 152L376 162L368 172L360 181L352 190L344 199L337 208L330 216L324 224L319 232L312 246L309 256L308 272L311 288L313 296L318 312L322 320L328 333L333 344L338 352L344 364L351 376L356 384L361 392L368 403L376 414L384 423L392 432L400 438L408 444L416 448L432 452L448 449L456 445L464 440L472 432L480 423L488 414L496 405L504 397L512 389L520 381L528 375L538 368L552 361L560 358L576 355L592 357L600 361L611 368L619 376L625 384L632 399L635 408L638 424L639 440L639 456L637 472L637 472"/><path d="M461 0L464 12L467 24L471 40L472 48L475 64L478 80L480 93L481 104L482 120L482 136L480 147L476 160L472 168L464 180L456 190L448 198L440 206L432 215L424 224L418 232L413 240L408 250L403 264L402 280L404 296L408 306L416 318L424 325L432 330L448 333L464 329L472 326L483 320L494 312L504 305L512 298L520 291L528 285L536 279L547 272L560 267L576 265L592 269L600 273L611 280L620 288L628 296L635 304L641 312L648 323L654 336L658 344L664 360L666 368L669 384L672 399L673 408L674 424L674 440L674 456L673 472L673 472"/><path d="M549 0L553 8L560 23L564 32L569 40L576 54L582 64L587 72L592 80L600 93L608 104L613 112L618 120L624 128L632 140L640 152L645 160L650 168L656 177L664 192L668 200L672 208L679 224L682 232L687 248L689 256L692 272L695 288L696 296L698 312L700 328L701 344L702 360L703 376L703 392L703 408L703 424L703 440L702 456L702 472L702 472"/><path d="M646 0L650 8L656 20L663 32L667 40L672 49L680 63L685 72L690 80L696 90L704 103L709 112L714 120L720 132L726 144L730 152L736 166L740 176L744 191L746 200L748 216L749 232L749 248L747 264L745 280L744 291L742 304L740 320L737 336L736 346L734 360L733 376L731 392L730 408L729 424L728 440L728 452L728 464L728 472"/><path d="M829 0L834 8L840 19L847 32L852 40L857 48L864 61L870 72L873 80L880 96L883 104L887 120L888 128L889 144L888 156L886 168L880 184L877 192L872 202L864 216L859 224L854 232L848 242L840 255L834 264L829 272L824 281L816 295L811 304L807 312L800 328L797 336L792 349L788 360L784 374L781 384L778 400L776 412L774 424L773 440L772 456L772 472L772 472"/><path d="M904 233L896 241L888 249L880 257L872 265L864 274L856 284L848 295L841 304L836 312L831 320L824 333L818 344L815 352L808 368L805 376L801 392L799 400L796 416L793 432L792 448L792 456L792 472L792 472"/><path d="M904 273L895 280L886 288L878 296L871 304L864 312L856 322L848 334L842 344L837 352L832 363L826 376L823 384L819 400L816 411L814 424L812 440L811 456L811 472L811 472"/><path d="M904 302L896 309L888 316L880 325L872 334L865 344L860 352L855 360L848 374L844 384L840 394L836 408L833 424L831 432L830 448L830 464L830 472"/><path d="M904 358L896 368L891 376L887 384L880 400L878 408L875 424L873 440L873 456L874 472L874 472"/><path d="M904 408L901 424L901 440L902 456L904 469L904 469"/></g>
+<g fill="none" stroke="#8F7A60" stroke-width="1.1"><path d=""/><path d="M57 0L64 10L69 24L72 40L71 56L68 72L64 83L58 96L52 104L45 112L36 120L24 127L16 130L0 129L0 129M133 472L124 464L114 456L105 448L96 440L89 432L82 424L75 416L70 408L64 400L56 386L51 376L47 368L40 352L37 344L32 332L27 320L24 312L16 296L11 288L7 280L0 270L0 270"/><path d="M365 0L368 16L369 24L370 40L369 56L368 64L365 80L360 94L356 104L352 112L344 124L336 134L328 143L320 151L312 157L304 163L296 169L284 176L272 183L264 187L255 192L241 200L232 207L224 214L216 224L212 232L208 248L207 256L208 265L211 280L216 294L221 304L227 312L233 320L240 328L248 336L256 345L264 353L272 363L280 373L288 383L294 392L299 400L305 408L312 420L319 432L324 440L328 448L336 461L343 472L343 472"/><path d="M735 0L739 8L744 17L752 32L756 40L761 48L768 60L775 72L779 80L784 88L792 104L796 112L800 121L806 136L808 144L811 160L813 176L812 192L810 208L808 218L804 232L800 246L796 256L792 268L788 280L784 290L779 304L776 313L771 328L768 339L765 352L761 368L759 376L757 392L754 408L753 424L752 433L751 448L751 464L751 472"/><path d="M904 329L896 337L888 346L880 356L873 368L868 376L864 385L858 400L856 408L852 424L850 440L850 456L850 472L850 472"/></g></g>
+<clipPath id="fb"><path d="M300 0H900V470H340L280 340 330 210 260 110Z"/></clipPath>
+<path id="ml-buffer" d="M860 40L853 46L845 49L838 55L829 52L821 55L816 62L807 62L800 68L796 76L789 82L782 88L773 88L769 95L760 95L751 95L742 98L735 104L728 110L722 116L715 122L708 127L699 127L690 127L683 133L676 139L667 142L659 145L652 151L644 154L637 160L630 166L628 174L627 183L622 191L614 194L605 197L596 197L592 205L583 208L575 211L566 214L560 220L561 229L557 237L561 244L554 250L550 258L551 267L547 275L551 283L556 290L557 299L559 308L560 317L562 326L564 335L565 343L564 352L565 361L570 369L571 378L573 387L571 396L570 404L571 413L570 422L568 431L567 440L568 449L570 458L577 452M780 200L771 200L763 203L754 203L745 203L736 203L729 209L722 215L713 215L708 222L700 226L691 226L684 231L675 234L666 234L657 234L653 242L646 248L642 256L635 262L633 270L629 278L622 284L615 290L606 293L602 301L597 308L596 317L597 326L596 335L594 344L593 353L594 362L587 367L586 376L581 384L580 393L578 402L577 411L575 420L573 428L569 436L576 442L571 450L563 453L570 459M840 400L832 397L823 394L816 388L809 382L801 379L792 376L783 376L775 373L766 373L757 373L748 370L739 370L731 367L723 364L714 364L705 364L696 367L688 370L679 373L670 373L662 376L653 376L646 382L637 382L628 385L619 385L611 388L604 394L602 403L596 408L591 416L587 424L578 427L574 435L578 443M640 70L631 70L623 73L616 79L609 85L604 92L597 98L590 104L581 104L577 112L570 118L562 121L555 126L548 132L539 132L530 135L523 141L515 144L506 144L499 150L491 147L482 147L473 147L466 141L457 138L450 132L442 135L435 130L431 122L422 119L414 116L405 113L397 109L388 109L379 109L370 109L361 106L354 101L346 97L337 94L331 89L322 86L315 80L308 74L300 71L293 65L285 62L276 59L269 53L260 53L252 50L247 42L239 39L234 31L225 31L221 24L216 16L209 10L201 7L194 1L187 -5L179 -8L170 -5L163 -10" clip-path="url(#fb)" fill="none" stroke="#22CCF5" stroke-opacity=".42" stroke-width="22" stroke-linejoin="round" stroke-linecap="round"/>
+<path id="ml-streams" d="M860 40L853 46L845 49L838 55L829 52L821 55L816 62L807 62L800 68L796 76L789 82L782 88L773 88L769 95L760 95L751 95L742 98L735 104L728 110L722 116L715 122L708 127L699 127L690 127L683 133L676 139L667 142L659 145L652 151L644 154L637 160L630 166L628 174L627 183L622 191L614 194L605 197L596 197L592 205L583 208L575 211L566 214L560 220L561 229L557 237L561 244L554 250L550 258L551 267L547 275L551 283L556 290L557 299L559 308L560 317L562 326L564 335L565 343L564 352L565 361L570 369L571 378L573 387L571 396L570 404L571 413L570 422L568 431L567 440L568 449L570 458L577 452M780 200L771 200L763 203L754 203L745 203L736 203L729 209L722 215L713 215L708 222L700 226L691 226L684 231L675 234L666 234L657 234L653 242L646 248L642 256L635 262L633 270L629 278L622 284L615 290L606 293L602 301L597 308L596 317L597 326L596 335L594 344L593 353L594 362L587 367L586 376L581 384L580 393L578 402L577 411L575 420L573 428L569 436L576 442L571 450L563 453L570 459M840 400L832 397L823 394L816 388L809 382L801 379L792 376L783 376L775 373L766 373L757 373L748 370L739 370L731 367L723 364L714 364L705 364L696 367L688 370L679 373L670 373L662 376L653 376L646 382L637 382L628 385L619 385L611 388L604 394L602 403L596 408L591 416L587 424L578 427L574 435L578 443M640 70L631 70L623 73L616 79L609 85L604 92L597 98L590 104L581 104L577 112L570 118L562 121L555 126L548 132L539 132L530 135L523 141L515 144L506 144L499 150L491 147L482 147L473 147L466 141L457 138L450 132L442 135L435 130L431 122L422 119L414 116L405 113L397 109L388 109L379 109L370 109L361 106L354 101L346 97L337 94L331 89L322 86L315 80L308 74L300 71L293 65L285 62L276 59L269 53L260 53L252 50L247 42L239 39L234 31L225 31L221 24L216 16L209 10L201 7L194 1L187 -5L179 -8L170 -5L163 -10M610 320L608 329L604 337L599 344L595 352L593 361L589 369L587 378L589 387L584 394L583 403L581 412L580 421L578 430L569 430M500 190L491 190L486 182L480 176L478 168L470 164L461 161L457 154L448 151L440 154L433 148L426 142L417 139L411 133L402 133L393 130L385 127L378 121L373 113L365 110L358 105L349 101L343 96L334 93L326 90L317 86L310 81L302 78L293 75L286 69L280 63L271 63L262 60L254 57L249 49L242 43L235 37L231 30L224 24L217 18L216 9L209 3L200 0L196 -7L187 -4L179 -1L170 2L162 -1L153 2L145 -1L136 -4L127 -4L118 -4L110 -7L102 -4L95 1L86 1L77 1L68 5L61 10L54 16L50 24L43 30L35 33L28 39L26 47L22 55L23 64M440 40L432 43L423 43L414 40L406 37L397 40L389 37L380 37L371 37L362 34L353 34L345 37L336 37L327 40L319 43L310 43L301 40L293 37L284 37L275 37L268 31L259 31L250 31L243 25L235 22L226 22L221 14L213 18L208 10L200 7L191 4L183 1L178 -7L170 -10M690 440L681 440L673 437L664 440L656 437L647 434L638 434L629 434L621 431L612 428L604 431L595 434L586 434L578 437L573 445L569 453L573 460L578 453M380 330L373 336L365 339L358 345L351 350L344 356L336 359L327 359L318 362L310 365L303 371L296 377L287 380L279 383L272 389L264 392L257 398L250 404L243 409L236 415L231 423L230 432L225 440L219 445L212 451L207 459L203 467L198 475L194 482" fill="none" stroke="#1F6FB2" stroke-width="1.5" stroke-linejoin="round"/>
+<g id="ml-roads"><path d="M0 395C150 370 250 300 420 300S700 210 900 170" fill="none" stroke="#FFFFFF" stroke-width="4"/><path d="M0 395C150 370 250 300 420 300S700 210 900 170" fill="none" stroke="#B3532A" stroke-width="1.6"/>
+<text x="470" y="292" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#7A3A1C">County Road 415</text></g>
+</svg>
+</template>
+<script>
+const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const opt=(new URLSearchParams(location.search).get("opt")||"A").toUpperCase();
+const mapSvg=document.getElementById("mapsvg").innerHTML;
+const page=(u,extras="")=>`<div class="page" style="--u:${u}px">
+ <div class="el ti" style="left:calc(var(--u)*10);top:calc(var(--u)*8)">Stream buffers, Madera County</div>
+ <div class="el st" style="left:calc(var(--u)*10);top:calc(var(--u)*17.5)">100 ft geodesic buffer on NHD streams, clipped to the forest boundary</div>
+ <div class="el fr" style="left:calc(var(--u)*10);top:calc(var(--u)*25);width:calc(var(--u)*190);height:calc(var(--u)*181)">${mapSvg}</div>
+ <div class="el lg2 selbox" style="left:calc(var(--u)*207);top:calc(var(--u)*25);width:calc(var(--u)*62)"><b>Legend</b><div><i style="background:#1F6FB2"></i>Streams (NHD)</div><div><i style="background:#8ee4f7"></i>Stream buffer</div><div><i style="background:#B3532A"></i>Roads</div><div><i style="background:#DCE8D2"></i>Forest boundary</div><div><i style="background:#B59F84"></i>Contours (40 ft)</div></div>
+ <div class="el sb" style="left:calc(var(--u)*207);top:calc(var(--u)*90)"><u></u>0 &nbsp; 1 &nbsp; 2 mi · 1:48,000</div>
+ <div class="el na" style="left:calc(var(--u)*207);top:calc(var(--u)*106);width:calc(var(--u)*14)">N<br>↑</div>
+ <div class="el src" style="left:calc(var(--u)*207);top:calc(var(--u)*182);width:calc(var(--u)*62)">NAD83 / California zone 4 (ftUS). Sources: USGS NHD; U.S. Census TIGER/Line; USGS 3DEP. Basemap: none.</div>
+ ${extras}</div>`;
+const qat=`<div class="qat"><b>Madera County</b><div class="qr"><button>${ic("save")}Save</button><button>${ic("undo")}Undo</button><button>${ic("redo")}Redo</button></div></div>`;
+const tabs=(on,all=["Map","Insert","View","Analysis"])=>`<div class="tabs">${all.map(t=>`<button class="tab">${t}</button>`).join("")}${["Page","Elements","Format","Export"].map(t=>`<button class="tab ${t===on?"on":""}">${t==="Page"?"<small>Layout</small>":""}${t}</button>`).join("")}<span class="sp"></span><div class="search">${ic("search")}Search commands</div></div>`;
+const L=(i,l)=>`<button class="lg">${ic(i)}<span>${l}</span></button>`,S=(i,l)=>`<button class="sm">${ic(i)}${l}</button>`;
+const items=`<div class="ph">Items</div><div class="pb" style="flex:0 0 auto">
+ <div class="it">${ic("doc")}Title</div><div class="it">${ic("doc")}Subtitle</div>
+ <div class="it">${ic("map")}Map frame<span class="e">Overview</span></div>
+ <div class="it d1">${ic("layers")}Streams (NHD)</div><div class="it d1">${ic("layers")}Roads</div><div class="it d1">${ic("layers")}Forest boundary</div>
+ <div class="it sel">${ic("tree")}Legend</div><div class="it">${ic("ruler")}Scale bar</div><div class="it">${ic("compass")}North arrow</div><div class="it">${ic("book")}Sources</div></div>`;
+const maps=`<div class="ph" style="border-top:1px solid var(--rule)">Maps</div><div class="pb"><div class="mapcard"><i></i><div><b style="font-weight:600">Overview</b><small>Drag onto the page for a frame.</small></div></div><div class="mapcard"><i style="background:#E6E9EA"></i><div><b style="font-weight:600">Fire access</b><small>Not on this page</small></div></div></div>`;
+const insp=(on="Style")=>`<div class="ph">Legend</div><div class="itabs">${["Style","Text","Data","Position"].map(t=>`<button class="${t===on?"on":""}">${t}</button>`).join("")}</div><div class="pb form">
+ <h4>Entries</h4><div class="f"><span>Columns</span><div class="fv2">1</div></div><div class="f"><span>Patch size</span><div class="fv2">5 × 2.6 mm</div></div><div class="f"><span>Show</span><div class="fv2">Layers in frame</div></div>
+ <h4>Box</h4><div class="f"><span>Background</span><div class="fv2">None</div></div><div class="f"><span>Frame</span><div class="fv2">None</div></div>
+ <h4>Text style</h4><div class="f"><span>Style</span><div class="fv2">Legend body ${ic("chev").replace('class="i"','class="i" style="font-size:9px"')}</div></div><div class="f"><span>Font</span><div class="fv2">Inter 8 pt</div></div></div>`;
+const preflight=`<div class="form" style="padding-top:8px"><div class="chk">${ic("check")}CRS named on the page</div><div class="chk">${ic("check")}Sources listed</div><div class="chk">${ic("check")}Scale bar matches frame</div><div class="chk w">${ic("warn")}Legend lists a hidden layer</div><div class="f"><span>Format</span><div class="fv2">PDF, 300 dpi</div></div><button class="btn">${ic("save")}Export PDF</button></div>`;
+const status=`<div class="status"><span>Letter landscape · 279.4 × 215.9 mm</span><span>Pointer 214.0, 31.5 mm</span><span class="sp"></span><span>Legend 62.0 × 52.4 mm</span><a>NAD83 / California zone 4 (ftUS)</a></div>`;
+const rulers=c=>`<div class="ruler-h">0 50 100 150 200 250</div><div class="deskrow"><div class="ruler-v"></div><div class="desk">${c}</div></div>`;
+const zoom=`<div class="zbar"><div class="seg"><span class="on">Fit page</span><span>100%</span></div><b>78%</b><span class="sp"></span><small>Snap on · Guides on</small></div>`;
+let html="";
+if(opt==="A"){ /* focused ribbon */
+ html=`<div class="top">${qat}<div>${tabs("Elements")}<div class="band"><div class="grp"><div>${L("map","Map Frame")}${L("doc","Text")}${L("tree","Legend")}${L("ruler","Scale Bar")}${L("compass","North Arrow")}</div><div class="gl">Insert</div></div><div class="grp"><div>${L("image","Picture")}${L("table","Table")}${L("chart","Chart")}${L("book","Sources")}</div><div class="gl">More</div></div><div class="grp"><div><div class="rcol">${S("rect","Rectangle")}${S("buffer","Ellipse")}${S("ruler","Line")}</div></div><div class="gl">Graphics</div></div></div></div></div>
+ <div class="work"><div class="col l">${items}${maps}</div><div class="stage">${zoom}${rulers(page(2.95))}</div><div class="col r">${insp()}</div></div>${status}`;
+}else if(opt==="B"){ /* tool rail, context bar, Shift+A */
+ html=`<div class="top">${qat}<div>${tabs("Page")}<div class="band slim" style="height:74px">${S("page","Letter landscape")}${S("reset","Page Setup")}<span class="vsep"></span>${S("doc","Template")}${S("brush","Theme")}<span class="vsep"></span>${S("grid","Map Series")}<span class="sp"></span>${S("save","Export")}</div></div></div>
+ <div class="work"><div class="col l">${items}${maps}</div>
+ <div class="rail" role="toolbar" aria-label="Insert"><button class="on">${ic("cursor")}Select</button><hr><button>${ic("map")}Map</button><button>${ic("doc")}Text</button><button>${ic("tree")}Legend</button><button>${ic("ruler")}Scale</button><button>${ic("compass")}North</button><hr><button>${ic("image")}Picture</button><button>${ic("rect")}Shape</button><button>${ic("table")}Table</button><button>${ic("chart")}Chart</button><button>${ic("plus")}All…</button></div>
+ <div class="stage">${zoom}${rulers(page(2.55,`<div class="guide gv" style="left:calc(var(--u)*207);top:0;bottom:0"></div><div class="dim" style="left:calc(var(--u)*196);top:calc(var(--u)*50)">7.0 mm</div>
+ <div class="ctx" style="right:calc(var(--u)*2);top:calc(var(--u)*11)"><span class="fv">Legend body ${ic("chev")}</span><span class="fv">8 pt ${ic("chev")}</span><span class="sw" style="background:#111"></span><button class="ib" aria-label="Align">${ic("reset")}</button><button class="ib" aria-label="Lock">${ic("lock")}</button><button class="ib" aria-label="More">${ic("chevr")}</button></div>
+ <div class="menu" style="left:calc(var(--u)*30);top:calc(var(--u)*62);color:var(--text)"><header>${ic("search")}<span>north</span></header><div class="mr on">${ic("compass")}<div><b>North Arrow</b><small>8 styles, true or grid north</small></div></div><div class="mr">${ic("compass")}<div><b>Declination Diagram</b><small>True, grid and magnetic north</small></div></div></div>`))}
+ <div class="pages"><div class="pg on"><i></i><small>Page 1</small></div><div class="pg"><i></i><small>Sheet 2</small></div><div class="pg"><i></i><small>Sheet 3</small></div><div class="pg"><i></i><small>Sheet 4</small></div><span style="color:var(--text-2);font-size:11px">Map series, shown only when the layout has one</span></div></div>
+ <div class="col r">${insp()}</div></div>${status}`;
+}else if(opt==="C"){ /* studio: page fills the window */
+ html=`<div class="studiotop"><button class="back">${ic("chevr").replace('class="i"','class="i" style="transform:rotate(180deg);font-size:11px"')}Back to map</button><b>Stream buffers 1:48,000</b><span class="vsep"></span>${S("map","Map")}${S("doc","Text")}${S("tree","Legend")}${S("ruler","Scale")}${S("compass","North")}${S("image","Picture")}${S("rect","Shape")}${S("plus","All… Shift+A")}<span class="sp"></span>${S("undo","Undo")}${S("redo","Redo")}<div class="seg"><span class="on">Fit page</span><span>100%</span></div><b style="font-size:12px">94%</b></div>
+ <div class="work"><div class="stage"><div class="desk">${page(2.82)}
+ <div class="fl" style="left:12px;top:12px;width:208px">${items}</div>
+ <div class="fl" style="right:12px;top:12px;width:268px;max-height:330px">${insp()}</div>
+ <div class="fl" style="right:12px;bottom:12px;width:268px"><div class="ph">Export</div>${preflight}</div>
+ </div></div></div>${status}`;
+}else{ /* D: start gallery on an empty layout */
+ const tile=(t,d,th,on)=>`<button class="tile ${on?"on":""}"><div class="thumb">${th}</div><b>${t}</b><small>${d}</small></button>`;
+ const T=(x,y,w,h)=>`<i style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"></i>`,U=(x,y,w)=>`<u style="left:${x}%;top:${y}%;width:${w}%"></u>`;
+ html=`<div class="top">${qat}<div>${tabs("Page")}<div class="band slim" style="height:74px">${S("page","Letter landscape")}${S("reset","Page Setup")}<span class="vsep"></span>${S("doc","Template")}${S("brush","Theme")}<span class="sp"></span></div></div></div>
+ <div class="work"><div class="col l"><div class="ph">Items</div><div class="pb" style="flex:0 0 auto"><div class="it" style="color:var(--text-2)">Nothing on the page yet</div></div>${maps}</div><div class="stage">${zoom}<div class="desk"><div class="gal"><h2>Start this layout</h2><p>Each one uses the Overview map, your layers and your project's sources. Everything stays editable.</p>
+ ${tile("Thematic map","Title, map, legend, scale bar, sources",T(6,18,62,74)+U(6,8,50)+U(72,20,20)+U(72,30,16)+U(72,40,18),1)}
+ ${tile("Land navigation","Grid, declination, coordinate scales",T(5,6,90,70)+U(10,82,24)+U(40,82,24)+U(70,82,20))}
+ ${tile("USGS quadrangle","1:24,000 collar, adjoining quads",T(10,8,80,72)+U(10,86,30)+U(50,86,40))}
+ ${tile("Two maps side by side","Compare Overview and Fire access",T(5,18,43,72)+T(52,18,43,72)+U(5,8,60))}
+ ${tile("Map with inset","Main map plus a locator",T(5,6,90,88)+`<i style="left:68%;top:60%;width:24%;height:30%;background:#fff"></i>`)}
+ ${tile("Blank page","Start empty; Shift+A adds an element",U(40,50,20))}
+ </div></div></div><div class="col r"><div class="ph">Properties</div><div class="pb form"><p style="margin:0;color:var(--text-2)">Pick a starting point, or press Shift+A to add one element at a time.</p></div></div></div>${status}`;
+}
+document.getElementById("app").innerHTML=html;
+</script>
+</body>
+</html>

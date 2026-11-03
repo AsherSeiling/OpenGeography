@@ -43,15 +43,13 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 | `--rule-soft` | `#BCC6CE` | `#3B444C` | Rows, inner dividers |
 | `--text` | `#121A20` | `#EDF1F4` | |
 | `--text-2` | `#46535D` | `#AEB9C2` | Secondary text (AA on every surface) |
-| `--accent` (source value) | `#22CCF5` | `#22CCF5` | User-chosen; the tokens below derive from it |
-| `--band` | accent | accent mixed 50 % with black | Ribbon band, active tab, menu head |
-| `--band-text` | computed | computed | Text and icons on the band |
-| `--band-edge` | `--rule` | accent | Rule under the band |
-| `--band-on-bg` | accent mixed 60 % with white | accent | Pressed or checked ribbon button |
+| `--accent` (source value) | `#22CCF5` | `#22CCF5` | User-chosen. Outlines only: ribbon band, active tab, pressed buttons, menus. Never a filled band (user, 2026-11-03) |
+| `--band` | `--surface-2` | `--surface-2` | Ribbon band, active tab, menu head |
+| `--band-text` | `--text` | `--text` | Text and icons on the band |
 | `--sel-bg` | `#6FE0FF` | `#6FE0FF` | Highlight: selected rows, selected card ring. Lighter and brighter than the ribbon, at the user's request |
 | `--sel-text` | computed | computed | |
 | `--hover` | `rgba(18,26,32,.08)` | `rgba(255,255,255,.08)` | |
-| `--link` | accent darkened until AA | accent lightened until AA | Links and accent text |
+| `--link` | accent darkened until AA, `#0562A8` by default | accent lightened until AA | Blue text: selected tab, pressed button, links. Cyan itself fails AA as text on light panels |
 | `--focus` | `--text` | `--link` | Focus ring: 2 px, 1 px offset |
 | `--error` | `#B3261E` | `#FF8A80` | |
 | `--warn` | `#8A5A00` | `#F2C14E` | |
@@ -74,7 +72,7 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 
 **Spacing:** 2, 4, 6, 8, 12, 16, 24 px.
 
-**Shape.** Panes and bands are square. `--r-control: 2px`. The reference's single curve becomes the motif, on anything that is "a tab of something": `--r-tab: 10px 10px 0 0` (ribbon tabs, pane tabs, Shift+A menu) and `--r-card: 8px 8px 0 0` (node cards).
+**Shape.** Panes and bands are square. `--r-control: 2px`. The reference's single curve becomes the motif, on anything that is "a tab of something": `--r-tab: 10px 10px 0 0` (ribbon tabs, pane tabs, Shift+A menu) and `--r-card` (node cards: top corners rounded 8 px, bottom corners bevelled 45° by 9 px, user 2026-11-03; drawn with `clip-path` on pseudo-elements so sockets on the edges are not clipped).
 
 **Elevation.** Docked things have none, only rules. Floating things only: `--e-float: 0 8px 24px rgba(0,0,0,.28)` plus a 1 px `--rule` outline.
 
@@ -89,13 +87,48 @@ Defined once in `ui/src/theme/tokens.css` as CSS variables on `:root[data-theme]
 View › Appearance › **Colours** opens a floating panel, so changes show live on the real screen.
 - **Theme:** light or dark.
 - **Panels:** three panel sets: Glacier (default), Paper (warm), Wireframe (the reference's greys).
-- **Ribbon colour** and **Highlight colour:** six or seven swatches each, plus any custom colour.
+- **Accent colour** and **Highlight colour:** six or seven swatches each, plus any custom colour.
 - **Tool colours:** one picker per family.
 - **Reset to default.**
 
 Readability is enforced, not advised: text and icons on a chosen colour are computed, and accent text is shifted until it reaches AA, so no choice can make a label unreadable. Checked across all panel sets, both themes and 53 test colours including random ones: lowest ratio 4.5:1.
 
 Colours are saved per user (not in the project), because a project opened by someone else should not change their app. Map and layout content never follows these colours.
+
+## 2b. Multiple maps (user, 2026-11-03)
+
+A project holds any number of named maps. Today the app has one: `order`, `mapCrs`, `basemap` and `worldView` are single values in `store.ts`, read in about 80 places, and `mapController` holds one map.
+
+**What belongs where**
+| Belongs to the project (shared) | Belongs to each map |
+|---|---|
+| Layer data, sources, the layer's one node tree | Name, explicit CRS, basemap, saved view, world view |
+| Layouts | Which layers it shows, their order and visibility |
+
+**UI.** Map tabs above the map (dockable, so two can sit side by side), + for a new map. Catalog › Project › Maps lists them. Map Layers shows the active map, and + there adds a project layer. Status bar and Map Layers show the active map's CRS. Insert › New Map, Duplicate Map. A new map takes the last map's CRS and says so. Closing a map never deletes layers. Removing a layer from a map keeps it in the project.
+
+**Layouts.** A map frame names a map (`FrameLayers` gains `{ map: id }`). The existing fixed-list option stays.
+
+**Saved projects.** Old projects open as one map named "Map", with nothing else changed. Project format version goes up.
+
+**Undecided: style.** In the first version a layer's style is shared by every map. Per-map styles are the second step, because the Symbology node writes to the layer and `LayerInfo` holds the style. **Question for the user.**
+
+**Engine.** None expected for drawing: display tables are already keyed by layer and CRS. `record_basemap` citations must track every map's basemap. No new Tauri command is expected; if one appears it also goes in the devserver.
+
+## 2c. More open basemaps (user, 2026-11-03)
+
+Each map picks its own, and the credit shows on the map. Terms below come from each project's public pages (2026-11-03); WP 12 re-reads each live policy before enabling it.
+| Basemap | Kind | Licence | Key | Notes |
+|---|---|---|---|---|
+| OpenFreeMap Liberty, Bright, Positron | Vector | Data ODbL, code MIT | None | No stated request limit, no SLA. Credit: "OpenFreeMap © OpenMapTiles, data from OpenStreetMap" |
+| VersaTiles Colorful | Vector | Data ODbL, stack permissive | None | Project warns hosted assets may change, so bundle the style |
+| OpenTopoMap | Raster | CC BY-SA 3.0 | None | Volunteer server; asks larger users to get in touch. Low-volume, screen only |
+| NASA Blue Marble (GIBS) | Raster | NASA: CC0 unless marked otherwise; layer not confirmed | None | Check this layer's marking; acknowledge GIBS |
+| Natural Earth | Bundled vector | Public domain | None | Works offline and in every CRS. Grows the installer slightly |
+
+Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), and anything needing an account or key.
+
+**Limits.** Web tile basemaps draw in Web Mercator, and vector tiles may not reproject to every map CRS, so a basemap that can't draw in the map's CRS says so instead of guessing. On layouts, keep today's rule: only USGS, plus Natural Earth; the others stay screen-only because of bulk-download terms. Each one records a citation in `sources.rs` and a row in `OPEN_SOURCE.md`.
 
 ## 3. Information architecture
 
@@ -192,9 +225,13 @@ Each is one Sonnet session in its own worktree, one commit, tests as stated. Eac
 | **7 Panes and map chrome** | Properties, Sources, Items, Attribute Table, map overlays, status bar | `panes/PropertiesPane`, `SourcesPane`, `ItemsPane`, `AttributeTable`, `panes/table/*`, `statusbar/*`, map CSS | No raw hex; all states styled; content unchanged | 1 |
 | **8 Layout and dialogs** | Layout workspace, dialogs, error pop-up | `layout/*`, `dialogs/*` except `Dialogs.tsx`, `errors/*`, `topo/*`, `raster/*`, `crs/*`, `census/*`, `help/*` | No raw chrome hex; page stays white; export pixel tests unchanged | 3 |
 | **8b Colours** | `theme/appearance.ts` (derivation, storage, tested contrast), `theme/AppearancePanel.tsx`, `theme/appearance.css` | those files only; WP6 adds the ribbon button | §2a works live in both themes; vitest proves AA for random colours; survives restart; Reset works | 1 |
+| **10 Maps: state** | `maps[]` in the store, migrate the 80 readers, project format and old-project migration | `store/store.ts`, readers, `actions.ts` | Old projects open unchanged; per-map CRS, basemap, layers; tests prove no CRS is guessed | 6 |
+| **11 Maps: UI** | Map tabs, several `MapView`s, Catalog › Maps, frame picks a map | `panes/MapView.tsx`, `map/mapController.ts`, `layout/*` frame props | Two maps side by side stay independent; layout frame follows its map | 10 |
+| **12 Basemaps** | §2c, one citation each, credit on the map, CRS refusal | `map/*`, `commands.tsx`, `sources.rs`, `layout/basemap.rs`, `OPEN_SOURCE.md` | Each draws, credits and cites; network tests marked ignored like the others | 11 |
+| **13 Layout editor** | The option chosen in `docs/LAYOUT_UI_OPTIONS.md` | `layout/*`, `ribbon/*` | Defined once chosen | 8, 11 |
 | **9 Verify** | Full walk-through, screenshots, docs | `docs/*`, `e2e/redesign.spec.ts`, `PROJECT_STATUS.md` | §7 and the control audit | all |
 
-**Order.** 1 and 2 together. Then 3, 4, 5, 7, 8b together. Then 6 and 8 together. Then 9. No two run at once on the same file; WP1's CSS split is what makes this possible. The lead reviews each diff and the running UI before merging.
+**Order.** 1 and 2 together. Then 3, 4, 5, 7, 8b together. Then 6 and 8 together. Then 10, 11, 12, 13 in order. Then 9. No two run at once on the same file; WP1's CSS split is what makes this possible. The lead reviews each diff and the running UI before merging.
 
 **Expected test edits.** Tests that name "Model", "Contents", "Geoprocessing", `.addmenu`, `Find Tools` or the Data tab change with the WP that changes the name. A test may change only for a renamed target, never to drop a check.
 

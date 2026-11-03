@@ -275,8 +275,39 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
 .tree button.flash{background:var(--sel-bg);color:var(--sel-text)}
 .canvas{overflow:auto}
 .canvas>svg{inset:auto;left:0;top:0;width:100%;height:100%}
-.rb.on{box-shadow:inset 0 0 0 1px var(--band-text)}
 .card.out .card-h{background:var(--rule);color:#fff}
+/* v3: blue text and outline instead of a filled band */
+.band{border:1.5px solid var(--accent);border-top-width:1.5px}
+.tabs{position:relative;z-index:1}
+.tab[aria-selected="true"]{color:var(--link);font-weight:600;background:var(--band);border:1.5px solid var(--accent);border-bottom:0;margin-bottom:-1.5px;height:31.5px}
+.tab[aria-selected="true"] small{color:var(--link)}
+.grp{border-right-color:var(--rule-soft)}
+.rb.on{background:transparent;color:var(--link);font-weight:600;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.m-head{border-bottom:1.5px solid var(--accent)}
+.menu{border:1.5px solid var(--accent)}
+.m-head input:focus-visible{outline:2px solid var(--accent)}
+.apr{border-color:var(--accent)}
+.apr-h{border-bottom:1.5px solid var(--accent)}
+.btn.pri{background:var(--surface-2);color:var(--link);border:1.5px solid var(--accent)}
+.btn.pri:hover{background:var(--hover);filter:none}
+/* v3: node cards with bevelled bottom corners */
+.card{--bevel:9px;background:transparent;border:0;border-radius:0;padding-bottom:7px;isolation:isolate}
+.card::before,.card::after{content:"";position:absolute;z-index:-1;clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bevel)),calc(100% - var(--bevel)) 100%,var(--bevel) 100%,0 calc(100% - var(--bevel)));border-radius:8px 8px 0 0}
+.card::before{inset:0;background:var(--rule)}
+.card::after{inset:1px;background:var(--surface-2);border-radius:7px 7px 0 0}
+.card.sel{box-shadow:none!important}
+.card.sel::before{inset:-3px;background:var(--sel-bg);border-radius:10px 10px 0 0;--bevel:11px}
+.card-h{border-radius:7px 7px 0 0;margin:1px 1px 0}
+.card-b{padding-bottom:4px}
+/* v3: map tabs and credits */
+.maptabs{background:var(--surface-0);height:28px;flex:none}
+.maptabs .btab svg{font-size:13px}
+.maptabs .btab{gap:6px}
+.maptabs .x{font-size:11px;display:inline-grid;place-items:center}
+.newmap{align-self:center;margin-left:4px}
+.attrib{position:absolute;right:0;bottom:0;background:rgba(250,250,250,.86);color:#101416;font-size:10.5px;line-height:13px;padding:1px 6px}
+.tree button.cur{color:var(--link);font-weight:600}
+.crsrow small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -356,7 +387,7 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
       <section class="pane layers" id="pLayers" aria-label="Map Layers">
         <div class="pane-h">Map Layers<span class="sp"></span><button class="ib" id="addLyr" aria-label="Add data"><svg class="i"><use href="#plain"/></svg></button></div>
         <div class="pane-b">
-          <div class="crsrow"><svg class="i" style="font-size:16px"><use href="#map"/></svg><div>Map<small>NAD83 / California zone 4 (ftUS)</small></div></div>
+          <div class="crsrow"><svg class="i" style="font-size:16px"><use href="#map"/></svg><div><span id="mapName">Map</span><small id="mapCrsLine"></small></div></div>
           <div id="lyrList"></div>
         </div>
       </section>
@@ -367,6 +398,7 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
     </div>
 
     <div class="center">
+      <div class="btabs maptabs" id="mapTabs" role="tablist" aria-label="Maps"></div>
       <div class="map" id="map" aria-label="Map">
         <svg class="m" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sample map: contours, streams and a clipped stream buffer">
 <rect width="900" height="470" fill="#EEF0E8"/>
@@ -382,7 +414,7 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
 </svg>
 
         <div class="mapctl"><button id="zIn" aria-label="Zoom in"><svg class="i"><use href="#plain"/></svg></button><button id="zOut" aria-label="Zoom out"><svg class="i"><path d="M5 12h14"/></svg></button><button id="zFull" aria-label="Zoom to full extent"><svg class="i"><use href="#extent"/></svg></button></div>
-        <div class="scale">2 mi<i></i></div>
+        <div class="scale">2 mi<i></i></div><div class="attrib" id="attrib"></div>
       </div>
       <section class="bottom" id="bottom" aria-label="Node Editor and Attribute Table">
         <div class="btabs" role="tablist">
@@ -454,8 +486,18 @@ const LAYERS=[
  {id:"l2",name:"Forest boundary",geom:"Polygon",count:1,color:"#DCE8D2",g:"ml-forest",src:["Forest boundary","U.S. Forest Service"]},
  {id:"l3",name:"Contours (40 ft)",geom:"Line",count:2718,color:"#B59F84",g:"ml-contours",src:["Elevation (3DEP)","U.S. Geological Survey"]},
 ];
-LAYERS.forEach(l=>{l.on=true;l.desc=`${l.geom} layer · ${l.count.toLocaleString()} ${l.count===1?"feature":"features"}`;l.description=l.desc;l.category="Layers";l.role="layer";l.inputs=[];l.output="vector";l.nparams=0;l.keywords=[]});
-const CRS="NAD83 / California zone 4 (ftUS)";
+LAYERS.forEach(l=>{l.desc=`${l.geom} layer · ${l.count.toLocaleString()} ${l.count===1?"feature":"features"}`;l.description=l.desc;l.category="Layers";l.role="layer";l.inputs=[];l.output="vector";l.nparams=0;l.keywords=[]});
+const MAPS=[
+ {id:"m1",name:"Overview",crs:"NAD83 / California zone 4 (ftUS)",basemap:"USGS Topo",zoom:1,on:{l0:true,l1:true,l2:true,l3:true}},
+ {id:"m2",name:"Fire access",crs:"NAD83 / UTM zone 11N",basemap:"OpenFreeMap Positron",zoom:1.5,on:{l0:true,l1:true}},
+];
+let curMap=MAPS[0];
+const BASEMAPS=[
+ ["USGS Topo","Public domain","USGS The National Map","#EEF0E8"],["USGS Imagery","Public domain","USGS The National Map","#B9C4AE"],["USGS Shaded Relief","Public domain","USGS The National Map","#E4E2DC"],"-",
+ ["OpenStreetMap","ODbL","© OpenStreetMap contributors","#F4F1EA"],["OpenFreeMap Liberty","ODbL, MIT","OpenFreeMap © OpenMapTiles, data from OpenStreetMap","#F3F0E8"],["OpenFreeMap Bright","ODbL, MIT","OpenFreeMap © OpenMapTiles, data from OpenStreetMap","#F7F4EC"],["OpenFreeMap Positron","ODbL, MIT","OpenFreeMap © OpenMapTiles, data from OpenStreetMap","#F2F3F3"],["VersaTiles Colorful","ODbL","VersaTiles, © OpenStreetMap contributors","#EFF2E6"],["OpenTopoMap","CC BY-SA","© OpenTopoMap (CC BY-SA), © OpenStreetMap contributors","#E8EBDD"],"-",
+ ["NASA Blue Marble","NASA GIBS","Imagery: NASA Global Imagery Browse Services (GIBS)","#A9BBC4"],["Natural Earth","Public domain, works offline","Made with Natural Earth","#EEF0E4"],"-",
+ ["None","","","#FFFFFF"],
+];
 const ICON={clip:"cut",clip_raster:"cut",erase:"cut",merge:"merge",union:"merge",mosaic_rasters:"merge",buffer:"buffer",project:"globe",warp:"globe",hillshade:"mountain",slope:"mountain",contours:"mountain",aspect:"compass",fishnet:"grid"};
 const FAMICON={Vector:"shapes",Raster:"grid",Hydrology:"drop",Tables:"table",Coordinate:"globe",Analysis:"chart",Styling:"brush",Output:"save",Input:"db"};
 const GROUPS=["Vector","Tables","Coordinate Systems","Raster","Hydrology","Analysis","Styling","Save to File"];
@@ -493,13 +535,13 @@ function applyTheme(){
  const root=document.documentElement,P=PALETTES[apr.palette][apr.mode],dark=apr.mode==="dark",set=(k,v)=>root.style.setProperty("--"+k,v);
  root.dataset.theme=apr.mode;
  for(const k in P)set(k,P[k]);
- const band=dark?mix(apr.accent,"#000000",.5):apr.accent,bt=readable(band),acT=readable(apr.accent);
- set("band",band);set("band-text",bt);set("band-edge",dark?apr.accent:P.rule);
- set("band-hover",bt==="#FFFFFF"?"rgba(255,255,255,.16)":"rgba(6,34,43,.14)");
- const onBg=dark?apr.accent:mix(apr.accent,"#FFFFFF",.6);set("band-on-bg",onBg);set("band-on-text",readable(onBg));
+ set("accent",apr.accent);set("band",P["surface-2"]);set("band-text",P.text);set("band-edge",apr.accent);set("band-hover",P.hover);
+ set("band-on-bg","transparent");
  set("sel-bg",apr.hilite);set("sel-text",readable(apr.hilite));
- const link=untilAA(apr.accent,dark?"#FFFFFF":"#000000",P["surface-0"]);
- set("link",link);set("focus",dark?link:P.text);
+ const[ar,ag,ab]=rgb(apr.accent),blueish=ab>ar&&ab>=ag*.9;
+ const link=dark?untilAA(apr.accent,"#FFFFFF",P["surface-0"]):untilAA(apr.accent,blueish?"#00488F":mix(apr.accent,"#000000",.8),P["surface-0"]);
+ const linkOk=ratio(link,P["surface-0"])>=4.5?link:P.text;
+ set("link",linkOk);set("band-on-text",linkOk);set("focus",dark?linkOk:P.text);
  for(const k in apr.fam){set("fam-"+k,apr.fam[k]);set("fam-"+k+"-text",readable(apr.fam[k]))}
  set("error",dark?"#FF8A80":"#B3261E");set("warn",dark?"#F2C14E":"#8A5A00");set("ok",dark?"#7BD88F":"#1F6B3A");
  try{localStorage.setItem("mock.appearance",JSON.stringify(apr))}catch{}
@@ -564,7 +606,7 @@ function resetPanes(){Object.keys(win).forEach(k=>win[k]=true);win.table=true;bT
 const LG=(i,l)=>({i,l,k:"lg"}),SM=(i,l)=>({i,l,k:"sm"});
 const RIB={
  Map:[["Navigate",[LG("hand","Explore"),LG("extent","Full Extent")]],["Layer",[LG("plus","Add Data"),LG("tree","Public Data"),LG("map","Basemap")]],["Selection",[LG("cursor","Select"),[SM("rect","By Rectangle"),SM("filter","By Attributes"),SM("pin","By Location")],LG("x","Clear")]],["Inquiry",[LG("info","Identify"),LG("ruler","Measure")]],["Land Nav",[[SM("compass","Resection"),SM("compass","Intersection"),SM("grid","MGRS Grid")]]],["Coordinate System",[LG("globe","Map CRS"),[SM("db","Datum Grids"),SM("beaker","Projection"),SM("buffer","Tissot")]]],["World",[[SM("globe","World View"),SM("grid","Graticule"),SM("shapes","Outline")]]]],
- Insert:[["Layouts",[LG("page","New Layout"),[SM("doc","Letter landscape"),SM("doc","A3 landscape"),SM("doc","From template")]]],["Maps",[LG("mountain","Topo Map")]]],
+ Insert:[["Layouts",[LG("page","New Layout"),[SM("doc","Letter landscape"),SM("doc","A3 landscape"),SM("doc","From template")]]],["Maps",[LG("map","New Map"),LG("layers","Duplicate Map"),LG("mountain","Topo Map")]]],
  View:[["Windows",[[SM("layers","Map Layers"),SM("tree","Catalog"),SM("nodes","Node Editor")],[SM("table","Attribute Table"),SM("info","Properties"),SM("book","Sources")],LG("reset","Reset Panes")]],["Appearance",[LG("moon","Dark Theme"),LG("brush","Colours")]],["Performance",[[SM("chart","Frame Rate"),SM("beaker","Benchmark")]]],["Testing",[LG("db","Test Data")]]],
  Analysis:[["Geoprocessing",[LG("plus","Add Tool"),LG("play","Run"),LG("nodes","Node Editor"),LG("table","Attribute Table")]],["Favourites",[[SM("buffer","Buffer"),SM("cut","Clip"),SM("merge","Dissolve")],[SM("globe","Project"),SM("mountain","Hillshade"),SM("mountain","Contour")]]]],
  "Feature Layer":[["Layer",[LG("info","Properties"),LG("extent","Zoom To"),LG("brush","Symbology"),LG("table","Open Table")]],["Fields",[[SM("plain","Add Field"),SM("beaker","Calculate Field"),SM("ruler","Calculate Geometry")]]],["Data",[[SM("filter","Definition Query"),SM("globe","Define Projection"),SM("save","Export")]]],["Remove",[LG("x","Remove Layer")]]],
@@ -580,7 +622,8 @@ function act(l,el){
   case"Clear":mapTool="Explore";renderRib();document.querySelectorAll("#tableView tr.sel").forEach(r=>r.classList.remove("sel"));return say("Selection cleared");
   case"Full Extent":zoomTo();return say("Zoomed to full extent");
   case"Zoom To":zoomTo();return say(`Zoomed to ${layer().name}`);
-  case"Basemap":return popup(el,["None","Topographic","Imagery","Streets"].map(n=>({label:n,on:basemap===n,run(){basemap=n;$("map").style.background=n==="Imagery"?"#B9C4AE":n==="Streets"?"#F6F4EF":"#EEF0E8";say(`Basemap: ${n}`)}})));
+  case"Basemap":return popup(el,BASEMAPS.map(b=>b==="-"?"-":({label:b[0],hint:b[1],on:curMap.basemap===b[0],run(){curMap.basemap=b[0];applyMapChrome();say(`${curMap.name}: basemap is ${b[0]}`)}})));
+  case"New Map":case"Duplicate Map":{const dup=l==="Duplicate Map",n=MAPS.length+1;const m=dup?{...curMap,id:"m"+Date.now(),name:curMap.name+" copy",on:{...curMap.on}}:{id:"m"+Date.now(),name:`Map ${n}`,crs:curMap.crs,basemap:"USGS Topo",zoom:1,on:{}};MAPS.push(m);selectMap(m.id);return say(dup?`${m.name} created`:`${m.name} created. Its CRS is set explicitly from ${curMapName()}; add layers with + in Map Layers.`)}
   case"Public Data":win.catalog=true;treeOpen.public=true;layoutWindows();renderTree();{const h=document.querySelector('[data-node="public"]');h?.classList.add("flash");setTimeout(()=>h?.classList.remove("flash"),900);h?.focus()}return say("Public Data is in the Catalog");
   case"New Layout":case"Letter landscape":case"A3 landscape":{const n=`Layout ${layouts.length+1}${l==="New Layout"?"":` (${l})`}`;layouts.push(n);treeOpen.layouts=true;win.catalog=true;layoutWindows();renderTree();return say(`${n} added under Layouts in the Catalog`)}
   case"World View":case"Graticule":case"Outline":case"Frame Rate":toggles[l]=!toggles[l];if(l==="Graticule")$("map").classList.toggle("grat",toggles[l]);renderRib();return say(`${l}: ${toggles[l]?"on":"off"}`);
@@ -634,37 +677,46 @@ searchEl.addEventListener("keydown",e=>{e.stopPropagation();
  else if(e.key==="Escape"){searchEl.value="";closePop()}});
 
 /* ---------- layers ---------- */
-let active="l0",basemap="Topographic",zoom=1;
+let active="l0",zoom=1;
+const curMapName=()=>MAPS[MAPS.length-2]?.name||"the last map";
+const inMap=l=>l.id in curMap.on;
 const layer=()=>LAYERS.find(l=>l.id===active);
 function renderLayers(){
- $("lyrList").innerHTML=LAYERS.map(l=>`<div class="lyr ${l.id===active?"sel":""} ${l.on?"":"off"}" data-l="${l.id}"><label><input type="checkbox" ${l.on?"checked":""} aria-label="Show ${esc(l.name)}"></label><span class="sw" style="background:${l.color}"></span><button class="n" style="text-align:left">${esc(l.name)}</button><span class="c">${l.count.toLocaleString()}</span></div>`).join("")||`<div class="m-none">No layers. Use Add Data.</div>`;
+ $("lyrList").innerHTML=LAYERS.filter(inMap).map(l=>`<div class="lyr ${l.id===active?"sel":""} ${curMap.on[l.id]?"":"off"}" data-l="${l.id}"><label><input type="checkbox" ${curMap.on[l.id]?"checked":""} aria-label="Show ${esc(l.name)}"></label><span class="sw" style="background:${l.color}"></span><button class="n" style="text-align:left">${esc(l.name)}</button><span class="c">${l.count.toLocaleString()}</span></div>`).join("")||`<div class="m-none">No layers in this map yet. Use + to add one.</div>`;
  $("lyrList").querySelectorAll(".lyr").forEach(r=>{
   const l=LAYERS.find(x=>x.id===r.dataset.l);
-  r.querySelector("input").onchange=e=>{l.on=e.target.checked;applyMapLayers();renderLayers();say(`${l.name}: ${l.on?"shown":"hidden"}`)};
+  r.querySelector("input").onchange=e=>{curMap.on[l.id]=e.target.checked;applyMapLayers();renderLayers();say(`${l.name}: ${e.target.checked?"shown":"hidden"} in ${curMap.name}`)};
   r.querySelector(".n").onclick=()=>selectLayer(l.id);
  });
 }
-function applyMapLayers(){for(const l of LAYERS){const g=$(l.g);if(g)g.style.display=l.on?"":"none"}
- for(const g of ["ml-streams","ml-roads","ml-forest","ml-contours"])if(!LAYERS.some(l=>l.g===g))$(g).style.display="none";
- $("ml-buffer").style.display=LAYERS.find(l=>l.id==="l0")?.on&&trees.l0?.ran?"":"none"}
+function applyMapLayers(){for(const l of LAYERS){const g=$(l.g);if(g)g.style.display=curMap.on[l.id]?"":"none"}
+ $("ml-buffer").style.display=curMap.on.l0&&trees.l0?.ran?"":"none"}
+function applyMapChrome(){const b=BASEMAPS.find(x=>x[0]===curMap.basemap);$("map").style.background=b[3];$("attrib").textContent=b[2]?`${b[0]} · ${b[2]}`:"No basemap";$("attrib").style.display="";
+ $("mapName").textContent=curMap.name;$("mapCrsLine").textContent=curMap.crs;$("crsLink").textContent=curMap.crs;zoom=curMap.zoom;applyZoom()}
+function renderMapTabs(){
+ $("mapTabs").innerHTML=MAPS.map(m=>`<button class="btab" role="tab" aria-selected="${m===curMap}" data-m="${m.id}">${ic("map")}<span>${esc(m.name)}</span>${MAPS.length>1?`<span class="x" data-close="${m.id}" role="button" aria-label="Close ${esc(m.name)}">${ic("x")}</span>`:""}</button>`).join("")+`<button class="ib newmap" id="newMapBtn" aria-label="New map">${ic("plain")}</button>`;
+ $("mapTabs").querySelectorAll("[data-m]").forEach(b=>b.onclick=e=>{const c=e.target.closest("[data-close]");if(c){const i=MAPS.findIndex(m=>m.id===c.dataset.close);const[g]=MAPS.splice(i,1);if(g===curMap)selectMap(MAPS[Math.max(0,i-1)].id);else{renderMapTabs();renderTree()}say(`${g.name} closed. Layers stay in the project.`);return}selectMap(b.dataset.m)});
+ $("newMapBtn").onclick=()=>act("New Map");
+}
+function selectMap(id){curMap.zoom=zoom;curMap=MAPS.find(m=>m.id===id);applyMapChrome();applyMapLayers();
+ if(!layer()||!inMap(layer())){const f=LAYERS.find(inMap);selectLayer(f?f.id:null)}else{renderLayers()}
+ renderMapTabs();treeOpen.maps=true;renderTree();say(`${curMap.name}: ${curMap.crs}`)}
 function selectLayer(id){
  if(active&&trees[active]){trees[active].cards=cards;trees[active].edges=edges;trees[active].hist=hist;trees[active].fut=fut}
- active=id;ensureTree(id);({cards,edges,hist,fut}=trees[id]);
+ active=id;if(id){ensureTree(id);({cards,edges,hist,fut}=trees[id])}else{cards=[];edges=[];hist=[];fut=[]}
  renderLayers();renderRib();renderCards();renderProps();renderSources();syncUndo();
 }
 function removeLayer(){
  const l=layer();if(!l)return;
- LAYERS.splice(LAYERS.indexOf(l),1);delete trees[l.id];active=null;
- say(`${l.name} removed from the map. Its source data is unchanged.`);
- if(LAYERS[0])selectLayer(LAYERS[0].id);else{cards=[];edges=[];renderLayers();renderRib();renderCards();renderProps();renderSources()}
- applyMapLayers();
+ delete curMap.on[l.id];const f=LAYERS.find(inMap);selectLayer(f?f.id:null);applyMapLayers();
+ say(`${l.name} removed from ${curMap.name}. It stays in the project and its source data is unchanged.`);
 }
 function renderSources(){const l=layer();$("srcBody").innerHTML=l?`<p><b>${esc(l.src[0])}</b>${esc(l.src[1])}</p>`:`<p>No layer selected.</p>`}
 function applyZoom(){document.querySelector("#map svg.m").style.transform=`scale(${zoom})`;const s=Math.round(48000/zoom);$("scaleBox").value="1:"+s.toLocaleString("en-US")}
 
 /* ---------- catalog tree ---------- */
 const layouts=["Fire access map (A3)","Stream buffers 1:24,000"];
-const treeOpen={project:true,layouts:true,files:false,public:true};
+const treeOpen={project:true,maps:true,layouts:true,files:false,public:true};
 const PUBLIC=[["pin","Census TIGER/Line","Download boundaries and roads."],["map","USGS National Map","Download roads, trails, water and names."],["mountain","Elevation (3DEP)","Download a DEM for the view."],["image","Imagery & DEM (STAC)","Search imagery and elevation catalogues."],["building","Overture Maps","Download buildings, places and roads."],["warn","Earthquakes & Soils","Download USGS earthquakes and SSURGO soils."],["server","ArcGIS Services","Download from an ArcGIS REST service."],["server","OGC API Features","Download from an OGC API server."]];
 const FILES=["streams_nhd.gpkg","roads_tiger.shp","forest_boundary.geojson","contours_40ft.gpkg"];
 function renderTree(){
@@ -672,6 +724,8 @@ function renderTree(){
  const h=(k,d,icon,label,cls="")=>`<button class="d${d} ${cls}" data-node="${k}" aria-expanded="${treeOpen[k]}">${chev(treeOpen[k])}${ic(icon)}${esc(label)}</button>`;
  let s=h("project",0,"book","Project","head");
  if(treeOpen.project){
+  s+=h("maps",1,"map","Maps");
+  if(treeOpen.maps)s+=MAPS.map(m=>`<button class="d2 ${m===curMap?"cur":""}" data-map="${m.id}">${ic("map")}${esc(m.name)}</button>`).join("");
   s+=h("layouts",1,"page","Layouts");
   if(treeOpen.layouts)s+=layouts.map(n=>`<button class="d2" data-layout="${esc(n)}">${ic("page")}${esc(n)}</button>`).join("");
   s+=h("files",1,"doc","Project files");
@@ -683,6 +737,7 @@ function renderTree(){
 }
 $("treeBody").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
  if(b.dataset.node){const k=b.dataset.node;treeOpen[k]=!treeOpen[k];renderTree();document.querySelector(`[data-node="${k}"]`)?.focus()}
+ else if(b.dataset.map)selectMap(b.dataset.map);
  else if(b.dataset.layout)dialog(b.dataset.layout,"In the app this opens the layout in the Layout workspace, with its contextual ribbon tabs.");
  else if(b.dataset.file)say(`${b.dataset.file}: used by this project`);
  else if(b.dataset.public)stub(b.dataset.public,PUBLIC.find(p=>p[1]===b.dataset.public)[2]);
@@ -784,13 +839,15 @@ function deleteSelected(){
  cards=cards.filter(c=>c!==k);renderCards();renderProps();say(`${k.title} deleted`);
 }
 function runTree(){
+ if(!layer())return dialog("Nothing to run","This map has no layers yet. Add one with + in Map Layers, then run again.",true);
+ const runId=active;
  const missing=cards.flatMap(k=>(k.f||[]).filter(f=>f.pick!==undefined).map(f=>[k,f]));
  if(missing.length){const[k,f]=missing[0];return dialog("This model can't run yet",`${k.title} needs ${f.full}. Choose a layer on its card, then run again.`,true)}
  const loose=cards.find(k=>k.toolId&&k.ins?.[0]&&!k.ins[0].on);
  if(loose)return dialog("This model can't run yet",`${loose.title} has nothing connected to ${loose.ins[0].label}. Connect it or delete the card.`,true);
  say("Running…");
  const steps=cards.filter(k=>k.toolId);let i=0;
- const tick=()=>{if(i<steps.length){steps[i++].state="done";renderCards();setTimeout(tick,160)}else{trees[active].ran=true;applyMapLayers();renderProps();say(`Done. ${steps.length} ${steps.length===1?"step":"steps"} ran; source data unchanged.`)}};
+ const tick=()=>{if(i<steps.length){steps[i++].state="done";renderCards();setTimeout(tick,160)}else{if(trees[runId])trees[runId].ran=true;applyMapLayers();renderProps();say(`Done. ${steps.length} ${steps.length===1?"step":"steps"} ran; source data unchanged.`)}};
  tick();
 }
 function renderProps(){
@@ -798,7 +855,7 @@ function renderProps(){
  if(!k||!l){p.innerHTML=`<p>Select a layer or a card to see its properties.</p>`;return}
  const t=k.toolId&&toolByName(k.toolId);
  p.innerHTML=`<h3>${ic(k.icon||FAMICON[k.fam])}${esc(k.title)}</h3><p>${esc(t?t.description:k.fam==="Output"?"The tree's result. It draws on the map and never changes the source data.":"The layer this tree starts from.")}</p>
- <div class="sect"><h4>Input</h4><div class="kv"><span>Layer</span><span>${esc(l.name)}</span><span>Geometry</span><span>${esc(l.geom)} · ${l.count.toLocaleString()} ${l.count===1?"feature":"features"}</span><span>CRS</span><span>${CRS}</span></div></div>
+ <div class="sect"><h4>Input</h4><div class="kv"><span>Layer</span><span>${esc(l.name)}</span><span>Geometry</span><span>${esc(l.geom)} · ${l.count.toLocaleString()} ${l.count===1?"feature":"features"}</span><span>CRS</span><span>${esc(curMap.crs)}</span></div></div>
  ${t?`<div class="sect"><h4>Result</h4><div class="kv"><span>CRS</span><span>Same as input</span><span>Status</span><span style="color:${k.state==="done"?"var(--ok)":"var(--text-2)"}">${k.state==="done"?"Up to date":"Not run yet"}</span></div></div>`:""}`;
 }
 /* menu: the prototype of nodes/toolSearch.ts */
@@ -927,8 +984,8 @@ function renderApr(){
  $("aprBody").innerHTML=`
  <div><h3>Theme</h3><div class="seg">${["light","dark"].map(m=>`<button aria-pressed="${apr.mode===m}" data-mode="${m}">${m[0].toUpperCase()+m.slice(1)}</button>`).join("")}</div></div>
  <div><h3>Panels</h3><div class="seg">${Object.keys(PALETTES).map(p=>`<button aria-pressed="${apr.palette===p}" data-pal="${p}">${p}</button>`).join("")}</div></div>
- <div><h3>Ribbon colour</h3><div class="swatches">${sw(ACCENTS,apr.accent,"acc")}<label class="colorin">Custom<input type="color" id="accIn" value="${apr.accent}"></label></div></div>
- <div><h3>Highlight colour</h3><div class="swatches">${sw(HILITES,apr.hilite,"hil")}<label class="colorin">Custom<input type="color" id="hilIn" value="${apr.hilite}"></label></div><p>Selected rows, tabs in menus and selected node cards. Text on it stays readable by itself.</p></div>
+ <div><h3>Accent colour</h3><div class="swatches">${sw(ACCENTS,apr.accent,"acc")}<label class="colorin">Custom<input type="color" id="accIn" value="${apr.accent}"></label></div></div>
+ <div><h3>Highlight colour</h3><div class="swatches">${sw(HILITES,apr.hilite,"hil")}<label class="colorin">Custom<input type="color" id="hilIn" value="${apr.hilite}"></label></div><p>Selected rows and selected node cards. Text on it stays readable by itself.</p></div>
  <div><h3>Tool colours</h3><div class="famgrid">${Object.keys(FAMS).map(k=>`<label for="fam${k}">${FAMNAME[k]}</label><input type="color" id="fam${k}" data-fam="${k}" value="${apr.fam[k]}">`).join("")}</div></div>`;
  const b=$("aprBody");
  b.querySelectorAll("[data-mode]").forEach(x=>x.onclick=()=>{apr.mode=x.dataset.mode;commit(x)});
@@ -958,14 +1015,14 @@ function doSave(){setDirty(false);say("Project saved")}
 document.querySelectorAll("[data-save]").forEach(b=>b.onclick=doSave);
 document.querySelectorAll("[data-undo]").forEach(b=>b.onclick=undo);
 document.querySelectorAll("[data-redo]").forEach(b=>b.onclick=redo);
-$("zIn").onclick=()=>{zoom=Math.min(8,zoom*1.5);applyZoom()};
-$("zOut").onclick=()=>{zoom=Math.max(1,zoom/1.5);applyZoom()};
+$("zIn").onclick=()=>{zoom=Math.min(8,zoom*1.5);curMap.zoom=zoom;applyZoom()};
+$("zOut").onclick=()=>{zoom=Math.max(1,zoom/1.5);curMap.zoom=zoom;applyZoom()};
 $("zFull").onclick=()=>{zoom=1;applyZoom()};
 $("scaleBox").addEventListener("change",e=>{const n=parseFloat(e.target.value.replace(/^1:/,"").replace(/,/g,""));if(n>0){zoom=Math.max(1,48000/n);applyZoom();say(`Scale set to 1:${n.toLocaleString("en-US")}`)}else{applyZoom();dialog("That isn't a scale","Type a scale like 1:24,000.",true)}});
 $("map").addEventListener("pointermove",e=>{const r=e.currentTarget.getBoundingClientRect();const x=6400000+(e.clientX-r.left)*40/zoom,y=2120000-(e.clientY-r.top)*40/zoom;$("ptr").textContent=`${x.toLocaleString("en-US",{maximumFractionDigits:1,minimumFractionDigits:1})} E  ${y.toLocaleString("en-US",{maximumFractionDigits:1,minimumFractionDigits:1})} N ftUS`});
 $("map").addEventListener("click",()=>{if(mapTool==="Identify")dialog("Identify","Sample feature: Fresno River, Stream, 18,402.6 ft.");else if(mapTool!=="Explore")say(`${mapTool}: click registered on the map`)});
 $("crsLink").onclick=e=>{e.preventDefault();stub("Map CRS",STUBS["Map CRS"])};
-$("addLyr").onclick=()=>act("Add Data");
+$("addLyr").onclick=e=>{const rest=LAYERS.filter(l=>!inMap(l));popup(e.currentTarget,[{label:"Add data…",run(){act("Add Data")}},...(rest.length?["-"]:[]),...rest.map(l=>({label:`Add ${l.name}`,hint:"from this project",run(){curMap.on[l.id]=true;selectLayer(l.id);applyMapLayers();say(`${l.name} added to ${curMap.name}`)}}))])};
 $("bt-nodes").onclick=e=>{if(e.target.closest(".x")){win.nodes=false}else bTab="nodes";layoutWindows()};
 $("bt-table").onclick=e=>{if(e.target.closest(".x")){win.table=false}else bTab="table";layoutWindows()};
 $("runBtn").onclick=runTree;$("addBtn").onclick=()=>openMenu();
@@ -1000,7 +1057,7 @@ if(P.get("theme")){apr.mode=P.get("theme");applyTheme()}
 if(P.has("shot"))$("mockbar").style.display="none";
 if(P.get("tab")&&RIB[P.get("tab")])tab=P.get("tab");
 ensureTree(active);({cards,edges,hist,fut}=trees[active]);
-renderLayers();renderTree();renderSources();renderProps();renderCards();applyMapLayers();syncUndo();
+renderLayers();renderTree();renderMapTabs();renderSources();renderProps();renderCards();applyMapChrome();applyMapLayers();syncUndo();
 if(P.get("bottom")==="0"){win.nodes=false;win.table=false}
 layoutWindows();
 if(P.has("colours"))toggleApr(true);
