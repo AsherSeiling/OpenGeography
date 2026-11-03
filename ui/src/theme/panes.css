@@ -1,0 +1,46 @@
+/* Properties, Sources and Items panes. Owner: WP 7. */
+/* ---------- Properties / Tools ---------- */
+.props { height: 100%; display: flex; flex-direction: column; background: var(--surface-1); }
+.props-title { font-size: 14px; font-weight: 600; padding: 8px 10px 2px; }
+.props-body { padding: 10px; overflow: auto; flex: 1; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; margin: 0; }
+.kv dt { color: var(--text-2); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.wrap { overflow-wrap: anywhere; }
+.classes { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow: auto; border: 1px solid var(--rule-soft); padding: 4px; }
+.class-row { display: flex; align-items: center; gap: 6px; }
+.class-row.dragging { opacity: 0.5; }
+.class-grip { cursor: grab; color: var(--text-2); user-select: none; }
+.class-row input[type="color"], .props input[type="color"] { width: 36px; height: 22px; padding: 0; border: 1px solid var(--rule); background: none; }
+.ramp { display: inline-flex; margin-right: 6px; vertical-align: middle; }
+.ramp i { width: 12px; height: 12px; display: inline-block; }
+.field-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 4px; }
+.chip { border: 1px solid var(--rule); background: var(--surface-0); color: var(--text); font: 11px inherit; padding: 1px 6px; border-radius: 2px; cursor: default; }
+.chip:hover { background: var(--hover); }
+.chip.op { font-family: var(--font-mono); }
+.crs-param { display: flex; align-items: center; gap: 6px; }
+.crs-param > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.value-list { display: flex; flex-wrap: wrap; gap: 3px; max-height: 140px; overflow: auto; border: 1px solid var(--rule-soft); padding: 4px; }
+/* ---------- Sources pane ---------- */
+.sources-pane { display: flex; flex-direction: column; height: 100%; overflow: hidden; font-size: 12px; }
+.sources-pane .pane-toolbar { display: flex; align-items: center; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--rule-soft); background: var(--surface-0); }
+.sources-pane .pane-empty { padding: 12px; line-height: 1.5; }
+.src-warn { display: flex; gap: 6px; align-items: center; margin: 6px 8px 0; padding: 5px 8px; background: var(--warn-bg); color: var(--text); border: 1px solid var(--warn); font-size: 11.5px; }
+.src-list { overflow: auto; padding: 4px 8px 12px; }
+.src-entry { padding: 8px 0; border-bottom: 1px solid var(--rule-soft); }
+.src-entry.incomplete .src-ref { color: var(--warn); }
+.src-ref { padding-left: 2em; text-indent: -2em; line-height: 1.45; overflow-wrap: anywhere; }
+.src-note { margin: 4px 0 0 2em; color: var(--text); line-height: 1.4; }
+.src-uses, .src-license { margin: 3px 0 0 2em; color: var(--text-2); font-size: 11.5px; }
+.src-uses .removed { text-decoration: line-through; }
+.src-actions { display: flex; align-items: center; gap: 2px; margin: 4px 0 0 2em; }
+.src-kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); margin-right: auto; }
+
+.src-style { margin-left: 6px; font: inherit; font-size: 11.5px; height: 22px; border: 1px solid var(--rule); background: var(--surface-1); color: var(--text); }
+.src-auto { display: flex; flex-direction: column; padding: 2px 8px 4px; border-bottom: 1px solid var(--rule-soft); }
+.src-auto .muted { margin-left: 30px; margin-top: -6px; font-size: 11px; }
+.items-pane { padding: 6px; }
+.items-pane .row.drop-above { box-shadow: inset 0 2px 0 var(--accent); }
+.items-pane .row.drop-below { box-shadow: inset 0 -2px 0 var(--accent); }
+.items-pane .items-actions { gap: 8px; }
+.items-pane .page-row { font-weight: 600; }

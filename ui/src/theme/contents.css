@@ -1,0 +1,33 @@
+/* Contents pane (map layers, layouts list). Owner: WP 4. */
+/* ---------- Contents ---------- */
+.contents { height: 100%; display: flex; flex-direction: column; background: var(--surface-1); }
+.contents-head { padding: 4px 8px; font-weight: 600; border-bottom: 1px solid var(--rule-soft); background: var(--surface-0); }
+.tree { flex: 1; overflow: auto; padding: 4px 0; }
+.tree-map { display: flex; align-items: center; gap: 6px; padding: 3px 8px; font-weight: 600; cursor: default; }
+.tree-map:hover { background: var(--hover); }
+.tree-crs { font-weight: 400; color: var(--text-2); display: inline-flex; gap: 3px; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.tree-layer { display: flex; align-items: center; gap: 5px; padding: 2px 8px 2px 22px; cursor: default; border-top: 2px solid transparent; }
+.tree-layer:hover { background: var(--hover); }
+.tree-layer.active { background: var(--sel-bg); color: var(--sel-text); }
+.tree-layer.multi { box-shadow: inset 2px 0 0 var(--accent); }
+.tree-layer.temp .tree-name { font-style: italic; }
+.tree-layer.drop-before { border-top-color: var(--accent); }
+.tree-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swatch { width: 16px; height: 16px; flex: none; }
+.swatch-icon { font-size: 16px; color: var(--text-2); }
+.warn { color: var(--warn); flex: none; cursor: pointer; }
+.sel-count { background: var(--sel-bg); color: var(--sel-text); border-radius: 8px; padding: 0 5px; font-size: 10px; }
+
+.tree-layer.drop-over { border-top-color: var(--accent); }
+.tree-hint { padding: 2px 8px 4px 22px; }
+.tree-result { color: var(--warn); flex: none; cursor: pointer; font-size: 15px; }
+.tree-result.off { color: var(--text-2); opacity: .6; }
+.tree-query { color: var(--link); flex: none; cursor: pointer; font-size: 15px; }
+.layouts-head { padding: 4px 8px; font-weight: 600; border-top: 1px solid var(--rule-soft); border-bottom: 1px solid var(--rule-soft); background: var(--surface-0); display: flex; align-items: center; gap: 6px; }
+.layouts-head .linkbtn { margin-left: auto; font-weight: 400; }
+.layout-row { display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: default; }
+.layout-row:hover { background: var(--hover); }
+.layout-row.active { background: var(--hover); font-weight: 600; }
+.layout-row .row-actions { margin-left: auto; display: none; gap: 2px; }
+.layout-row:hover .row-actions { display: flex; }
+.layout-row .row-actions button { border: 0; background: transparent; cursor: pointer; color: inherit; padding: 0 2px; }

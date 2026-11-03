@@ -1,0 +1,113 @@
+/* Model node editor: canvas, cards, sockets, wires. Owner: WP 5. */
+/* ---------- Model (ModelBuilder style) ---------- */
+.model { height: 100%; display: flex; flex-direction: column; background: var(--surface-1); }
+.model-bar { border-bottom: 1px solid var(--rule-soft); background: var(--surface-0); padding: 2px 6px !important; }
+.model-hint { color: var(--text-2); margin-left: 10px; font-size: 11.5px; }
+.model-canvas { flex: 1; min-height: 0; }
+.react-flow__node { font: 12px var(--font-ui); }
+.mnode { position: relative; color: var(--text); background: var(--surface-2); border: 1.5px solid var(--rule); box-sizing: border-box; }
+.mnode.selected { box-shadow: 0 0 0 3px var(--sel-bg); }
+.mnode.error { box-shadow: 0 0 0 2px var(--error); }
+.mnode.data { background: var(--fam-Input); color: var(--fam-Input-text); border-color: var(--rule); border-radius: 999px; padding: 8px 22px; min-width: 120px; text-align: center; }
+.mnode.output { background: var(--rule); color: var(--on-dark); border-color: var(--rule); border-radius: 999px; padding: 8px 22px; min-width: 120px; text-align: center; }
+.mnode-tool-wrap { display: flex; align-items: center; }
+.mnode.tool { background: var(--fam-Raster); color: var(--fam-Raster-text); border-color: var(--rule); border-radius: 6px; min-width: 170px; padding: 6px 10px 6px 0; display: flex; flex-direction: column; justify-content: center; }
+.mnode-title { font-weight: 600; white-space: nowrap; }
+.mnode-sub { font-size: 11px; opacity: 0.75; white-space: nowrap; }
+.mnode-flag { font-size: 10.5px; display: flex; align-items: center; gap: 3px; opacity: 0.8; padding-left: 72px; }
+.mnode-out { position: relative; margin-left: 18px; background: var(--rule); border: 1.5px solid var(--rule); border-radius: 999px; padding: 4px 14px; font-size: 11px; color: var(--on-dark); opacity: 0.8; white-space: nowrap; }
+.mnode-out::before { content: ""; position: absolute; left: -19px; top: 50%; width: 18px; border-top: 1.5px solid var(--rule); }
+.mnode-out.ready { opacity: 1; }
+.port-label { position: absolute; left: 0; height: 16px; display: flex; align-items: center; font-size: 11px; padding-left: 10px; white-space: nowrap; color: var(--text-2); }
+.port { width: 12px !important; height: 12px !important; border: 2px solid var(--rule) !important; background: var(--surface-2) !important; }
+.port:hover, .react-flow__handle.connectingto { transform: translate(-50%, -50%) scale(1.35) !important; border-color: var(--link) !important; }
+.port.in.vector { background: var(--fam-Input) !important; }
+.port.out { background: var(--fam-Vector) !important; }
+.badge { position: absolute; top: -8px; right: -8px; font-size: 16px; background: var(--surface-1); border-radius: 50%; }
+.badge.done { color: var(--ok); }
+.badge.cached { color: var(--link); }
+.badge.error, .badge.skipped { color: var(--error); }
+.badge.skipped { color: var(--warn); }
+.badge.cancelled { color: var(--text-2); }
+.badge.running { color: var(--link); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.model-canvas.drop-over { outline: 2px dashed var(--accent); outline-offset: -4px; background: var(--hover); }
+.model-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; color: var(--text-2); font-size: 13px; text-align: center; line-height: 1.6; z-index: 4; }
+.model-canvas { position: relative; }
+/* ---------- Blender-style node cards ---------- */
+.bnode { width: 230px; background: var(--surface-2); border: 1px solid var(--rule); border-radius: var(--r-card); font: 11.5px var(--font-ui); color: var(--text); padding-bottom: 4px; }
+.bnode.selected { border-color: var(--rule); box-shadow: 0 0 0 3px var(--sel-bg); }
+.bnode.error { border-color: var(--error); }
+.bnode-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; font-weight: 600; border-bottom: 1px solid var(--rule); }
+.bnode.data .bnode-head { background: var(--fam-Input); color: var(--fam-Input-text); }
+.bnode.tool .bnode-head { background: var(--fam-Raster); color: var(--fam-Raster-text); }
+.bnode.output .bnode-head { background: var(--rule); color: var(--on-dark); }
+.bnode-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnode .badge { position: static; font-size: 15px; background: none; flex: none; }
+.bnode-row { position: relative; height: 22px; display: flex; align-items: center; padding: 0 12px; }
+.bnode-row.out { justify-content: flex-end; }
+.bnode-row .dim { color: var(--text-2); }
+.bnode-params { display: flex; flex-direction: column; gap: 3px; padding: 4px 8px; cursor: default; }
+.bparam { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: 6px; }
+.bparam.wide { grid-template-columns: 1fr; gap: 2px; }
+.bparam-label { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bparam.check { display: flex; gap: 6px; padding-left: 2px; }
+.bctl { width: 100%; box-sizing: border-box; font: 11.5px var(--font-ui); color: var(--text); background: var(--surface-2); border: 1px solid var(--rule); border-radius: var(--r-control); padding: 2px 5px; height: 21px; min-width: 0; }
+.bctl:focus { outline: 2px solid var(--focus); outline-offset: 1px; }
+textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
+.bbtn { text-align: left; cursor: default; background: var(--surface-0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bbtn:hover { background: var(--hover); }
+.bexpr { display: flex; flex-direction: column; gap: 3px; }
+.bfield-insert { width: auto; align-self: flex-start; }
+.bpath { display: flex; gap: 3px; }
+.bpath .bbtn { width: 26px; flex: none; text-align: center; }
+.bnode-note { display: flex; align-items: center; gap: 3px; color: var(--text-2); padding: 2px 8px; font-size: 11px; }
+.bnode-error { color: var(--error); padding: 2px 8px; font-size: 11px; max-height: 44px; overflow: hidden; }
+.socket { width: 11px !important; height: 11px !important; border: 1.5px solid var(--rule) !important; border-radius: 50% !important; }
+.socket.vector { background: var(--fam-Vector) !important; }
+.socket.table { background: var(--fam-Tables) !important; }
+.bnode-row.in .socket { left: 0 !important; }
+.bnode-row.out .socket { right: 0 !important; }
+.socket:hover { border-color: var(--link) !important; transform: translate(-50%, -50%) scale(1.3); }
+.bnode-row.out .socket:hover { transform: translate(50%, -50%) scale(1.3); }
+.bnode-layer { padding: 3px 12px 0; color: var(--text-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnode.fixed .bnode-head::after { content: "fixed"; font-weight: 400; font-size: 10px; color: var(--text-2); margin-left: auto; padding-left: 6px; }
+.bnode.fixed .bnode-head .badge { order: 2; }
+.bsave { text-align: center; margin-top: 2px; }
+.bsave:disabled { opacity: .5; }
+.model-title { padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.model-empty.top { align-items: flex-start; padding-top: 14px; }
+
+.bquery { font: 11px var(--font-mono); background: var(--surface-2); border: 1px solid var(--rule-soft); border-radius: var(--r-control); padding: 3px 5px; max-height: 44px; overflow: hidden; overflow-wrap: anywhere; color: var(--text); }
+.bquery.empty { color: var(--text-2); font-family: inherit; }
+.react-flow__edge.splice-target path { stroke: var(--link) !important; stroke-width: 3px !important; }
+.bnode-drop { margin: 4px 8px 0; padding: 6px; border: 1.5px dashed var(--link); border-radius: 4px; color: var(--link); font-size: 11px; text-align: center; }
+.react-flow__node.drop-over .bnode, .bnode.drop-over { outline: 2px dashed var(--accent); }
+.socket.raster { background: var(--fam-Raster) !important; border-radius: 2px !important; }
+.socket.any { background: var(--surface-2) !important; }
+/* ---------- Node editor: mute, collapse, stale, cut ---------- */
+.bnode.muted { opacity: .55; }
+.bnode.muted .bnode-head { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--text) 8%, transparent) 6px 12px); }
+.bnode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; background: var(--rule); color: var(--on-dark); padding: 0 4px; border-radius: 2px; }
+.bnode-changed { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 1px var(--rule); flex: none; }
+.bnode-stale { margin-top: 4px; padding: 3px 5px; background: var(--warn-bg); color: var(--text); border: 1px solid var(--warn); font-size: 10.5px; line-height: 1.3; }
+.cut-line { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+.cut-line polyline { fill: none; stroke: var(--error); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.model.shortcuts-on .model-canvas { box-shadow: inset 0 0 0 1px var(--accent); }
+.model-active { font-size: 11px; color: var(--link); border: 1px solid var(--accent); border-radius: 2px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+.model-active.editing { color: var(--warn); border-color: var(--warn); }
+.model-diag { font-size: 11px; color: var(--warn); border: 1px dashed var(--warn); border-radius: 2px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+.bnode-icon { display: inline-flex; margin-right: 4px; font-size: 14px; flex: none; }
+
+/* React Flow's own controls follow the tokens (it ships light-only defaults). */
+.react-flow {
+  --xy-controls-button-background-color-default: var(--surface-2);
+  --xy-controls-button-background-color-hover-default: var(--hover);
+  --xy-controls-button-color-default: var(--text);
+  --xy-controls-button-color-hover-default: var(--text);
+  --xy-controls-button-border-color-default: var(--rule-soft);
+  --xy-attribution-background-color-default: var(--surface-0);
+  --xy-minimap-background-color-default: var(--surface-2);
+}
+.react-flow__attribution a { color: var(--text-2); }

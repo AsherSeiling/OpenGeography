@@ -114,7 +114,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | xz | 5.8.4 | 0BSD (liblzma; some xz tools are GPL-2.0-or-later) | https://tukaani.org/xz/ | liblzma.5.dylib |
 | zstd | 1.5.7 | (BSD-3-Clause OR GPL-2.0-only) AND BSD-2-Clause AND MIT | https://facebook.github.io/zstd/ | libzstd.1.5.7.dylib |
 
-## JavaScript packages bundled in the user interface (156)
+## JavaScript packages bundled in the user interface (157)
 
 | Package | Version | License |
 |---|---|---|
@@ -192,6 +192,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | [@fluentui/react-utilities](https://www.npmjs.com/package/@fluentui/react-utilities) | 9.27.0 | MIT |
 | [@fluentui/react-virtualizer](https://www.npmjs.com/package/@fluentui/react-virtualizer) | 9.0.0-alpha.116 | MIT |
 | [@fluentui/tokens](https://www.npmjs.com/package/@fluentui/tokens) | 1.0.0-alpha.24 | MIT |
+| [@fontsource-variable/inter](https://www.npmjs.com/package/@fontsource-variable/inter) | 5.3.0 | OFL-1.1 |
 | [@griffel/core](https://www.npmjs.com/package/@griffel/core) | 1.21.4 | MIT |
 | [@griffel/react](https://www.npmjs.com/package/@griffel/react) | 1.7.8 | MIT |
 | [@griffel/style-types](https://www.npmjs.com/package/@griffel/style-types) | 1.4.3 | MIT |

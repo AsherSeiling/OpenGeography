@@ -1,0 +1,15 @@
+/* The one place theme CSS is imported. Tokens first, then per-area files in the order of the old app.css. */
+@import "./tokens.css";
+@import "./base.css";
+@import "./ribbon.css";
+@import "./dock.css";
+@import "./contents.css";
+@import "./map.css";
+@import "./table.css";
+@import "./nodes.css";
+@import "./panes.css";
+@import "./dialogs.css";
+@import "./statusbar.css";
+@import "./toolmenu.css";
+@import "./catalog.css";
+@import "./layout.css";

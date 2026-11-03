@@ -1,0 +1,61 @@
+/* Layout workspace. Owner: WP 8 / WP 13. Page and element overlays are layout content. */
+/* ---- Layout view (C2.2) ---- */
+.layout-view { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--surface-1); }
+.layout-toolbar { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-bottom: 1px solid var(--rule-soft); background: var(--surface-0); }
+.layout-stat { margin-left: auto; font-size: 11px; }
+.layout-msg { flex: none; }
+.layout-stage { flex: 1; min-height: 0; min-width: 0; display: grid; }
+.ruler-corner { background: var(--surface-1); border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.ruler-box { overflow: hidden; background: var(--surface-1); min-width: 0; min-height: 0; }
+.ruler-box:nth-child(2) { border-bottom: 1px solid var(--rule); }
+.ruler-box:nth-child(3) { border-right: 1px solid var(--rule); }
+.ruler line { stroke: var(--text-2); stroke-width: 1; }
+.ruler text { fill: var(--text-2); user-select: none; }
+.layout-canvas { min-width: 0; flex: 1; min-height: 0; overflow: auto; background: #7d8187; padding: 24px; outline: none; }
+.layout-page { position: relative; margin: 0 auto; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); flex: none; }
+.layout-img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; }
+.layout-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #8a8f96; pointer-events: none; }
+.layout-el { position: absolute; box-sizing: border-box; cursor: move; outline: 1px solid transparent; }
+.layout-el:hover { outline: 1px dashed rgba(43, 87, 154, 0.8); }
+.layout-el.on { outline: 2px solid #2b579a; }
+.layout-el.locked { cursor: not-allowed; }
+.layout-label { position: absolute; box-sizing: border-box; cursor: grab; outline: 1px solid transparent; z-index: 2; touch-action: none; }
+.layout-label:hover { outline: 1px dashed rgba(180, 60, 0, 0.9); }
+.layout-label.on { outline: 2px solid #c25400; }
+.layout-label.pinned { outline-color: rgba(194, 84, 0, 0.45); }
+.layout-label.hidden { outline: 1px dotted rgba(120, 120, 120, 0.8); background: rgba(255, 255, 255, 0.35); }
+.layout-label:active { cursor: grabbing; }
+.layout-handle { position: absolute; width: 8px; height: 8px; background: #fff; border: 1px solid #2b579a; box-sizing: border-box; }
+.layout-handle.nw { left: -4px; top: -4px; cursor: nwse-resize; }
+.layout-handle.n { left: calc(50% - 4px); top: -4px; cursor: ns-resize; }
+.layout-handle.ne { right: -4px; top: -4px; cursor: nesw-resize; }
+.layout-handle.e { right: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+.layout-handle.se { right: -4px; bottom: -4px; cursor: nwse-resize; }
+.layout-handle.s { left: calc(50% - 4px); bottom: -4px; cursor: ns-resize; }
+.layout-handle.sw { left: -4px; bottom: -4px; cursor: nesw-resize; }
+.layout-handle.w { left: -4px; top: calc(50% - 4px); cursor: ew-resize; }
+.props-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.grow { flex: 1; overflow-wrap: anywhere; }
+.scale-box { justify-content: center; gap: 2px; }
+.scale-input { width: 96px; padding: 2px 4px; border: 1px solid var(--rule-soft); border-radius: 2px; background: var(--surface-1); color: inherit; font: inherit; }
+.quadrants { display: grid; grid-template-columns: repeat(3, 22px); gap: 3px; }
+.quad { width: 22px; height: 22px; border: 1px solid var(--rule-soft); background: var(--surface-2); border-radius: 3px; cursor: pointer; padding: 0; }
+.quad.on { background: var(--accent); border-color: var(--accent); }
+.quadrants .quad:nth-child(5)::after { content: "•"; color: var(--text-2); }
+
+/* Layout guides (CG6): a 1px line with a wider grab area. */
+.layout-guide { position: absolute; z-index: 3; pointer-events: auto; }
+.layout-guide.x { top: 0; bottom: 0; width: 7px; margin-left: -3px; cursor: col-resize; background: linear-gradient(#00b7c3, #00b7c3) center / 1px 100% no-repeat; }
+.layout-guide.y { left: 0; right: 0; height: 7px; margin-top: -3px; cursor: row-resize; background: linear-gradient(#00b7c3, #00b7c3) center / 100% 1px no-repeat; }
+.layout-outline { display: flex; flex-direction: column; gap: 1px; }
+.layout-outline .row { display: flex; align-items: center; gap: 4px; padding: 1px 4px; cursor: default; }
+.layout-outline .row.on { background: var(--sel-bg); }
+.layout-outline .row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- Layout Properties sections and text slots (LW3/LW4) ---------- */
+.props-section { border-top: 1px solid var(--rule-soft); padding-top: 4px; }
+.props-section-title { font-weight: 600; cursor: default; padding: 3px 0; }
+.props-section > .stack { padding: 4px 0 6px; }
+.text-slot { border: 1px solid var(--rule-soft); border-radius: 3px; padding: 2px 6px; }
+.text-slot > summary { cursor: default; padding: 2px 0; }
+.text-slot > .stack { padding: 4px 0 6px; }

@@ -1,0 +1,17 @@
+/* Shift+A tool menu. Owner: WP 3. */
+/* ---------- Add menu / splice ---------- */
+.addmenu { position: fixed; z-index: 1000; background: var(--surface-1); border: 1px solid var(--rule); box-shadow: var(--e-float); display: flex; flex-direction: column; font-size: 12px; color: var(--text); }
+.addmenu-search { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--rule-soft); }
+.addmenu-search input { flex: 1; border: none; outline: none; font: inherit; background: transparent; color: var(--text); }
+.addmenu-body { flex: 1; display: flex; min-height: 0; }
+.addmenu-cats { width: 170px; overflow: auto; border-right: 1px solid var(--rule-soft); background: var(--surface-0); padding: 4px 0; }
+.addmenu-cat { display: block; width: 100%; text-align: left; border: none; background: none; padding: 5px 10px; font: inherit; color: var(--text); cursor: default; }
+.addmenu-cat.on { background: var(--sel-bg); color: var(--sel-text); font-weight: 600; }
+.addmenu-items { flex: 1; overflow: auto; padding: 4px 0; }
+.addmenu-item { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; border: none; background: none; padding: 5px 10px; font: inherit; color: var(--text); cursor: default; }
+.addmenu-item svg { flex: none; font-size: 15px; color: var(--link); }
+.addmenu-item.input svg { color: var(--link); }
+.addmenu-item.output svg { color: var(--ok); }
+.addmenu-item.on { background: var(--hover); }
+.addmenu-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addmenu-catlabel { color: var(--text-2); font-size: 11px; white-space: nowrap; }

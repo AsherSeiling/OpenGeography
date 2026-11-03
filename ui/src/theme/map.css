@@ -1,0 +1,64 @@
+/* Map overlays and map tool panels. Owner: WP 7. */
+/* ---------- Map ---------- */
+.map-wrap { position: relative; width: 100%; height: 100%; }
+.map { position: absolute; inset: 0; }
+.select-box { position: absolute; border: 1.5px solid var(--link); background: color-mix(in srgb, var(--link) 10%, transparent); pointer-events: none; }
+.identify { position: absolute; background: var(--surface-1); border: 1px solid var(--rule); box-shadow: var(--e-float); max-width: 340px; max-height: 320px; overflow: auto; z-index: 5; user-select: text; }
+.identify-head { display: flex; justify-content: space-between; align-items: center; background: var(--surface-0); padding: 4px 8px; font-weight: 600; border-bottom: 1px solid var(--rule-soft); position: sticky; top: 0; }
+.identify .x { border: none; background: none; font-size: 16px; cursor: pointer; color: var(--text-2); }
+.identify table { border-collapse: collapse; width: 100%; }
+.identify th, .identify td { text-align: left; padding: 2px 8px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+.identify th { color: var(--text-2); font-weight: 400; white-space: nowrap; }
+.identify-more { padding: 4px 8px; color: var(--text-2); }
+.null { color: var(--text-2); font-style: italic; }
+.fps { position: absolute; top: 8px; right: 8px; background: var(--overlay-bg); color: var(--overlay-ok); font: 12px/1 var(--font-mono); padding: 4px 6px; border-radius: 2px; }
+.fps.low { color: var(--overlay-bad); }
+.ol-zoom { top: 8px; left: 8px; }
+.ol-control { border-radius: 2px; }
+.ol-control button { border-radius: 2px; }
+.map-notices { position: absolute; top: 8px; left: 56px; right: 70px; display: flex; flex-direction: column; gap: 4px; z-index: 6; pointer-events: none; }
+.map-notice { align-self: flex-start; display: flex; align-items: flex-start; gap: 8px; pointer-events: auto; font-size: 12px; padding: 4px 6px 4px 10px; border-radius: 3px; background: var(--overlay-bg); color: var(--overlay-text); }
+.map-notice-x { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 3px; opacity: .8; }
+.map-notice-x:hover { opacity: 1; }
+.map-notice-all { align-self: flex-start; pointer-events: auto; font-size: 11px; padding: 2px 8px; border: 1px solid color-mix(in srgb, var(--overlay-text) 50%, transparent); border-radius: 3px; background: var(--overlay-bg); color: var(--overlay-text); cursor: pointer; }
+.map-notice.warn { background: var(--warn-bg); color: var(--text); border: 1px solid var(--warn); }
+.scalebar { position: absolute; bottom: 8px; left: 8px; z-index: 6; font-size: 11px; color: var(--ink); pointer-events: none; display: flex; flex-direction: column; gap: 2px; text-shadow: 0 0 3px var(--on-dark), 0 0 3px var(--on-dark); }
+.scalebar > div { border: 2px solid var(--ink); border-top: none; padding: 0 3px; min-width: 20px; white-space: nowrap; }
+
+
+/* ---------- Measure + Land Nav panels ---------- */
+.measure-panel, .nav-panel { position: absolute; z-index: 6; background: var(--surface-1); border: 1px solid var(--rule); box-shadow: var(--e-float); padding: 8px 10px; font-size: 12px; color: var(--text); display: flex; flex-direction: column; gap: 6px; max-height: calc(100% - 20px); overflow: auto; }
+.measure-panel { top: 10px; right: 10px; width: 300px; }
+.nav-panel { top: 10px; left: 50px; width: 380px; }
+.mp-head { display: flex; align-items: center; justify-content: space-between; }
+.mp-tabs { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
+.mp-tabs button { border: none; background: var(--surface-1); padding: 3px 12px; font: inherit; color: var(--text); cursor: default; }
+.mp-tabs button.on { background: var(--sel-bg); color: var(--sel-text); }
+.mp-x { border: none; background: none; color: var(--text-2); cursor: pointer; font-size: 16px; display: flex; }
+.mp-x:hover { color: var(--error); }
+.mp-hint { color: var(--text-2); line-height: 1.4; }
+.mp-total { font-size: 20px; font-weight: 600; color: var(--link); }
+.mp-sub { color: var(--text-2); }
+.mp-segs { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.mp-segs th, .mp-segs td { text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--rule-soft); }
+.mp-segs th { color: var(--text-2); font-weight: 400; }
+.mp-coords { font-family: var(--font-mono); font-size: 11.5px; }
+.mp-coords .muted { font-family: var(--font-ui); }
+.mp-opts { display: flex; flex-wrap: wrap; gap: 4px; }
+.mp-opts select, .nav-opts select { font: inherit; height: 22px; border: 1px solid var(--rule); background: var(--surface-1); color: var(--text); }
+.nav-opts { display: flex; gap: 10px; flex-wrap: wrap; }
+.nav-opts label { display: flex; gap: 5px; align-items: center; }
+.nav-row { border-top: 1px solid var(--rule-soft); padding-top: 5px; }
+.nav-row-title { font-weight: 600; margin-bottom: 3px; }
+.nav-row-fields { display: flex; gap: 4px; align-items: center; }
+.nav-pos { flex: 1; font-family: var(--font-mono); }
+.nav-pos.bad { border-color: var(--error); }
+.nav-az { width: 72px; text-align: right; }
+.nav-pick { border: 1px solid var(--rule); background: var(--surface-0); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--link); border-radius: 2px; }
+.nav-pick:disabled { opacity: .35; }
+.nav-err { color: var(--error); font-size: 11.5px; }
+.nav-warn { color: var(--error); }
+.nav-gm { background: var(--surface-0); border: 1px solid var(--rule-soft); padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; }
+.nav-result { border: 1px solid var(--ok); background: color-mix(in srgb, var(--ok) 6%, transparent); padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; }
+.nav-mgrs { font: 600 16px var(--font-mono); color: var(--ok); }
+.map-hint { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); background: var(--overlay-bg); color: var(--overlay-text); padding: 5px 12px; border-radius: 3px; z-index: 7; font-size: 12px; pointer-events: none; }

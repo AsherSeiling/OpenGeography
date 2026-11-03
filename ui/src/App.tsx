@@ -1,7 +1,7 @@
-import { FluentProvider, webDarkTheme, webLightTheme, type Theme } from "@fluentui/react-components";
+import { FluentProvider } from "@fluentui/react-components";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
-import { DockviewReact, themeLight, themeDark, type DockviewReadyEvent, type IDockviewPanelProps } from "dockview-react";
+import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
@@ -28,22 +28,7 @@ import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { useModel, useRun } from "./store/model";
 import { useApp } from "./store/store";
-
-// Office-like: Segoe UI, square-ish corners, compact controls.
-const officeLight: Theme = {
-  ...webLightTheme,
-  fontFamilyBase: '"Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif',
-  borderRadiusMedium: "2px",
-  borderRadiusSmall: "2px",
-  borderRadiusLarge: "3px",
-  colorBrandBackground: "#2b579a",
-  colorBrandBackgroundHover: "#1e4380",
-  colorBrandBackgroundPressed: "#173563",
-  colorCompoundBrandStroke: "#2b579a",
-  colorCompoundBrandBackground: "#2b579a",
-  colorBrandForeground1: "#2b579a",
-};
-const officeDark: Theme = { ...webDarkTheme, fontFamilyBase: officeLight.fontFamilyBase, borderRadiusMedium: "2px", borderRadiusSmall: "2px" };
+import { applyThemeMode, dockTheme, fluentDark, fluentLight } from "./theme/fluentTheme";
 
 const guard = (pane: string, title: string, el: React.ReactNode) => (
   <PaneBoundary pane={pane} title={title}>
@@ -66,6 +51,7 @@ const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPan
 
 export function App() {
   const dark = useApp((s) => s.dark);
+  useEffect(() => applyThemeMode(dark ? "dark" : "light"), [dark]);
 
   useEffect(startProgressPolling, []);
   // PROJ without its datum files moves NAD27 / NAD83 / WGS 84 coordinates by metres, silently: say so at start-up (R3).
@@ -144,11 +130,11 @@ export function App() {
     // The layout class goes on our own div, not the FluentProvider: Fluent
     // copies the provider's className onto its popup containers, and a
     // full-height white "app" container would cover the whole window.
-    <FluentProvider theme={dark ? officeDark : officeLight} style={{ height: "100%" }}>
+    <FluentProvider theme={dark ? fluentDark : fluentLight} style={{ height: "100%" }}>
       <div className={`app ${dark ? "dark" : ""}`}>
         <Ribbon />
         <div className="dock">
-          <DockviewReact components={components} onReady={onReady} theme={dark ? themeDark : themeLight} defaultRenderer="always" />
+          <DockviewReact components={components} onReady={onReady} theme={dockTheme} defaultRenderer="always" />
         </div>
         <StatusBar />
         <LayerPropertiesWindow />

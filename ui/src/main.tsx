@@ -4,7 +4,8 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { ErrorBody } from "./errors/ErrorDialog";
 import { reportError, setErrorLog } from "./errors/store";
-import "./theme/app.css";
+import "@fontsource-variable/inter";
+import "./theme/theme.css";
 import "./devhooks";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
@@ -40,7 +41,7 @@ class Crash extends Component<{ children: ReactNode }, { error: Error | null }> 
     if (!error) return this.props.children;
     const e = { id: 0, key: "", count: 1, source: "root", title: "GIS Studio hit an error", message: "The window could not be drawn. Your project files are not changed.", details: error.stack ?? error.message };
     return (
-      <div style={{ padding: 24, font: "13px system-ui", color: "#262626", maxWidth: 640 }}>
+      <div style={{ padding: 24, font: "13px system-ui", color: "var(--text)", maxWidth: 640 }}>
         <h2 style={{ marginTop: 0 }}>{e.title}</h2>
         <ErrorBody error={e} />
         <p>

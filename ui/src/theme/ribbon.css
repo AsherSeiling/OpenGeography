@@ -1,0 +1,63 @@
+/* Ribbon, tabs, quick access, ribbon menus. Owner: WP 6. */
+/* ---------- Ribbon ---------- */
+.ribbon { background: var(--surface-0); flex: none; }
+.ribbon-tabs { display: flex; align-items: flex-end; height: 30px; padding: 0 6px; gap: 2px; }
+.rtab { border: 1px solid transparent; border-bottom: none; background: none; padding: 5px 14px 6px; font: inherit; color: var(--text); cursor: default; border-radius: 0; }
+.rtab:hover { background: var(--hover); }
+.rtab.on { background: var(--band); border-color: var(--band-edge); border-radius: var(--r-tab); position: relative; top: 1px; color: var(--link); font-weight: 600; }
+.rtab.file { background: var(--sel-bg); color: var(--sel-text); margin-right: 6px; }
+.rtab.file:hover { background: color-mix(in srgb, var(--sel-bg) 80%, var(--rule)); }
+.rtab-context { display: flex; flex-direction: column; align-items: center; margin-left: 10px; border-top: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.rtab-context-label { font-size: 10px; color: var(--warn); line-height: 1; padding-top: 2px; }
+.rtab.ctx { padding-top: 2px; }
+.ribbon-spacer { flex: 1; }
+.tellme { margin-bottom: 3px; min-width: 220px; }
+.ribbon-body { display: flex; height: 92px; background: var(--band); color: var(--band-text); border-top: 1px solid var(--band-edge); border-bottom: 1px solid var(--band-edge); padding: 3px 4px 0; overflow-x: auto; overflow-y: hidden; }
+.rgroup { display: flex; flex-direction: column; border-right: 1px solid var(--rule-soft); padding: 0 4px; flex: none; }
+.rgroup-items { flex: 1; display: flex; align-items: flex-start; gap: 1px; }
+.rgroup-label { text-align: center; color: var(--text-2); font-size: 11px; padding: 1px 0 3px; white-space: nowrap; }
+.rcol { display: flex; flex-direction: column; gap: 0; }
+.rbtn { border: 1px solid transparent; background: none; font: inherit; color: var(--text); cursor: default; border-radius: 2px; }
+.rbtn:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
+.rbtn:active:not(:disabled), .rbtn.checked { background: var(--sel-bg); color: var(--sel-text); border-color: transparent; }
+.rbtn:active:not(:disabled) .rbtn-icon, .rbtn.checked .rbtn-icon { color: inherit; }
+.rbtn.checked:hover:not(:disabled) { background: var(--sel-bg); }
+.rbtn:disabled { opacity: 0.4; }
+.rbtn.large { display: flex; flex-direction: column; align-items: center; width: 62px; height: 66px; padding: 3px 2px; gap: 2px; }
+.rbtn.large .rbtn-icon { font-size: 30px; line-height: 1; color: var(--link); display: flex; }
+.rbtn.large .rbtn-label { font-size: 11.5px; line-height: 1.15; text-align: center; white-space: normal; }
+.rbtn.small { display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 6px 0 3px; white-space: nowrap; }
+.rbtn.small .rbtn-icon { font-size: 16px; color: var(--link); display: flex; }
+.gallery { display: grid; grid-template-rows: repeat(3, 22px); grid-auto-flow: column; gap: 0 2px; }
+
+/* ---------- Ribbon: adaptive layout, quick access, collapse, key tips (LW-T) ---------- */
+.ribbon-body { overflow: hidden; position: relative; }
+.rg-slot { flex: none; display: flex; }
+.rg-more { align-self: flex-start; }
+.rg-more.rg-measure { position: absolute; visibility: hidden; pointer-events: none; }
+.rbtn.small.iconly { padding: 0 3px; }
+.rbtn.small.iconly .rbtn-label { display: none; }
+.rgroup-collapsed .rbtn.large { width: 70px; }
+.rbtn-more .rbtn-icon { font-size: 26px; line-height: 1; justify-content: center; }
+.qat { display: flex; align-items: center; gap: 1px; margin: 0 8px 3px 2px; }
+.qat-btn { border: 1px solid transparent; background: none; color: var(--link); font-size: 17px; width: 26px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 2px; cursor: default; }
+.qat-btn:hover { background: var(--hover); border-color: transparent; }
+.rtab { position: relative; }
+.keytip { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); background: var(--text); color: var(--surface-2); border-radius: 3px; font-size: 10px; line-height: 1; padding: 2px 4px; font-weight: 600; z-index: 20; }
+.rmenu { background: var(--surface-1); border: 1px solid var(--rule); box-shadow: var(--e-float); padding: 4px; min-width: 200px; max-width: 380px; max-height: 70vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.rmenu-group { display: flex; flex-direction: column; gap: 1px; }
+.rmenu-heading { color: var(--text-2); font-size: 11px; padding: 4px 6px 2px; border-top: 1px solid var(--rule-soft); margin-top: 2px; }
+.rmenu-group:first-child .rmenu-heading { border-top: none; margin-top: 0; }
+.rmenu-item { display: flex; align-items: center; gap: 8px; border: 1px solid transparent; background: none; color: var(--text); font: inherit; text-align: left; padding: 3px 8px 3px 4px; border-radius: 2px; cursor: default; }
+.rmenu-item .rbtn-icon { font-size: 16px; color: var(--link); display: flex; }
+.rmenu-item:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
+.rmenu-item:disabled { opacity: 0.4; }
+.rmenu-custom { padding: 2px 4px; }
+.ribbon.collapsed .ribbon-body { display: none; }
+.ribbon.collapsed.peek { position: relative; z-index: 30; }
+.ribbon.collapsed.peek .ribbon-body { display: flex; position: absolute; left: 0; right: 0; top: 100%; box-shadow: var(--e-float); }
+.ribbon button:focus-visible, .ribbon .rtab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.rg-cols { display: flex; align-items: flex-start; gap: 1px; }
+.rg-hidden { display: none; }
+
+.rtab-context-row { display: flex; }

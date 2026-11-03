@@ -1,0 +1,24 @@
+/* Base: page, utilities, shared small controls. */
+html, body, #root { margin: 0; height: 100%; overflow: hidden; }
+body { font: var(--type-body); font-variant-numeric: tabular-nums; color: var(--text); background: var(--surface-0); user-select: none; }
+.app { display: flex; flex-direction: column; height: 100%; background: var(--surface-0); color: var(--text); }
+.muted { color: var(--text-2); }
+.pad { padding: 10px; }
+.mono { font-family: var(--font-mono); font-size: 11.5px; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.empty-hint { color: var(--text-2); padding: 12px; line-height: 1.5; }
+
+/* ---------- In-app drag and drop ---------- */
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 2000000; pointer-events: none; background: var(--surface-1); border: 1px solid var(--accent); color: var(--text); padding: 3px 10px; border-radius: 2px; box-shadow: var(--e-float); font: 12px var(--font-ui); white-space: nowrap; }
+body.dragging, body.dragging * { cursor: grabbing !important; user-select: none; }
+
+.linkbtn { border: none; background: none; color: var(--link); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+/* A datum shift that is only approximate (CRS accuracy plan): colour from the theme so it reads in light and dark. */
+.warn-text { color: var(--warn); font-weight: 600; }
+
+/* Selected things sit on --sel-bg: all text inside them is --sel-text, so muted and link colours can never drop below AA there. */
+.tree-layer.active, .cat-row.sel, .grid-row.sel, .cell.fid.sel, .addmenu-cat.on, .rbtn.checked, .rtab.file, .sel-count, .mp-tabs button.on {
+  color: var(--sel-text); --text-2: var(--sel-text); --link: var(--sel-text);
+}
