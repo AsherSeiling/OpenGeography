@@ -24,7 +24,7 @@
 .bnode { width: 230px; background: var(--surface-2); border: 1px solid var(--rule); border-radius: var(--r-card); font: 11.5px var(--font-ui); color: var(--text); padding-bottom: 4px; }
 .bnode.selected { border-color: var(--rule); box-shadow: 0 0 0 3px var(--sel-bg); }
 .bnode.error { border-color: var(--error); }
-.bnode-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; font-weight: 600; border-bottom: 1px solid var(--rule); }
+.bnode-head { display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 4px 8px; border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; font-weight: 600; border-bottom: 1px solid var(--rule); }
 .bnode .bnode-head { background: var(--surface-0); color: var(--text); }
 .bnode.fam-Output .bnode-head { background: var(--rule); color: var(--on-dark); }
 .bnode.fam-Input .bnode-head { background: var(--fam-Input); color: var(--fam-Input-text); }
@@ -35,7 +35,7 @@
 .bnode.fam-Coordinate .bnode-head { background: var(--fam-Coordinate); color: var(--fam-Coordinate-text); }
 .bnode.fam-Analysis .bnode-head { background: var(--fam-Analysis); color: var(--fam-Analysis-text); }
 .bnode.fam-Styling .bnode-head { background: var(--fam-Styling); color: var(--fam-Styling-text); }
-.bnode-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnode-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bnode .badge { position: static; font-size: 15px; background: none; flex: none; }
 .bnode-row { position: relative; height: 22px; display: flex; align-items: center; padding: 0 12px; }
 .bnode-row.out { justify-content: flex-end; }

@@ -8,7 +8,7 @@ import { ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, Er
 import { saveResultAsLayer } from "../actions";
 import type { NodeResult } from "../ipc/api";
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
-import { asOneStep, connectProblem, nodeSignature, useModel, useRun, type ModelNode } from "../store/model";
+import { asOneStep, connectProblem, nodeSignature, outputKind, useModel, useRun, type ModelNode } from "../store/model";
 import { useApp } from "../store/store";
 import { splitCategory } from "./categories";
 import { ParamControl } from "./ParamControl";
@@ -60,6 +60,9 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
   const params = spec.params.filter((p) => !p.hidden && !(fixedInput && p.id === "layer"));
   const family = familyOf(spec.category, spec.role);
   const connected = useModel((st) => st.edges.filter((e) => e.target === id).map((e) => e.targetHandle).join("|"));
+  // The output socket's shape follows the real data (a polygon layer is a circle even though its spec says "any").
+  const outKind = useModel((st) => { st.nodes; st.edges; return outputKind(id); });
+  useApp((st) => st.layers);
   const sourced = useModel((st) => st.edges.some((e) => e.source === id));
   const title = fixedInput ? "Layer Input" : kind === "data" ? "Layer" : spec.name;
   return (
@@ -78,7 +81,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
       {spec.output && (
         <div className="bnode-row out">
           <span className={ok ? "" : "dim"}>{ok && r?.rows !== null ? `${outLabel} · ${r!.rows!.toLocaleString()}` : outLabel}</span>
-          <Handle type="source" position={Position.Right} id="out" className={`socket ${spec.output} ${sourced ? "linked" : ""}`} />
+          <Handle type="source" position={Position.Right} id="out" className={`socket ${outKind ?? spec.output} ${sourced ? "linked" : ""}`} />
         </div>
       )}
 
