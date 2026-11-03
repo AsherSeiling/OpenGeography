@@ -47,12 +47,23 @@ import { SeriesDialog } from "./SeriesDialog";
 import { SplitDialog } from "./SplitDialog";
 import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
+import { ToolMenu } from "../nodes/ToolMenu";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
 import { QueryEditor } from "../query/QueryEditor";
 import { benchmarkFlight, getCenterLonLat, type FlightResult } from "../map/mapController";
 import { displayInfo, useApp, type SelectMode } from "../store/store";
 
+/** App-level overlays: the Shift+A tool menu (always mounted, so it works with the Node Editor closed) and the open dialog. */
 export function Dialogs() {
+  return (
+    <>
+      <ToolMenu />
+      <DialogHost />
+    </>
+  );
+}
+
+function DialogHost() {
   const dialog = useDialog((s) => s.dialog);
   const close = useDialog((s) => s.close);
   if (!dialog) return null;

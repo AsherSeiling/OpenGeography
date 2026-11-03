@@ -41,3 +41,12 @@ export function buildTree<T extends { category: string; name: string }>(tools: T
   for (const n of out) n.subs.sort((a, b) => a.name.localeCompare(b.name));
   return out;
 }
+
+/** The menu group of a tool: its top-level category, or "Save to File" for output tools. */
+export const addGroup = (s: { category: string; role: string }): string => (s.role === "output" ? "Save to File" : splitCategory(s.category)[0]);
+
+/** Colour family token (`--fam-<name>`) of a group, or null for Output and Save to File, which use the rule colour. */
+export function familyOf(group: string): string | null {
+  if (group === "Save to File" || group === "Output") return null;
+  return group.split(" ")[0];
+}

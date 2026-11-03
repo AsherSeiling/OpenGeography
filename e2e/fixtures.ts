@@ -139,13 +139,13 @@ export async function connect(page: Page, from: string, to: string, input = 0) {
  * `toBeVisible` alone passes for a menu clipped away by an ancestor, which is how it opened off-screen in the app.
  */
 export async function expectAddMenuOnScreen(page: Page) {
-  const menu = page.locator(".addmenu");
+  const menu = page.locator(".toolmenu");
   await menu.waitFor({ state: "visible" });
   const ok = await page.evaluate(() => {
-    const m = document.querySelector(".addmenu") as HTMLElement;
+    const m = document.querySelector(".toolmenu") as HTMLElement;
     const r = m.getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return { inside: r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight, hit: !!hit?.closest(".addmenu"), rect: [r.left, r.top, r.width, r.height] };
+    return { inside: r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight, hit: !!hit?.closest(".toolmenu"), rect: [r.left, r.top, r.width, r.height] };
   });
   if (!ok.inside || !ok.hit) throw new Error(`The Add menu is not on screen: ${JSON.stringify(ok)}`);
 }

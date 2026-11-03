@@ -1,17 +1,75 @@
-/* Shift+A tool menu. Owner: WP 3. */
-/* ---------- Add menu / splice ---------- */
-.addmenu { position: fixed; z-index: 1000; background: var(--surface-1); border: 1px solid var(--rule); box-shadow: var(--e-float); display: flex; flex-direction: column; font-size: 12px; color: var(--text); }
-.addmenu-search { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--rule-soft); }
-.addmenu-search input { flex: 1; border: none; outline: none; font: inherit; background: transparent; color: var(--text); }
-.addmenu-body { flex: 1; display: flex; min-height: 0; }
-.addmenu-cats { width: 170px; overflow: auto; border-right: 1px solid var(--rule-soft); background: var(--surface-0); padding: 4px 0; }
-.addmenu-cat { display: block; width: 100%; text-align: left; border: none; background: none; padding: 5px 10px; font: inherit; color: var(--text); cursor: default; }
-.addmenu-cat.on { background: var(--sel-bg); color: var(--sel-text); font-weight: 600; }
-.addmenu-items { flex: 1; overflow: auto; padding: 4px 0; }
-.addmenu-item { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; border: none; background: none; padding: 5px 10px; font: inherit; color: var(--text); cursor: default; }
-.addmenu-item svg { flex: none; font-size: 15px; color: var(--link); }
-.addmenu-item.input svg { color: var(--link); }
-.addmenu-item.output svg { color: var(--ok); }
-.addmenu-item.on { background: var(--hover); }
-.addmenu-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.addmenu-catlabel { color: var(--text-2); font-size: 11px; white-space: nowrap; }
+/* Shift+A tool menu. Owner: WP 3. Look: docs/design/ui-redesign-mockup.html */
+.toolmenu { position: fixed; z-index: 1000; display: grid; grid-template-rows: 44px minmax(0, 1fr) 24px; background: var(--surface-1); color: var(--text); border: 1.5px solid var(--accent); border-radius: var(--r-tab); box-shadow: var(--e-float); font: var(--type-body); animation: tm-pop 90ms ease-out; }
+@keyframes tm-pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toolmenu { animation: none; } }
+.toolmenu [hidden] { display: none !important; }
+.toolmenu button { font: inherit; color: inherit; background: none; border: none; cursor: default; padding: 0; }
+.toolmenu button:focus-visible, .toolmenu select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.tm-head { display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--band); color: var(--band-text); border-radius: 9px 9px 0 0; border-bottom: 1.5px solid var(--accent); }
+.tm-head svg { font-size: 18px; flex: none; }
+.tm-head input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); border-radius: var(--r-control); font: var(--type-input); outline: 0; }
+.tm-head input:focus-visible { outline: 2px solid var(--accent); }
+.tm-head input::placeholder { color: var(--text-2); }
+.tm-head b { font: var(--type-micro); white-space: nowrap; }
+
+.tm-body { display: grid; grid-template-columns: 164px minmax(0, 1fr) 176px; min-height: 0; }
+.tm-rail { overflow: auto; background: var(--surface-0); border-right: 1px solid var(--rule-soft); padding: 4px 0; }
+.tm-rail button { display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding: 0 8px; text-align: left; white-space: nowrap; }
+.tm-rail button svg { font-size: 16px; flex: none; }
+.tm-rail button:hover { background: var(--hover); }
+.tm-rail button.on { background: var(--sel-bg); color: var(--sel-text); font-weight: 600; }
+.tm-rail button span { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.tm-rail small { font: var(--type-micro); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tm-rail button.on small { color: inherit; }
+.tm-chip { width: 10px; height: 10px; flex: none; border: 1px solid var(--rule); }
+
+.tm-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.tm-cat { display: none; margin: 6px 10px 2px; height: 24px; background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); border-radius: var(--r-control); font: inherit; }
+.tm-note { padding: 8px 10px; border-bottom: 1px solid var(--rule-soft); background: var(--surface-0); }
+.tm-btn { margin-top: 6px; height: 24px; padding: 0 10px !important; background: var(--surface-2) !important; border: 1px solid var(--rule) !important; border-radius: var(--r-control); font-weight: 600; }
+.tm-btn:hover { background: var(--hover) !important; }
+.tm-list { flex: 1; overflow: auto; min-height: 0; padding-bottom: 4px; }
+.tm-sec { position: sticky; top: 0; z-index: 1; padding: 4px 10px; background: var(--surface-1); font: 600 10.5px/13px var(--font-ui); color: var(--text-2); border-bottom: 1px solid var(--rule-soft); }
+.tm-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 20px; align-items: center; column-gap: 8px; width: 100%; min-height: 40px; padding: 3px 12px 3px 10px; cursor: default; }
+.tm-row > svg { font-size: 20px; }
+.tm-text { min-width: 0; }
+.tm-name { display: block; font: var(--type-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-desc { display: block; font: var(--type-small); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-row.on { background: var(--sel-bg); color: var(--sel-text); }
+.tm-row.on .tm-desc { color: inherit; }
+.tm-hit { font: var(--type-micro); padding: 0 5px; border: 1px solid currentColor; border-radius: var(--r-control); white-space: nowrap; }
+.tm-star { width: 20px; height: 20px; display: grid; place-items: center; font-size: 14px; border-radius: var(--r-control); }
+.tm-star:hover { background: var(--hover); }
+.tm-star.fav svg { color: var(--link); }
+.tm-row.on .tm-star.fav svg { color: inherit; }
+.tm-none { padding: 16px 12px; color: var(--text-2); }
+
+.tm-prev { border-left: 1px solid var(--rule-soft); padding: 10px; overflow: auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.tm-prev h4 { margin: 0; font: var(--type-strong); }
+.tm-prev .path { font: var(--type-small); color: var(--text-2); }
+.tm-prev h5 { margin: 0 0 2px; font: 600 10.5px/13px var(--font-ui); color: var(--text-2); }
+.tm-pv { display: flex; align-items: center; gap: 6px; font: var(--type-small); line-height: 16px; }
+.tm-pv em { font-style: normal; color: var(--text-2); margin-left: auto; }
+.tm-conn { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--rule-soft); font: var(--type-small); }
+.tm-prevline { display: none; padding: 4px 10px; border-top: 1px solid var(--rule-soft); background: var(--surface-0); font: var(--type-small); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-prevline b { color: var(--text); font-weight: 600; }
+
+/* Sockets are shape-coded: Vector circle, Raster square, Table diamond, Any ring. */
+.tm-sock { flex: none; width: 9px; height: 9px; border: 1.5px solid var(--text); background: transparent; box-sizing: border-box; }
+.tm-sock.filled { background: var(--text); }
+.tm-sock.vector { border-radius: 50%; }
+.tm-sock.raster { border-radius: 0; }
+.tm-sock.table { transform: rotate(45deg) scale(0.85); }
+.tm-sock.any { border-radius: 50%; border-width: 1px; box-shadow: 0 0 0 1.5px var(--surface-1), 0 0 0 2.5px var(--text); width: 7px; height: 7px; }
+
+.tm-foot { display: flex; align-items: center; gap: 12px; padding: 0 10px; background: var(--surface-0); border-top: 1px solid var(--rule-soft); font: var(--type-micro); color: var(--text-2); white-space: nowrap; overflow: hidden; border-radius: 0 0 0 0; }
+.tm-foot kbd { font: 600 10.5px/13px var(--font-ui); color: var(--text); margin-right: 3px; }
+
+@media (max-width: 720px) {
+  .tm-body { grid-template-columns: minmax(0, 1fr); }
+  .tm-rail, .tm-prev { display: none; }
+  .tm-cat { display: block; }
+  .tm-hit { display: none; }
+  .tm-prevline { display: block; }
+}
