@@ -608,6 +608,7 @@ function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolPa
             <Button
               size="small"
               icon={<FolderOpenRegular />}
+              aria-label="Choose a save location"
               onClick={async () => {
                 const path = await save({ title: p.label });
                 if (path) set(path);
