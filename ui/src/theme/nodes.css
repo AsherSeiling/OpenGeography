@@ -5,25 +5,10 @@
 .model-hint { color: var(--text-2); margin-left: 10px; font-size: 11.5px; }
 .model-canvas { flex: 1; min-height: 0; }
 .react-flow__node { font: 12px var(--font-ui); }
-.mnode { position: relative; color: var(--text); background: var(--surface-2); border: 1.5px solid var(--rule); box-sizing: border-box; }
-.mnode.selected { box-shadow: 0 0 0 3px var(--sel-bg); }
-.mnode.error { box-shadow: 0 0 0 2px var(--error); }
-.mnode.data { background: var(--fam-Input); color: var(--fam-Input-text); border-color: var(--rule); border-radius: 999px; padding: 8px 22px; min-width: 120px; text-align: center; }
-.mnode.output { background: var(--rule); color: var(--on-dark); border-color: var(--rule); border-radius: 999px; padding: 8px 22px; min-width: 120px; text-align: center; }
-.mnode-tool-wrap { display: flex; align-items: center; }
-.mnode.tool { background: var(--fam-Raster); color: var(--fam-Raster-text); border-color: var(--rule); border-radius: 6px; min-width: 170px; padding: 6px 10px 6px 0; display: flex; flex-direction: column; justify-content: center; }
-.mnode-title { font-weight: 600; white-space: nowrap; }
-.mnode-sub { font-size: 11px; opacity: 0.75; white-space: nowrap; }
-.mnode-flag { font-size: 10.5px; display: flex; align-items: center; gap: 3px; opacity: 0.8; padding-left: 72px; }
-.mnode-out { position: relative; margin-left: 18px; background: var(--rule); border: 1.5px solid var(--rule); border-radius: 999px; padding: 4px 14px; font-size: 11px; color: var(--on-dark); opacity: 0.8; white-space: nowrap; }
-.mnode-out::before { content: ""; position: absolute; left: -19px; top: 50%; width: 18px; border-top: 1.5px solid var(--rule); }
-.mnode-out.ready { opacity: 1; }
-.port-label { position: absolute; left: 0; height: 16px; display: flex; align-items: center; font-size: 11px; padding-left: 10px; white-space: nowrap; color: var(--text-2); }
-.port { width: 12px !important; height: 12px !important; border: 2px solid var(--rule) !important; background: var(--surface-2) !important; }
-.port:hover, .react-flow__handle.connectingto { transform: translate(-50%, -50%) scale(1.35) !important; border-color: var(--link) !important; }
-.port.in.vector { background: var(--fam-Input) !important; }
-.port.out { background: var(--fam-Vector) !important; }
-.badge { position: absolute; top: -8px; right: -8px; font-size: 16px; background: var(--surface-1); border-radius: 50%; }
+/* React Flow styles a node type named "output" (and "input"/"default") with a white box; the card draws its own body. */
+.react-flow__node-output, .react-flow__node-data, .react-flow__node-tool { background: transparent; border: 0; padding: 0; border-radius: 0; width: auto; color: inherit; box-shadow: none; }
+.react-flow__node-output.selected, .react-flow__node-output:focus, .react-flow__node-output:focus-visible { box-shadow: none; border: 0; }
+.badge { font-size: 16px; background: var(--surface-1); border-radius: 50%; }
 .badge.done { color: var(--ok); }
 .badge.cached { color: var(--link); }
 .badge.error, .badge.skipped { color: var(--error); }
@@ -40,9 +25,16 @@
 .bnode.selected { border-color: var(--rule); box-shadow: 0 0 0 3px var(--sel-bg); }
 .bnode.error { border-color: var(--error); }
 .bnode-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; font-weight: 600; border-bottom: 1px solid var(--rule); }
-.bnode.data .bnode-head { background: var(--fam-Input); color: var(--fam-Input-text); }
-.bnode.tool .bnode-head { background: var(--fam-Raster); color: var(--fam-Raster-text); }
-.bnode.output .bnode-head { background: var(--rule); color: var(--on-dark); }
+.bnode .bnode-head { background: var(--surface-0); color: var(--text); }
+.bnode.fam-Output .bnode-head { background: var(--rule); color: var(--on-dark); }
+.bnode.fam-Input .bnode-head { background: var(--fam-Input); color: var(--fam-Input-text); }
+.bnode.fam-Vector .bnode-head { background: var(--fam-Vector); color: var(--fam-Vector-text); }
+.bnode.fam-Raster .bnode-head { background: var(--fam-Raster); color: var(--fam-Raster-text); }
+.bnode.fam-Hydrology .bnode-head { background: var(--fam-Hydrology); color: var(--fam-Hydrology-text); }
+.bnode.fam-Tables .bnode-head { background: var(--fam-Tables); color: var(--fam-Tables-text); }
+.bnode.fam-Coordinate .bnode-head { background: var(--fam-Coordinate); color: var(--fam-Coordinate-text); }
+.bnode.fam-Analysis .bnode-head { background: var(--fam-Analysis); color: var(--fam-Analysis-text); }
+.bnode.fam-Styling .bnode-head { background: var(--fam-Styling); color: var(--fam-Styling-text); }
 .bnode-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bnode .badge { position: static; font-size: 15px; background: none; flex: none; }
 .bnode-row { position: relative; height: 22px; display: flex; align-items: center; padding: 0 12px; }
@@ -64,15 +56,26 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .bpath .bbtn { width: 26px; flex: none; text-align: center; }
 .bnode-note { display: flex; align-items: center; gap: 3px; color: var(--text-2); padding: 2px 8px; font-size: 11px; }
 .bnode-error { color: var(--error); padding: 2px 8px; font-size: 11px; max-height: 44px; overflow: hidden; }
-.socket { width: 11px !important; height: 11px !important; border: 1.5px solid var(--rule) !important; border-radius: 50% !important; }
-.socket.vector { background: var(--fam-Vector) !important; }
-.socket.table { background: var(--fam-Tables) !important; }
-.bnode-row.in .socket { left: 0 !important; }
-.bnode-row.out .socket { right: 0 !important; }
-.socket:hover { border-color: var(--link) !important; transform: translate(-50%, -50%) scale(1.3); }
-.bnode-row.out .socket:hover { transform: translate(50%, -50%) scale(1.3); }
+/* Sockets: the handle is a transparent 16 px hit area; the visible shape is its ::before, so shape (not colour) carries the port kind. */
+.socket { width: 16px !important; height: 16px !important; border: 0 !important; background: transparent !important; border-radius: 0 !important; }
+.socket::before { content: ""; position: absolute; inset: 3px; box-sizing: border-box; border: 1.5px solid var(--rule); background: var(--surface-2); pointer-events: none; }
+.socket.vector::before { border-radius: 50%; }
+.socket.raster::before { border-radius: 1px; }
+.socket.table::before { transform: rotate(45deg) scale(.82); }
+.socket.any::before { border-radius: 50%; border-width: 3px; }
+.socket.linked::before { background: var(--rule); }
+.socket.any.linked::before { background: var(--surface-2); }
+.bnode-row.in .socket { left: 0 !important; transform: translate(-50%, -50%) !important; }
+.bnode-row.out .socket { right: 0 !important; left: auto !important; transform: translate(50%, -50%) !important; }
+.socket:hover::before, .socket.connectingto::before, .socket.valid::before { border-color: var(--link); }
+.socket:hover { transform: translate(-50%, -50%) scale(1.25) !important; }
+.bnode-row.out .socket:hover { transform: translate(50%, -50%) scale(1.25) !important; }
+.bchoose { margin-left: auto; font: 11px var(--font-ui); color: var(--link); background: var(--surface-2); border: 1px solid var(--rule); border-radius: var(--r-control); padding: 0 6px; height: 18px; cursor: default; }
+.bchoose:hover:not(:disabled) { background: var(--hover); }
+.bchoose:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.bchoose:disabled { color: var(--text-2); }
 .bnode-layer { padding: 3px 12px 0; color: var(--text-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bnode.fixed .bnode-head::after { content: "fixed"; font-weight: 400; font-size: 10px; color: var(--text-2); margin-left: auto; padding-left: 6px; }
+.bnode.fixed .bnode-head::after { content: "fixed"; font-weight: 400; font-size: 10px; color: inherit; margin-left: auto; padding-left: 6px; }
 .bnode.fixed .bnode-head .badge { order: 2; }
 .bsave { text-align: center; margin-top: 2px; }
 .bsave:disabled { opacity: .5; }
@@ -84,8 +87,6 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .react-flow__edge.splice-target path { stroke: var(--link) !important; stroke-width: 3px !important; }
 .bnode-drop { margin: 4px 8px 0; padding: 6px; border: 1.5px dashed var(--link); border-radius: 4px; color: var(--link); font-size: 11px; text-align: center; }
 .react-flow__node.drop-over .bnode, .bnode.drop-over { outline: 2px dashed var(--accent); }
-.socket.raster { background: var(--fam-Raster) !important; border-radius: 2px !important; }
-.socket.any { background: var(--surface-2) !important; }
 /* ---------- Node editor: mute, collapse, stale, cut ---------- */
 .bnode.muted { opacity: .55; }
 .bnode.muted .bnode-head { background-image: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--text) 8%, transparent) 6px 12px); }
@@ -102,6 +103,9 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 
 /* React Flow's own controls follow the tokens (it ships light-only defaults). */
 .react-flow {
+  --xy-edge-stroke-default: var(--rule);
+  --xy-edge-stroke-selected-default: var(--link);
+  --xy-connectionline-stroke-default: var(--rule);
   --xy-controls-button-background-color-default: var(--surface-2);
   --xy-controls-button-background-color-hover-default: var(--hover);
   --xy-controls-button-color-default: var(--text);
