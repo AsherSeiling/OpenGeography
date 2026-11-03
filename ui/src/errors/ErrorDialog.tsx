@@ -19,7 +19,7 @@ export function ErrorBody({ error, remaining }: { error: AppError; remaining?: n
       )}
       <details style={{ marginTop: 12 }}>
         <summary style={{ cursor: "pointer", fontSize: 12 }}>Details</summary>
-        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 11, maxHeight: 220, overflow: "auto", background: "var(--colorNeutralBackground3, #f3f3f3)", padding: 8, margin: "6px 0 0" }}>{error.details}</pre>
+        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 11, maxHeight: 220, overflow: "auto", background: "var(--surface-0)", padding: 8, margin: "6px 0 0" }}>{error.details}</pre>
       </details>
     </>
   );
