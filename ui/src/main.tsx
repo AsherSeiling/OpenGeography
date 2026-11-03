@@ -7,6 +7,8 @@ import { reportError, setErrorLog } from "./errors/store";
 import "@fontsource-variable/inter";
 import "./theme/theme.css";
 import "./devhooks";
+import { AppearancePanel } from "./theme/AppearancePanel";
+import * as appearance from "./theme/appearance";
 
 const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -17,6 +19,14 @@ export function report(level: "info" | "error", message: string) {
 }
 
 setErrorLog((m) => report("error", m));
+
+// Saved colours load before the first paint. A failure here must not stop the app: it keeps tokens.css defaults.
+try {
+  appearance.initAppearance();
+} catch (e) {
+  reportError(e, "appearance", { title: "Colours could not be loaded", message: "GIS Studio is using its default colours." });
+}
+if (import.meta.env.DEV) Object.assign((window as unknown as { __gis?: object }).__gis ?? {}, { appearance });
 
 window.addEventListener("error", (e) => {
   report("error", `${e.message} at ${e.filename}:${e.lineno}:${e.colno}`);
@@ -58,6 +68,29 @@ createRoot(document.getElementById("root")!).render(
       <App />
     </Crash>
   </StrictMode>,
+);
+
+/** The Colours panel floats above the app in its own root: if it throws, only the panel goes, with the error reported. */
+class PanelGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    reportError(error, "appearance", { title: "The Colours panel failed", message: "Colours are unchanged. Close and reopen the panel to try again." });
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+const aprHost = document.createElement("div");
+aprHost.id = "appearance-root";
+document.body.appendChild(aprHost);
+createRoot(aprHost).render(
+  <PanelGuard>
+    <AppearancePanel />
+  </PanelGuard>,
 );
 
 // Startup report: confirms in the log that the UI actually rendered.

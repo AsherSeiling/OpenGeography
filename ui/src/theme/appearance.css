@@ -1,0 +1,151 @@
+/* Floating Colours panel (plan §2a). Lives in its own React root, outside FluentProvider, so every control is styled here. */
+.apr {
+  position: fixed;
+  z-index: 500; /* above dockview sashes, below the Shift+A menu and dialogs */
+  right: 12px;
+  top: 112px;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100vh - 124px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-tab);
+  box-shadow: var(--e-float);
+  font: var(--type-body);
+}
+.apr button,
+.apr input,
+.apr label {
+  font: inherit;
+  color: inherit;
+}
+.apr button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.apr :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.apr-h {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 var(--s-4) 0 var(--s-5);
+  background: var(--band);
+  color: var(--band-text);
+  border-bottom: 1.5px solid var(--accent);
+  border-radius: 9px 9px 0 0;
+  font: var(--type-tab);
+  font-weight: 600;
+}
+.apr-h :focus-visible {
+  outline-color: var(--band-text);
+}
+.apr-x {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-control);
+}
+.apr-x:hover {
+  background: var(--band-hover);
+}
+.apr-b {
+  overflow: auto;
+  padding: 10px var(--s-5);
+  display: grid;
+  gap: 14px;
+}
+.apr h3 {
+  margin: 0 0 var(--s-3);
+  font: var(--type-strong);
+}
+.apr p {
+  margin: var(--s-2) 0 0;
+  font: var(--type-small);
+  color: var(--text-2);
+}
+.apr-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-control);
+}
+.apr-seg button {
+  height: 26px;
+}
+.apr-seg button + button {
+  border-left: 1px solid var(--rule);
+}
+.apr-seg button:hover {
+  background: var(--hover);
+}
+.apr-seg button[aria-pressed="true"] {
+  background: var(--sel-bg);
+  color: var(--sel-text);
+  font-weight: 600;
+}
+.apr-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+}
+.apr-swatch {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--rule) !important;
+  border-radius: var(--r-control);
+}
+.apr-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--text);
+}
+.apr-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font: var(--type-small);
+  color: var(--text-2);
+}
+.apr input[type="color"] {
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-control);
+  background: none;
+  cursor: pointer;
+}
+.apr-fams {
+  display: grid;
+  grid-template-columns: 1fr 30px;
+  gap: var(--s-2) var(--s-4);
+  align-items: center;
+}
+.apr-fam {
+  display: contents;
+}
+.apr footer {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--rule-soft);
+}
+.apr-reset {
+  height: 26px;
+  padding: 0 var(--s-4);
+  border: 1px solid var(--rule) !important;
+  border-radius: var(--r-control);
+}
+.apr-reset:hover {
+  background: var(--hover);
+}

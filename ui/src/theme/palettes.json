@@ -1,0 +1,23 @@
+{
+  "palettes": {
+    "Glacier": {
+      "light": { "surface-0": "#E3E8EC", "surface-1": "#F2F5F7", "surface-2": "#FFFFFF", "canvas": "#EAEEF1", "canvas-dot": "#C3CCD3", "rule": "#25323B", "rule-soft": "#BCC6CE", "text": "#121A20", "text-2": "#46535D", "hover": "rgba(18, 26, 32, 0.08)" },
+      "dark": { "surface-0": "#262C32", "surface-1": "#1C2126", "surface-2": "#13171B", "canvas": "#171B1F", "canvas-dot": "#343C43", "rule": "#5C6973", "rule-soft": "#3B444C", "text": "#EDF1F4", "text-2": "#AEB9C2", "hover": "rgba(255, 255, 255, 0.08)" }
+    },
+    "Paper": {
+      "light": { "surface-0": "#E8E4DC", "surface-1": "#F4F1EA", "surface-2": "#FFFDF8", "canvas": "#EDE9E1", "canvas-dot": "#CFC8BA", "rule": "#2E2A24", "rule-soft": "#C9C2B4", "text": "#1C1915", "text-2": "#544E44", "hover": "rgba(28, 25, 21, 0.08)" },
+      "dark": { "surface-0": "#2C2925", "surface-1": "#211F1B", "surface-2": "#171512", "canvas": "#1B1916", "canvas-dot": "#3A362F", "rule": "#6A6358", "rule-soft": "#443F37", "text": "#F1EDE5", "text-2": "#B9B2A5", "hover": "rgba(255, 255, 255, 0.08)" }
+    },
+    "Wireframe": {
+      "light": { "surface-0": "#D9DBDC", "surface-1": "#ECEDEE", "surface-2": "#FAFAFA", "canvas": "#E3E5E6", "canvas-dot": "#BFC4C7", "rule": "#14181A", "rule-soft": "#AEB3B6", "text": "#101416", "text-2": "#41484C", "hover": "rgba(16, 20, 22, 0.08)" },
+      "dark": { "surface-0": "#23272A", "surface-1": "#1A1D1F", "surface-2": "#101214", "canvas": "#141618", "canvas-dot": "#32383C", "rule": "#566067", "rule-soft": "#3A4146", "text": "#ECEFF1", "text-2": "#AEB7BC", "hover": "rgba(255, 255, 255, 0.08)" }
+    }
+  },
+  "accents": [["Sky", "#22CCF5"], ["Azure", "#3B9BFF"], ["Teal", "#19C9A6"], ["Violet", "#9B8CFF"], ["Coral", "#FF8A6B"], ["Marigold", "#FFC233"]],
+  "highlights": [["Bright sky", "#6FE0FF"], ["Ice", "#A5ECFF"], ["Azure", "#8CC4FF"], ["Mint", "#7EECCB"], ["Lilac", "#C7BEFF"], ["Peach", "#FFC2AD"], ["Lemon", "#FFE680"]],
+  "families": { "Input": "#22CCF5", "Vector": "#9ADBB0", "Raster": "#F5CF73", "Hydrology": "#A9C4FF", "Tables": "#D2C3F7", "Coordinate": "#F6B8CF", "Analysis": "#F9B48C", "Styling": "#DDE0A8" },
+  "statusColours": {
+    "light": { "error": "#B3261E", "warn": "#8A5A00", "ok": "#1F6B3A" },
+    "dark": { "error": "#FF8A80", "warn": "#F2C14E", "ok": "#7BD88F" }
+  }
+}
