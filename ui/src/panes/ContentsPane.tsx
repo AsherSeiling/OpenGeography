@@ -6,9 +6,7 @@ import {
   FilterRegular,
   LayerDiagonalAddRegular,
   FlowchartRegular,
-  CopyRegular,
   DeleteRegular,
-  DocumentPdfRegular,
   EditRegular,
   GlobeRegular,
   MapRegular,
@@ -23,8 +21,6 @@ import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
-import { useLayouts } from "../store/layout";
-import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } from "../layout/actions";
 import { nextSelection } from "../layers/multiselect";
 import { showPane } from "./panes";
 
@@ -40,26 +36,26 @@ export function Swatch({ info, style }: { info: LayerInfo; style?: LayerStyle })
             <stop offset="1" stopColor="#f5f5f5" />
           </linearGradient>
         </defs>
-        <rect x="1.5" y="2.5" width="13" height="11" fill="url(#rg)" stroke="#555" strokeWidth="0.8" />
+        <rect x="1.5" y="2.5" width="13" height="11" fill="url(#rg)" className="swatch-outline" />
       </svg>
     );
-  const fill = style?.fill ?? "#999";
-  const stroke = style?.stroke ?? "#444";
+  const fill = style?.fill ?? "var(--text-2)";
+  const stroke = style?.stroke ?? "var(--text-2)";
   if (info.geomType === "Point")
     return (
       <svg className="swatch" viewBox="0 0 16 16">
-        <circle cx="8" cy="8" r="4.5" fill={fill} stroke="#333" strokeWidth="0.8" />
+        <circle cx="8" cy="8" r="4.5" className="swatch-frame" style={{ fill }} />
       </svg>
     );
   if (info.geomType === "Line")
     return (
       <svg className="swatch" viewBox="0 0 16 16">
-        <path d="M1 12 L6 5 L10 10 L15 3" fill="none" stroke={fill} strokeWidth="2" />
+        <path className="swatch-line" d="M1 12 L6 5 L10 10 L15 3" style={{ stroke: fill }} />
       </svg>
     );
   return (
     <svg className="swatch" viewBox="0 0 16 16">
-      <rect x="1.5" y="3" width="13" height="10" fill={fill} stroke={stroke} strokeWidth="1" />
+      <rect x="1.5" y="3" width="13" height="10" strokeWidth="1" style={{ fill, stroke }} />
     </svg>
   );
 }
@@ -108,7 +104,7 @@ export function ContentsPane() {
 
   return (
     <div className="contents" onClick={() => setMenu(null)}>
-      <div className="contents-head">Drawing Order</div>
+      <div className="contents-head">Map Layers</div>
       <div className="tree" ref={treeRef} data-drop="contents">
         <div className="tree-map" onClick={pickMapCrs} title="Click to change the map's coordinate system">
           <MapRegular />
@@ -197,36 +193,7 @@ export function ContentsPane() {
           );
         })}
       </div>
-      <LayoutsSection />
       {menu && (picked.length > 1 && picked.includes(menu.id) ? <MultiMenu {...menu} onClose={() => setMenu(null)} /> : <LayerMenu {...menu} onClose={() => setMenu(null)} />)}
-    </div>
-  );
-}
-
-/** The project's print layouts: click opens the layout tab. */
-function LayoutsSection() {
-  useLayouts((s) => s.docs);
-  useLayouts((s) => s.doc);
-  const active = useLayouts((s) => s.id);
-  const layouts = useLayouts.getState().list();
-  return (
-    <div className="layouts" onClick={(e) => e.stopPropagation()}>
-      <div className="layouts-head">
-        <span>Layouts</span>
-        <button className="linkbtn" onClick={() => newLayout()}>New</button>
-      </div>
-      {layouts.length === 0 && <div className="empty-hint">No layouts yet. Insert → New Layout creates a print map page.</div>}
-      {layouts.map((l) => (
-        <div key={l.id} className={`layout-row ${active === l.id ? "active" : ""}`} onClick={() => openLayout(l.id)} onDoubleClick={() => openLayout(l.id)}>
-          <DocumentPdfRegular />
-          <span className="tree-name">{l.name}</span>
-          <span className="row-actions">
-            <button title="Rename" aria-label={`Rename ${l.name}`} onClick={(e) => { e.stopPropagation(); renameLayout(l.id); }}><EditRegular /></button>
-            <button title="Duplicate" aria-label={`Duplicate ${l.name}`} onClick={(e) => { e.stopPropagation(); duplicateLayout(l.id); }}><CopyRegular /></button>
-            <button title="Delete" aria-label={`Delete ${l.name}`} onClick={(e) => { e.stopPropagation(); deleteLayout(l.id); }}><DeleteRegular /></button>
-          </span>
-        </div>
-      ))}
     </div>
   );
 }

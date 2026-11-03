@@ -1,81 +1,56 @@
-// Catalog pane (file manager): browse folders, see GIS data at a glance, and
-// add it — double-click, right-click, or drag onto the map, Contents or the
-// node editor. Folder connections are remembered per user.
-import { Menu, MenuItem, MenuList, MenuPopover, Tooltip } from "@fluentui/react-components";
+// Catalog pane: one tree. Project (Layouts, Project files) and Public Data (the
+// download dialogs). Files are added through Add Data or by dropping them on the
+// window; files already in the project are listed under Project files.
+import { Menu, MenuItem, MenuList, MenuPopover } from "@fluentui/react-components";
 import {
   AddRegular,
-  ArrowClockwiseRegular,
-  ArrowLeftRegular,
-  ArrowUpRegular,
+  ArrowDownloadRegular,
   BriefcaseRegular,
+  BuildingMultipleRegular,
+  ChevronDownRegular,
+  ChevronRightRegular,
   CopyRegular,
   DatabaseRegular,
-  DesktopRegular,
-  DismissRegular,
-  DocumentFolderRegular,
+  DeleteRegular,
+  DocumentPdfRegular,
   DocumentRegular,
-  ArrowDownloadRegular,
-  FolderLinkRegular,
+  EditRegular,
   FolderRegular,
   FolderZipRegular,
-  HardDriveRegular,
-  HomeRegular,
+  GlobeRegular,
+  ImageMultipleRegular,
   ImageRegular,
-  InfoRegular,
+  MapPinRegular,
+  MountainTrailRegular,
+  PlugConnectedRegular,
+  ServerRegular,
   ShapesRegular,
-  StarFilled,
-  StarRegular,
   TableRegular,
+  WarningRegular,
 } from "@fluentui/react-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { create } from "zustand";
-import { addData, openProject } from "../actions";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { addData, openProject, useDialog, type DialogState } from "../actions";
 import { startDrag } from "../dnd";
-import { api, errorText, type FsDetails, type FsEntry, type FsListing, type FsRoot } from "../ipc/api";
-import { addToolToModel } from "./ModelPane";
+import { api, errorText, type FsEntry } from "../ipc/api";
+import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } from "../layout/actions";
+import { useLayouts } from "../store/layout";
 import { useModel } from "../store/model";
 import { useApp } from "../store/store";
-
-const KEY = "gis-studio.catalog.v1";
-
-interface CatalogPrefs {
-  connections: string[];
-  last: string | null;
-  gisOnly: boolean;
-  /** "project": only the files and folders this project uses. */
-  mode: "browse" | "project";
-  set: (p: Partial<Pick<CatalogPrefs, "connections" | "last" | "gisOnly" | "mode">>) => void;
-}
-
-const loadPrefs = () => {
-  try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-    return {
-      connections: Array.isArray(v.connections) ? v.connections : [],
-      last: typeof v.last === "string" ? v.last : null,
-      gisOnly: v.gisOnly !== false,
-      mode: v.mode === "project" ? ("project" as const) : ("browse" as const),
-    };
-  } catch {
-    return { connections: [], last: null, gisOnly: true, mode: "browse" as const };
-  }
-};
-
-/** Per-user catalog state: folder connections, last folder, filter. */
-export const useCatalog = create<CatalogPrefs>((set, get) => ({
-  ...loadPrefs(),
-  set: (p) => {
-    set(p);
-    try {
-      const { connections, last, gisOnly, mode } = get();
-      localStorage.setItem(KEY, JSON.stringify({ connections, last, gisOnly, mode }));
-    } catch {
-      // Not saved; fine for this session.
-    }
-  },
-}));
+import { addToolToModel } from "./ModelPane";
 
 const ADDABLE = new Set(["vector", "raster", "table", "archive", "gdb"]);
+
+/** One row per public-data dialog. Each opens the dialog the ribbon command used to open. */
+export const PUBLIC_DATA: { id: string; label: string; tip: string; icon: ReactNode; dialog: DialogState }[] = [
+  { id: "tiger", label: "Census TIGER/Line", tip: "Download Census boundaries, roads and water for any state or county", icon: <ArrowDownloadRegular />, dialog: { kind: "tiger" } },
+  { id: "nationalMap", label: "USGS National Map", tip: "Download USGS streams, lakes, watersheds, roads, trails, structures, place names and federal lands", icon: <MapPinRegular />, dialog: { kind: "nationalMap" } },
+  { id: "elevation", label: "Elevation (3DEP)", tip: "Download USGS 3DEP elevation for the map view or a layer's area", icon: <MountainTrailRegular />, dialog: { kind: "elevation" } },
+  { id: "stac", label: "Imagery & DEM (STAC)", tip: "Search Sentinel-2 imagery and the Copernicus DEM and clip a scene to your area", icon: <ImageMultipleRegular />, dialog: { kind: "stac" } },
+  { id: "overture", label: "Overture Maps", tip: "Download buildings, places, roads, water, land use or boundaries for your area", icon: <BuildingMultipleRegular />, dialog: { kind: "overture" } },
+  { id: "hazardsSoils", label: "Earthquakes & Soils", tip: "Download USGS earthquakes or NRCS soil map units for your area", icon: <WarningRegular />, dialog: { kind: "hazardsSoils" } },
+  { id: "arcgis", label: "ArcGIS Services", tip: "Download PAD-US, FEMA flood zones, wetlands, wildfire perimeters or any ArcGIS REST layer", icon: <ServerRegular />, dialog: { kind: "arcgis" } },
+  { id: "ogc", label: "OGC API Features", tip: "Download features from USGS Water Data or any OGC API – Features service", icon: <PlugConnectedRegular />, dialog: { kind: "ogc" } },
+];
 
 function KindIcon({ kind }: { kind: string }) {
   switch (kind) {
@@ -98,291 +73,12 @@ function KindIcon({ kind }: { kind: string }) {
   }
 }
 
-function RootIcon({ kind }: { kind: FsRoot["kind"] }) {
-  switch (kind) {
-    case "home":
-      return <HomeRegular />;
-    case "desktop":
-      return <DesktopRegular />;
-    case "documents":
-      return <DocumentFolderRegular />;
-    case "downloads":
-      return <ArrowDownloadRegular />;
-    default:
-      return <HardDriveRegular />;
-  }
-}
-
 const sizeText = (n: number | null) =>
   n === null ? "" : n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(0)} KB` : n < 1024 ** 3 ? `${(n / 1024 ** 2).toFixed(1)} MB` : `${(n / 1024 ** 3).toFixed(1)} GB`;
 const dateText = (s: number | null) => (s ? new Date(s * 1000).toLocaleDateString() : "");
 const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
-
-export function CatalogPane() {
-  const { connections, last, gisOnly, mode } = useCatalog();
-  const [roots, setRoots] = useState<FsRoot[]>([]);
-  const [listing, setListing] = useState<FsListing | null>(null);
-  const [history, setHistory] = useState<string[]>([]);
-  const [pathText, setPathText] = useState("");
-  const [filter, setFilter] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [selected, setSelected] = useState<FsEntry | null>(null);
-  const [details, setDetails] = useState<FsDetails | string | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; entry: FsEntry } | null>(null);
-
-  const go = useCallback(async (path: string, remember = true) => {
-    setErr(null);
-    try {
-      const l = await api.fsList(path);
-      setListing((prev) => {
-        if (remember && prev && prev.path !== l.path) setHistory((h) => [...h.slice(-30), prev.path]);
-        return l;
-      });
-      setPathText(l.path);
-      setSelected(null);
-      setDetails(null);
-      useCatalog.getState().set({ last: l.path });
-    } catch (e) {
-      setErr(errorText(e));
-    }
-  }, []);
-
-  useEffect(() => {
-    api.fsRoots()
-      .then((r) => {
-        setRoots(r);
-        const start = last ?? useApp.getState().projectDir?.replace(/[\\/][^\\/]+$/, "") ?? r[0]?.path;
-        if (start) void go(start, false);
-      })
-      .catch((e) => setErr(errorText(e)));
-  }, []);
-
-  const refresh = () => listing && go(listing.path, false);
-  const back = () => {
-    const prev = history[history.length - 1];
-    if (!prev) return;
-    setHistory((h) => h.slice(0, -1));
-    void go(prev, false);
-  };
-  const connected = !!listing && connections.includes(listing.path);
-  const toggleConnection = (path: string) =>
-    useCatalog.getState().set({ connections: connections.includes(path) ? connections.filter((c) => c !== path) : [...connections, path] });
-
-  const shown = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    return (listing?.entries ?? []).filter((e) => (!gisOnly || e.kind !== "file") && (!q || e.name.toLowerCase().includes(q)));
-  }, [listing, filter, gisOnly]);
-
-  const open = (e: FsEntry) => {
-    if (e.kind === "folder") return void go(e.path);
-    if (e.kind === "project") return void openProject(e.path);
-    if (ADDABLE.has(e.kind)) return void addData([e.path]);
-  };
-
-  const inspect = async (e: FsEntry) => {
-    setSelected(e);
-    setDetails(null);
-    if (!ADDABLE.has(e.kind)) return;
-    try {
-      setDetails(await api.fsInspect(e.path));
-    } catch (x) {
-      setDetails(errorText(x));
-    }
-  };
-
-  const addToTree = async (e: FsEntry) => {
-    const owner = useModel.getState().layer;
-    const infos = await addData([e.path]);
-    if (infos[0] && owner) addToolToModel("input_layer", { layer: infos[0].id });
-  };
-
-  return (
-    <div className="pane catalog-pane" onClick={() => setMenu(null)}>
-      <div className="cat-mode" role="tablist">
-        <button role="tab" aria-selected={mode === "project"} className={mode === "project" ? "on" : ""} onClick={() => useCatalog.getState().set({ mode: "project" })} title="Only the files and folders this project uses">
-          <BriefcaseRegular /> This project
-        </button>
-        <button role="tab" aria-selected={mode === "browse"} className={mode === "browse" ? "on" : ""} onClick={() => useCatalog.getState().set({ mode: "browse" })} title="Browse any folder">
-          <FolderRegular /> Browse
-        </button>
-      </div>
-      {mode === "project" ? (
-        <ProjectFiles
-          selected={selected}
-          onSelect={inspect}
-          onMenu={(x, y, entry) => {
-            void inspect(entry);
-            setMenu({ x, y, entry });
-          }}
-          onBrowse={(folder) => {
-            useCatalog.getState().set({ mode: "browse" });
-            void go(folder);
-          }}
-        />
-      ) : (
-      <>
-      <div className="pane-toolbar">
-        <Tooltip content="Back" relationship="label">
-          <button className="cat-btn" disabled={!history.length} onClick={back}>
-            <ArrowLeftRegular />
-          </button>
-        </Tooltip>
-        <Tooltip content="Up one folder" relationship="label">
-          <button className="cat-btn" disabled={!listing?.parent} onClick={() => listing?.parent && go(listing.parent)}>
-            <ArrowUpRegular />
-          </button>
-        </Tooltip>
-        <input
-          className="cat-path"
-          value={pathText}
-          onChange={(e) => setPathText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && go(pathText.trim())}
-          title="Folder — type a path and press Enter"
-          spellCheck={false}
-        />
-        <Tooltip content="Refresh" relationship="label">
-          <button className="cat-btn" onClick={refresh}>
-            <ArrowClockwiseRegular />
-          </button>
-        </Tooltip>
-        <Tooltip content={connected ? "Remove this folder connection" : "Connect this folder (keep it under Places)"} relationship="label">
-          <button className="cat-btn" disabled={!listing} onClick={() => listing && toggleConnection(listing.path)}>
-            {connected ? <StarFilled className="cat-star" /> : <StarRegular />}
-          </button>
-        </Tooltip>
-      </div>
-
-      <div className="cat-places">
-        {roots.map((r) => (
-          <button key={r.path} className={`cat-place ${listing?.path === r.path ? "on" : ""}`} onClick={() => go(r.path)} title={r.path}>
-            <RootIcon kind={r.kind} /> {r.name}
-          </button>
-        ))}
-        {connections.map((c) => (
-          <span key={c} className={`cat-place conn ${listing?.path === c ? "on" : ""}`} title={c}>
-            <button onClick={() => go(c)}>
-              <FolderLinkRegular /> {baseName(c)}
-            </button>
-            <button className="cat-x" title="Remove connection" onClick={() => toggleConnection(c)}>
-              <DismissRegular />
-            </button>
-          </span>
-        ))}
-      </div>
-
-      <div className="cat-filter">
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter this folder…" />
-        <label title="Hide files that aren't GIS data">
-          <input type="checkbox" checked={gisOnly} onChange={(e) => useCatalog.getState().set({ gisOnly: e.target.checked })} /> GIS only
-        </label>
-      </div>
-
-      {err && <div className="src-warn">{err}</div>}
-      <div className="cat-list" role="listbox" aria-label="Folder contents">
-        {listing && shown.length === 0 && <div className="muted pane-empty">{filter ? `Nothing matches "${filter}".` : gisOnly ? "No GIS data or folders here." : "This folder is empty."}</div>}
-        {shown.map((e) => (
-          <div
-            key={e.path}
-            role="option"
-            aria-selected={selected?.path === e.path}
-            className={`cat-row ${selected?.path === e.path ? "sel" : ""} ${e.kind}`}
-            title={e.path}
-            onClick={() => inspect(e)}
-            onDoubleClick={() => open(e)}
-            onContextMenu={(ev) => {
-              ev.preventDefault();
-              void inspect(e);
-              setMenu({ x: ev.clientX, y: ev.clientY, entry: e });
-            }}
-            onPointerDown={(ev) => ADDABLE.has(e.kind) && startDrag(ev, { kind: "file", id: e.path, label: e.name })}
-          >
-            <KindIcon kind={e.kind} />
-            <span className="cat-name">{e.name}</span>
-            <span className="cat-meta">{sizeText(e.size)}</span>
-            <span className="cat-meta date">{dateText(e.modified)}</span>
-          </div>
-        ))}
-      </div>
-      </>
-      )}
-
-      {selected && (
-        <div className="cat-details">
-          <div className="cat-details-head">
-            <KindIcon kind={selected.kind} /> <b>{selected.name}</b>
-          </div>
-          {typeof details === "string" && <div className="muted">{details}</div>}
-          {details && typeof details !== "string" && (
-            <>
-              <div className="muted">{details.driver}</div>
-              {details.raster && (
-                <div>
-                  Raster {details.raster[0].toLocaleString()} × {details.raster[1].toLocaleString()} px · {details.raster[2]} band(s){details.crs ? ` · ${details.crs}` : ""}
-                </div>
-              )}
-              {details.layers.map((l) => (
-                <div key={l.name} className="cat-layer">
-                  <b>{l.name}</b> · {l.geometry} · {l.features.toLocaleString()} features
-                  <div className="muted">{l.crs ?? "No coordinate system"}</div>
-                </div>
-              ))}
-            </>
-          )}
-          {ADDABLE.has(selected.kind) && <div className="muted small">Double-click or drag onto the map, Contents or the node editor to add it.</div>}
-        </div>
-      )}
-
-      {menu && (
-        <Menu
-          open
-          onOpenChange={(_, d) => !d.open && setMenu(null)}
-          positioning={{
-            target: { getBoundingClientRect: () => ({ x: menu.x, y: menu.y, left: menu.x, top: menu.y, right: menu.x, bottom: menu.y, width: 0, height: 0, toJSON: () => null }) } as never,
-            position: "below",
-            align: "start",
-          }}
-        >
-          <MenuPopover>
-            <MenuList>
-              {ADDABLE.has(menu.entry.kind) && (
-                <MenuItem icon={<AddRegular />} onClick={() => addData([menu.entry.path])}>
-                  Add to map
-                </MenuItem>
-              )}
-              {ADDABLE.has(menu.entry.kind) && (
-                <MenuItem icon={<ShapesRegular />} disabled={!useModel.getState().layer} onClick={() => addToTree(menu.entry)}>
-                  Add to the open node tree
-                </MenuItem>
-              )}
-              {menu.entry.kind === "project" && <MenuItem onClick={() => openProject(menu.entry.path)}>Open project</MenuItem>}
-              {menu.entry.kind === "folder" && (
-                <MenuItem onClick={() => (useCatalog.getState().set({ mode: "browse" }), go(menu.entry.path))}>Open folder</MenuItem>
-              )}
-              {mode === "project" && menu.entry.kind !== "folder" && (
-                <MenuItem icon={<FolderRegular />} onClick={() => (useCatalog.getState().set({ mode: "browse" }), go(menu.entry.path.replace(/[\\/][^\\/]+$/, "")))}>
-                  Show in folder
-                </MenuItem>
-              )}
-              {(menu.entry.kind === "folder" || menu.entry.kind === "gdb") && (
-                <MenuItem icon={<StarRegular />} onClick={() => toggleConnection(menu.entry.path)}>
-                  {connections.includes(menu.entry.path) ? "Remove folder connection" : "Connect folder"}
-                </MenuItem>
-              )}
-              {ADDABLE.has(menu.entry.kind) && (
-                <MenuItem icon={<InfoRegular />} onClick={() => inspect(menu.entry)}>
-                  Details
-                </MenuItem>
-              )}
-              <MenuItem icon={<CopyRegular />} onClick={() => navigator.clipboard.writeText(menu.entry.path)}>
-                Copy path
-              </MenuItem>
-            </MenuList>
-          </MenuPopover>
-        </Menu>
-      )}
-    </div>
-  );
-}
+const parentOf = (p: string) => p.replace(/[\\/][^\\/]+$/, "") || p;
+const isAbsolute = (p: string) => p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p) || p.startsWith("\\\\");
 
 interface UsedFile {
   path: string;
@@ -390,25 +86,12 @@ interface UsedFile {
   layers: string[];
 }
 
-const parentOf = (p: string) => p.replace(/[\\/][^\\/]+$/, "") || p;
-const isAbsolute = (p: string) => p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p) || p.startsWith("\\\\");
-
 /**
- * "This project": the local files the project's layers came from (from the
- * source log, plus layer sources), grouped by folder, with the project folder
- * itself. Files moved or deleted since they were added are flagged.
+ * The local files the project's layers came from (from the source log, plus layer
+ * sources), and the project folder itself. Files moved or deleted since they were
+ * added come back with `entry: null`.
  */
-function ProjectFiles({
-  selected,
-  onSelect,
-  onMenu,
-  onBrowse,
-}: {
-  selected: FsEntry | null;
-  onSelect: (e: FsEntry) => void;
-  onMenu: (x: number, y: number, e: FsEntry) => void;
-  onBrowse: (folder: string) => void;
-}) {
+function useProjectFiles() {
   const layers = useApp((s) => s.layers);
   const projectDir = useApp((s) => s.projectDir);
   const [files, setFiles] = useState<UsedFile[] | null>(null);
@@ -460,59 +143,338 @@ function ProjectFiles({
     }
     return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [files]);
+
+  return { files, extra, groups, err };
+}
+
+/** Branches that start expanded. */
+const DEFAULT_OPEN: Record<string, boolean> = { project: true, layouts: true, files: false, public: true };
+
+interface RowProps {
+  id: string;
+  level: number;
+  icon: ReactNode;
+  label: ReactNode;
+  /** Present on branches: whether the branch is open. */
+  open?: boolean;
+  selected?: boolean;
+  className?: string;
+  title?: string;
+  /** Cells after the label (counts, buttons, sizes). */
+  trailing?: ReactNode;
+  onSelect?: () => void;
+  onActivate?: () => void;
+  onToggle?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
+}
+
+/** One tree row. Branches toggle on click; leaves select on click and activate on double-click or Enter. */
+function Row(p: RowProps) {
+  const branch = p.open !== undefined;
+  return (
+    <div
+      role="treeitem"
+      tabIndex={-1}
+      data-node={p.id}
+      aria-level={p.level}
+      aria-expanded={branch ? p.open : undefined}
+      aria-selected={!!p.selected}
+      title={p.title}
+      className={`cat-row ${branch ? "branch" : "leaf"} ${p.selected ? "sel" : ""} ${p.className ?? ""}`}
+      style={{ paddingLeft: 6 + (p.level - 1) * 14 }}
+      onClick={() => (branch ? p.onToggle?.() : p.onSelect?.())}
+      onDoubleClick={() => !branch && p.onActivate?.()}
+      onContextMenu={p.onContextMenu}
+      onPointerDown={p.onPointerDown}
+    >
+      <span className="cat-chev">{branch ? p.open ? <ChevronDownRegular /> : <ChevronRightRegular /> : null}</span>
+      <span className="cat-icon">{p.icon}</span>
+      <span className="cat-name">{p.label}</span>
+      {p.trailing}
+    </div>
+  );
+}
+
+export function CatalogPane() {
+  const [open, setOpen] = useState<Record<string, boolean>>(DEFAULT_OPEN);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; entry: FsEntry } | null>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const show = useDialog((s) => s.show);
+  const { files, extra, groups, err } = useProjectFiles();
   const missing = (files ?? []).filter((f) => !f.entry).length;
 
+  useLayouts((s) => s.docs);
+  useLayouts((s) => s.doc);
+  const activeLayout = useLayouts((s) => s.id);
+  const layouts = useLayouts.getState().list();
+
+  const isOpen = (k: string) => open[k] ?? DEFAULT_OPEN[k] ?? true;
+  const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !isOpen(k) }));
+  const items = () => [...(treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])];
+  const focusItem = (el: HTMLElement | undefined) => {
+    if (!el) return;
+    el.focus();
+    setSelected(el.dataset.node ?? null);
+  };
+
+  // Arrow keys move, Right/Left open and close (or step into / out of a branch), Enter or Space acts on the row.
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('[role="treeitem"]');
+    if (!row || (e.target as HTMLElement) !== row) return;
+    const all = items();
+    const i = all.indexOf(row);
+    const level = Number(row.getAttribute("aria-level"));
+    const expanded = row.getAttribute("aria-expanded");
+    const key = row.dataset.node!;
+    switch (e.key) {
+      case "ArrowDown":
+        focusItem(all[i + 1]);
+        break;
+      case "ArrowUp":
+        focusItem(all[i - 1]);
+        break;
+      case "Home":
+        focusItem(all[0]);
+        break;
+      case "End":
+        focusItem(all[all.length - 1]);
+        break;
+      case "ArrowRight":
+        if (expanded === "false") setOpen((o) => ({ ...o, [key]: true }));
+        else if (expanded === "true") focusItem(all[i + 1]);
+        break;
+      case "ArrowLeft":
+        if (expanded === "true") setOpen((o) => ({ ...o, [key]: false }));
+        else focusItem([...all.slice(0, i)].reverse().find((r) => Number(r.getAttribute("aria-level")) < level));
+        break;
+      case "Enter":
+      case " ":
+        if (expanded !== null) toggle(key);
+        else row.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+        break;
+      case "F2":
+        if (key.startsWith("layout:")) renameLayout(key.slice(7));
+        break;
+      case "Delete":
+        if (key.startsWith("layout:")) deleteLayout(key.slice(7));
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  };
+
+  // Roving focus: one row is in the tab order, the selected one (else the first).
+  useEffect(() => {
+    const all = items();
+    all.forEach((r) => (r.tabIndex = -1));
+    (all.find((r) => r.dataset.node === selected) ?? all[0])?.setAttribute("tabindex", "0");
+  });
+
+  const addToTree = async (e: FsEntry) => {
+    const owner = useModel.getState().layer;
+    const infos = await addData([e.path]);
+    if (infos[0] && owner) addToolToModel("input_layer", { layer: infos[0].id });
+  };
+
+  const fileRow = (f: UsedFile, level: number) => {
+    const e: FsEntry = f.entry ?? { name: baseName(f.path), path: f.path, kind: "file", size: null, modified: null };
+    const id = `file:${f.path}`;
+    return (
+      <Row
+        key={id}
+        id={id}
+        level={level}
+        icon={<KindIcon kind={e.kind} />}
+        className={`file ${e.kind} ${f.entry ? "" : "missing"}`}
+        selected={selected === id}
+        title={f.entry ? f.path : `${f.path} — missing: moved, renamed or deleted since it was added`}
+        label={
+          <>
+            {e.name}
+            <span className="cat-used">{f.entry ? `used by ${f.layers.join(", ")}` : "missing — moved or deleted"}</span>
+          </>
+        }
+        trailing={
+          <>
+            <span className="cat-meta">{sizeText(e.size)}</span>
+            <span className="cat-meta date">{dateText(e.modified)}</span>
+          </>
+        }
+        onSelect={() => setSelected(id)}
+        onActivate={() => f.entry && ADDABLE.has(e.kind) && void addData([f.path])}
+        onContextMenu={(ev) => {
+          ev.preventDefault();
+          setSelected(id);
+          if (f.entry) setMenu({ x: ev.clientX, y: ev.clientY, entry: e });
+        }}
+        onPointerDown={(ev) => f.entry && ADDABLE.has(e.kind) && startDrag(ev, { kind: "file", id: f.path, label: e.name })}
+      />
+    );
+  };
+
   return (
-    <div className="cat-list cat-project">
+    <div className="pane catalog-pane" onClick={() => setMenu(null)}>
       {err && <div className="src-warn">{err}</div>}
-      <div className="cat-summary muted">
-        {files === null
-          ? "Looking up the project's files…"
-          : `${files.length} file${files.length === 1 ? "" : "s"} in ${groups.length} folder${groups.length === 1 ? "" : "s"}${missing ? ` · ${missing} missing` : ""}`}
+      <div className="cat-tree" role="tree" aria-label="Catalog" ref={treeRef} onKeyDown={onKeyDown}>
+        <Row id="project" level={1} icon={<BriefcaseRegular />} label="Project" className="head" open={isOpen("project")} onToggle={() => toggle("project")} />
+        {isOpen("project") && (
+          <>
+            {/* WP 11 adds the Maps branch here. */}
+            <Row
+              id="layouts"
+              level={2}
+              icon={<DocumentPdfRegular />}
+              label="Layouts"
+              open={isOpen("layouts")}
+              onToggle={() => toggle("layouts")}
+              trailing={
+                <>
+                  <span className="cat-meta">{layouts.length || ""}</span>
+                  <button
+                    className="linkbtn cat-new"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      newLayout();
+                    }}
+                  >
+                    New
+                  </button>
+                </>
+              }
+            />
+            {isOpen("layouts") && layouts.length === 0 && <div className="empty-hint cat-empty">No layouts yet. Insert → New Layout creates a print map page.</div>}
+            {isOpen("layouts") &&
+              layouts.map((l) => (
+                <Row
+                  key={l.id}
+                  id={`layout:${l.id}`}
+                  level={3}
+                  icon={<DocumentPdfRegular />}
+                  label={l.name}
+                  className={`layout-row ${activeLayout === l.id ? "active" : ""}`}
+                  selected={selected === `layout:${l.id}`}
+                  onSelect={() => setSelected(`layout:${l.id}`)}
+                  onActivate={() => openLayout(l.id)}
+                  trailing={
+                    <span className="row-actions">
+                      <button title="Rename" aria-label={`Rename ${l.name}`} onClick={(e) => (e.stopPropagation(), renameLayout(l.id))}>
+                        <EditRegular />
+                      </button>
+                      <button title="Duplicate" aria-label={`Duplicate ${l.name}`} onClick={(e) => (e.stopPropagation(), duplicateLayout(l.id))}>
+                        <CopyRegular />
+                      </button>
+                      <button title="Delete" aria-label={`Delete ${l.name}`} onClick={(e) => (e.stopPropagation(), deleteLayout(l.id))}>
+                        <DeleteRegular />
+                      </button>
+                    </span>
+                  }
+                />
+              ))}
+
+            <Row
+              id="files"
+              level={2}
+              icon={<DocumentRegular />}
+              label="Project files"
+              open={isOpen("files")}
+              onToggle={() => toggle("files")}
+              trailing={<span className="cat-meta">{files === null ? "" : `${files.length}${missing ? ` · ${missing} missing` : ""}`}</span>}
+            />
+            {isOpen("files") && (
+              <>
+                {files === null && <div className="empty-hint cat-empty">Looking up the project's files…</div>}
+                {extra.map((e) => (
+                  <Row
+                    key={e.path}
+                    id={`extra:${e.path}`}
+                    level={3}
+                    icon={<KindIcon kind={e.kind} />}
+                    className={e.kind}
+                    title={e.path}
+                    label={e.kind === "project" ? `${e.name} (project folder)` : e.name}
+                    selected={selected === `extra:${e.path}`}
+                    onSelect={() => setSelected(`extra:${e.path}`)}
+                    trailing={<span className="cat-meta date">{dateText(e.modified)}</span>}
+                  />
+                ))}
+                {files !== null && files.length === 0 && (
+                  <div className="empty-hint cat-empty">No local files yet. Layers added from files (Add Data, drag-and-drop) are listed here; downloaded data (TIGER, National Map, elevation) is cited in Sources instead.</div>
+                )}
+                {groups.map(([dir, fs]) => (
+                  <div key={dir} role="group">
+                    <Row
+                      id={`dir:${dir}`}
+                      level={3}
+                      icon={<FolderRegular className="cat-ico folder" />}
+                      title={dir}
+                      label={
+                        <>
+                          {baseName(dir)}
+                          <span className="cat-used">{dir}</span>
+                        </>
+                      }
+                      open={isOpen(`dir:${dir}`)}
+                      onToggle={() => toggle(`dir:${dir}`)}
+                    />
+                    {isOpen(`dir:${dir}`) && fs.map((f) => fileRow(f, 4))}
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
+
+        <Row id="public" level={1} icon={<GlobeRegular />} label="Public Data" className="head" open={isOpen("public")} onToggle={() => toggle("public")} />
+        {isOpen("public") &&
+          PUBLIC_DATA.map((p) => (
+            <Row
+              key={p.id}
+              id={`public:${p.id}`}
+              level={2}
+              icon={p.icon}
+              label={p.label}
+              className="public"
+              title={`${p.tip} (double-click or Enter to open)`}
+              selected={selected === `public:${p.id}`}
+              onSelect={() => setSelected(`public:${p.id}`)}
+              onActivate={() => show(p.dialog)}
+            />
+          ))}
       </div>
-      {extra.map((e) => (
-        <div key={e.path} className={`cat-row ${e.kind}`} title={e.path} onDoubleClick={() => onBrowse(e.path)}>
-          <KindIcon kind={e.kind} />
-          <span className="cat-name">{e.kind === "project" ? `${e.name} (project folder)` : e.name}</span>
-          <span className="cat-meta" />
-          <span className="cat-meta date">{dateText(e.modified)}</span>
-        </div>
-      ))}
-      {files !== null && files.length === 0 && (
-        <div className="muted pane-empty">No local files yet. Layers added from files (Add Data, drag-and-drop, the Browse tab) are listed here; downloaded data (TIGER, National Map, elevation) is cited in Sources instead.</div>
+
+      {menu && (
+        <Menu
+          open
+          onOpenChange={(_, d) => !d.open && setMenu(null)}
+          positioning={{
+            target: { getBoundingClientRect: () => ({ x: menu.x, y: menu.y, left: menu.x, top: menu.y, right: menu.x, bottom: menu.y, width: 0, height: 0, toJSON: () => null }) } as never,
+            position: "below",
+            align: "start",
+          }}
+        >
+          <MenuPopover>
+            <MenuList>
+              {ADDABLE.has(menu.entry.kind) && (
+                <MenuItem icon={<AddRegular />} onClick={() => addData([menu.entry.path])}>
+                  Add to map
+                </MenuItem>
+              )}
+              {ADDABLE.has(menu.entry.kind) && (
+                <MenuItem icon={<ShapesRegular />} disabled={!useModel.getState().layer} onClick={() => addToTree(menu.entry)}>
+                  Add to the open node tree
+                </MenuItem>
+              )}
+              {menu.entry.kind === "project" && <MenuItem onClick={() => openProject(menu.entry.path)}>Open project</MenuItem>}
+              <MenuItem icon={<CopyRegular />} onClick={() => navigator.clipboard.writeText(menu.entry.path)}>
+                Copy path
+              </MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
       )}
-      {groups.map(([dir, fs]) => (
-        <div key={dir} className="cat-group">
-          <button className="cat-folder" title={`${dir} — open in Browse`} onClick={() => onBrowse(dir)}>
-            <FolderRegular className="cat-ico folder" /> <span className="cat-name">{baseName(dir)}</span>
-            <span className="cat-dir muted">{dir}</span>
-          </button>
-          {fs.map((f) => {
-            const e: FsEntry = f.entry ?? { name: baseName(f.path), path: f.path, kind: "file", size: null, modified: null };
-            return (
-              <div
-                key={f.path}
-                className={`cat-row nested ${e.kind} ${selected?.path === f.path ? "sel" : ""} ${f.entry ? "" : "missing"}`}
-                title={f.entry ? f.path : `${f.path} — missing: moved, renamed or deleted since it was added`}
-                onClick={() => f.entry && onSelect(e)}
-                onContextMenu={(ev) => {
-                  ev.preventDefault();
-                  if (f.entry) onMenu(ev.clientX, ev.clientY, e);
-                }}
-                onPointerDown={(ev) => f.entry && ADDABLE.has(e.kind) && startDrag(ev, { kind: "file", id: f.path, label: e.name })}
-              >
-                <KindIcon kind={e.kind} />
-                <span className="cat-name">
-                  {e.name}
-                  <span className="cat-used">{f.entry ? `used by ${f.layers.join(", ")}` : "missing — moved or deleted"}</span>
-                </span>
-                <span className="cat-meta">{sizeText(e.size)}</span>
-                <span className="cat-meta date">{dateText(e.modified)}</span>
-              </div>
-            );
-          })}
-        </div>
-      ))}
     </div>
   );
 }
