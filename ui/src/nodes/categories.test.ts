@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, compareCategories, splitCategory } from "./categories";
+import { addGroup, buildTree, compareCategories, familyOf, splitCategory } from "./categories";
 
 describe("tool categories", () => {
   it("splits group and sub-group", () => {
@@ -21,5 +21,14 @@ describe("tool categories", () => {
     expect(t[0].subs.map((s) => s.name)).toEqual(["Geometry", "Overlay"]);
     expect(t[0].subs[1].tools.map((x) => x.name)).toEqual(["Clip", "Union"]);
     expect(t[1].tools.map((x) => x.name)).toEqual(["Basins"]);
+  });
+});
+
+describe("menu groups", () => {
+  it("puts output tools under Save to File and names colour families by first word", () => {
+    expect(addGroup({ category: "Vector › Overlay", role: "tool" })).toBe("Vector");
+    expect(addGroup({ category: "Output", role: "output" })).toBe("Save to File");
+    expect(familyOf("Coordinate Systems")).toBe("Coordinate");
+    expect(familyOf("Save to File")).toBeNull();
   });
 });

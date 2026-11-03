@@ -7,12 +7,13 @@ import { useStore } from "zustand";
 import { addData, runModel, useDialog } from "../actions";
 import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
-import { AddMenu, type AddItem } from "../nodes/AddMenu";
 import { nodeTypes } from "../nodes/ModelNodes";
 import { NodeMenu } from "../nodes/NodeMenu";
 import { copySelection, cutLinks, deleteSelection, duplicateSelection, invertSelection, makeLinks, paste, selectAll, toggleCollapse, toggleMute } from "../nodes/graphOps";
 import { actionFor, displayCombo, eventCombo, useKeymap, type NodeAction } from "../nodes/keymap";
 import { edgeUnder, splice } from "../nodes/splice";
+import { openToolMenu, useToolMenu } from "../nodes/toolMenuStore";
+import { registerEditor } from "../nodes/toolPlacement";
 import { useProgress } from "../progress/progress";
 import { beginStep, connectProblem, flushParamEdit, specs, useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
@@ -50,10 +51,13 @@ function ModelCanvas() {
   const temporal = useModel.temporal;
   const canUndo = useStore(temporal, (s) => s.pastStates.length > 0);
   const canRedo = useStore(temporal, (s) => s.futureStates.length > 0);
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   // What the editor last did with Shift+A or a right-click, shown in the toolbar for a few seconds so a silent failure can be reported.
   const [diag, setDiag] = useState<{ text: string; at: number } | null>(null);
   const note = (text: string) => setDiag({ text, at: Date.now() });
+  const toolNote = useToolMenu((s) => s.note); // what the Shift+A shortcut and the tool menu did (nodes/toolMenuKeys.ts)
+  useEffect(() => {
+    if (toolNote) setDiag(toolNote);
+  }, [toolNote]);
   useEffect(() => {
     if (!diag) return;
     const t = setTimeout(() => setDiag(null), 9000);
@@ -176,33 +180,6 @@ function ModelCanvas() {
     if (problem) useApp.getState().setStatus(`Not inserted into the connection: ${problem}.`);
   };
 
-  /**
-   * The Add menu needs a node tree to add to. When no layer is selected (a project just opened, a layer removed, data added from the
-   * Catalog) the first layer in Contents is selected for the user instead of silently doing nothing; with no layers at all the
-   * status bar says so.
-   */
-  const openMenu = (x: number, y: number) => {
-    if (!useModel.getState().layer) {
-      const app = useApp.getState();
-      const first = app.order.find((id) => app.layers[id] && !app.layers[id].temporary);
-      if (!first) {
-        note("Add menu: no layers in the project");
-        app.setStatus("Add data first (Data tab, or drag a file into the Catalog): every layer gets its own node tree here.");
-        return;
-      }
-      app.setActiveLayer(first); // the Model opens that layer's tree (App.tsx follows the active layer)
-      app.setStatus(`Selected "${app.layers[first].name}" so its node tree opens here.`);
-    }
-    setMenu({ x, y });
-    note("Add menu opened");
-  };
-
-  const pick = (item: AddItem) => {
-    const at = menu ? flow.screenToFlowPosition({ x: menu.x, y: menu.y }) : { x: 80, y: 80 };
-    setMenu(null);
-    addAndMaybeSplice(item.tool, at, item.params);
-  };
-
   // Node-editor shortcuts (keymap.ts): only while the pointer is over the
   // canvas or focus is inside the Model pane, never while typing.
   const dragStep = useRef<(() => void) | null>(null);
@@ -210,11 +187,22 @@ function ModelCanvas() {
   const suppressMenu = useRef(false);
   const [cut, setCut] = useState<{ x: number; y: number }[] | null>(null);
 
-  /** The node canvas is on screen with room to work in (its tab is active and not squashed). */
-  const canvasVisible = () => {
-    const r = wrap.current?.getBoundingClientRect();
-    return !!wrap.current && wrap.current.offsetParent !== null && !!r && r.width > 80 && r.height > 60;
-  };
+  // The tool menu (nodes/ToolMenu.tsx) places nodes through this while the editor is on screen.
+  useEffect(() => {
+    registerEditor({
+      screenToFlow: (p) => flow.screenToFlowPosition(p),
+      getInternalNode: (id) => flow.getInternalNode(id),
+      rect: () => {
+        const el = wrap.current;
+        // A tab behind another stays mounted but hidden (display or visibility).
+        const shown = !!el && el.offsetParent !== null && (el.checkVisibility?.({ checkVisibilityCSS: true } as never) ?? true);
+        return shown ? el.getBoundingClientRect() : null;
+      },
+      busy: () => !!grab.current,
+    });
+    return () => registerEditor(null);
+  }, [flow]);
+
   const overCanvas = () => {
     const m = mouse.current;
     const r = wrap.current?.getBoundingClientRect();
@@ -226,8 +214,6 @@ function ModelCanvas() {
   // activates it until you click elsewhere.
   const sawMove = useRef(false);
   const clickedIn = useRef(false);
-  // When a key last went into a text field: typing wins for a moment, then the pointer decides (see onKey).
-  const lastTyped = useRef(0);
   const [active, setActive] = useState<"off" | "on" | "editing">("off");
   const editorActive = (target?: Element | null) =>
     sawMove.current ? overCanvas() || !!target?.closest?.(".model .react-flow__node") : clickedIn.current;
@@ -304,10 +290,8 @@ function ModelCanvas() {
     const temporal = useModel.temporal.getState();
     switch (a) {
       case "add": {
-        // At the pointer; if the window never reported one (some desktop webviews), at the middle of the canvas.
-        const r = wrap.current?.getBoundingClientRect();
-        const m = mouse.current && overCanvas() ? mouse.current : r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
-        if (m) openMenu(m.x, m.y);
+        // Normally handled for the whole window by nodes/toolMenuKeys.ts; at the pointer when over the canvas.
+        openToolMenu(mouse.current && overCanvas() ? mouse.current : null);
         break;
       }
       case "delete":
@@ -367,12 +351,10 @@ function ModelCanvas() {
         return;
       }
       const target = e.target as HTMLElement;
-      const isAddKey = e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === "a";
-      if (isAddKey) note("Shift+A received");
-      if (document.querySelector(".addmenu, [role=dialog]")) {
-        if (isAddKey) note("Shift+A ignored: a menu or dialog is open");
-        return;
-      }
+      if (document.querySelector(".toolmenu, [role=dialog]")) return;
+      // Add (Shift+A) is the tool menu's: it works with this editor closed too (nodes/toolMenuKeys.ts).
+      const addCombo = eventCombo(e);
+      if (addCombo && actionFor(useKeymap.getState().bindings, addCombo) === "add") return;
       const nodeField = target?.closest?.(".model .react-flow__node input, .model .react-flow__node select, .model .react-flow__node textarea") as HTMLElement | null;
       // Enter / Esc in a node's field finishes editing.
       if (nodeField && (e.key === "Enter" || e.key === "Escape") && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
@@ -381,41 +363,14 @@ function ModelCanvas() {
         if (e.key === "Escape") e.preventDefault();
         return;
       }
-      const field = typingField();
-      if (field) {
-        // Only the Add shortcut lets the pointer override a text box outside the editor that still has focus (Blender-style: the pointer
-        // decides), and only when keys are not going into that box (nothing typed in the last 1.2 s). Editing keys (Escape, Enter,
-        // Delete, Backspace, letters) always stay with the text box.
-        const combo = eventCombo(e);
-        const wantsAdd = !!combo && actionFor(useKeymap.getState().bindings, combo) === "add";
-        const printable = e.key.length === 1 && !e.metaKey && !e.ctrlKey;
-        if (printable && !wantsAdd) lastTyped.current = Date.now(); // the shortcut itself is not typing
-        const idle = Date.now() - lastTyped.current > 1200;
-        if (wantsAdd && !field.closest(".model") && sawMove.current && overCanvas() && idle) {
-          field.blur();
-          setActive(editorState());
-        } else {
-          if (wantsAdd) note("Shift+A ignored: a text box has the keys (click the canvas first)");
-          if (wantsAdd && !field.closest(".model")) {
-            useApp.getState().setStatus("Shift+A: a text box has focus. Click the Model canvas (or move the pointer over it and wait a moment), then press Shift+A.");
-          }
-          return; // the keys are for that field
-        }
-      }
+      // Editing keys (Escape, Enter, Delete, Backspace, letters) always stay with a text box.
+      if (typingField()) return;
       const combo = eventCombo(e);
       const action = combo && actionFor(useKeymap.getState().bindings, combo);
-      // Add (Shift+A) works anywhere in the window while the Model canvas is on screen and no text box has the keys; the other
-      // shortcuts follow the pointer. When Add cannot run the status bar says why instead of nothing happening.
-      if (!editorActive(target)) {
-        if (action !== "add") return;
-        if (!canvasVisible()) {
-          note("Shift+A ignored: the Model canvas is not on screen");
-          useApp.getState().setStatus("Shift+A: the Model canvas is not on screen. Open the Model tab (View → Model) and try again.");
-          return;
-        }
-      }
+      // The other shortcuts follow the pointer.
+      if (!editorActive(target)) return;
       if (!action) return;
-      // Without a layer there is no tree to act on; only Add does something (it picks a layer, see openMenu).
+      // Without a layer there is no tree to act on.
       if (!useModel.getState().layer && action !== "add") return;
       e.preventDefault();
       e.stopPropagation();
@@ -502,10 +457,9 @@ function ModelCanvas() {
             size="small"
             appearance="subtle"
             icon={<AddRegular />}
-            disabled={!treeLayer}
             onClick={(e) => {
               const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              openMenu(r.left, r.bottom + 4);
+              openToolMenu({ x: r.left, y: r.bottom + 4 });
             }}
           >
             Add
@@ -563,10 +517,10 @@ function ModelCanvas() {
         onMouseMove={(e) => (mouse.current = { x: e.clientX, y: e.clientY })}
         onContextMenuCapture={(e) => {
           // Our own right-click handling on empty canvas: React Flow treats a right click that moved a pixel or two (a trackpad does) as a
-          // pan and never reports it, so no Add menu opened in the app. Nodes, edges and the zoom controls keep their own menus.
+          // pan and never reports it, so no Add menu opened in the app. Nodes and the zoom controls keep their own menus; a connection takes the new node into it.
           const t = e.target as HTMLElement;
-          if (!t.closest(".react-flow__pane") || t.closest(".react-flow__node, .react-flow__edge, .react-flow__controls")) {
-            note("Right-click on a node, connection or control: that has its own menu");
+          if (!t.closest(".react-flow__pane") || t.closest(".react-flow__node, .react-flow__controls")) {
+            note("Right-click on a node or control: that has its own menu");
             return;
           }
           note("Right-click on the canvas received");
@@ -576,7 +530,7 @@ function ModelCanvas() {
             suppressMenu.current = false;
             return;
           }
-          openMenu(e.clientX, e.clientY);
+          openToolMenu({ x: e.clientX, y: e.clientY });
         }}
         onPointerDownCapture={onCutDown}
         onPointerMove={onCutMove}
@@ -639,11 +593,10 @@ function ModelCanvas() {
           defaultEdgeOptions={{ type: "smoothstep" }}
           minZoom={0.2}
         >
-          <Background gap={16} size={1} color="#d8d8d8" />
+          <Background gap={16} size={1} color="var(--canvas-dot)" />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
         {nodeMenu && <NodeMenu x={nodeMenu.x} y={nodeMenu.y} nodeId={nodeMenu.id} onClose={() => setNodeMenu(null)} />}
-        {menu && <AddMenu x={menu.x} y={menu.y} onPick={pick} onClose={() => setMenu(null)} />}
       </div>
     </div>
   );
