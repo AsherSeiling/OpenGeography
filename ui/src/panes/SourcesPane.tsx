@@ -167,6 +167,7 @@ export function SourcesPane() {
                   appearance="subtle"
                   icon={<DeleteRegular />}
                   title="Remove from the bibliography"
+                  aria-label="Remove from the bibliography"
                   onClick={() => api.removeSource(e.citation.key).then(refresh, (x) => setErr(errorText(x)))}
                 />
               </div>

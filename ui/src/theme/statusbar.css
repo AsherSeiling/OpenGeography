@@ -1,17 +1,20 @@
-/* Status bar. Owner: WP 7. */
+/* Status bar. Owner: WP 7. 24 px on --surface-0 with a top rule; the map CRS is always shown and never shrinks away. */
 /* ---------- Status bar ---------- */
-.statusbar { flex: none; height: 24px; display: flex; align-items: center; gap: 12px; padding: 0 8px; border-top: 1px solid var(--rule-soft); background: var(--surface-0); font-size: 11.5px; }
-.sb-scale input { width: 110px; font: inherit; border: 1px solid var(--rule); background: var(--surface-1); color: var(--text); padding: 1px 4px; height: 18px; }
+.statusbar { flex: none; height: 24px; box-sizing: border-box; display: flex; align-items: center; gap: var(--s-5); padding: 0 var(--s-4); border-top: 1px solid var(--rule); background: var(--surface-0); color: var(--text); font: var(--type-small); }
+.sb-scale { flex: none; }
+.sb-scale input { width: 96px; font: var(--type-small); border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); padding: 0 var(--s-2); height: 18px; box-sizing: border-box; }
+.sb-scale input:hover { border-color: var(--rule); }
 .sb-warn { color: var(--warn); font-weight: 600; }
-.sb-coords { flex: 1; display: flex; gap: 16px; overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.sb-right { display: flex; gap: 12px; align-items: center; white-space: nowrap; overflow: hidden; }
-.sb-msg { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
-.sb-crs { border: 1px solid transparent; background: none; font: inherit; color: var(--link); cursor: default; padding: 1px 6px; }
-.sb-crs:hover { background: var(--hover); border-color: var(--rule-soft); }
+.sb-coords { flex: 1; min-width: 0; display: flex; gap: var(--s-6); overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sb-right { flex: 0 1 auto; min-width: 0; display: flex; gap: var(--s-5); align-items: center; white-space: nowrap; overflow: hidden; }
+.sb-right > .muted:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sb-msg { flex: 0 1 auto; min-width: 0; max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+.sb-crs { flex: none; border: 1px solid transparent; border-radius: var(--r-control); background: none; font: var(--type-small); font-weight: 500; color: var(--link); cursor: pointer; padding: 1px var(--s-3); }
+.sb-crs:hover { background: var(--hover); border-color: var(--rule-soft); text-decoration: underline; }
 
-.sb-progress { display: inline-flex; align-items: center; gap: 6px; max-width: 420px; }
+.sb-progress { display: inline-flex; align-items: center; gap: var(--s-3); max-width: 420px; }
 .sb-progress-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 .sb-progress-bar { width: 120px; }
 .sb-progress-pct { font-variant-numeric: tabular-nums; min-width: 30px; }
-.sb-progress-x { border: none; background: none; color: var(--text-2); cursor: pointer; padding: 0 2px; font-size: 11px; }
-.sb-progress-x:hover { color: var(--error); }
+.sb-progress-x { border: 1px solid transparent; border-radius: var(--r-control); background: none; color: var(--text-2); cursor: pointer; padding: 0 var(--s-2); font-size: 11px; }
+.sb-progress-x:hover { color: var(--error); background: var(--hover); }
