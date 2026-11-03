@@ -6,7 +6,7 @@
 .model-canvas { flex: 1; min-height: 0; }
 .react-flow__node { font: 12px var(--font-ui); }
 /* React Flow styles a node type named "output" (and "input"/"default") with a white box; the card draws its own body. */
-.react-flow__node-output, .react-flow__node-data, .react-flow__node-tool { background: transparent; border: 0; padding: 0; border-radius: 0; width: auto; color: inherit; box-shadow: none; }
+.react-flow__node-output, .react-flow__node-data, .react-flow__node-tool { background: transparent; border: 0; padding: 0; border-radius: 0; width: auto; color: inherit; box-shadow: none; text-align: left; }
 .react-flow__node-output.selected, .react-flow__node-output:focus, .react-flow__node-output:focus-visible { box-shadow: none; border: 0; }
 .badge { font-size: 16px; background: var(--surface-1); border-radius: 50%; }
 .badge.done { color: var(--ok); }

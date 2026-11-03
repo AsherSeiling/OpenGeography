@@ -19,7 +19,8 @@ test("NC-1 Choose a layer wires a Layer card into an empty input; undo removes b
   expect(m.edges.some(([s, t, h]) => s === layerNode.id && t === clip && h !== "in")).toBe(true);
   await expect(card.locator(".bchoose")).toHaveCount(0);
   for (const theme of ["light", "dark"]) {
-    await gis(app, (_g, t) => document.documentElement.setAttribute("data-theme", t as string), theme);
+    await gis(app, (g, t) => g.useApp.setState({ dark: t === "dark" }), theme);
+    await app.waitForTimeout(300);
     await hoverCanvas(app);
     await app.screenshot({ path: `${process.env.E2E_SHOTS ?? "test-results"}/nodecards-${theme}.png` });
   }
