@@ -2,6 +2,15 @@
 
 Newest first. One entry per decision that isn't obvious from the code; details live in the linked plan files. Read this only when a task touches the area. `PROJECT_STATUS.md` keeps the current state and the next action.
 
+## UI redesign (2026-11-03, user approved; plan in `docs/UI_REDESIGN_PLAN.md`)
+
+- **Look:** cool flat panels, hairline rules, one accent used only as an outline around the open tab and its pane; selected text is blue; selected rows use a lighter, brighter highlight. Rounded node cards. All colours user-customisable, with text colour computed so a label can't become unreadable; saved per user, not per project.
+- **Tools:** the Shift+A menu is the way in; the Geoprocessing pane is removed. Plain-language words live in one engine table keyed by tool id (`nodes/keywords.rs`), so `ToolSpec` stays the one catalogue.
+- **Layout of the window:** the user's wireframe, except Save/Undo/Redo, which the user moved to the tab row. The Data tab goes. Bottom panel exists only while the Node Editor or Attribute Table is open. Sources is the unlabelled lower-right box. Catalog drops its file browser and folder connections, and holds Maps, Layouts and one Public Data tree.
+- **Multiple maps:** a map owns its name, CRS, basemap, view and layer list. Layer data, sources and node trees belong to the project. Style stays shared in this version. App name stays GIS Studio.
+- **Layout editor:** option B with add-ons 1, 2, 3, 4, 7, 9; five tabs that each answer one question, plus a Map Frame tab while a frame is selected.
+
+
 ## Q3 (2026-10-28)
 - **U-5 cause and fix:** the dock's active-panel handler closed the open layout whenever a non-layout panel (Properties, Contents) became active, which cleared the selection and dropped edits. Decision: a layout stays open until another layout tab is activated or its own tab is closed (`followActivePanel`, `layoutPanelClosed` in `layout/actions.ts`). Rejected: keeping `open(null)` and making the Properties pane remember its layout (edits would still have no document to land in; the Layout ribbon tab would flicker); making `update` write to `docs[layout]` for a non-open layout (hides the real fault, and undo history is per open layout).
 - **D-1 guard before tiling:** one download is refused when it is wider than 6° (one UTM zone), beyond 84° latitude, or would need cells coarser than 90 m; coarsening below that is allowed but stated in the progress message. Reason: the old code returned silently coarsened or distorted data. The rest of Q3's DEM list (service limits read from the service, mock-server failure tests, cancel during the wait, the dialog hint and 500 MB confirm) moves to D0 with the tiling, since all of it needs the injectable service URL. Rejected: raising the limits without measuring the 3DEP service (DEM-0 needs the network); tiling now (it is D0, the policy for wide areas needs the R0 CRS review).

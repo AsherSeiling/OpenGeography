@@ -1,6 +1,6 @@
 # UI redesign plan
 
-_Written 2026-11-03. Reference: `ANYGIS Mockup.svg` (the user's wireframe). Mock-up: `docs/design/ui-redesign-mockup.html`. **Status: waiting for the user's OK. No implementation before it.**_
+_Written 2026-11-03. Reference: `ANYGIS Mockup.svg` (the user's wireframe). Mock-up: `docs/design/ui-redesign-mockup.html`. **Status: approved by the user 2026-11-03; build started.** Layout editor: option B with add-ons 1, 2, 3, 4, 7, 9 (`docs/LAYOUT_UI_OPTIONS.md`). The mock-ups `docs/design/ui-redesign-mockup.html` and `docs/design/layout-options-mockup.html` are the visual reference, and `applyTheme()` in the first holds the exact derivation of the colours. Where this plan and the mock-up disagree, the mock-up wins for looks and this plan for behaviour._
 
 ## 1. What the reference says
 
@@ -111,7 +111,7 @@ A project holds any number of named maps. Today the app has one: `order`, `mapCr
 
 **Saved projects.** Old projects open as one map named "Map", with nothing else changed. Project format version goes up.
 
-**Undecided: style.** In the first version a layer's style is shared by every map. Per-map styles are the second step, because the Symbology node writes to the layer and `LayerInfo` holds the style. **Question for the user.**
+**Style.** In this version a layer's style is shared by every map. Per-map styles are a later step, because the Symbology node writes to the layer and `LayerInfo` holds the style.
 
 **Engine.** None expected for drawing: display tables are already keyed by layer and CRS. `record_basemap` citations must track every map's basemap. No new Tauri command is expected; if one appears it also goes in the devserver.
 
@@ -143,12 +143,12 @@ Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), an
 | Map | Centre. Fills it unless the bottom panel is open | Reference. |
 | Node Editor (renamed from Model), Attribute Table | Bottom panel, tabs, absent until opened | Reference. Closing the last tab removes the panel. |
 | Properties | Right | Reference. |
-| Sources | Right, under Properties | My proposal for the unlabelled box: citations are core and otherwise hidden. **Question for the user.** |
+| Sources | Right, under Properties | The unlabelled box in the reference. Default taken when the user approved without changing it. |
 | Every geoprocessing tool | Shift+A menu | Brief. |
 
 **Toolbox decision: the Geoprocessing pane is removed**, not demoted. The menu's category rail is the "browse all" view, and a second list would be a second way to learn. What only the pane offered moves to the menu: other layers as inputs (a "Layers" category) and placing onto a wire (§5).
 
-**Catalog, what goes.** The Browse mode (folder browser, folder connections, file inspector). Adding files stays through Add Data and dropping onto the window. `fs_list` and `fs_inspect` stay in the engine, unused by this pane, until a later clean-up. **Confirm with the user: this removes folder connections.**
+**Catalog, what goes.** The Browse mode (folder browser, folder connections, file inspector). Adding files stays through Add Data and dropping onto the window. `fs_list` and `fs_inspect` stay in the engine, unused by this pane, until a later clean-up. This also removes folder connections and the file inspector, as the reference asks.
 
 **Data tab, where its commands go.**
 | Command | New home |
@@ -195,7 +195,7 @@ Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), an
 
 **Keyboard.** Focus stays in the field. ↑↓ move, Home/End, PageUp/PageDown, ←→ change category while the field is empty, Enter adds, Esc closes, Mod+D toggles favourite. Combobox/listbox roles with `aria-activedescendant`; result count announced.
 
-**Catalogue.** Reads `tool_specs`. No list of tools in the UI. Plain-language words go in one new field on the spec output, `keywords`, from `crates/engine/src/nodes/keywords.rs`, keyed by tool id. It adds metadata to `SpecOut` rather than editing 78 struct literals. An engine test fails if a tool has no keywords or an id matches no tool. No new command. The mock-up's table of 75 tools is the starting draft (`TOOLS` in the mock-up file).
+**Catalogue.** Reads `tool_specs`. No list of tools in the UI. Plain-language words go in one new field on the spec output, `keywords`, from `crates/engine/src/nodes/keywords.rs`, keyed by tool id. It adds metadata to `SpecOut` rather than editing 78 struct literals. An engine test fails if a tool has no keywords or an id matches no tool. No new command. Starting draft for all 75 tools: `docs/design/tool-keywords.json`.
 
 Note: "Merge Rasters" in the brief is called **Mosaic Rasters** in the engine. "merge" will find Union, Merge and Mosaic Rasters; no tool is renamed.
 
@@ -229,7 +229,7 @@ Each is one Sonnet session in its own worktree, one commit, tests as stated. Eac
 | **10 Maps: state** | `maps[]` in the store, migrate the 80 readers, project format and old-project migration | `store/store.ts`, readers, `actions.ts` | Old projects open unchanged; per-map CRS, basemap, layers; tests prove no CRS is guessed | 6 |
 | **11 Maps: UI** | Map tabs, several `MapView`s, Catalog › Maps, frame picks a map | `panes/MapView.tsx`, `map/mapController.ts`, `layout/*` frame props | Two maps side by side stay independent; layout frame follows its map | 10 |
 | **12 Basemaps** | §2c, one citation each, credit on the map, CRS refusal | `map/*`, `commands.tsx`, `sources.rs`, `layout/basemap.rs`, `OPEN_SOURCE.md` | Each draws, credits and cites; network tests marked ignored like the others | 11 |
-| **13 Layout editor** | The option chosen in `docs/LAYOUT_UI_OPTIONS.md` | `layout/*`, `ribbon/*` | Defined once chosen | 8, 11 |
+| **13 Layout editor** | Option B with add-ons 1, 2, 3, 4, 7, 9 and the menu levels in `docs/LAYOUT_UI_OPTIONS.md` | `layout/*`, `ribbon/*` | Matches the mock-up; every current layout command still reachable; the wrong empty-page hint is gone; pixel tests unchanged | 8, 11 |
 | **9 Verify** | Full walk-through, screenshots, docs | `docs/*`, `e2e/redesign.spec.ts`, `PROJECT_STATUS.md` | §7 and the control audit | all |
 
 **Order.** 1 and 2 together. Then 3, 4, 5, 7, 8b together. Then 6 and 8 together. Then 10, 11, 12, 13 in order. Then 9. No two run at once on the same file; WP1's CSS split is what makes this possible. The lead reviews each diff and the running UI before merging.

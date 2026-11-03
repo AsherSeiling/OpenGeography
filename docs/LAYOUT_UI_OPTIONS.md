@@ -1,6 +1,6 @@
 # Layout editor options
 
-_Written 2026-11-03 for the user's approval. Nothing here is built. Mock-up: `docs/design/layout-options-mockup.html?opt=A` (B, C, D). Screens: `docs/screenshots/ui-redesign/layout-option-*.png`, current app: `before-layout.png`._
+_Written 2026-11-03. **Approved: option B with add-ons 1, 2, 3, 4, 7, 9.** Not built yet. Mock-up: `docs/design/layout-options-mockup.html?opt=A` (B, C, D). Screens: `docs/screenshots/ui-redesign/layout-option-*.png`, current app: `before-layout.png`._
 
 ## What is wrong today (seen in the running app)
 
