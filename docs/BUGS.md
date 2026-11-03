@@ -172,5 +172,5 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 
 - TP-8 note: the bundled Noto Sans has no ≥ or ≤, so the last legend class now reads "N or more" instead of "≥ N" (adding a math font would be the alternative).
 
-- **UI-1 (open, redesign, 2026-11-03):** link text on a hovered `--surface-0` is 4.05:1, below AA. Fix before the redesign is done.
+- **UI-1 (fixed in dialogs by WP8, recheck in the final walk-through; 2026-11-03):** link text on a hovered `--surface-0` is 4.05:1, below AA. Fix before the redesign is done.
 - **UI-2 (fixed, 2026-11-03):** the map scale bar drew each bar wider than its true distance because its border and padding added to the width. Now `box-sizing: border-box`.

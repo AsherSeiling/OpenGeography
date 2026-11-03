@@ -35,10 +35,7 @@ const ALLOW: Record<string, Why> = {
   "theme/colorMath.ts": { why: "ink, white and black: the candidates the readable-text rule picks from" },
   // Chrome that a later work package restyles.
   "panes/ContentsPane.tsx": { why: "raster swatch ramp (content)" },
-  "raster/RasterSymbology.tsx": { why: "histogram handle colours", owner: "WP 8" },
-  "dialogs/DatumGridsDialog.tsx": { why: "var() fallbacks and row colours", owner: "WP 8" },
-  "errors/ErrorDialog.tsx": { why: "var() fallback", owner: "WP 8" },
-  "topo/TopoSymbolPicker.tsx": { why: "preview border", owner: "WP 8" },
+  "raster/RasterSymbology.tsx": { why: "ramp fallback colour" },
 };
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
