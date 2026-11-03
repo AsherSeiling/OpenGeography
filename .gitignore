@@ -11,3 +11,4 @@ src-tauri/gen/
 src-tauri/resources/
 *.dmg
 test-results/
+graphify-out/
