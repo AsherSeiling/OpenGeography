@@ -98,6 +98,9 @@ button.it.w{width:100%;text-align:left}.it:hover{background:var(--hover)}.it.sel
 .mlow{display:grid;grid-template-columns:1fr 1fr;gap:16px}.mlow h3{margin:0 0 6px;font:600 13px/18px Inter,system-ui,sans-serif}.mlow table{border-collapse:collapse;width:100%;background:var(--surface-2)}.mlow th,.mlow td{border:1px solid var(--rule-soft);padding:3px 8px;text-align:left;font-size:12px;line-height:16px}.mlow th{font-weight:600;white-space:nowrap;width:96px}.rules{margin:0;padding-left:16px;line-height:18px}
 .qa{display:flex;align-items:center;gap:2px;margin:0 8px 4px 0;height:22px}.qa button{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 6px;font-size:12px;line-height:16px;border-radius:var(--r-control)}.qa button svg{font-size:15px}.qa button:hover:not(:disabled){background:var(--hover)}.qa button:disabled{opacity:.42}
 .qat b{flex:1;display:flex;align-items:center}.backmap{flex:1;border-top:1px solid var(--rule-soft)}
+.top{grid-template-columns:minmax(0,1fr)}
+.pbox{flex:none;width:170px;height:22px;margin:0 8px 4px 8px;padding:0 6px;background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r-control);font:500 12px/16px Inter,system-ui,sans-serif;display:flex;align-items:center;justify-content:space-between;align-self:flex-end}.pbox svg{font-size:11px}
+.tabs .backmap{flex:none;height:22px;margin:0 10px 4px 0;padding:0 6px;align-self:flex-end;font:500 12px/16px Inter,system-ui,sans-serif;display:inline-flex;align-items:center;gap:4px}.tabs .backmap:hover{background:var(--hover)}
 </style>
 </head>
 <body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -246,9 +249,9 @@ const page=(u,extras="")=>{const c=k=>sel===k?"selbox":"";return `<div class="pa
  <div class="el na ${c("north")}" data-el="north" style="left:calc(var(--u)*207);top:calc(var(--u)*106);width:calc(var(--u)*14)">N<br>↑</div>
  <div class="el src ${c("sources")}" data-el="sources" style="left:calc(var(--u)*207);top:calc(var(--u)*182);width:calc(var(--u)*62)">NAD83 / California zone 4 (ftUS). Sources: USGS NHD; U.S. Census TIGER/Line; USGS 3DEP. Basemap: none.</div>
  ${extras}</div>`};
-const qat=`<div class="qat"><b>Madera County</b><button class="backmap">${ic("map")}Back to Map</button></div>`;
+const qat=``;
 const tabNames=()=>opt==="B"?RAIL_TABS:Object.keys(TABS);
-const tabsHtml=()=>`<div class="tabs" role="tablist">${tabNames().map(t=>`<button class="tab ${t===tab?"on":""}" role="tab" aria-selected="${t===tab}" data-tab="${t}">${t}</button>`).join("")}${sel==="frame"?`<button class="tab ctxtab ${tab==="Map Frame"?"on":""}" role="tab" data-tab="Map Frame"><small>Selected</small>Map Frame</button>`:""}<span class="sp"></span><div class="qa"><button>${ic("save")}Save</button><button>${ic("undo")}Undo</button><button>${ic("redo")}Redo</button></div><div class="search">${ic("search")}Search commands</div></div>`;
+const tabsHtml=()=>`<div class="tabs" role="tablist"><button class="pbox"><span>Madera County</span>${ic("chev")}</button><button class="backmap">${ic("map")}Back to Map</button>${tabNames().map(t=>`<button class="tab ${t===tab?"on":""}" role="tab" aria-selected="${t===tab}" data-tab="${t}">${t}</button>`).join("")}${sel==="frame"?`<button class="tab ctxtab ${tab==="Map Frame"?"on":""}" role="tab" data-tab="Map Frame"><small>Selected</small>Map Frame</button>`:""}<span class="sp"></span><div class="qa"><button>${ic("save")}Save</button><button>${ic("undo")}Undo</button><button>${ic("redo")}Redo</button></div><div class="search">${ic("search")}Search commands</div></div>`;
 const cmd=c=>`<button class="${c.small?"sm":"lg"}" data-cmd="${esc(c.l)}">${ic(c.i)}<span>${esc(c.l)}${c.menu?" ▾":""}</span></button>`;
 const groupsHtml=g=>g.map(([l,it])=>{const sm=it.filter(c=>c.small),lg=it.filter(c=>!c.small);return `<div class="grp"><div>${lg.map(cmd).join("")}${sm.length?`<div class="rcol">${sm.map(cmd).join("")}</div>`:""}</div><div class="gl">${l}</div></div>`}).join("");
 const curTab=()=>tab==="Map Frame"?FRAME_TAB:TABS[tab]||TABS[tabNames()[0]];
