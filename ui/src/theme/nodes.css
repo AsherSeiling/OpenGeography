@@ -6,7 +6,7 @@
 .model-canvas { flex: 1; min-height: 0; }
 .react-flow__node { font: 12px var(--font-ui); }
 /* React Flow styles a node type named "output" (and "input"/"default") with a white box; the card draws its own body. */
-.react-flow__node-output, .react-flow__node-data, .react-flow__node-tool { background: transparent; border: 0; padding: 0; border-radius: 0; width: auto; color: inherit; box-shadow: none; }
+.react-flow__node-output, .react-flow__node-data, .react-flow__node-tool { background: transparent; border: 0; padding: 0; border-radius: 0; width: auto; color: inherit; box-shadow: none; text-align: left; }
 .react-flow__node-output.selected, .react-flow__node-output:focus, .react-flow__node-output:focus-visible { box-shadow: none; border: 0; }
 .badge { font-size: 16px; background: var(--surface-1); border-radius: 50%; }
 .badge.done { color: var(--ok); }
@@ -24,7 +24,7 @@
 .bnode { width: 230px; background: var(--surface-2); border: 1px solid var(--rule); border-radius: var(--r-card); font: 11.5px var(--font-ui); color: var(--text); padding-bottom: 4px; }
 .bnode.selected { border-color: var(--rule); box-shadow: 0 0 0 3px var(--sel-bg); }
 .bnode.error { border-color: var(--error); }
-.bnode-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 8px; border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; font-weight: 600; border-bottom: 1px solid var(--rule); }
+.bnode-head { display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 4px 8px; border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; font-weight: 600; border-bottom: 1px solid var(--rule); }
 .bnode .bnode-head { background: var(--surface-0); color: var(--text); }
 .bnode.fam-Output .bnode-head { background: var(--rule); color: var(--on-dark); }
 .bnode.fam-Input .bnode-head { background: var(--fam-Input); color: var(--fam-Input-text); }
@@ -35,7 +35,7 @@
 .bnode.fam-Coordinate .bnode-head { background: var(--fam-Coordinate); color: var(--fam-Coordinate-text); }
 .bnode.fam-Analysis .bnode-head { background: var(--fam-Analysis); color: var(--fam-Analysis-text); }
 .bnode.fam-Styling .bnode-head { background: var(--fam-Styling); color: var(--fam-Styling-text); }
-.bnode-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bnode-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bnode .badge { position: static; font-size: 15px; background: none; flex: none; }
 .bnode-row { position: relative; height: 22px; display: flex; align-items: center; padding: 0 12px; }
 .bnode-row.out { justify-content: flex-end; }
