@@ -21,6 +21,7 @@ GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC
 | Tauri 2 (`tauri`, `tauri-plugin-dialog`, `tauri-build`) | Apache-2.0 OR MIT | desktop shell | `src-tauri/` |
 | React 19, React DOM | MIT | user interface | `ui/src` |
 | Fluent UI React v9 (`@fluentui/react-components`, `react-icons`) | MIT | components and icons | `ui/src` |
+| Inter (`@fontsource-variable/inter`), planned for the UI redesign, not bundled yet; the mock-up `docs/design/ui-redesign-mockup.html` loads it from Google Fonts | SIL OFL 1.1 | UI typeface | `docs/UI_REDESIGN_PLAN.md` |
 | `@xyflow/react` | MIT | node editor canvas | `ui/src/nodes` |
 | `dockview-react` | MIT | dockable panes | `ui/src` |
 | OpenLayers (`ol`), `ol-mapbox-style` | BSD-2-Clause | map display | `ui/src/map` |
