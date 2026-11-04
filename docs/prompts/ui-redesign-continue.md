@@ -7,11 +7,10 @@ You are the Opus lead for the rest of GIS Studio's UI redesign. Work on branch `
 - Look: the two mock-ups in `docs/design/`, which win on looks; the plan wins on behaviour.
 - The user told you to merge each package into `ui-redesign` once it passes review, without asking each time. Nothing is pushed until the rules below are met.
 
-**Done and merged:** WP1 tokens, WP2 keywords, WP3 tool menu, WP4 Catalog, WP5 node cards, WP6 shell, WP7 panes, WP8 layout and dialog styling, WP8b Colours, WP10 and WP11 multiple maps.
+**Done and merged:** WP1 tokens, WP2 keywords, WP3 tool menu, WP4 Catalog, WP5 node cards, WP6 shell, WP7 panes, WP8 layout and dialog styling, WP8b Colours, WP10 and WP11 multiple maps, WP12 basemaps, WP13 layout editor.
 
 **Left, in order:**
-1. **Side by side:** WP12 basemaps and WP13 layout editor, one Sonnet session each. WP13 owns `ribbon/*`; WP12 sends any ribbon change through you.
-2. **WP9 verify:** the control audit and walk-through in plan §7, then the end-of-work items.
+1. **WP9 verify:** the control audit and walk-through in plan §7, then the end-of-work items.
 
 **How to work (user chose this to save usage, 2026-11-03):**
 - Sonnet writes code; `model: claude-sonnet-5-5`, `use_worktree: true`, `source_branch: ui-redesign`, `wake_when_done: true`.
@@ -23,6 +22,6 @@ You are the Opus lead for the rest of GIS Studio's UI redesign. Work on branch `
 
 **Rules:** tests pass before any push; push only with `[skip ci]`; never tags or force-push; never commit `.claude/`, build artifacts, `test-projects/` or `Madera County.gproj/`; new open-source or data goes in `docs/OPEN_SOURCE.md` in the same commit; ask before anything outward-facing beyond this repo. After each change, add a row to the Change log of the user's status doc (see memory `status-doc`).
 
-**Open items:** BUGS.md UI-1 (recheck link hover contrast in the walk-through). The Node Editor Run button is still solid blue in the app; the mock-up has it outlined, so make it match in WP13 or WP9. BUGS.md MM-1 to MM-3 from the maps review: fix or recheck them in WP12 or WP9. WP12: `record_basemap` runs for every map's basemap already, and the Insert › Maps group was added to `ribbon/tabsDef.tsx`. Merged session worktrees under `.claude/worktrees/` can be removed once their sessions are idle; the user wants the folder small. `Show in Folder` and `Details` commands were removed from the Catalog with the file browser; the user was told.
+**Open items:** BUGS.md UI-1 (recheck link hover contrast in the walk-through). The Node Editor Run button is still solid blue in the app; the mock-up has it outlined, so make it match in WP13 or WP9. WP9 also fixes BUGS.md MM-1 and MM-2, and problems 1 and 2 in `docs/LAYOUT_UI_OPTIONS.md` (Model pane under the page, Items in a narrow column), which WP13 could not reach. Merged session worktrees under `.claude/worktrees/` can be removed once their sessions are idle; the user wants the folder small. `Show in Folder` and `Details` commands were removed from the Catalog with the file browser; the user was told.
 
 **Done when:** plan §7 is met, before and after screenshots are in `docs/screenshots/ui-redesign/`, `PROJECT_STATUS.md` is updated, `graphify update .` has run, and you report what changed, what you decided, and what is left for the user.
