@@ -36,3 +36,7 @@
 
 /* Hint line under the layer list (Map Layers); padding is in contents.css. */
 .tree-hint { color: var(--text-2); font-size: 11px; }
+
+/* "+" at the end of a map tab strip: a new map. */
+.map-tab-add { height: 100%; min-width: 26px; padding: 0 8px; border: 0; background: transparent; color: var(--text); font: 16px/1 inherit; cursor: pointer; }
+.map-tab-add:hover { background: var(--hover); }

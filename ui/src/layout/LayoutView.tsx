@@ -116,6 +116,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const styles = useApp((s) => s.styles);
   const order = useApp((s) => s.order);
   const visible = useApp((s) => s.visible);
+  const maps = useApp((s) => s.maps); // frames that follow a named map redraw when that map's layers change
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
   const layers = useApp((s) => s.layers);
@@ -153,7 +154,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     }, 150);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, styles, order, visible, results, showOriginal, layers, dpi, seriesPage]);
+  }, [layout, styles, order, visible, maps, results, showOriginal, layers, dpi, seriesPage]);
 
   // Selecting one element shows it in Properties.
   useEffect(() => {

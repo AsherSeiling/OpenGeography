@@ -31,7 +31,7 @@
 .cat-row.missing .cat-name, .cat-row.missing .cat-used { color: var(--error); }
 .cat-row.missing .cat-name { text-decoration: line-through; }
 .cat-row.missing .cat-used { text-decoration: none; }
-.layout-row.active .cat-name { font-weight: 600; }
-.layout-row .row-actions { display: none; gap: 2px; flex: none; }
-.layout-row:hover .row-actions, .layout-row:focus-visible .row-actions, .layout-row:focus-within .row-actions { display: flex; }
+.layout-row.active .cat-name, .map-row.active .cat-name { font-weight: 600; }
+.layout-row .row-actions, .map-row .row-actions { display: none; gap: 2px; flex: none; }
+.layout-row:hover .row-actions, .layout-row:focus-visible .row-actions, .layout-row:focus-within .row-actions, .map-row:hover .row-actions, .map-row:focus-visible .row-actions, .map-row:focus-within .row-actions { display: flex; }
 .layout-row .row-actions button { border: 0; background: transparent; cursor: pointer; color: inherit; padding: 0 2px; display: inline-flex; font-size: 14px; }

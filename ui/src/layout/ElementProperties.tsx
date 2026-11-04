@@ -7,10 +7,11 @@ import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { displayInfo, useApp } from "../store/store";
+import { mapOf } from "../store/maps";
 import { withStyleOverride } from "./labelEdits";
 import { useLegendRows, withOverride } from "./legendRows";
 import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
-import { rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type MapFrame, type NorthArrowElement, type DeclinationElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
+import { fixedLayers, followedMap, rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type MapFrame, type NorthArrowElement, type DeclinationElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -103,9 +104,47 @@ function Section({ title, open, children }: { title: string; open?: boolean; chi
 
 type Set = (patch: Record<string, unknown>, burst?: string) => void;
 
+/** Which layers the frame draws: the active map, a named map of the project, or a fixed list. */
+function FrameMapPicker({ el, set }: { el: MapFrame; set: Set }) {
+  const maps = useApp((s) => s.maps);
+  const activeId = useApp((s) => s.activeMapId);
+  const followed = followedMap(el.layers);
+  const src = followed ? mapOf({ maps }, followed) : undefined;
+  const fixed = fixedLayers(el.layers);
+  const current = fixed ? "list" : followed ? `map:${followed}` : "active";
+  const label = fixed ? `Fixed list (${fixed.length} layers)` : followed ? (src?.name ?? "A deleted map") : "The active map";
+  return (
+    <Field label="Layers from" size="small">
+      <Dropdown
+        size="small"
+        data-testid="frame-map-picker"
+        value={label}
+        selectedOptions={[current]}
+        onOptionSelect={(_, d) => {
+          const v = d.optionValue ?? "active";
+          if (v === "active") set({ layers: "map" });
+          else if (v === "list") {
+            // Freeze what the active map shows now, top layer first.
+            const m = mapOf({ maps }, activeId);
+            set({ layers: (m?.order ?? []).map((id) => ({ id, visible: m?.visible[id] ?? true })) });
+          } else if (v.startsWith("map:")) set({ layers: { map: v.slice(4) } });
+        }}
+      >
+        <Option value="active">The active map (follows the map you are working in)</Option>
+        {maps.map((m) => (
+          <Option key={m.id} value={`map:${m.id}`}>{m.name}</Option>
+        ))}
+        <Option value="list">Fixed list (the active map's layers, now)</Option>
+      </Dropdown>
+      {followed && !src && <div className="field-warn" role="alert">The map this frame followed was deleted, so the frame draws no layers. Choose another map.</div>}
+    </Field>
+  );
+}
+
 function FrameFields({ el, set, layout }: { el: MapFrame; set: Set; layout: string }) {
   return (
     <>
+      <FrameMapPicker el={el} set={set} />
       <Field label="Coordinate system" size="small">
         <div className="btn-row">
           <span className="grow">{el.crs ? crsName(el.crs) : "Not set"}</span>
@@ -149,7 +188,12 @@ function FrameLabels({ el, set }: { el: MapFrame; set: Set }) {
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
   const styles = useApp((s) => s.styles);
-  const ids = (el.layers === "map" ? order : el.layers.filter((l) => l.visible).map((l) => l.id)).filter((id) => {
+  const maps = useApp((s) => s.maps);
+  const followed = followedMap(el.layers);
+  const src = followed ? mapOf({ maps }, followed) : undefined;
+  const fixed = fixedLayers(el.layers);
+  const listed = fixed ? fixed.filter((l) => l.visible).map((l) => l.id) : followed ? (src?.order ?? []) : order;
+  const ids = listed.filter((id) => {
     const g = displayInfo({ layers, results, showOriginal }, id)?.geomType;
     return g === "Point" || g === "Line" || g === "Polygon" || g === "Mixed";
   });

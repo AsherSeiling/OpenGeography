@@ -20,7 +20,7 @@ export const TABS: Record<string, Group[]> = {
   ],
   Insert: [
     { label: "Layouts", items: [{ custom: <NewLayoutGallery />, covers: ["newLayout"] }] },
-    { label: "Maps", items: [{ cmd: "topoMap" }] },
+    { label: "Maps", items: [{ cmd: "newMap" }, { cmd: "duplicateMap" }, { cmd: "topoMap" }] },
   ],
   View: [
     {

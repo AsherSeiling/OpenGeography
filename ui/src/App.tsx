@@ -1,11 +1,11 @@
 import { FluentProvider } from "@fluentui/react-components";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
-import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from "dockview-react";
+import { DockviewReact, type DockviewReadyEvent, type IDockviewHeaderActionsProps, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
-import { addData, registerDock, saveProject, openProject } from "./actions";
+import { addData, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
 import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
 import { reportError } from "./errors/store";
@@ -14,7 +14,9 @@ import { AttributeTable } from "./panes/AttributeTable";
 import { ContentsPane } from "./panes/ContentsPane";
 import { MapView } from "./panes/MapView";
 import { ModelPane } from "./panes/ModelPane";
-import { defaultLayout, restoreDock, serializeDock, setDock, type PaneId } from "./panes/panes";
+import { defaultLayout, dockIsRebuilding, restoreDock, serializeDock, setDock, syncMapPanels, type PaneId } from "./panes/panes";
+import { newMap, rememberView } from "./maps/mapActions";
+import { isMapPanelId } from "./store/maps";
 import { CatalogPane } from "./panes/CatalogPane";
 import { ItemsPane } from "./panes/ItemsPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
@@ -40,13 +42,23 @@ const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPan
   layout: (p) => guard(`layout:${(p.params as { layoutId: string }).layoutId}`, "Layout", <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />),
   contents: () => guard("contents", "Map Layers", <ContentsPane />),
   catalog: () => guard("catalog", "Catalog", <CatalogPane />),
-  map: () => guard("map", "Map", <MapView />),
+  map: (p) => guard(`map:${p.api.id}`, "Map", <MapView mapId={p.api.id} />),
   table: () => guard("table", "Attribute Table", <AttributeTable />),
   model: () => guard("model", "Node Editor", <ModelPane />),
   properties: () => guard("properties", "Properties", <PropertiesPane />),
   sources: () => guard("sources", "Sources", <SourcesPane />),
   items: () => guard("items", "Items", <ItemsPane />),
 };
+
+/** The + at the end of a tab strip that holds a map: a new map, opened in that strip. */
+function NewMapButton({ group }: IDockviewHeaderActionsProps) {
+  if (!group.panels.some((p) => isMapPanelId(p.id))) return null;
+  return (
+    <button type="button" className="map-tab-add" title="New map" aria-label="New map" onClick={() => newMap({ group })}>
+      +
+    </button>
+  );
+}
 
 export function App() {
   const dark = useApp((s) => s.dark);
@@ -109,12 +121,22 @@ export function App() {
   const onReady = (e: DockviewReadyEvent) => {
     setDock(e.api);
     registerDock(serializeDock, restoreDock);
+    registerMapPanelSync(syncMapPanels);
     defaultLayout();
     // The Layout ribbon tab and Properties follow the active layout tab.
     e.api.onDidActivePanelChange((ev) => {
       followActivePanel((ev.panel?.params as { layoutId?: string } | undefined)?.layoutId);
+      // Focusing a map's tab makes it the active map (Map Layers, the status bar and the tools follow it).
+      if (ev.panel && isMapPanelId(ev.panel.id)) useApp.getState().setActiveMap(ev.panel.id);
     });
-    e.api.onDidRemovePanel((panel) => layoutPanelClosed((panel.params as { layoutId?: string } | undefined)?.layoutId));
+    e.api.onDidRemovePanel((panel) => {
+      layoutPanelClosed((panel.params as { layoutId?: string } | undefined)?.layoutId);
+      if (isMapPanelId(panel.id) && !dockIsRebuilding()) rememberView(panel.id);
+    });
+    // Renaming, duplicating or deleting a map updates its tab; a deleted map's tab closes.
+    useApp.subscribe((s, prev) => {
+      if (s.maps !== prev.maps) syncMapPanels();
+    });
   };
 
   return (
@@ -125,7 +147,7 @@ export function App() {
       <div className={`app ${dark ? "dark" : ""}`}>
         <Ribbon />
         <div className="dock">
-          <DockviewReact components={components} onReady={onReady} theme={dockTheme} defaultRenderer="always" />
+          <DockviewReact components={components} onReady={onReady} theme={dockTheme} defaultRenderer="always" rightHeaderActionsComponent={NewMapButton} />
         </div>
         <StatusBar />
         <LayerPropertiesWindow />

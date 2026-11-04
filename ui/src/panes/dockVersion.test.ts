@@ -13,8 +13,14 @@ describe("usableDock", () => {
     expect(usableDock({ grid: {}, panels: { map: {} } })).toBe(false);
   });
   it("rejects another version", () => {
-    expect(usableDock({ ...layout(["map"]), version: DOCK_VERSION - 1 })).toBe(false);
+    expect(usableDock({ ...layout(["map"]), version: DOCK_VERSION - 2 })).toBe(false);
     expect(usableDock({ ...layout(["map"]), version: DOCK_VERSION + 1 })).toBe(false);
+  });
+  it("still reads version 2 (one panel `map`), and reads several map panels", () => {
+    expect(usableDock({ ...layout(["map", "contents"]), version: 2 })).toBe(true);
+    expect(usableDock(layout(["map", "map-ab12c", "contents", "layout:x"]))).toBe(true);
+    expect(usableDock(layout(["map-ab12c", "contents"]))).toBe(true);
+    expect(usableDock(layout(["contents", "mapx"]))).toBe(false);
   });
   it("rejects a layout that names the removed Geoprocessing pane or an unknown one", () => {
     expect(usableDock(layout(["map", "contents", "tools"]))).toBe(false);

@@ -73,7 +73,7 @@ pub struct FrameOutput {
 /// Layer ids a frame draws, top first, with their visibility applied.
 pub fn frame_layer_ids(layers: &FrameLayers, req: &RenderRequest) -> Vec<String> {
     match layers {
-        FrameLayers::Follow(_) => req.order.iter().filter(|id| req.visible.get(*id).copied().unwrap_or(true)).cloned().collect(),
+        FrameLayers::Follow(_) | FrameLayers::Map { .. } => req.order.iter().filter(|id| req.visible.get(*id).copied().unwrap_or(true)).cloned().collect(),
         FrameLayers::List(l) => l.iter().filter(|l| l.visible).map(|l| l.id.clone()).collect(),
     }
 }

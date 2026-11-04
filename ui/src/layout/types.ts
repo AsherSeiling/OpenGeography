@@ -102,7 +102,18 @@ export interface Border {
   color: string;
 }
 
-export type FrameLayers = "map" | { id: string; visible: boolean }[];
+/** "map" follows the active map; `{ map: id }` follows that map of the project; a list is fixed. */
+export type FrameLayers = "map" | { map: string } | { id: string; visible: boolean }[];
+
+/** The id of the map a frame follows, or null when it follows the active map or a fixed list. */
+export function followedMap(layers: FrameLayers): string | null {
+  return typeof layers === "object" && !Array.isArray(layers) ? layers.map : null;
+}
+
+/** Fixed list entries of a frame, or null when it follows a map. */
+export function fixedLayers(layers: FrameLayers): { id: string; visible: boolean }[] | null {
+  return Array.isArray(layers) ? layers : null;
+}
 
 /** Graticule (interval in degrees) or projected grid (interval in CRS units). */
 export interface GridSpec {

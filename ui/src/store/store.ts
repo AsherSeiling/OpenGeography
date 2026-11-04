@@ -498,11 +498,13 @@ export function ownerOf(displayId: string): string {
   return Object.values(s.results).find((r) => r.id === displayId)?.resultOf ?? displayId;
 }
 
-/** Ids of what is drawn on the map right now (results where applicable). */
-export function drawableLayerIds(): string[] {
+/** Ids of what is drawn on a map right now (the active one by default; results where applicable). */
+export function drawableLayerIds(mapId?: string): string[] {
   const s = useApp.getState();
-  return s.order
-    .filter((id) => s.visible[id])
+  const m = mapId ? mapOf(s, mapId) : undefined;
+  const [order, visible] = m ? [m.order, m.visible] : [s.order, s.visible];
+  return order
+    .filter((id) => visible[id])
     .map((id) => displayInfo(s, id))
     .filter((l): l is LayerInfo => !!l && l.geomType !== "Table" && !!l.crs)
     .map((l) => l.id);

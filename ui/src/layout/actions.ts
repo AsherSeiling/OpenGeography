@@ -5,14 +5,15 @@ import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI, type TopoBuild, type TopoSpec } from "../ipc/api";
 import { todayIso } from "./topoArea";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
-import { getDock, showPane } from "../panes/panes";
+import { anchorMapPanel, getDock, showPane } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
 import { addMapFrame, addPicture, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { useApp, type LayerStyle } from "../store/store";
 import { recolour } from "./themes";
-import { frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
+import { followedMap, frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
+import { isMapPanelId, mapOf } from "../store/maps";
 
 const status = (s: string) => useApp.getState().setStatus(s);
 
@@ -22,12 +23,25 @@ export function layoutRequest(layout: Layout): RenderRequest {
   const styles: Record<string, LayerStyle> = {};
   const visible: Record<string, boolean> = {};
   const order: string[] = [];
+  const shownId = (id: string) => (s.results[id] && !s.showOriginal[id] ? s.results[id].id : id);
   for (const id of s.order) {
-    const shown = s.results[id] && !s.showOriginal[id] ? s.results[id].id : id;
+    const shown = shownId(id);
     order.push(shown);
-    if (s.styles[id]) styles[shown] = s.styles[id];
     visible[shown] = s.visible[id] ?? true;
   }
+  // Frames that follow another map need that map's layers styled too (style is shared across maps in this version).
+  for (const m of s.maps) for (const id of m.order) if (s.styles[id]) styles[shownId(id)] = s.styles[id];
+  // A frame that names a map gets that map's layers, order and visibility as an explicit list; the engine never sees the map id.
+  // A frame whose map was deleted draws no layers (and export says so) rather than drawing another map's.
+  layout = {
+    ...layout,
+    elements: layout.elements.map((e) => {
+      const id = e.kind === "map_frame" ? followedMap((e as MapFrame).layers) : null;
+      if (id === null) return e;
+      const m = mapOf(s, id);
+      return { ...e, layers: (m?.order ?? []).map((l) => ({ id: shownId(l), visible: m?.visible[l] ?? true })) } as typeof e;
+    }),
+  };
   const project = s.projectDir?.split(/[\\/]/).pop()?.replace(/\.gproj$/, "") || "Untitled";
   // The Layout view shows one page of the map series when asked to (and exports of the open page match it).
   const shown = useSeriesView.getState().page;
@@ -49,7 +63,7 @@ export function openLayout(id: string) {
     component: "layout",
     title: layout.name,
     params: { layoutId: id },
-    position: dock.getPanel("map") ? { referencePanel: "map", direction: "within" } : undefined,
+    position: anchorMapPanel() ? { referencePanel: anchorMapPanel()!.id, direction: "within" } : undefined,
   });
 }
 
@@ -62,7 +76,7 @@ export function followActivePanel(layoutId: string | undefined) {
   if (layoutId) {
     useLayouts.getState().open(layoutId);
     enterWorkspace();
-  } else if (workspace && getDock()?.activePanel?.id === "map") leaveWorkspace();
+  } else if (workspace && isMapPanelId(getDock()?.activePanel?.id ?? "")) leaveWorkspace();
 }
 
 /** The bottom group (Model, Attribute Table) is made smaller while a layout is open; its height is kept to put back. It stays tall enough to use (right-click and Shift+A need a canvas to act on). */
@@ -172,11 +186,15 @@ export function insertMapFrame() {
 /** Centre the frame on the map view and pick the smallest standard scale that shows what the map shows. */
 export async function setFrameFromMapView(frameId?: string) {
   const frame = frameById(frameId);
-  const map = getMap();
-  if (!frame || !map) return status("Insert a map frame first (Elements tab → Map Frame).");
+  // A frame that follows a named map takes that map's view; otherwise the active map's.
+  const followed = frame ? followedMap(frame.layers) : null;
+  const src = followed ? mapOf(useApp.getState(), followed) : undefined;
+  if (frame && followed && !src) return status("The map this frame follows was deleted. Choose another map in the frame's properties.");
+  const map = getMap(src?.id);
+  if (!frame || !map) return status(src ? `Open the map "${src.name}" (Catalog › Maps) to set the frame from its view.` : "Insert a map frame first (Elements tab → Map Frame).");
   if (!frame.crs) return status("Set a coordinate system for the map frame.");
-  const c = getCenterInMapCrs();
-  const mpp = getGroundPerPixel();
+  const c = getCenterInMapCrs(src?.id);
+  const mpp = getGroundPerPixel(src?.id);
   const size = map.getSize();
   if (!c || !mpp || !size) return status("The map view isn't ready yet.");
   try {
@@ -185,7 +203,7 @@ export async function setFrameFromMapView(frameId?: string) {
     const w = (size[0] * mpp) / (Math.max(frame.w, 1) / 1000);
     const h = (size[1] * mpp) / (Math.max(frame.h, 1) / 1000);
     if (!center.every(Number.isFinite)) return status("That map position can't be shown in the frame's coordinate system. Choose a different one.");
-    const mapBasemap = useApp.getState().basemap;
+    const mapBasemap = src?.basemap ?? useApp.getState().basemap;
     useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)), basemap: printBasemap(mapBasemap) });
     if (mapBasemap === "osm") status("OpenStreetMap can't be used in print layouts (its tile policy forbids bulk downloads), so the frame has no basemap. Choose a USGS basemap.");
   } catch (e) {
@@ -221,6 +239,14 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = useExport
   const name = `${doc.name}.${format}`;
   if (!frames(doc).length) {
     status("This layout has no map frame yet. Insert one (Elements tab → Map Frame) before exporting.");
+    return;
+  }
+  const gone = frames(doc).find((f) => {
+    const id = followedMap(f.layers);
+    return id !== null && !mapOf(useApp.getState(), id);
+  });
+  if (gone) {
+    status(`"${gone.name || gone.id}" follows a map that was deleted, so it would draw no layers. Choose another map in the frame's properties, then export.`);
     return;
   }
   let path: string | null;

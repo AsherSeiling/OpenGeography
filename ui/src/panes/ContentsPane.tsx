@@ -1,6 +1,7 @@
 import { addData } from "../actions";
-import { Menu, MenuDivider, MenuItem, MenuList, MenuPopover, Tooltip } from "@fluentui/react-components";
+import { Menu, MenuDivider, MenuItem, MenuList, MenuPopover, MenuTrigger, Tooltip } from "@fluentui/react-components";
 import {
+  AddRegular,
   ArrowExportRegular,
   SettingsRegular,
   FilterRegular,
@@ -21,6 +22,7 @@ import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { useApp, type LayerStyle } from "../store/store";
+import { activeMapOf } from "../store/maps";
 import { nextSelection } from "../layers/multiselect";
 import { showPane } from "./panes";
 
@@ -67,6 +69,8 @@ export function ContentsPane() {
   const styles = useApp((s) => s.styles);
   const active = useApp((s) => s.activeLayer);
   const mapCrs = useApp((s) => s.mapCrs);
+  const mapName = useApp((s) => activeMapOf(s).name);
+  const allLayers = useApp((s) => s.layers);
   const selection = useApp((s) => s.selection);
   const picked = useApp((s) => s.selectedLayers);
   const results = useApp((s) => s.results);
@@ -105,11 +109,14 @@ export function ContentsPane() {
   return (
     <div className="contents" onClick={() => setMenu(null)}>
       <div className="tree" ref={treeRef} data-drop="contents">
-        <div className="tree-map" onClick={pickMapCrs} title="Click to change the map's coordinate system">
+        <div className="tree-map" onClick={pickMapCrs} title="Click to change this map's coordinate system" data-testid="active-map-header">
           <MapRegular />
-          <span>Map</span>
-          <span className="tree-crs">
+          <span className="tree-map-name" data-testid="active-map-name">{mapName}</span>
+          <span className="tree-crs" data-testid="active-map-crs">
             <GlobeRegular /> {mapCrs ? mapCrs.name : "No coordinate system yet"}
+          </span>
+          <span style={{ marginLeft: "auto", display: "inline-flex" }} onClick={(e) => e.stopPropagation()}>
+            <AddToMap otherLayers={Object.values(allLayers).filter((l) => !order.includes(l.id))} />
           </span>
         </div>
         {order.length === 0 && (
@@ -197,6 +204,37 @@ export function ContentsPane() {
   );
 }
 
+/** The + in the header: put a layer that is already in the project on this map. */
+function AddToMap({ otherLayers }: { otherLayers: LayerInfo[] }) {
+  return (
+    <Menu>
+      <MenuTrigger disableButtonEnhancement>
+        <button className="tree-add" title="Add a project layer to this map" aria-label="Add a project layer to this map" >
+          <AddRegular />
+        </button>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          {otherLayers.length === 0 && <MenuItem disabled>Every layer in the project is already on this map</MenuItem>}
+          {otherLayers.map((l) => (
+            <MenuItem key={l.id} onClick={() => { useApp.getState().addToMap([l.id]); useApp.getState().setStatus(`Added "${l.name}" to this map`); }}>
+              {l.name}
+            </MenuItem>
+          ))}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Stop showing layers on the active map; they stay in the project (and on other maps). */
+function removeFromMap(ids: string[]) {
+  const s = useApp.getState();
+  s.removeFromMap(ids);
+  s.setLayerSelection([], null);
+  s.setStatus(`Removed ${ids.length === 1 ? `"${s.layers[ids[0]]?.name}"` : `${ids.length} layers`} from this map. ${ids.length === 1 ? "It is" : "They are"} still in the project: use + to add back.`);
+}
+
 function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; onClose: () => void }) {
   const info = useApp((s) => s.layers[id]);
   const hasResult = useApp((s) => !!s.results[id]);
@@ -227,6 +265,7 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<LayerDiagonalAddRegular />} disabled={!nsel} onClick={() => layerFromSelection(id)}>Create Layer From Selection{nsel ? ` (${nsel.toLocaleString()})` : ""}</MenuItem>
           <MenuItem icon={<EditRegular />} onClick={() => dlg({ kind: "rename", layer: id })}>Rename…</MenuItem>
           <MenuDivider />
+          <MenuItem icon={<DeleteRegular />} onClick={() => removeFromMap([id])}>Remove from Map</MenuItem>
           <MenuItem icon={<DeleteRegular />} onClick={() => removeLayer(id)}>Remove</MenuItem>
           <MenuDivider />
           <MenuItem icon={<SettingsRegular />} onClick={() => openLayerProperties(id)}>Properties…</MenuItem>
@@ -262,6 +301,7 @@ function MultiMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<PaintBrushRegular />} disabled={!vector.includes(id) || vector.length < 2} onClick={() => applyStyleToLayers(id, vector, "labels")}>Apply Labels of “{from?.name}” To Others</MenuItem>
           <MenuDivider />
           <MenuItem icon={<ArrowExportRegular />} onClick={() => useDialog.getState().show({ kind: "exportLayers", ids })}>Export Layers…</MenuItem>
+          <MenuItem icon={<DeleteRegular />} onClick={() => removeFromMap(ids)}>Remove {ids.length} From Map</MenuItem>
           <MenuItem icon={<DeleteRegular />} onClick={() => void removeLayers(ids)}>Remove {ids.length} Layers</MenuItem>
         </MenuList>
       </MenuPopover>
