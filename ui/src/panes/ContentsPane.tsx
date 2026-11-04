@@ -104,7 +104,6 @@ export function ContentsPane() {
 
   return (
     <div className="contents" onClick={() => setMenu(null)}>
-      <div className="contents-head">Map Layers</div>
       <div className="tree" ref={treeRef} data-drop="contents">
         <div className="tree-map" onClick={pickMapCrs} title="Click to change the map's coordinate system">
           <MapRegular />
@@ -119,7 +118,7 @@ export function ContentsPane() {
             <button className="linkbtn" onClick={() => useDialog.getState().show({ kind: "tiger" })}>Census sample data</button>.
           </div>
         )}
-        {order.length > 0 && <div className="tree-hint">Drag a layer onto the Model to use it as an input, or onto another layer to reorder.</div>}
+        {order.length > 0 && <div className="tree-hint">Drag a layer onto the Node Editor to use it as an input, or onto another layer to reorder.</div>}
         {order.map((id, i) => {
           const info = layers[id];
           if (!info) return null;

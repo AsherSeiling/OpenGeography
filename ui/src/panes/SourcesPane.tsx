@@ -100,7 +100,7 @@ export function SourcesPane() {
             </MenuList>
           </MenuPopover>
         </Menu>
-        <select className="src-style" value={style} title="Citation style" onChange={(e) => useBibPrefs.getState().set({ style: e.target.value as Style })}>
+        <select className="src-style" value={style} title="Reference format" onChange={(e) => useBibPrefs.getState().set({ style: e.target.value as Style })}>
           {STYLES.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}

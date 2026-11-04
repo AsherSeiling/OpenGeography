@@ -346,7 +346,7 @@ export function AttributeTable() {
   if (info.geomType === "Raster")
     return (
       <div className="empty-hint pad">
-        <b>{info.name}</b> is a raster ({info.raster?.width.toLocaleString()} × {info.raster?.height.toLocaleString()} cells, values {info.raster?.min.toFixed(1)} – {info.raster?.max.toFixed(1)}). Rasters have no attribute table; use Identify on the map to read values, or Contour in the Model to make lines from it.
+        <b>{info.name}</b> is a raster ({info.raster?.width.toLocaleString()} × {info.raster?.height.toLocaleString()} cells, values {info.raster?.min.toFixed(1)} – {info.raster?.max.toFixed(1)}). Rasters have no attribute table; use Identify on the map to read values, or Contour in the Node Editor to make lines from it.
       </div>
     );
 
@@ -404,7 +404,7 @@ export function AttributeTable() {
         <Tooltip content={roTip("Clear Selection")} relationship="label">
           <Button size="small" icon={<DismissCircleRegular />} disabled={nodeMode || !nsel} onClick={() => useApp.getState().setSelection(owner, [])} />
         </Tooltip>
-        <Tooltip content={nodeMode ? "Export the layer from Contents; node tables are not exported" : nsel ? `Export (${nsel} selected or all)` : "Export features"} relationship="label">
+        <Tooltip content={nodeMode ? "Export the layer from Map Layers; node tables are not exported" : nsel ? `Export (${nsel} selected or all)` : "Export features"} relationship="label">
           <Button size="small" icon={<ArrowExportRegular />} disabled={nodeMode} onClick={() => exportLayer(owner)} />
         </Tooltip>
         <Tooltip content={roTip("Show only the selected rows")} relationship="label">

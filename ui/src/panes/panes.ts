@@ -114,12 +114,6 @@ export function showPane(id: PaneId) {
   const mapHeight = map?.group.api.height ?? 0;
   const p = add(id, anchor[id]);
   if (BOTTOM.includes(id) && !other && mapHeight > 0) p.group.api.setSize({ height: Math.round(mapHeight * BOTTOM_SHARE) });
-  // Items needs room for a list: give the Map Layers pane at least 40 % of the column.
-  if (id === "items") {
-    const g = p.group.api;
-    const want = Math.round((dock.height || 0) * 0.4);
-    if (g.height < want) g.setSize({ height: want });
-  }
 }
 
 /** Close every layout tab (the project changed). */

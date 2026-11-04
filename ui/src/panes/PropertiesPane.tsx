@@ -39,7 +39,7 @@ export function PropertiesPane() {
   if (target?.kind === "layer") return <LayerProperties id={target.id} />;
   if (target?.kind === "layoutElement") return <LayoutElementProperties layout={target.layout} id={target.id} />;
   if (target?.kind === "layoutLabel") return <LayoutLabelProperties layout={target.layout} frame={target.frame} layer={target.layer} fid={target.fid} />;
-  return <div className="empty-hint pad">Select a layer in Contents or a step in the Model to see its properties.</div>;
+  return <div className="empty-hint pad">Select a layer in Map Layers or a step in the Node Editor to see its properties.</div>;
 }
 
 // ---------- Layer ----------
@@ -175,7 +175,7 @@ export function CrsInfo({ id }: { id: string }) {
       <Button icon={<GlobeRegular />} onClick={() => useDialog.getState().show({ kind: "defineProjection", layer: id })}>
         Define Projection…
       </Button>
-      <div className="muted">To convert coordinates into a different system, use the Project tool in the Model.</div>
+      <div className="muted">To convert coordinates into a different system, use the Project tool in the Node Editor.</div>
     </div>
   );
 }

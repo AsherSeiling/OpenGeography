@@ -22,6 +22,7 @@ export const test = base.extend<{ app: Page; errors: { expected: boolean; known:
       if (m.type() !== "error") return;
       const t = m.text();
       if (/Failed to load resource|net::ERR|favicon/.test(t)) return; // network noise (tiles, offline)
+      if (/ResizeObserver loop completed with undelivered notifications/.test(t)) return; // the browser's own note when a pane is resized during layout (opening a layout shrinks the bottom panel); not a script error
       if (errState.known.some((r) => r.test(t))) return;
       errors.push(`console.error: ${t}`);
     });
