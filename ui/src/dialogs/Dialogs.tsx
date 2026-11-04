@@ -202,7 +202,8 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
     [list, query, kind, nearby, spState],
   );
   const favorites = list.filter((e) => FAVORITES.includes(e.id));
-  const utm = center ? [utmFor(center[0], center[1]), utmFor(center[0], center[1], "NAD83")] : [];
+  // Outside North America the NAD83 pick is the WGS 84 zone again: list each zone once (a repeated key broke the list).
+  const utm = center ? [...new Set([utmFor(center[0], center[1]), utmFor(center[0], center[1], "NAD83")])] : [];
 
   const useCustom = async () => {
     try {

@@ -123,14 +123,14 @@ export function defaultLayout() {
   try {
     dock.clear();
     addMapPanel(activeMapOf(useApp.getState()).id);
+    add("contents", { direction: "left" }); // whole-height column on the far left
+    add("catalog", { referencePanel: "contents", direction: "below" });
+    add("properties", { direction: "right" }); // whole-height column on the far right
+    add("sources", { referencePanel: "properties", direction: "below" });
+    anchorMapPanel()?.api.setActive();
   } finally {
     rebuilding--;
   }
-  add("contents", { direction: "left" }); // whole-height column on the far left
-  add("catalog", { referencePanel: "contents", direction: "below" });
-  add("properties", { direction: "right" }); // whole-height column on the far right
-  add("sources", { referencePanel: "properties", direction: "below" });
-  anchorMapPanel()?.api.setActive();
   applyDefaultSizes();
 }
 

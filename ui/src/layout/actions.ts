@@ -5,7 +5,7 @@ import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI, type TopoBuild, type TopoSpec } from "../ipc/api";
 import { todayIso } from "./topoArea";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
-import { anchorMapPanel, getDock, PANE_TITLES, showPane, type PaneId } from "../panes/panes";
+import { anchorMapPanel, dockIsRebuilding, getDock, PANE_TITLES, showPane, type PaneId } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
@@ -75,6 +75,7 @@ export function openLayout(id: string) {
  * a click into the Properties pane drop the selection and every later edit (bug U-5).
  */
 export function followActivePanel(layoutId: string | undefined) {
+  if (dockIsRebuilding()) return; // the dock is being rebuilt (Reset Panes, open project): activations on the way mean nothing
   if (layoutId) {
     useLayouts.getState().open(layoutId);
     enterWorkspace();
@@ -145,7 +146,8 @@ export function leaveWorkspace() {
   useLayoutView.getState().setWorkspace(false);
   const w = workspace;
   workspace = null;
-  if (!dock || !w) return;
+  // Reset Panes (and opening a project) rebuild the whole dock, closing the layout tab on the way: nothing to put back then.
+  if (!dock || !w || dockIsRebuilding()) return;
   rearranging = true;
   try {
     dock.getPanel("items")?.api.close();
