@@ -178,6 +178,50 @@ fn an_empty_project_round_trips() {
 }
 
 #[test]
+fn a_project_from_a_newer_format_is_refused_before_anything_changes() {
+    let dir = tempfile::tempdir().unwrap();
+    // A real project, saved by "a newer app".
+    let future = dir.path().join("future.gproj");
+    let other = Engine::new().unwrap();
+    other.generate_test_layer("theirs", 3, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    other.save_project(&future, r#"{"version":99}"#).unwrap();
+    drop(other);
+    let future_db = std::fs::read(future.join("project.duckdb")).unwrap();
+
+    // The project the user has open.
+    let mine = dir.path().join("mine.gproj");
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("mine", 10, [-98.0, 35.0, -97.0, 36.0]).unwrap();
+    e.save_project(&mine, r#"{"version":2}"#).unwrap();
+
+    let err = e.open_project(&future).expect_err("newer format");
+    assert!(err.to_string().contains("newer version of GIS Studio"), "{err}");
+    assert_eq!(e.project_dir().as_deref(), Some(mine.as_path()), "still on the open project");
+    assert_eq!(e.layer(&l.id).unwrap().feature_count, 10, "the open session is untouched");
+    assert_eq!(std::fs::read(future.join("project.duckdb")).unwrap(), future_db, "the newer project's file is not touched");
+
+    // Saving after the refusal writes the user's own data, not the refused project's.
+    e.save_project(&mine, r#"{"version":2}"#).unwrap();
+    let id = l.id.clone();
+    drop(e);
+    let again = Engine::new().unwrap();
+    again.open_project(&mine).unwrap();
+    assert_eq!(again.list_layers().len(), 1);
+    assert_eq!(again.layer(&id).unwrap().feature_count, 10);
+
+    // Versions that can't be read are refused the same way; a file with none is an older project.
+    for bad in [r#"{"version":"two"}"#, r#"{"version":0}"#, r#"{"version":1.5}"#, r#"{"version":null}"#] {
+        std::fs::write(future.join("project.json"), bad).unwrap();
+        let err = again.open_project(&future).expect_err(bad);
+        assert!(err.to_string().contains("unreadable format version"), "{err}");
+    }
+    for fine in [r#"{"version":1}"#, r#"{"version":2}"#, "{}", "not json"] {
+        std::fs::write(future.join("project.json"), fine).unwrap();
+        assert_eq!(Engine::new().unwrap().open_project(&future).unwrap(), fine);
+    }
+}
+
+#[test]
 fn opening_a_bad_folder_fails_cleanly_and_keeps_the_current_project() {
     let dir = tempfile::tempdir().unwrap();
     let e = Engine::new().unwrap();

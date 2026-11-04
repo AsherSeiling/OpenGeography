@@ -98,6 +98,21 @@ pub struct Engine {
 
 const PROJECT_DB: &str = "project.duckdb";
 const PROJECT_JSON: &str = "project.json";
+/// Newest project format this build reads. The UI's `PROJECT_VERSION` (`ui/src/store/maps.ts`) is the same number.
+const PROJECT_FORMAT: f64 = 2.0;
+
+/// Refuse a project this build can't read, before anything is opened. Refusing later would leave the engine on the other project
+/// while the UI still shows the old one, and the next Save would then overwrite the old project's data. A file with no version,
+/// or `project.json` that isn't readable JSON, is an older project and opens as before.
+fn check_project_format(ui_state: &str) -> Result<()> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(ui_state) else { return Ok(()) };
+    let Some(version) = json.get("version") else { return Ok(()) };
+    match version.as_f64() {
+        Some(v) if v > PROJECT_FORMAT => Err(anyhow!("This project was saved by a newer version of GIS Studio (project format {v}; this version reads up to {PROJECT_FORMAT}). Update GIS Studio to open it. Nothing was changed.")),
+        Some(v) if v >= 1.0 && v.fract() == 0.0 => Ok(()),
+        _ => Err(anyhow!("This project file has an unreadable format version ({version}). Nothing was changed.")),
+    }
+}
 
 impl Engine {
     pub fn new() -> Result<Self> {
@@ -1486,13 +1501,15 @@ impl Engine {
         if !db_path.exists() {
             return Err(anyhow!("{} is not a project folder (no {PROJECT_DB})", dir.display()));
         }
+        let ui_state = std::fs::read_to_string(dir.join(PROJECT_JSON)).unwrap_or_else(|_| "{}".into());
+        check_project_format(&ui_state)?;
         // Set first: loading layers resolves raster paths stored relative to it.
         let previous = self.project_dir.write().replace(dir.to_path_buf());
         if let Err(e) = self.open_db(&db_path) {
             *self.project_dir.write() = previous;
             return Err(e);
         }
-        Ok(std::fs::read_to_string(dir.join(PROJECT_JSON)).unwrap_or_else(|_| "{}".into()))
+        Ok(ui_state)
     }
 
     pub fn new_project(&self) -> Result<()> {

@@ -29,8 +29,8 @@ export function layoutRequest(layout: Layout): RenderRequest {
     order.push(shown);
     visible[shown] = s.visible[id] ?? true;
   }
-  // Frames that follow another map need that map's layers styled too (style is shared across maps in this version).
-  for (const m of s.maps) for (const id of m.order) if (s.styles[id]) styles[shownId(id)] = s.styles[id];
+  // Style is shared across maps, and a frame can draw any project layer: one on another map, or in a fixed list and on no map at all.
+  for (const id of Object.keys(s.layers)) if (s.styles[id]) styles[shownId(id)] = s.styles[id];
   // A frame that names a map gets that map's layers, order and visibility as an explicit list; the engine never sees the map id.
   // A frame whose map was deleted draws no layers (and export says so) rather than drawing another map's.
   layout = {
