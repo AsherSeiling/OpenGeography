@@ -21,6 +21,7 @@ import {
   ImageMultipleRegular,
   ImageRegular,
   MapPinRegular,
+  MapRegular,
   MountainTrailRegular,
   PlugConnectedRegular,
   ServerRegular,
@@ -36,6 +37,7 @@ import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } fr
 import { useLayouts } from "../store/layout";
 import { useModel } from "../store/model";
 import { useApp } from "../store/store";
+import { deleteMap, duplicateMap, newMap, openMap, renameMap } from "../maps/mapActions";
 import { addToolToModel } from "./ModelPane";
 
 const ADDABLE = new Set(["vector", "raster", "table", "archive", "gdb"]);
@@ -148,7 +150,7 @@ function useProjectFiles() {
 }
 
 /** Branches that start expanded. */
-const DEFAULT_OPEN: Record<string, boolean> = { project: true, layouts: true, files: false, public: true };
+const DEFAULT_OPEN: Record<string, boolean> = { project: true, maps: true, layouts: true, files: false, public: true };
 
 interface RowProps {
   id: string;
@@ -209,6 +211,8 @@ export function CatalogPane() {
   useLayouts((s) => s.doc);
   const activeLayout = useLayouts((s) => s.id);
   const layouts = useLayouts.getState().list();
+  const maps = useApp((s) => s.maps);
+  const activeMapId = useApp((s) => s.activeMapId);
 
   const isOpen = (k: string) => open[k] ?? DEFAULT_OPEN[k] ?? true;
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !isOpen(k) }));
@@ -256,9 +260,11 @@ export function CatalogPane() {
         break;
       case "F2":
         if (key.startsWith("layout:")) renameLayout(key.slice(7));
+        if (key.startsWith("map:")) renameMap(key.slice(4));
         break;
       case "Delete":
         if (key.startsWith("layout:")) deleteLayout(key.slice(7));
+        if (key.startsWith("map:")) deleteMap(key.slice(4));
         break;
       default:
         return;
@@ -322,7 +328,54 @@ export function CatalogPane() {
         <Row id="project" level={1} icon={<BriefcaseRegular />} label="Project" className="head" open={isOpen("project")} onToggle={() => toggle("project")} />
         {isOpen("project") && (
           <>
-            {/* WP 11 adds the Maps branch here. */}
+            <Row
+              id="maps"
+              level={2}
+              icon={<MapRegular />}
+              label="Maps"
+              open={isOpen("maps")}
+              onToggle={() => toggle("maps")}
+              trailing={
+                <>
+                  <span className="cat-meta">{maps.length}</span>
+                  <button className="linkbtn cat-new" onClick={(e) => (e.stopPropagation(), newMap())}>
+                    New
+                  </button>
+                </>
+              }
+            />
+            {isOpen("maps") &&
+              maps.map((m) => (
+                <Row
+                  key={m.id}
+                  id={`map:${m.id}`}
+                  level={3}
+                  icon={<MapRegular />}
+                  label={m.name}
+                  className={`map-row ${activeMapId === m.id ? "active" : ""}`}
+                  title={`${m.name}: ${m.order.length} layer${m.order.length === 1 ? "" : "s"} · ${m.crs?.name ?? "no coordinate system yet"}. Double-click to open.`}
+                  selected={selected === `map:${m.id}`}
+                  onSelect={() => setSelected(`map:${m.id}`)}
+                  onActivate={() => openMap(m.id)}
+                  trailing={
+                    <span className="row-actions">
+                      <button title="Open" aria-label={`Open ${m.name}`} onClick={(e) => (e.stopPropagation(), openMap(m.id))}>
+                        <MapRegular />
+                      </button>
+                      <button title="Rename" aria-label={`Rename ${m.name}`} onClick={(e) => (e.stopPropagation(), renameMap(m.id))}>
+                        <EditRegular />
+                      </button>
+                      <button title="Duplicate" aria-label={`Duplicate ${m.name}`} onClick={(e) => (e.stopPropagation(), duplicateMap(m.id))}>
+                        <CopyRegular />
+                      </button>
+                      <button title="Delete" aria-label={`Delete ${m.name}`} onClick={(e) => (e.stopPropagation(), deleteMap(m.id))}>
+                        <DeleteRegular />
+                      </button>
+                    </span>
+                  }
+                />
+              ))}
+
             <Row
               id="layouts"
               level={2}

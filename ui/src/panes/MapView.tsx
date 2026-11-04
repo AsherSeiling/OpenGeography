@@ -19,9 +19,10 @@ import { create } from "zustand";
 import { api, errorText, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
-import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, scaleOf, tileGridFor } from "../map/crs";
+import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, resolutionForScale, scaleOf, tileGridFor } from "../map/crs";
 import { serialQueue } from "../map/serialQueue";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
+import { mapOf } from "../store/maps";
 import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
@@ -78,32 +79,43 @@ interface Drawn {
   labels?: { layer: BaseLayer; key: string };
 }
 
+const EMPTY_ORDER: string[] = [];
+const EMPTY_VISIBLE: Record<string, boolean> = {};
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const VECTOR_MAX_LEVEL = 16;
 const RASTER_MAX_LEVEL = 18;
 
-export function MapView() {
+/** One map panel. Each map of the project has its own panel with its own OpenLayers map; the status bar follows the active one. */
+export function MapView({ mapId }: { mapId: string }) {
   const el = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  // Datasets dragged from the Catalog pane are added to the map.
+  const doc = useApp((s) => mapOf(s, mapId));
+  const isActive = useApp((s) => s.activeMapId === mapId);
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
+  // Datasets dragged from the Catalog pane are added to this map.
   useEffect(() => {
     const w = wrapRef.current;
     if (!w) return;
     const onDrop = (e: Event) => {
       const { payload } = (e as CustomEvent<DropDetail>).detail;
-      if (payload.kind === "file") void addData([payload.id]);
+      if (payload.kind === "file") {
+        useApp.getState().setActiveMap(mapId);
+        void addData([payload.id]);
+      }
     };
     w.addEventListener("gis-drop", onDrop);
     return () => w.removeEventListener("gis-drop", onDrop);
-  }, []);
+  }, [mapId]);
   const mapRef = useRef<OlMap | null>(null);
   const [active, setActive] = useState<ActiveCrs | null>(null);
   const [identify, setIdentify] = useState<IdentifyResult | null>(null);
   const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [tick, setTick] = useState(0);
+  const [scaleState, setScaleState] = useState<{ resolution: number; scale: number } | null>(null);
   const tool = useApp((s) => s.tool);
   const showFps = useApp((s) => s.showFps);
-  const mapCrs = useApp((s) => s.mapCrs);
+  const mapCrs = doc?.crs ?? null;
 
   // ---------- map ----------
   const readoutRef = useRef<Readout | null>(null);
@@ -116,18 +128,18 @@ export function MapView() {
     });
     // Web Mercator until the project has a coordinate system: the same US view the map always opened on.
     mapRef.current = map;
-    setMap(map);
+    setMap(map, mapId);
     const ro = new ResizeObserver(() => map.updateSize());
     ro.observe(el.current!);
 
     // Pointer readout: pixels → map CRS (view maths), then the engine for lon/lat (R2).
     const readout = createReadout(
-      (x, y) => api.transformPoint(x, y, getActiveCrs()!.id, "EPSG:4326"),
+      (x, y) => api.transformPoint(x, y, getActiveCrs(mapId)!.id, "EPSG:4326"),
       (v) => useMapView.setState({ pointer: v ? { x: v.x, y: v.y, lon: v.result[0], lat: v.result[1] } : null }),
     );
     readoutRef.current = readout;
     map.on("pointermove", (e) => {
-      if (!e.dragging && getActiveCrs()) readout.move(e.coordinate[0], e.coordinate[1]);
+      if (!e.dragging && getActiveCrs(mapId)) readout.move(e.coordinate[0], e.coordinate[1]);
     });
     const leave = () => readout.leave();
     el.current!.addEventListener("mouseleave", leave);
@@ -138,30 +150,31 @@ export function MapView() {
     return () => {
       ro.disconnect();
       el.current?.removeEventListener("mouseleave", leave);
-      setMap(null);
+      setMap(null, mapId);
       map.setTarget(undefined);
     };
-  }, []);
+  }, [mapId]);
 
   /** Refresh the engine-derived view cache and the true scale at the view centre. */
   const refreshScale = useCallback(async () => {
-    const cache = await refreshViewCache();
-    const crs = getActiveCrs();
+    const cache = await refreshViewCache(mapId);
+    const crs = getActiveCrs(mapId);
     const res = mapRef.current?.getView().getResolution();
     if (!cache || !crs || !res) return;
     lastK.current = cache.k;
-    useMapView.setState({ resolution: res, scale: scaleOf(res, crs.info.unitM, cache.k) });
-  }, []);
+    setScaleState({ resolution: res, scale: scaleOf(res, crs.info.unitM, cache.k) });
+    if (isActiveRef.current) useMapView.setState({ resolution: res, scale: scaleOf(res, crs.info.unitM, cache.k) });
+  }, [mapId]);
 
   // ---------- coordinate system (M-D7) ----------
   const switching = useRef(0);
-  const worldView = useApp((s) => s.worldView);
+  const worldView = doc?.worldView ?? false;
   const prevCrs = useRef<{ id: string; name: string } | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const id = displayCrsId(mapCrs?.id ?? WEB_MERCATOR, worldView);
-    if (getActiveCrs()?.id === id) return;
+    if (getActiveCrs(mapId)?.id === id) return;
     const my = ++switching.current;
     void (async () => {
       try {
@@ -174,7 +187,7 @@ export function MapView() {
         if (my !== switching.current) return;
         const projection = registerCrs(info);
         const next: ActiveCrs = { id, info, projection };
-        const prev = getActiveCrs();
+        const prev = getActiveCrs(mapId);
         const view = map.getView();
         const oldCenter = view.getCenter();
         const oldRes = view.getResolution();
@@ -191,6 +204,12 @@ export function MapView() {
           center = (await api.transformPoint(oldCenter[0], oldCenter[1], prev.id, id)) as [number, number];
           const [kOld, kNew] = await Promise.all([scaleFactorAt(prev, oldCenter[0], oldCenter[1]), scaleFactorAt(next, center[0], center[1])]);
           resolution = carryResolution(oldRes, prev.info.unitM, kOld, info.unitM, kNew);
+        } else if (savedCamera()?.scale) {
+          // First view of a map that was framed before (saved in the project, or left by a closed tab).
+          const cam = savedCamera()!;
+          center = (await api.transformPoint(cam.center[0], cam.center[1], "EPSG:4326", id)) as [number, number];
+          const k = await scaleFactorAt(next, center[0], center[1]);
+          resolution = resolutionForScale(cam.scale!, info.unitM, k);
         } else {
           // First view: the contiguous US at about 1:20 million.
           center = (await api.transformPoint(-98.5, 39.5, "EPSG:4326", id)) as [number, number];
@@ -203,27 +222,41 @@ export function MapView() {
         nv.on("change:resolution", () => {
           const r = nv.getResolution();
           const last = lastK.current;
-          if (r && last) useMapView.setState({ resolution: r, scale: scaleOf(r, getActiveCrs()!.info.unitM, last) });
+          const crs = getActiveCrs(mapId);
+          if (r && last && crs) {
+            setScaleState({ resolution: r, scale: scaleOf(r, crs.info.unitM, last) });
+            if (isActiveRef.current) useMapView.setState({ resolution: r, scale: scaleOf(r, crs.info.unitM, last) });
+          }
         });
         map.setView(nv);
         prevCrs.current = mapCrs;
         setActive(next);
-        setActiveCrs(next);
-        useMapView.setState({ pointer: null, crsKey: info.crsKey, basemapOffsetM: info.basemapOffsetM !== null && info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? info.basemapOffsetM : null });
+        setActiveCrs(next, mapId);
+        if (isActiveRef.current) useMapView.setState({ pointer: null });
         void refreshScale();
       } catch (e) {
         if (my !== switching.current) return;
         const s = useApp.getState();
         s.setStatus(`The map can't be drawn in ${mapCrs?.name ?? id}: ${errorText(e)}`);
         // Keep the previous coordinate system (a world view that cannot be made just goes back to the normal view).
-        if (worldView) s.setWorldView(false);
-        else if (prevCrs.current && prevCrs.current.id !== id) s.setMapCrs(prevCrs.current);
+        if (worldView) s.setWorldView(false, mapId);
+        else if (prevCrs.current && prevCrs.current.id !== id) s.setMapCrs(prevCrs.current, mapId);
       }
     })();
-  }, [mapCrs, worldView, refreshScale]);
+  }, [mapCrs, worldView, refreshScale, mapId]);
+
+  // The status bar shows the active map: when this map becomes the active one (or its CRS changes) it publishes its own readout.
+  useEffect(() => {
+    if (!isActive || !active) return;
+    const off = active.info.basemapOffsetM;
+    useMapView.setState({ crsKey: active.info.crsKey, basemapOffsetM: off !== null && off > BASEMAP_OFFSET_WARN_M ? off : null, ...(scaleState ?? { resolution: null, scale: null }) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, active]);
+  /** The view this map had when it was saved or last closed; used when its panel opens. */
+  const savedCamera = () => mapOf(useApp.getState(), mapId)?.camera ?? null;
 
   // ---------- basemap ----------
-  const basemap = useApp((s) => s.basemap);
+  const basemap = doc?.basemap ?? "none";
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !active) return;
@@ -242,8 +275,8 @@ export function MapView() {
 
   // ---------- data layers ----------
   const layers = useApp((s) => s.layers);
-  const order = useApp((s) => s.order);
-  const visible = useApp((s) => s.visible);
+  const order = doc?.order ?? EMPTY_ORDER;
+  const visible = doc?.visible ?? EMPTY_VISIBLE;
   const styles = useApp((s) => s.styles);
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
@@ -439,7 +472,7 @@ export function MapView() {
 const IDENTIFY_TOLERANCE_PX = 4;
 
 /** A map-CRS position as engine lon/lat (every number we store or show goes through here). */
-  const toLonLat = (c: Coordinate): Promise<[number, number]> => api.transformPoint(c[0], c[1], getActiveCrs()!.id, "EPSG:4326");
+  const toLonLat = (c: Coordinate): Promise<[number, number]> => api.transformPoint(c[0], c[1], getActiveCrs(mapId)!.id, "EPSG:4326");
 
   // ---------- tools: identify / select / measure ----------
   useEffect(() => {
@@ -480,9 +513,9 @@ const IDENTIFY_TOLERANCE_PX = 4;
         return;
       }
       if (tool === "pan" || tool === "selectBox") return;
-      const ids = drawableLayerIds();
+      const ids = drawableLayerIds(mapId);
       try {
-        const crs = getActiveCrs()!;
+        const crs = getActiveCrs(mapId)!;
         const res = map.getView().getResolution()!;
         // The click and the 4 px tolerance are in map-CRS units; the engine carries the disc into each layer's CRS.
         const hits = await api.identify(ids, e.coordinate[0], e.coordinate[1], crs.id, IDENTIFY_TOLERANCE_PX * res);
@@ -495,7 +528,8 @@ const IDENTIFY_TOLERANCE_PX = 4;
           const top = hits[0];
           if (!top) {
             // No features here: report raster values under the click instead.
-            const rasters = s.order.filter((id) => s.visible[id]).map((id) => displayInfo(s, id)).filter((l) => l?.geomType === "Raster");
+            const here = mapOf(s, mapId);
+            const rasters = (here?.order ?? []).filter((id) => here?.visible[id]).map((id) => displayInfo(s, id)).filter((l) => l?.geomType === "Raster");
             const [lon, lat] = rasters.length ? await toLonLat(e.coordinate) : [0, 0];
             for (const r of rasters) {
               const v = await api.rasterValue(r!.id, lon, lat);
@@ -530,7 +564,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
       map.un("click", onClick as never);
       map.un("dblclick", onDbl);
     };
-  }, [tool, active]);
+  }, [tool, active, mapId]);
 
   // Rectangle select.
   const onMouseDown = (e: React.MouseEvent) => {
@@ -553,7 +587,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
         const a = map.getCoordinateFromPixel([x0, y0]);
         const b = map.getCoordinateFromPixel([x1, y1]);
         const bbox: [number, number, number, number] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
-        const hits = await api.selectRect(drawableLayerIds(), bbox, getActiveCrs()!.id);
+        const hits = await api.selectRect(drawableLayerIds(mapId), bbox, getActiveCrs(mapId)!.id);
         const mode = ev.shiftKey ? "add" : "new";
         if (mode === "new") s.clearSelection();
         let n = 0;
@@ -570,8 +604,9 @@ const IDENTIFY_TOLERANCE_PX = 4;
     window.addEventListener("mouseup", up);
   };
 
+  if (!doc) return <div className="map-wrap" data-testid="map-gone" style={{ padding: 16 }}>This map was deleted.</div>;
   return (
-    <div className="map-wrap" onMouseDown={onMouseDown} data-drop="map" ref={wrapRef}>
+    <div className="map-wrap" onMouseDown={onMouseDown} onMouseDownCapture={() => useApp.getState().setActiveMap(mapId)} data-drop="map" data-map-id={mapId} ref={wrapRef}>
       <div ref={el} className="map" />
       {box && (
         <div
@@ -579,24 +614,21 @@ const IDENTIFY_TOLERANCE_PX = 4;
           style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
         />
       )}
-      <MapNotices />
-      <ScaleBar />
+      <MapNotices basemap={basemap} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
+      <ScaleBar scale={scaleState?.scale ?? null} />
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
-      {tool === "measure" && <MeasurePanel />}
-      {nav.navPanel && <NavPanel />}
-      {nav.pick && <div className="map-hint">Click the map to pick the point · Esc to cancel</div>}
-      {showFps && <FpsMeter />}
+      {isActive && tool === "measure" && <MeasurePanel />}
+      {isActive && nav.navPanel && <NavPanel />}
+      {isActive && nav.pick && <div className="map-hint">Click the map to pick the point · Esc to cancel</div>}
+      {isActive && showFps && <FpsMeter />}
     </div>
   );
 }
 
 /** "Projecting…", dropped-feature and basemap-offset messages. */
-function MapNotices() {
+function MapNotices({ basemap, crsKey, offset }: { basemap: string; crsKey: string | null; offset: number | null }) {
   const projecting = useMapView((s) => s.projecting);
   const notices = useMapView((s) => s.notices);
-  const offset = useMapView((s) => s.basemapOffsetM);
-  const basemap = useApp((s) => s.basemap);
-  const crsKey = useMapView((s) => s.crsKey);
   // Keys end in the CRS key they were made for ("rasters" has none and is always current).
   const here = (k: string) => !k.includes("|") || k.endsWith(`|${crsKey}`);
   const dismissed = useMapView((s) => s.dismissed);
@@ -627,13 +659,10 @@ function MapNotices() {
 }
 
 /** Scale bar from the engine's true ground scale at the view centre. */
-function ScaleBar() {
-  const scale = useMapView((s) => s.scale);
-  const res = useMapView((s) => s.resolution);
+function ScaleBar({ scale }: { scale: number | null }) {
   if (!scale) return null;
   // Ground metres per CSS pixel at this scale, 96 dpi.
   const gpp = scale / PX_PER_M;
-  void res;
   const nice = (maxM: number) => {
     const p = 10 ** Math.floor(Math.log10(maxM));
     return [5, 2, 1].map((m) => m * p).find((v) => v <= maxM) ?? p;

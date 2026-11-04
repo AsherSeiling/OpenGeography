@@ -14,6 +14,7 @@ import {
   BookRegular,
   FolderOpenRegular,
   MapRegular,
+  CopyRegular,
   ShapesRegular,
   TargetArrowRegular,
   SettingsRegular,
@@ -94,6 +95,7 @@ import {
   zoomToSelection,
 } from "../actions";
 import { zoomToExtent } from "../map/mapController";
+import { duplicateMap, newMap } from "../maps/mapActions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
 import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
@@ -191,6 +193,8 @@ const list: Command[] = [
 
   // Insert tab (later milestones)
   { id: "newLayout", label: "New Layout", icon: <DocumentPdfRegular />, run: () => newLayout(), tip: "Create a print layout (Letter landscape); more page sizes are in the Insert tab's gallery" },
+  { id: "newMap", label: "New Map", icon: <MapRegular />, run: () => void newMap(), tip: "Add a map to the project. It starts empty with the last map's coordinate system; each map has its own layers, order, visibility, basemap and view" },
+  { id: "duplicateMap", label: "Duplicate Map", icon: <CopyRegular />, run: () => void duplicateMap(), tip: "Copy the active map, with its layers, order, visibility, coordinate system, basemap and view, into a new map beside it" },
   { id: "topoMap", label: "Topo Map", icon: <MountainTrailRegular />, run: () => useDialog.getState().show({ kind: "topoMap" }), tip: "Build a land-navigation topographic sheet: UTM and MGRS grid, declination diagram, scale bars, grid-reference box and legend, for an area, scale and paper you choose" },
 
   // Layout contextual tab (shown while a layout tab is active)

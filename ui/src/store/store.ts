@@ -1,6 +1,8 @@
 // App state: layers, draw order, symbology, selection, map settings.
 import { create } from "zustand";
 import type { LayerInfo } from "../ipc/api";
+import { activeMapOf, duplicateOf, emptyMap, mapOf, newMapFrom, uniqueName, DEFAULT_MAP_ID, type MapDoc } from "./maps";
+import type { Camera } from "../map/mapController";
 
 export type SelectMode = "new" | "add" | "toggle" | "remove" | "subset";
 
@@ -183,7 +185,12 @@ interface AppState {
   results: Record<string, LayerInfo>;
   /** Layers whose original data is shown instead of their node-tree result. */
   showOriginal: Record<string, boolean>;
-  /** Draw order, top layer first (as in the Contents pane). */
+  /** Every map of the project (always at least one) and the one Map Layers, the status bar and the tools act on. */
+  maps: MapDoc[];
+  activeMapId: string;
+  // order, visible, mapCrs, worldView and basemap are the ACTIVE map's values. `maps` is the source of truth: a write to
+  // either side is folded into the other by `reconcile`, so the ~20 readers of these fields need no change.
+  /** Draw order of the active map, top layer first (as in the Contents pane). */
   order: string[];
   visible: Record<string, boolean>;
   styles: Record<string, LayerStyle>;
@@ -195,6 +202,7 @@ interface AppState {
   properties: PropertiesTarget;
   /** Tab to show in layer Properties next time (e.g. "query"). */
   propsTab: string | null;
+  /** The active map's coordinate system. Null until a real source sets it: never guessed. */
   mapCrs: MapCrs | null;
   /** Show the whole Earth in the map CRS, cut at its central meridian + 180° (R8). Session-only. */
   worldView: boolean;
@@ -208,7 +216,20 @@ interface AppState {
 
   addLayers: (infos: LayerInfo[]) => void;
   updateLayer: (info: LayerInfo) => void;
+  /** Delete a layer from the project: it leaves every map. */
   removeLayer: (id: string) => void;
+  /** Show existing project layers on a map (the active one by default), on top. A map with no CRS takes the first one's. */
+  addToMap: (ids: string[], mapId?: string) => void;
+  /** Stop showing layers on a map; they stay in the project. */
+  removeFromMap: (ids: string[], mapId?: string) => void;
+  setActiveMap: (id: string) => void;
+  /** A new empty map after the last one; returns it and the map whose CRS it took. */
+  addMap: () => { map: MapDoc; inheritedFrom: MapDoc | null };
+  renameMap: (id: string, name: string) => void;
+  duplicateMap: (id: string) => MapDoc | null;
+  /** Delete a map. Layers stay in the project. The last map cannot be deleted. */
+  deleteMap: (id: string) => boolean;
+  setMapCamera: (id: string, camera: Camera | null) => void;
   setVisible: (id: string, v: boolean) => void;
   setShowOriginal: (id: string, v: boolean) => void;
   moveLayer: (id: string, toIndex: number) => void;
@@ -219,15 +240,61 @@ interface AppState {
   setActiveLayer: (id: string | null) => void;
   setLayerSelection: (ids: string[], anchor: string | null) => void;
   setProperties: (t: PropertiesTarget) => void;
-  setMapCrs: (c: MapCrs | null) => void;
-  setWorldView: (on: boolean) => void;
+  setMapCrs: (c: MapCrs | null, mapId?: string) => void;
+  setWorldView: (on: boolean, mapId?: string) => void;
   setTool: (t: MapTool) => void;
-  setBasemap: (b: Basemap) => void;
+  setBasemap: (b: Basemap, mapId?: string) => void;
   setStatus: (s: string) => void;
   set: (p: Partial<AppState>) => void;
 }
 
-export const useApp = create<AppState>((set, get) => ({
+type Patch = Partial<AppState>;
+const MIRROR = ["order", "visible", "mapCrs", "worldView", "basemap"] as const;
+
+/** The active map's values as the mirrored top-level fields. */
+function mirrorOf(maps: MapDoc[], activeMapId: string): Pick<AppState, (typeof MIRROR)[number] | "activeMapId"> {
+  const m = activeMapOf({ maps, activeMapId });
+  return { activeMapId: m.id, order: m.order, visible: m.visible, mapCrs: m.crs, worldView: m.worldView, basemap: m.basemap };
+}
+
+/**
+ * Keep `maps` and the mirrored fields of the active map equal. A patch that names `maps` or `activeMapId` wins and the mirror is
+ * rebuilt from it; a patch that only writes a mirrored field (a test, an old caller) is folded into the active map.
+ */
+export function reconcile(prev: Pick<AppState, "maps" | "activeMapId">, patch: Patch): Patch {
+  if ("maps" in patch || "activeMapId" in patch) {
+    return { ...patch, ...mirrorOf(patch.maps ?? prev.maps, patch.activeMapId ?? prev.activeMapId) };
+  }
+  if (!MIRROR.some((k) => k in patch)) return patch;
+  const own: Partial<MapDoc> = {};
+  if ("order" in patch) own.order = patch.order;
+  if ("visible" in patch) own.visible = patch.visible;
+  if ("mapCrs" in patch) own.crs = patch.mapCrs;
+  if ("worldView" in patch) own.worldView = patch.worldView;
+  if ("basemap" in patch) own.basemap = patch.basemap;
+  const id = activeMapOf(prev).id;
+  return { ...patch, maps: prev.maps.map((m) => (m.id === id ? { ...m, ...own } : m)) };
+}
+
+/** Apply `fn` to one map (the active one by default). */
+function editMap(s: AppState, mapId: string | undefined, fn: (m: MapDoc) => Partial<MapDoc>): Patch {
+  const id = mapId ?? activeMapOf(s).id;
+  if (!mapOf(s, id)) return {};
+  return { maps: s.maps.map((m) => (m.id === id ? { ...m, ...fn(m) } : m)), dirty: true };
+}
+
+const firstMapCrs = (infos: LayerInfo[]): MapCrs | null => {
+  const first = infos.find((i) => i.crs && i.geomType !== "Table");
+  return first ? { id: first.crs!, name: first.crsName ?? first.crs! } : null;
+};
+
+const initialMap = emptyMap();
+
+export const useApp = create<AppState>()((rawSet, get) => {
+  const set = (p: Patch | ((s: AppState) => Patch)) => rawSet((s) => reconcile(s, typeof p === "function" ? p(s) : p));
+  return {
+  maps: [initialMap],
+  activeMapId: DEFAULT_MAP_ID,
   layers: {},
   results: {},
   showOriginal: {},
@@ -256,23 +323,30 @@ export const useApp = create<AppState>((set, get) => ({
       for (const r of all.filter((i) => i.resultOf)) results[r.resultOf!] = r;
       const infos = all.filter((i) => !i.resultOf);
       const layers = { ...s.layers };
-      const visible = { ...s.visible };
       const styles = { ...s.styles };
-      const order = [...s.order];
+      const added: string[] = [];
       for (const info of infos) {
         if (!layers[info.id]) {
-          // New layers go on top, except tables which have nothing to draw.
-          order.unshift(info.id);
-          visible[info.id] = true;
+          added.push(info.id);
           styles[info.id] = defaultStyle(info);
         }
         layers[info.id] = info;
       }
-      // Map CRS defaults to the first layer that has one (like ArcGIS Pro).
-      const first = infos.find((i) => i.crs && i.geomType !== "Table");
-      const mapCrs = s.mapCrs ?? (first ? { id: first.crs!, name: first.crsName ?? first.crs! } : null);
+      // New layers go on top of the ACTIVE map only (the others keep their order, visibility and CRS); tables have nothing to draw.
+      // The map's CRS defaults to the first layer that has one (like ArcGIS Pro) and is never guessed otherwise.
+      const crs = firstMapCrs(infos);
+      const maps = s.maps.map((m) =>
+        m.id !== activeMapOf(s).id
+          ? m
+          : {
+              ...m,
+              order: [...added.slice().reverse(), ...m.order],
+              visible: { ...m.visible, ...Object.fromEntries(added.map((id) => [id, true])) },
+              crs: m.crs ?? crs,
+            },
+      );
       const activeLayer = s.activeLayer ?? infos[0]?.id ?? null;
-      return { layers, results, order, visible, styles, mapCrs, activeLayer, dirty: true };
+      return { layers, results, maps, styles, activeLayer, dirty: true };
     }),
 
   updateLayer: (info) => {
@@ -295,7 +369,10 @@ export const useApp = create<AppState>((set, get) => ({
         layers,
         results,
         selection,
-        order: s.order.filter((x) => x !== id),
+        maps: s.maps.map((m) => {
+          const { [id]: _v, ...visible } = m.visible;
+          return { ...m, order: m.order.filter((x) => x !== id), visible };
+        }),
         selectedLayers: s.selectedLayers.filter((x) => x !== id),
         layerAnchor: s.layerAnchor === id ? null : s.layerAnchor,
         activeLayer: s.activeLayer === id ? (s.order.find((x) => x !== id) ?? null) : s.activeLayer,
@@ -304,7 +381,53 @@ export const useApp = create<AppState>((set, get) => ({
       };
     }),
 
-  setVisible: (id, v) => set((s) => ({ visible: { ...s.visible, [id]: v }, dirty: true })),
+  addToMap: (ids, mapId) =>
+    set((s) =>
+      editMap(s, mapId, (m) => {
+        const fresh = ids.filter((id) => s.layers[id] && !m.order.includes(id));
+        const first = firstMapCrs(fresh.map((id) => s.layers[id]));
+        return {
+          order: [...fresh.slice().reverse(), ...m.order],
+          visible: { ...m.visible, ...Object.fromEntries(fresh.map((id) => [id, true])) },
+          crs: m.crs ?? first,
+        };
+      }),
+    ),
+  removeFromMap: (ids, mapId) =>
+    set((s) =>
+      editMap(s, mapId, (m) => {
+        const drop = new Set(ids);
+        return { order: m.order.filter((x) => !drop.has(x)), visible: Object.fromEntries(Object.entries(m.visible).filter(([k]) => !drop.has(k))) };
+      }),
+    ),
+  setActiveMap: (id) => set((s) => (mapOf(s, id) && s.activeMapId !== id ? { activeMapId: id } : {})),
+  addMap: () => {
+    const made = newMapFrom(get().maps);
+    set((s) => ({ maps: [...s.maps, made.map], activeMapId: made.map.id, dirty: true }));
+    return made;
+  },
+  renameMap: (id, name) =>
+    set((s) => {
+      const n = name.trim();
+      if (!n) return {};
+      return editMap(s, id, () => ({ name: uniqueName(s.maps.filter((m) => m.id !== id), n) }));
+    }),
+  duplicateMap: (id) => {
+    const src = mapOf(get(), id);
+    if (!src) return null;
+    const copy = duplicateOf(get().maps, src);
+    set((s) => ({ maps: [...s.maps, copy], activeMapId: copy.id, dirty: true }));
+    return copy;
+  },
+  deleteMap: (id) => {
+    const s = get();
+    if (s.maps.length < 2 || !mapOf(s, id)) return false;
+    const maps = s.maps.filter((m) => m.id !== id);
+    set({ maps, activeMapId: s.activeMapId === id ? maps[0].id : s.activeMapId, dirty: true });
+    return true;
+  },
+  setMapCamera: (id, camera) => set((s) => (mapOf(s, id) ? { maps: s.maps.map((m) => (m.id === id ? { ...m, camera } : m)) } : {})),
+  setVisible: (id, v) => set((s) => editMap(s, undefined, (m) => ({ visible: { ...m.visible, [id]: v } }))),
   setShowOriginal: (id, v) =>
     set((s) => ({ showOriginal: { ...s.showOriginal, [id]: v }, selection: { ...s.selection, [id]: [] }, dirty: true })),
 
@@ -312,7 +435,7 @@ export const useApp = create<AppState>((set, get) => ({
     set((s) => {
       const order = s.order.filter((x) => x !== id);
       order.splice(Math.max(0, Math.min(toIndex, order.length)), 0, id);
-      return { order, dirty: true };
+      return editMap(s, undefined, () => ({ order }));
     }),
 
   setStyle: (id, style) => set((s) => ({ styles: { ...s.styles, [id]: style }, dirty: true })),
@@ -342,13 +465,18 @@ export const useApp = create<AppState>((set, get) => ({
   setActiveLayer: (id) => set({ activeLayer: id }),
   setLayerSelection: (ids, anchor) => set({ selectedLayers: ids, layerAnchor: anchor }),
   setProperties: (t) => set({ properties: t }),
-  setMapCrs: (c) => set({ mapCrs: c, dirty: true }),
-  setWorldView: (on) => set({ worldView: on }),
+  setMapCrs: (c, mapId) => set((s) => editMap(s, mapId, () => ({ crs: c }))),
+  setWorldView: (on, mapId) => set((s) => ({ ...editMap(s, mapId, () => ({ worldView: on })), dirty: s.dirty })),
   setTool: (t) => set({ tool: t }),
-  setBasemap: (b) => set({ basemap: b, dirty: true }),
+  setBasemap: (b, mapId) => set((s) => editMap(s, mapId, () => ({ basemap: b }))),
   setStatus: (status) => set({ status }),
   set: (p) => set(p),
-}));
+  };
+});
+
+// Writes that bypass the store's own actions (`useApp.setState({ mapCrs })`, tests, old callers) fold into the active map too.
+const rawSetState = useApp.setState;
+useApp.setState = ((p: unknown, replace?: boolean) => rawSetState((s) => reconcile(s, typeof p === "function" ? (p as (s: AppState) => Patch)(s) : (p as Patch)), replace as never)) as typeof rawSetState;
 
 export function layerList(): LayerInfo[] {
   const s = useApp.getState();
@@ -370,11 +498,13 @@ export function ownerOf(displayId: string): string {
   return Object.values(s.results).find((r) => r.id === displayId)?.resultOf ?? displayId;
 }
 
-/** Ids of what is drawn on the map right now (results where applicable). */
-export function drawableLayerIds(): string[] {
+/** Ids of what is drawn on a map right now (the active one by default; results where applicable). */
+export function drawableLayerIds(mapId?: string): string[] {
   const s = useApp.getState();
-  return s.order
-    .filter((id) => s.visible[id])
+  const m = mapId ? mapOf(s, mapId) : undefined;
+  const [order, visible] = m ? [m.order, m.visible] : [s.order, s.visible];
+  return order
+    .filter((id) => visible[id])
     .map((id) => displayInfo(s, id))
     .filter((l): l is LayerInfo => !!l && l.geomType !== "Table" && !!l.crs)
     .map((l) => l.id);

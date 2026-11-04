@@ -1,11 +1,15 @@
-// Imperative access to the one OpenLayers map: the active map CRS, the engine-derived view cache
+// Imperative access to the OpenLayers maps, one per map of the project: the map CRS each is drawn in, the engine-derived view cache
 // (centre, bounds and ground scale as lon/lat numbers) and the view operations other code needs.
 // proj4 (inside OL) only maps pixels to the map CRS; every number comes from the engine (M-D5).
+//
+// Every function takes an optional map id and acts on the ACTIVE map when it is left out, so the status bar, the scale box, the
+// download dialogs ("current view") and the layout "frame from map view" follow whichever map the user is working in.
 import type OlMap from "ol/Map";
 import View from "ol/View";
 import type { Projection } from "ol/proj";
 import { api, type CrsDisplayInfo, type Extent } from "../ipc/api";
 import { useApp } from "../store/store";
+import { mapOf } from "../store/maps";
 import { displayCrsId, geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
 
 export interface ActiveCrs {
@@ -14,36 +18,64 @@ export interface ActiveCrs {
   projection: Projection;
 }
 
-let map: OlMap | null = null;
-let active: ActiveCrs | null = null;
-let pending: (() => void) | null = null;
-
-export function setMap(m: OlMap | null) {
-  map = m;
-  if (!m) active = null;
+interface Ctl {
+  map: OlMap | null;
+  active: ActiveCrs | null;
+  pending: (() => void) | null;
+  cache: ViewCache | null;
+  cacheSeq: number;
 }
 
-export function getMap(): OlMap | null {
-  return map;
+const ctls = new Map<string, Ctl>();
+function ctl(mapId?: string): Ctl {
+  const id = mapId ?? useApp.getState().activeMapId;
+  let c = ctls.get(id);
+  if (!c) {
+    c = { map: null, active: null, pending: null, cache: null, cacheSeq: 0 };
+    ctls.set(id, c);
+  }
+  return c;
 }
 
-export function getActiveCrs(): ActiveCrs | null {
-  return active;
+/** A map's panel mounted (or unmounted, with null). A view operation queued before the panel existed stays queued. */
+export function setMap(m: OlMap | null, mapId?: string) {
+  const c = ctl(mapId);
+  c.map = m;
+  if (!m) {
+    c.active = null;
+    c.cache = null;
+  }
+}
+
+/** Forget a deleted map's controller. */
+export function dropMap(mapId: string) {
+  ctls.delete(mapId);
+}
+
+export function getMap(mapId?: string): OlMap | null {
+  return ctl(mapId).map;
+}
+
+export function getActiveCrs(mapId?: string): ActiveCrs | null {
+  return ctl(mapId).active;
 }
 
 /** Called by the map view once a CRS switch has finished; runs a view operation queued for it. */
-export function setActiveCrs(c: ActiveCrs) {
-  active = c;
-  const p = pending;
-  pending = null;
+export function setActiveCrs(c: ActiveCrs, mapId?: string) {
+  const k = ctl(mapId);
+  k.active = c;
+  const p = k.pending;
+  k.pending = null;
   p?.();
 }
 
-/** Run `fn` now if the map is drawn in the project's map CRS, else when the switch to it finishes. */
-function whenCrsReady(fn: () => void) {
-  const want = displayCrsId(useApp.getState().mapCrs?.id ?? WEB_MERCATOR, useApp.getState().worldView);
-  if (map && active && active.id === want) fn();
-  else pending = fn;
+/** Run `fn` now if the map is drawn in its CRS, else when the switch to it finishes. */
+function whenCrsReady(fn: () => void, mapId?: string) {
+  const k = ctl(mapId);
+  const doc = mapOf(useApp.getState(), mapId ?? useApp.getState().activeMapId);
+  const want = displayCrsId(doc?.crs?.id ?? WEB_MERCATOR, doc?.worldView ?? false);
+  if (k.map && k.active && k.active.id === want) fn();
+  else k.pending = fn;
 }
 
 /** Scale factor k of the active CRS at a view position (engine; geographic CRSs use cos φ). */
@@ -67,27 +99,28 @@ export interface ViewCache {
   /** Engine scale factor at the centre. */
   k: number;
 }
-let cache: ViewCache | null = null;
-let cacheSeq = 0;
 
-export function getCenterLonLat(): [number, number] | null {
-  return cache?.center ?? null;
+export function getCenterLonLat(mapId?: string): [number, number] | null {
+  return ctl(mapId).cache?.center ?? null;
 }
-export function getViewBounds(): Extent | null {
-  return cache?.bounds ?? null;
+export function getViewBounds(mapId?: string): Extent | null {
+  return ctl(mapId).cache?.bounds ?? null;
 }
 /** The view centre in the map CRS together with that CRS's id (null until the view is ready). */
-export function getCenterInMapCrs(): { crs: string; center: [number, number] } | null {
+export function getCenterInMapCrs(mapId?: string): { crs: string; center: [number, number] } | null {
+  const cache = ctl(mapId).cache;
   return cache ? { crs: cache.crsId, center: cache.centerMap } : null;
 }
 /** Ground metres a screen pixel spans at the view centre. */
-export function getGroundPerPixel(): number | null {
-  return cache?.groundPerPx ?? null;
+export function getGroundPerPixel(mapId?: string): number | null {
+  return ctl(mapId).cache?.groundPerPx ?? null;
 }
 
 /** Recompute the cache through the engine (latest call wins). */
-export async function refreshViewCache(): Promise<ViewCache | null> {
-  const my = ++cacheSeq;
+export async function refreshViewCache(mapId?: string): Promise<ViewCache | null> {
+  const k0 = ctl(mapId);
+  const my = ++k0.cacheSeq;
+  const { map, active } = k0;
   if (!map || !active) return null;
   const crs = active;
   const size = map.getSize();
@@ -103,10 +136,10 @@ export async function refreshViewCache(): Promise<ViewCache | null> {
   try {
     const out = await Promise.all(pts.map(([x, y]) => api.transformPoint(x, y, crs.id, "EPSG:4326")));
     const k = await scaleFactorAt(crs, c[0], c[1]);
-    if (my !== cacheSeq) return cache;
+    if (my !== k0.cacheSeq) return k0.cache;
     const lons = out.slice(1).map((p) => p[0]);
     const lats = out.slice(1).map((p) => p[1]);
-    cache = {
+    k0.cache = {
       crsId: crs.id,
       centerMap: [c[0], c[1]],
       center: out[0],
@@ -117,7 +150,7 @@ export async function refreshViewCache(): Promise<ViewCache | null> {
   } catch {
     /* outside the CRS's valid area: keep the previous cache */
   }
-  return cache;
+  return k0.cache;
 }
 
 // ---------- view operations ----------
@@ -135,9 +168,10 @@ async function extentInMapCrs(crs: ActiveCrs, ext: Extent): Promise<[number, num
 }
 
 /** Fit a lon/lat extent. `maxZoom` is a Web-Mercator-style level (z 16 ≈ 2.4 m per pixel at the equator). */
-export function zoomToExtent(ext: Extent | null, maxZoom = 16) {
+export function zoomToExtent(ext: Extent | null, maxZoom = 16, mapId?: string) {
   if (!ext) return;
   whenCrsReady(() => {
+    const { map, active } = ctl(mapId);
     const crs = active!;
     void extentInMapCrs(crs, ext)
       .then((box) => {
@@ -146,11 +180,12 @@ export function zoomToExtent(ext: Extent | null, maxZoom = 16) {
         map?.getView().fit(box, { padding: [40, 40, 40, 40], minResolution, duration: 600, size: map.getSize() });
       })
       .catch(() => undefined);
-  });
+  }, mapId);
 }
 
 /** Set the `1:N` scale about the view centre (engine k). */
-export async function setScale(scale: number) {
+export async function setScale(scale: number, mapId?: string) {
+  const { map, active } = ctl(mapId);
   if (!map || !active) return;
   const c = map.getView().getCenter();
   if (!c) return;
@@ -168,7 +203,8 @@ export interface Camera {
 }
 
 /** A saved-project camera: centre lon/lat and the `1:N` scale at the centre. */
-export function snapshotCamera(): Camera | null {
+export function snapshotCamera(mapId?: string): Camera | null {
+  const cache = ctl(mapId).cache;
   return cache ? { center: cache.center, scale: cache.groundPerPx * PX_PER_M } : null;
 }
 
@@ -177,8 +213,9 @@ function groundForSavedZoom(zoom: number, latDeg: number): number {
   return (40075016.686 * Math.cos((latDeg * Math.PI) / 180)) / (512 * 2 ** zoom);
 }
 
-export function restoreCamera(cam: Camera) {
+export function restoreCamera(cam: Camera, mapId?: string) {
   whenCrsReady(() => {
+    const { map, active } = ctl(mapId);
     const crs = active!;
     void (async () => {
       try {
@@ -189,12 +226,12 @@ export function restoreCamera(cam: Camera) {
         const view = map?.getView();
         view?.setCenter([x, y]);
         view?.setResolution(resolutionForScale(scale, crs.info.unitM, k));
-        void refreshViewCache();
+        void refreshViewCache(mapId);
       } catch {
         /* keep the current view */
       }
     })();
-  });
+  }, mapId);
 }
 
 export function makeView(crs: ActiveCrs, center: [number, number], resolution: number): View {
@@ -214,7 +251,8 @@ export interface FlightResult {
  * Scripted pan/zoom flight over an extent, recording frame times. Used by
  * View → Benchmark to check the map stays smooth (target: 60 fps, p95 < 20 ms).
  */
-export async function benchmarkFlight(ext: Extent, onStep?: (fraction: number) => void): Promise<FlightResult> {
+export async function benchmarkFlight(ext: Extent, onStep?: (fraction: number) => void, mapId?: string): Promise<FlightResult> {
+  const { map, active } = ctl(mapId);
   if (!map || !active) throw new Error("Map not ready");
   const m = map;
   const crs = active;

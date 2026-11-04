@@ -208,6 +208,9 @@ pub enum FrameLayers {
     Follow(String),
     /// Explicit list, top layer first.
     List(Vec<FrameLayer>),
+    /// `{ "map": id }`: follow one named map of the project. The app turns it into an explicit list from that map's layers before it
+    /// asks for a render; the engine only stores it (and, if one ever reaches a render, treats it like "map").
+    Map { map: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -727,6 +730,11 @@ impl Layout {
                         bail!("Map frame '{}': layers must be \"map\" or a list", a.id);
                     }
                 }
+                if let FrameLayers::Map { map } = layers {
+                    if map.trim().is_empty() {
+                        bail!("Map frame '{}': the map it follows needs an id", a.id);
+                    }
+                }
             }
         }
         for e in &self.elements {
@@ -1159,4 +1167,21 @@ pub struct PageCtx {
     pub count: usize,
     pub name: String,
     pub attrs: BTreeMap<String, String>,
+}
+
+#[cfg(test)]
+mod frame_layers_tests {
+    use super::*;
+
+    #[test]
+    fn frame_layers_reads_all_three_forms() {
+        let follow: FrameLayers = serde_json::from_str(r#""map""#).unwrap();
+        assert_eq!(follow, FrameLayers::Follow("map".into()));
+        let list: FrameLayers = serde_json::from_str(r#"[{"id":"a","visible":true}]"#).unwrap();
+        assert!(matches!(list, FrameLayers::List(_)));
+        let named: FrameLayers = serde_json::from_str(r#"{"map":"map-2"}"#).unwrap();
+        assert_eq!(named, FrameLayers::Map { map: "map-2".into() });
+        // And it is written back the same way, so a saved layout keeps the map it follows.
+        assert_eq!(serde_json::to_string(&named).unwrap(), r#"{"map":"map-2"}"#);
+    }
 }

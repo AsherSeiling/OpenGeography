@@ -1,11 +1,11 @@
 import { FluentProvider } from "@fluentui/react-components";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { listen } from "@tauri-apps/api/event";
-import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from "dockview-react";
+import { DockviewReact, type DockviewReadyEvent, type IDockviewHeaderActionsProps, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
-import { addData, registerDock, saveProject, openProject } from "./actions";
+import { addData, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
 import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
 import { reportError } from "./errors/store";
@@ -14,7 +14,9 @@ import { AttributeTable } from "./panes/AttributeTable";
 import { ContentsPane } from "./panes/ContentsPane";
 import { MapView } from "./panes/MapView";
 import { ModelPane } from "./panes/ModelPane";
-import { defaultLayout, restoreDock, serializeDock, setDock, type PaneId } from "./panes/panes";
+import { defaultLayout, dockIsRebuilding, restoreDock, serializeDock, setDock, syncMapPanels, type PaneId } from "./panes/panes";
+import { newMap, rememberView } from "./maps/mapActions";
+import { isMapPanelId } from "./store/maps";
 import { CatalogPane } from "./panes/CatalogPane";
 import { ItemsPane } from "./panes/ItemsPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
@@ -27,6 +29,7 @@ import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { useModel, useRun } from "./store/model";
 import { useApp } from "./store/store";
+import { basemapsInUse } from "./store/maps";
 import { applyThemeMode, dockTheme, fluentDark, fluentLight } from "./theme/fluentTheme";
 
 const guard = (pane: string, title: string, el: React.ReactNode) => (
@@ -39,13 +42,23 @@ const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPan
   layout: (p) => guard(`layout:${(p.params as { layoutId: string }).layoutId}`, "Layout", <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />),
   contents: () => guard("contents", "Map Layers", <ContentsPane />),
   catalog: () => guard("catalog", "Catalog", <CatalogPane />),
-  map: () => guard("map", "Map", <MapView />),
+  map: (p) => guard(`map:${p.api.id}`, "Map", <MapView mapId={p.api.id} />),
   table: () => guard("table", "Attribute Table", <AttributeTable />),
   model: () => guard("model", "Node Editor", <ModelPane />),
   properties: () => guard("properties", "Properties", <PropertiesPane />),
   sources: () => guard("sources", "Sources", <SourcesPane />),
   items: () => guard("items", "Items", <ItemsPane />),
 };
+
+/** The + at the end of a tab strip that holds a map: a new map, opened in that strip. */
+function NewMapButton({ group }: IDockviewHeaderActionsProps) {
+  if (!group.panels.some((p) => isMapPanelId(p.id))) return null;
+  return (
+    <button type="button" className="map-tab-add" title="New map" aria-label="New map" onClick={() => newMap({ group })}>
+      +
+    </button>
+  );
+}
 
 export function App() {
   const dark = useApp((s) => s.dark);
@@ -58,10 +71,11 @@ export function App() {
       if (!r.ok) reportError(r.problems.join("\n"), "datum-data", { title: "Datum shifts can't be trusted on this computer", context: "checking the coordinate system data" });
     }, () => {});
   }, []);
-  const basemap = useApp((s) => s.basemap);
+  // Every map's basemap is cited, not only the active map's (the engine keeps earlier citations).
+  const basemaps = useApp((s) => basemapsInUse(s.maps).join("|"));
   useEffect(() => {
-    if (basemap) api.recordBasemap(basemap).catch(() => {});
-  }, [basemap]);
+    for (const b of basemaps.split("|")) if (b) api.recordBasemap(b).catch(() => {});
+  }, [basemaps]);
   useEffect(() => {
     api.toolSpecs().then(useRun.getState().setSpecs).catch((e) => useApp.getState().setStatus(`Engine not available: ${e}`));
     // Live step status while a model runs; drag and drop files onto the window to add them.
@@ -107,12 +121,22 @@ export function App() {
   const onReady = (e: DockviewReadyEvent) => {
     setDock(e.api);
     registerDock(serializeDock, restoreDock);
+    registerMapPanelSync(syncMapPanels);
     defaultLayout();
     // The Layout ribbon tab and Properties follow the active layout tab.
     e.api.onDidActivePanelChange((ev) => {
       followActivePanel((ev.panel?.params as { layoutId?: string } | undefined)?.layoutId);
+      // Focusing a map's tab makes it the active map (Map Layers, the status bar and the tools follow it).
+      if (ev.panel && isMapPanelId(ev.panel.id)) useApp.getState().setActiveMap(ev.panel.id);
     });
-    e.api.onDidRemovePanel((panel) => layoutPanelClosed((panel.params as { layoutId?: string } | undefined)?.layoutId));
+    e.api.onDidRemovePanel((panel) => {
+      layoutPanelClosed((panel.params as { layoutId?: string } | undefined)?.layoutId);
+      if (isMapPanelId(panel.id) && !dockIsRebuilding()) rememberView(panel.id);
+    });
+    // Renaming, duplicating or deleting a map updates its tab; a deleted map's tab closes.
+    useApp.subscribe((s, prev) => {
+      if (s.maps !== prev.maps) syncMapPanels();
+    });
   };
 
   return (
@@ -123,7 +147,7 @@ export function App() {
       <div className={`app ${dark ? "dark" : ""}`}>
         <Ribbon />
         <div className="dock">
-          <DockviewReact components={components} onReady={onReady} theme={dockTheme} defaultRenderer="always" />
+          <DockviewReact components={components} onReady={onReady} theme={dockTheme} defaultRenderer="always" rightHeaderActionsComponent={NewMapButton} />
         </div>
         <StatusBar />
         <LayerPropertiesWindow />
