@@ -1053,3 +1053,13 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | TM-5 | No active layer: asks for a layer, or offers Add Data if none | `e2e/shift-a.spec.ts` |
 | TM-6 | Menu stays on screen in a narrow window | `e2e/shift-a.spec.ts` |
 | TM-7 | Placement rules: wire, selected node, Input to Output, unconnected; never a rejected connection | `e2e/shift-a.spec.ts`, `toolPlacement.test.ts` |
+| SH-1 | Default layout: Map Layers over Catalog, Properties over Sources, no bottom panel | `e2e/map.spec.ts` |
+| SH-2 | Bottom panel appears when Node Editor or Attribute Table opens, goes when the last tab closes | `e2e/map.spec.ts` |
+| SH-3 | Picking a tool opens the Node Editor; Add Tool and Run are on the Analysis tab | `e2e/map.spec.ts` |
+| SH-4 | Search finds a command, a tool and a layer; a tool is placed like the menu | `e2e/map.spec.ts` |
+| SH-5 | Public Data opens the Catalog and focuses its row | `e2e/map.spec.ts` |
+| SH-6 | A saved dock layout of this version comes back; an old one falls back, project data untouched | `e2e/map.spec.ts` |
+| SH-7 | Project box far left, Save, Undo, Redo in the tab row; band spans the window | `e2e/map.spec.ts` |
+| SH-8 | Undo and Redo follow the node tree or open layout and grey out when empty | `e2e/map.spec.ts` |
+| SH-9 | No ribbon scrollbar or clipped tab at 900, 1024, 1280, 1440, 1920 px | `e2e/ribbon-width.spec.ts` |
+| SH-10 | Every command is reachable on a tab, the project menu or the Public Data tree | `e2e/map.spec.ts` |
