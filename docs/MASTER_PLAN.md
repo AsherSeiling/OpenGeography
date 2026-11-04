@@ -1,6 +1,6 @@
 # GIS Studio — master plan
 
-_Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, added after Phase C at the user's request; earlier: Opus plan decisions in `docs/DECISIONS.md`; user requests: labels L1–L3, B6, B7; M4 on hold). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
+_Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the sequence in §4 now match the work done), 2026-10-27 (Phase R, coordinate-system hardening, added after Phase C at the user's request; earlier: Opus plan decisions in `docs/DECISIONS.md`; user requests: labels L1–L3, B6, B7; M4 on hold). This file sets the **order** of work. What each feature is and its status live in the documents listed in §1; this file links to them rather than repeating them._
 
 **Product priorities** (the user's ranking, which drives the order below):
 1. Easy data manipulation.
@@ -25,13 +25,16 @@ _Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, a
 | [`docs/CRS_PLAN.md`](CRS_PLAN.md) | Phase R: CRS invariants, audit of suspected gaps, decisions RD-1–RD-10, the test CRS "zoo", sessions R1–R7. Its 112 test cases are in `TEST_PLAN.md` §2A | Phase R |
 | [`docs/TEST_PLAN_FULL.md`](TEST_PLAN_FULL.md) | Full test plan: edge and failure cases for every feature, error-reporting procedure, coverage gaps (extends `TEST_PLAN.md`) | Writing or running tests; before a release |
 | [`docs/CI_LOG.md`](CI_LOG.md) | Every CI round: run id, failure, fix | Any CI work |
+| [`docs/UI_REDESIGN_PLAN.md`](UI_REDESIGN_PLAN.md) | UI redesign: design tokens, Shift+A tool menu, multiple maps, basemaps, work packages | UI redesign work |
+| [`docs/LAYOUT_UI_OPTIONS.md`](LAYOUT_UI_OPTIONS.md) | Approved layout editor design (option B with add-ons) and menu levels | Layout editor work |
+| [`docs/LAYOUT_REWORK_PLAN.md`](LAYOUT_REWORK_PLAN.md) | Layout rework sessions LW0–LW12 | Layout work |
 | [`docs/DECISIONS.md`](DECISIONS.md) | Decision log: why things are the way they are, newest first | When a task touches that area |
 | [`docs/prompts/orchestrator.md`](prompts/orchestrator.md) | Opus orchestrator: delegates to Sonnet sessions, reviews in tiers, merges | Running several tasks from one Opus session |
 | [`docs/prompts/sonnet-runner.md`](prompts/sonnet-runner.md) | Reusable Sonnet prompt: picks the next task, flags Opus tasks, ends with a review block | Any Sonnet session |
 | [`docs/prompts/next-session.md`](prompts/next-session.md) | Ready-to-paste brief for the current Sonnet task | Starting the next Sonnet task |
 
 **Plans still to be written.** Each is the output of an Opus design session, made before its phase starts:
-- `docs/TOPO_MAP_PLAN.md` — phase C2.
+- (The Topo Map Builder was designed in `docs/LAYOUT_REWORK_PLAN.md` LW9 and `docs/TOPO_USGS_PLAN.md`, so no separate plan is needed.)
 - `docs/PYTHON_SDK_PLAN.md` — phase G.
 
 ---
@@ -60,6 +63,21 @@ _Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, a
 ---
 
 ## 3. Phases
+
+**Where each phase stands (2026-11-04).** The tables below keep each phase's original tasks and notes; this table is the current status.
+
+| Phase | Status | Left |
+|---|---|---|
+| A. First release | Code done | A3: you check the Windows and Linux installers on real machines. A4: you push the `v0.1.0` tag. A5 is optional. |
+| B. Data manipulation | ✅ Done | Nothing |
+| C. Map production | Main work built: layouts, labels, templates, map series, Topo Map Builder | M4's 3M-point performance trace and engine-drawn basemaps. LW7, LW8 and LW10–LW12 have no sessions of their own; some of their features arrived through other work. UPS squares in the USNG/MGRS grid tool. |
+| R. CRS hardening | R0–R6, R6b and R8 built | R7: CI on all three platforms, thread stress, performance baselines, manual Windows and Linux run. R7 must also fix the Phase C Windows/macOS CI failure. |
+| D. Public data | ✅ Complete | The keychain hasn't been tried on a real OS (M-31). WMS/WMTS and NASA POWER were left out on purpose; NAIP needs a later connector (`DECISIONS.md`). |
+| E. Raster foundation | ✅ Done | Nothing |
+| F. Planetary GIS | Full plan rewritten 2026-11-04, not built. **The last feature before the first release (user, 2026-11-04).** | Build P0–P7 in `PLANETARY_PLAN.md` after the UI redesign merges |
+| G. Python SDK + CLI | Not built; moved to after the first release | Nothing before release |
+| H. Advanced analysis | ✅ Complete | Hydrology is untested in the packaged app (M-32) and on Windows and Linux (R7). Supervised classification not built. |
+| UI redesign | WP1–WP8b and WP10–WP13 merged on `ui-redesign`; not pushed | WP9 final verification, then merge into `main` |
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
 
@@ -99,7 +117,7 @@ _Written 2026-10-23, updated 2026-10-27 (Phase R, coordinate-system hardening, a
 **Exit:** roadmap P2 and P3 all ✅. **✅ Phase B complete 2026-10-23:** CI green on all three platforms ([40031502418](https://github.com/AsherSeiling/OpenGeography/actions/runs/40031502418)), packaged Mac app `--self-test` passes. The v0.2 tag is the user's call.
 **Total:** 6–8 sessions.
 
-### Phase C — Map production (priority 2) ⟵ *now*
+### Phase C — Map production (priority 2)
 
 The biggest missing piece: the app currently can't make a printable map.
 
@@ -121,11 +139,11 @@ The biggest missing piece: the app currently can't make a printable map.
 | C3. Layout templates (C3.1) and map series (C3.2) | 1–2 | Sonnet | **C3.1 and C3.2 built 2026-10-28 (Phase C pushed in one CI run).**  Templates use C3.0's label and arrange. |
 | C4. Topo Map Builder: design, then build | 1 + 3–4 | Opus, then Sonnet | Needs C2, the National Map downloads and E1. Builds on `nav/geodesy.ts` (UTM/MGRS grid, WMM declination). |
 
-**Order now:** batch merged 2026-10-25 (Q1, M3, Q2) and the bug fixes merged. Q3 done 2026-10-28. Next: **L1** (labels on the map) → L2 → L3 (labels on the map, in layouts, and adjusting them in the layout; user request), then B6 ∥ B7 (split by attribute; category precedence; user request), then C3.0 → C3.1 → C3.2. **Then Phase R (coordinate-system hardening, user request 2026-10-27) before anything else.** M4 is on hold at the user's request. C4 waits for E1.
+**Order:** all of the above is built, and C4 was built as LW9 in `LAYOUT_REWORK_PLAN.md`. See the status table at the top of §3 for what is left.
 **Exit:** a user can produce a print-scale PDF map with legend and grid; Topo Map Builder makes a USGS-style quad.
 **Total:** 11–15 sessions (with Q3).
 
-### Phase R — Coordinate-system hardening (user request 2026-10-27) ⟵ *next after Phase C's C3.2*
+### Phase R — Coordinate-system hardening (user request 2026-10-27)
 
 **Goal:** coordinate systems demonstrably work everywhere: transforms, datum shifts, units, axis order, tools, rasters, map, layouts, import/export, and all three platforms. Plan, audit and decisions: [`CRS_PLAN.md`](CRS_PLAN.md). Test cases (112, written before any code): [`TEST_PLAN.md`](TEST_PLAN.md) §2A.
 
@@ -177,20 +195,13 @@ Needed by the Topo Map Builder (C4) and by planetary terrain work (F2).
 
 ### Phase F — Planetary GIS (roadmap P9)
 
-Details, sources and decisions D1–D5 are in [`PLANETARY_PLAN.md`](PLANETARY_PLAN.md).
+The last feature before the first release (user, 2026-11-04). A planetary map is a mode chosen when the map is created, with built-in USGS and NASA data and native planetary files. Everything is in [`PLANETARY_PLAN.md`](PLANETARY_PLAN.md): decisions, test results, work packages P0–P7.
 
-| Task | Effort | Depends on |
-|---|---|---|
-| F0. Design (the pole spike is no longer needed: polar CRSs through the C5 map view) | 1 (Opus) | — |
-| F1. Body foundation: one body per project; body-aware geodesics, gdaldem scale and display | 2–3 | F0 |
-| F2. Importers: planetary files, USGS STAC data, global mosaics, OGC vector, place names, geologic maps, PDS image search | 3–4 | F1, D3, D5 |
-| F3. Crater tools, crater statistics with model ages, morphometry, height reference | 1 (Opus method review) + 2–3 | F1, E1 |
-| F4. ISIS / Ames Stereo Pipeline bridges | 1–2 | F1 |
-| F5. Planetary cartography | 1–2 | C2 |
-
-**Total:** 11–16 sessions.
+**Total:** about 9 sessions.
 
 ### Phase G — Python tool SDK + headless CLI (roadmap P7)
+
+Moved to after the first release (user, 2026-11-04).
 
 - Opus design, then 3–4 Sonnet sessions.
 - User Python nodes exchange data through Arrow/GeoParquet; a CLI runs a saved model without the UI.
@@ -209,18 +220,21 @@ Details, sources and decisions D1–D5 are in [`PLANETARY_PLAN.md`](PLANETARY_PL
 
 ## 4. Recommended sequence
 
+Status 2026-11-04. Phases were not finished in the original order: D, E and H were built before F and G.
+
 ```
-A  Stabilize + v0.1      ███▒                      (code done; A3 + tag are yours)
-B  Data manipulation        ████                   ✅  (+ B6 split by attribute, B7 category order: user requests)
-C  Map production              ███████▒▒▒          ← now: L1–L3 labels → B6 ∥ B7 → C3.0 → C3.1–C3.2; M4 on hold
-R  CRS hardening                         ███████    ← next after C3.2 (user request); R1 can start earlier beside a feature session
-D  Public data (D1–D3)                  █████       ← D3 can run beside C3 (different files)
-E  Raster foundation                         ███
-C4 Topo Map Builder                             ███  (contour labels build on L1–L3)
-F  Planetary (F0–F4)                            ███████  ← F0/F1 after E; polar maps use the C5 view
-D  Public data (D4–D6)                                 ███
-G  Python SDK                                             ███
-H  Advanced analysis                                         ██████
+A  Stabilize + v0.1      code done; A3 and the tag are yours
+B  Data manipulation     done
+C  Map production        main work built (M4 remainder, LW7/LW8/LW10-12 open)
+R  CRS hardening         built except R7 (CI on all platforms)
+D  Public data           complete
+E  Raster foundation     complete
+H  Advanced analysis     complete
+UI UI redesign           ← now: WP9 final verification on branch ui-redesign
+F  Planetary GIS         next: last feature before the first release (docs/PLANETARY_PLAN.md)
+R7 One full CI push      at the very end (your skip-CI rule); fix what it finds
+-- First release, fine tuning
+G  Python SDK + CLI      after the first release
 ```
 
 **Why this order:**

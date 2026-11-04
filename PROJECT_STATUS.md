@@ -2,8 +2,13 @@
 
 _Updated 2026-11-04. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Bugs: `docs/BUGS.md`. Test cases: `docs/TEST_PLAN.md`. Session prompts: `docs/prompts/`. The user follows the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj), which the orchestrator updates at every change._
 
+## Where the project stands (2026-11-04)
+Phases A (code), B, D, E and H are done. C's main work is built. R is built except R7. F (planetary) is planned and is the last feature before the first release (`docs/PLANETARY_PLAN.md`). G (Python SDK) moved to after it. Phase by phase: the table at the top of `docs/MASTER_PLAN.md` §3.
+
+Before a release: finish and merge the UI redesign, build F, do the one full CI push (R7) and fix what it finds, rebuild the Mac app, run the open manual checks (Windows and Linux installers, M-31, M-32), then you push the tag.
+
 ## Exact next action
-- **UI redesign (2026-11-03, branch `ui-redesign`, `docs/UI_REDESIGN_PLAN.md`):** plan, mock-up (`docs/design/ui-redesign-mockup.html`) and layout options (`docs/LAYOUT_UI_OPTIONS.md`, `docs/design/layout-options-mockup.html`) are **approved (2026-11-03); build in progress.** Scope now includes multiple maps and more open basemaps. Design changes so far: blue outline around the open tab and pane only, rounded node cards, Save/Undo/Redo in the tab row, layout menu levels. WP1 to WP8b and WP10 to WP13 (multiple maps with project format 2, open basemaps, layout editor) are merged on `ui-redesign`, not pushed; last full run 168 passed, 1 skipped. Left: WP9. To continue: `docs/prompts/ui-redesign-continue.md`.
+- **UI redesign (2026-11-03, branch `ui-redesign`, `docs/UI_REDESIGN_PLAN.md`):** plan, mock-up (`docs/design/ui-redesign-mockup.html`) and layout options (`docs/LAYOUT_UI_OPTIONS.md`, `docs/design/layout-options-mockup.html`) are **approved (2026-11-03); build in progress.** Scope now includes multiple maps and more open basemaps. Design changes so far: blue outline around the open tab and pane only, rounded node cards, Save/Undo/Redo in the tab row, layout menu levels. WP1 to WP8b and WP10 to WP13 (multiple maps with project format 2, open basemaps, layout editor) are merged on `ui-redesign`, not pushed; last full run 168 passed, 1 skipped. Left: WP9, on branch `claude/wp9-verify-1963d8` with one of its three commits made. To continue: `docs/prompts/ui-redesign-continue.md`.
 - **USNG / MGRS (2026-10-30):** three tools (Add USNG / MGRS Field, USNG / MGRS to Points, USNG / MGRS Grid), USNG/MGRS columns in Export Table, USNG and MGRS buttons in the coordinate system dialog that pick the UTM zone of the view. Checked against the `mgrs` package and NGA GeoTrans. Polar (UPS) references done; MGRS Grid button on the map; USNG/MGRS column in Export Features; defaults MGRS / 1 km / WGS 84. Not built: UPS squares in the grid tool.
 - **USGS classic + military sheets (2026-10-30, `docs/TOPO_USGS_PLAN.md`, `docs/TEST_PLAN.md` TU):** Insert → Topo Map now has Sheet style (land navigation / USGS quadrangle / military installation) and Symbol look (classic / modern), presets "USGS quadrangle 1:24,000" and "Military installation map 1:50,000 (A2)", A2/A1 paper, and step 4 "Apply topographic symbols" (by layer name and geometry; lists what it skipped). New underneath: stroke stacks (casings, rail ties; map + layouts + legends), a symbol catalogue of ≈ 90 symbols from the USGS "Topographic Map Symbols" sheet plus the military overlay (engine `topo_symbols.rs`, picker in Properties › Symbology › Topographic symbol), patterns (marsh, orchard, vineyard, scrub, sand, gravel), markers, legend entries by symbol id, legend `auto: false`. Sheets: title block, 3 scale bars, contour/datum notes, declination, road-classification key, adjoining quads (USGS); military legend, viewpoint and facilities boxes, mils declination, grid-reference box. Pixel tests and two rendered showcase pages checked by eye. Not built: purple revisions, USGS lettering/label placement, facilities table from data, GeoPDF. Not yet checked in the packaged app.
 - **K-2 (2026-10-30, user-confirmed):** the Add menu (right-click, Shift+A) was opening off-screen inside the dock pane; now rendered on the page. WebKit e2e: `E2E_WEBKIT=1 scripts/e2e.sh <out> <spec>`. **Next:** LW9 remainder (vector data, coordinate scale, templates), then LW7/LW8.
@@ -17,43 +22,36 @@ _Updated 2026-11-04. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 
 ## State
 - `main` is on GitHub at https://github.com/AsherSeiling/OpenGeography (public). Never commit `.claude/` (local launch config and worktrees).
-- Phases A (except A3 and the tag) and B are done.
-- Phase C:
-  - C1 and C2.1–C2.4 are done: layouts print a full map.
-  - The projected map view M1–M3 is done: OpenLayers draws in the map's CRS, and the tools are exact in any CRS.
-  - Error pop-up and per-pane error boxes (Q1), and the test plan with its tests (Q2), merged 2026-10-25.
-  - Left: M4 (rasters in any CRS, pole-safe tools, GDAL thread-safety gate), C3.0 layout polish, then C3.1–C3.2.
+- Phase status: see "Where the project stands" above.
 - CI history: `docs/CI_LOG.md`. CI logs need a GitHub login: read failures from the run annotations.
 - The packaged Mac app and DMG are copied into the project folder (`GIS Studio.app`, `GIS-Studio-<version>-macos-arm64.dmg`).
 
-## Build and test status (macOS arm64, 2026-10-25)
+## Build and test status (macOS arm64, 2026-11-04)
 | Check | Result |
 |---|---|
-| `npx tsc` | pass |
-| `npx vitest run` | 361/361 (38 files) |
-| `cargo test -p engine` | 179 pass, 23 ignored (network, perf, and the open bugs in `docs/BUGS.md`) |
-| `cargo build -p gis-studio` | pass, 0 warnings |
-| Packaged app `--self-test` (clean env) | pass |
-| Browser e2e (`scripts/e2e.sh`, headless Chromium) | 36 pass, 0 fixme, ~1.5 min; automates 9 manual cases fully and 7 in part (`docs/TEST_PLAN.md` §14) |
+| Full browser e2e on `ui-redesign` (with WP12 and WP13 merged) | 168 passed, 1 skipped on purpose |
+| `npx tsc`, `npx vitest run` | pass; 598 vitest tests in the merged run |
+| `cargo test -p engine` | pass; 540 passed, 28 ignored in the merged run |
+| Packaged Mac app | Doesn't include the UI redesign yet; rebuild after WP9 |
+| GitHub CI | Skipped until the end by your rule; the Phase C Windows/macOS failure is still to fix (R7) |
 
-## Known gaps (layouts) — C3.0 fixes these
-- **Layout view:** no rulers, no Arrange group, no "1:N" scale-bar label.
-- **Export:** no dpi box (PNG is 300 dpi).
-- **Preview:** with a basemap it re-fetches tiles on every edit (4–5 s).
-- **Later (C4):** feature labels and GeoPDF.
+e2e M-4 fails on the WP9 branch because of CRS-1 (`docs/BUGS.md`).
+
+## Known gaps (layouts)
+- Named text styles aren't saved in the project (LE-1).
+- LW7, LW8 and LW10–LW12 in `docs/LAYOUT_REWORK_PLAN.md` have no sessions of their own.
 
 ## Known issues
 - **e2e suite:** `e2e/*.spec.ts` (Playwright, devDependency). `scripts/run-test-plan.sh --e2e` runs it; run it alone with `scripts/e2e.sh <out-dir>`. Needs Google Chrome, `/Applications/Chromium.app`, `E2E_BROWSER_PATH`, or `npx playwright install chromium`. The devserver address and vite port come from `GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER` (defaults unchanged).
-- **Bugs:** U-5 fixed 2026-10-28 (the dock closed the open layout when Properties was clicked; tracer `?trace=layout`). D-1: guard built (`tnm::plan_elevation`: ellipsoid sizes, refuses areas wider than 6° / beyond 84° / needing cells coarser than 90 m, says when coarsened); the tiled download and the service-limit tests are D0. See `docs/BUGS.md`.
+- **Bugs:** see the Open bugs section of `docs/BUGS.md`.
 - **Cancel granularity:** cancel lands between DuckDB work units. Big geodesic Buffer and Dissolve now stop in ~0.1 s (`nodes/batching.rs`); other single-call work may still lag. gdaldem steps ignore GDAL's progress callback.
 - **Intermittent local failure:** on 2026-10-28 `cargo test -p engine` reported the `layout` test target failed once in a full parallel run (output not captured); it passed on the next two runs. Capture the output if it recurs (it may be the crash below).
-- **Bugs found 2026-10-28:** U-6 (MapView's display-ready cache survives New Project, so a re-used layer id can stay blank in a projected CRS) and E2E-3 (M-25 flaked once). See `docs/BUGS.md`.
 - **macOS CI crash:** one intermittent SIGSEGV in layout tests (run 40055424934, conda GDAL, parallel tests). It hasn't happened again. M4's P17 stress test is the gate.
 
 ## Next tasks (in order)
-1. (L1–L3, B6, B7 done; B6+B7 pushed together; L1–L3 CI green for `f685b41` on all platforms, run 40734953739.)
-2. B6 split a layer by attribute, B7 category drawing order.
-3. C3.0 layout polish → C3.1 templates → C3.2 map series (end of Phase C).
-4. Phase R, coordinate-system hardening (`docs/CRS_PLAN.md`; 112 cases in `docs/TEST_PLAN.md` §2A). Recommended: tag `v0.2.0` after it.
-5. Phase D: tiled 3DEP download (D0), generic ArcGIS REST catalog (`docs/PUBLIC_DATA_CATALOG.md`), then the Census data join.
-M4 is on hold.
+1. Finish WP9, merge it, then merge `ui-redesign` into `main`.
+2. Build Phase F, planetary (`docs/PLANETARY_PLAN.md` §10), once you've answered its §12. Craterstats is bundled, with model ages in the first release (user, 2026-11-04).
+3. Fix the open bugs worth fixing before release (`docs/BUGS.md`).
+4. R7: one full CI push on all three platforms, and fix what it finds.
+5. Rebuild the Mac app, then run the open manual checks: Windows and Linux installers (A3), keychain (M-31), hydrology (M-32).
+6. You push the `v0.1.0` tag.

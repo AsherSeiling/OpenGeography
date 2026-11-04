@@ -2,7 +2,7 @@
 
 The single authoritative roadmap: feature inventory, platform matrix and priorities.
 Status marks: ✅ implemented + tested · 🟡 implemented, thin tests · 🟠 partial · ⛔ broken/blocked · ⬜ planned.
-Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases per feature: `docs/TEST_PLAN.md` (2026-10-25); open bugs found by tests: `docs/BUGS.md`.
+Last audit: 2026-10-23 (code inspection + test runs on macOS arm64); status marks refreshed 2026-11-04 from `PROJECT_STATUS.md`, the code and git history, without a new full audit. Test cases per feature: `docs/TEST_PLAN.md`; open bugs: the Open bugs section of `docs/BUGS.md`.
 
 ## 1. Feature inventory
 
@@ -11,17 +11,19 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 |---|---|---|
 | Import shp/gpkg/geojson/kml/csv/parquet; rasters (GeoTIFF etc.) | ✅ | engine tests |
 | CRS: explicit, 7,195-entry picker, all State Plane, Define Projection | ✅ | catalog test is network/ignored |
-| CRS hardening: reference-checked transforms, identity by meaning, datum accuracy reporting, tool matrix over 18 CRSs, rasters, map, layouts, 3 platforms | ⬜ | Phase R, `docs/CRS_PLAN.md`; 112 cases in `docs/TEST_PLAN.md` §2A |
-| Map view draws in the map's CRS (OpenLayers; engine tiles per CRS grid; true 1:N scale; basemap datum-offset notice; rasters in every CRS since 2026-10-30) | 🟠 | M1 + M2 done 2026-10-23 (`docs/MAP_PROJECTION_PLAN.md`); M3 exact identify/select/measure/draw in any CRS in progress; M4 rasters in any CRS ⬜ (rasters draw in Web Mercator only until then) |
+| CRS hardening: reference-checked transforms, identity by meaning, datum accuracy reporting, tool matrix over the CRS zoo, rasters, map, layouts, world view | 🟠 | Phase R built except R7 (all three platforms in CI, thread stress, performance baselines); `docs/CRS_PLAN.md`; cases in `docs/TEST_PLAN.md` §2A |
+| Map view draws in the map's CRS (OpenLayers; engine tiles per CRS grid; true 1:N scale; basemap datum-offset notice; rasters in every CRS since 2026-10-30) | 🟠 | M1–M3 done (`docs/MAP_PROJECTION_PLAN.md`). Left from M4: the 3M-point performance trace and engine-drawn basemaps |
+| Multiple maps: each map has its own layers, CRS, basemap and view; side-by-side panels; a layout frame can follow a map | ✅ | WP10–WP11, project format 2, old projects migrate, newer ones are refused; not on `main` yet. Open: MM-4 |
+| Open basemaps: OpenFreeMap (Liberty, Bright, Positron), VersaTiles, OpenTopoMap, Natural Earth, plus USGS and OpenStreetMap | ✅ | WP12; not on `main` yet. Vector basemaps draw in Web Mercator only; only USGS and Natural Earth print in layouts; a refusal is explained in words. NASA Blue Marble left out (no licence marking on the layer) |
 | Attribute table: spreadsheet editing, add/rename/delete field, calculate field/geometry | ✅ | |
 | Definition queries (GUI + Python→SQL), selection, export selection | ✅ | |
 | Projects (.gproj = project.json + project.duckdb) | 🟡 | full save/open round trip tested (`tests/project.rs`); rasters live in an app-wide store outside the project (not portable); local file sources are absolute paths |
 | TIGER / National Map vector / 3DEP downloads | ✅ | TIGER by year (2010–current, sorted); network tests ignored by default |
-| File manager (Catalog pane: browse folders/GIS files, drag to map or model, folder connections) | ✅ | GIS-aware listing (shapefile sidecars hidden, .gdb/.gproj as items), GDAL details, drag to map/Contents/node editor |
-| Public data toolkit (Living Atlas–style) | ⬜ | plan and dataset list in `docs/PUBLIC_DATA_CATALOG.md` |
+| Catalog pane: one tree of Project (Maps, Layouts, Project files) and Public Data | ✅ | Redesigned in WP4: the folder browser and folder connections were removed, so files are added with Add Data |
+| Public data toolkit (Living Atlas–style) | ✅ | Phase D complete: tiled 3DEP, ArcGIS catalog, STAC/COG, Overture GeoParquet, OGC API, earthquakes, SSURGO; `docs/PUBLIC_DATA_CATALOG.md` |
 | Sources & citations (annotated bibliography, BibTeX) | ✅ | model results cite every upstream input |
-| Census data join (ACS / 2020) + keychain key | ⬜ | |
-| NAIP imagery; NASA GIBS / CMR / POWER | ⬜ | |
+| Census data join (ACS / 2020) + keychain key | 🟡 | D2 built; keychain not yet tried on a real OS (M-31) |
+| Imagery: Sentinel-2, Copernicus DEM; NAIP; NASA POWER; WMS/WMTS | 🟠 | Sentinel-2 and Copernicus DEM offered through STAC. Landsat and NAIP on AWS need an AWS account, so NAIP needs a later connector. WMS/WMTS and NASA POWER not built, on purpose (`docs/DECISIONS.md`) |
 
 ### Node editor (Model)
 | Requirement | Status | Notes |
@@ -30,7 +32,7 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 | Fixed Layer Input / Output (not deletable) | ✅ | UI-enforced only; engine doesn't validate |
 | Output draws result in place of layer; original untouched; Save as new layer | ✅ | failed run keeps last result but nothing marks it stale ⬜ |
 | Extra Layer input nodes (menu, drag from Contents, drop on node) | ✅ | |
-| Shift+A menu from the registry, search, keyboard, typing guard | ✅ | no aliases ⬜ |
+| Shift+A menu from the registry, search, keyboard, typing guard | ✅ | searches names, keywords and categories from `tool_specs` (WP2, WP3); the main way to reach tools |
 | Drop node onto a connection (splice) | ✅ | one undo step; types checked on both sides; misfits refused with a reason |
 | Blender shortcuts (node editor only) + rebinding dialog | ✅ | Shift+A, X, Ctrl+X, Shift+D, Ctrl+C/V, G, A/Alt+A/Ctrl+I, M, H, F, Home/., Ctrl+Z/Shift+Z, Ctrl+Enter/F12, Ctrl+right-drag cut |
 | Undo/redo | 🟡 | per tree (clears when switching trees); each param keystroke is an undo step |
@@ -42,6 +44,16 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 | Copy/paste, duplicate, mute, collapse, make links | ✅ | auto-layout ⬜ |
 | Attribute history between nodes ("git for tables") | ✅ | B2.1 (persisted node cache), B2.2 (engine diff + node-rows commands, `history.rs`) and B2.3 (table pane UI: node picker, diff bar, node-card menu) done 2026-10-23. Designed 2026-10-23 in `docs/ATTRIBUTE_HISTORY_PLAN.md` (build B2.1–B2.3). Requested 2026-10-23: keep each node's output table as a versioned snapshot (what changed vs. the previous node: rows added/removed, fields added/changed); the Attribute Table shows the Output by default with a picker to view any earlier node's table and its diff. Builds on the node cache tables (`__node_<hash>`), which currently live only for a session. |
 | Model tests (graph semantics, persistence) | 🟡 | engine tests cover every tool (`tests/tools.rs`, `tests/rasters.rs`); UI graph ops covered by `nodeEditor.test.ts` and `modelStore.test.ts`; no component-level tests of the canvas (manual M-14 in the test plan) |
+
+### Maps and layouts
+| Feature | Status | Notes |
+|---|---|---|
+| Print layouts: map frames, legend, scale bar, north arrow, grid, declination, tables, charts, PDF/PNG/SVG export | ✅ | Phase C and LW1–LW6 |
+| Labels on the map and in layouts | ✅ | L1–L3, `docs/LABELS_PLAN.md` |
+| Templates and map series | ✅ | C3.1, C3.2 |
+| Topo Map Builder (land navigation, USGS quadrangle, military installation) | ✅ | LW9, `docs/TOPO_USGS_PLAN.md` |
+| Layout editor redesign: Insert rail, start gallery, Properties tabs, right-click menus, Check Page, named text styles | 🟡 | WP13; not on `main` yet. Named text styles aren't saved in the project (LE-1) |
+| Layout rework LW7, LW8, LW10–LW12 | 🟠 | No sessions of their own yet; `docs/LAYOUT_REWORK_PLAN.md` |
 
 ### Processing tools (97 spec ids across `nodes/`, 48 tools)
 | Group | Status |
@@ -82,11 +94,11 @@ The macOS package includes GPL-only libraries via Homebrew GDAL: poppler (linked
 The order these are done in, with effort and dependencies, is in `docs/MASTER_PLAN.md`.
 P0 baseline — done 2026-10-23 (all tests green on macOS).
 P1 release reliability — CI green on macOS, Linux and Windows (done 2026-10-23). GPL-free GDAL, bundled-data precedence and project-portable rasters done. Remaining: hands-on Windows/Linux checks, release workflow, macOS notarization and Intel build.
-P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts. Deleted-layer references flagged and one undo step per parameter edit also done. Remaining: **attribute history between nodes**, UI graph tests.
-P3 processing correctness — parameter validation; missing vector tools (union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay).
+P2 node-tree correctness — done: cancellation, one-step type-checked inserts, stale markers, provenance from all inputs, Blender shortcuts, deleted-layer references flagged, one undo step per parameter edit, attribute history between nodes.
+P3 processing correctness — done: parameter validation; union, difference, repair, multipart↔singlepart, simplify, hulls, Delaunay.
 P4 raster foundation — done 2026-10-29 (calculator, alignment, NoData, resample, mosaic, rasterize, reclassify, band select).
-P5 data — done: file manager (Catalog), TIGER by year. Remaining: public data toolkit connectors (ArcGIS REST catalog → STAC/COG → GeoParquet; docs/PUBLIC_DATA_CATALOG.md), Census join, NAIP, NASA.
-P6 layouts (designed: `docs/LAYOUTS_PLAN.md`; C2.1–C2.4 ✅ — page, frames, legend, scale bar, north arrow, sources, graticule/grid, rasters, USGS basemaps; C3.1–C3.2 templates and map series ⬜), then the Topo Map Builder.
-P7 Python tool SDK + headless CLI.
-P8 advanced analysis (hydrology, interpolation, statistics, remote sensing).
-P9 planetary GIS (Moon, Mars first): body-aware CRS/geodesics, USGS data importers, crater tools, ISIS/ASP bridges — plan in `docs/PLANETARY_PLAN.md` (not started).
+P5 data — done (Phase D): Catalog, TIGER by year, public data connectors, Census join. NAIP needs a later connector.
+P6 layouts — built: C2.1–C2.4, C3.1–C3.2, Topo Map Builder (LW9) and the layout editor redesign (WP13). Remaining: LW7, LW8, LW10–LW12.
+P7 Python tool SDK + headless CLI — not built; after the first release (user, 2026-11-04).
+P8 advanced analysis — done 2026-10-29 (Phase H: hydrology, interpolation, statistics, remote sensing).
+P9 planetary GIS — next, and the last feature before the first release (user, 2026-11-04): extraterrestrial map mode, built-in USGS and NASA data, native planetary files, crater tools. Plan in `docs/PLANETARY_PLAN.md`; not started.

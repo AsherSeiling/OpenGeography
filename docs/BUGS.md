@@ -1,10 +1,31 @@
-# Known bugs
+# Bugs
 
-Bugs that are not yet fixed. Each one has a test that fails today and is marked `#[ignore = "BUG: …"]`; remove the `#[ignore]` when you fix the bug (run all of them with `cargo test -p engine -- --ignored <test name>`).
+Open bugs come first, closed bugs after them. When you fix a bug, move its entry from **Open bugs** to **Closed bugs** and say what fixed it. If a bug's test is marked `#[ignore = "BUG: …"]`, remove the `#[ignore]` with the fix (run the ignored tests with `cargo test -p engine -- --ignored <test name>`).
 Severity: **High** = crash, data loss or a wrong result without a warning · **Medium** = wrong behaviour with a workaround · **Low** = rough edge.
 Known performance and platform issues that are not bugs in the code live in `PROJECT_STATUS.md` ("Known issues").
 
-## Found by tests
+## Open bugs
+
+Updated 2026-11-04. Bugs on the `claude/wp9-verify-1963d8` branch aren't in `ui-redesign` yet; when it merges, move UI-1, MM-1 and MM-2 to Closed bugs.
+
+| ID | Sev. | Summary | Next step |
+|---|---|---|---|
+| LE-1 | Medium | Named text styles aren't saved in the project, so they're lost on another computer or browser profile. Element looks are saved; only the style's name and link are lost. Found 2026-11-04. | Needs an engine field: a style list on the layout and a style reference on text elements. |
+| U-6 | Medium | After New Project (or opening another project) a layer that gets the same id and version as one in the previous project (`L1`, version 2) is treated as already projected in a non-Mercator map CRS, so its tiles fail with "hasn't been projected for display in this coordinate system yet" and the map stays blank for that layer. Cause: `MapView.tsx` `displayReady` (key `id\|version\|crsKey`) is never cleared when the project changes. Found 2026-10-28; the set is still never cleared. | Clear it (and `building`) on new or open project, or add a project counter to the key. Add an e2e: New Project, then add a layer in UTM. |
+| UI-1 | Not rated | Link text on a hovered `--surface-0` is 4.05:1, below AA. Fixed in dialogs by WP8. Found 2026-11-03. | Fix for the other controls and recheck are on the WP9 branch. |
+| TP-11 | Not rated | Partly fixed 2026-10-30: warnings added for Extract Streams with an unsuitable threshold and for Flow Accumulation given a flow-direction raster. Result rasters still inherit the DEM renderer, so they are invisible until restyled. (T6-3, T6-4, T6-6) | Give result rasters their own default renderer. |
+| C-1b | Low | **Accepted.** DuckDB's embedded PROJ and libproj (cs2cs) pick equivalent datum operations that differ by up to ~12 cm for NAD83/ETRS89 ↔ WGS 84 and up to ~3.3 m for NAD27 away from the NADCON anchor. The anchor itself agrees to 1.3 cm. Test: `crs_reference.rs` datum_tol. | A full match needs transforms through GDAL's libproj instead of DuckDB (a large change across ~49 call sites): decide with F1. |
+| E2E-3 | Low | `misc.spec.ts` M-25 (progress UI, cancel) failed once in a full run on 2026-10-28 (waiting for the "cancelled" status, 60 s) and passed on the next two runs with no change to that code. | Flaky; watch it. |
+| MM-1 | Low | A new map opens on the default view, and adding a layer with + in Map Layers doesn't move to it, so the layer can be off screen. Zoom To Layer or Full Extent works around it. Found 2026-11-04. | Fix is on the WP9 branch. |
+| MM-2 | Low | The Series coverage picker, the Topo Map dialog's DEM pick and the Attribute Table's layer list read the active map's `order`, so they miss project layers not on that map. Add the layer to the map as a workaround. Found 2026-11-04. | Fix is on the WP9 branch. |
+| MM-4 | Low | The same fault as MM-2 remains in the tool menu's and node cards' "Choose a layer" lists, the Properties pane's layer picker, the layout frame and element layer lists, and the area-of-interest pickers of the Overture, ArcGIS, STAC, National Map, Elevation, OGC and Hazards dialogs. Found by WP9, 2026-11-04. | Each list needs its own check of what "the map's layers" should mean there, then the MM-2 fix (`projectLayerIds`). |
+| CRS-1 | Low | Typing `26914` in the Coordinate System dialog's search logs React's "two children with the same key" for `EPSG:32628`, because the same CRS appears twice in the results. This fails e2e M-4. Found by WP9, 2026-11-04. | Remove the duplicate from the result list. WP9 didn't touch `crs/*`; not yet checked against `main`. |
+
+## Closed bugs
+
+Fixed, or closed with the reason given. Grouped by how each bug was found.
+
+### Found by tests
 
 Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fixed by that work.
 
@@ -19,65 +40,55 @@ Found 2026-10-25 while writing `docs/TEST_PLAN.md`'s tests. Nothing here was fix
 | B-T6 | Low | **Fixed** —  Identify on a projected raster errors instead of returning "no value" for a point outside the CRS's domain | `rasters::identify_far_from_a_projected_raster_is_just_empty` |
 | B-T8 | Low (latent) | **Fixed** —  `Task::part(i, n)` with `i >= n` reports a progress fraction above 100 % | `progress_sources::a_part_index_past_the_end_still_reports_at_most_100_percent` |
 
-### B-T5 — Warp to an invalid CRS crashes the app (High) — FIXED
+#### B-T5 — Warp to an invalid CRS crashes the app (High) — FIXED
 Fix: every `*AppOptionsNew` result is null-checked in `raster.rs` (`translate`, `warp`, `dem`, rasterize); Warp also validates the target with `crs::validate`.
 - **Reproduce:** add any raster layer; in its node tree add *Warp (Reproject Raster)*, set *Target coordinate system* to `EPSG:99999999` (or any text PROJ cannot read, or empty) and run. Test: `cargo test -p engine --test rasters -- --ignored warp_to_an_invalid_crs`.
 - **Expected:** the Warp step shows an error ("Unknown or invalid coordinate system …") and the app keeps running.
 - **Actual:** GDAL prints `Invalid SRS for -t_srs` and the process dies with SIGSEGV.
 - **Suspect:** `crates/engine/src/raster.rs::warp` (and the same pattern in `translate`, `dem`): `GDALWarpAppOptionsNew` returns NULL for a bad option and the code then calls `GDALWarpAppOptionsSetProgress(opts, …)` on the NULL pointer. Check `opts.is_null()` first and return `last_error(…)`; also validate the CRS with `crs::validate` in `qgis_raster.rs::Warp::build`.
 
-### B-T7 — Warp of a raster with no CRS invents one (High) — FIXED
+#### B-T7 — Warp of a raster with no CRS invents one (High) — FIXED
 Fix: `need_raster_crs` (nodes/mod.rs) in Warp, Clip Raster by Extent, Sample Raster Values and Zonal Statistics. Contours, Polygonize and the terrain tools do not reproject and carry the (absent) CRS through unchanged.
 - **Reproduce:** import a GeoTIFF that has no CRS (the layer shows no coordinate system), run *Warp* to `EPSG:4326`. Test: `--test rasters -- --ignored warping_a_raster_of_unknown_crs`.
 - **Expected:** an error telling the user to Define Projection first (as Buffer, Project, Near and Spatial Join do for vectors).
 - **Actual:** the step succeeds; the output keeps the original grid (x = 600000 …, pixel 30) but is labelled `EPSG:4326`, i.e. metres reinterpreted as degrees, with no warning. Breaks the "explicit CRS, never guess" rule.
 - **Suspect:** `crates/engine/src/nodes/qgis_raster.rs::Warp::build` has no `need_crs` check (the vector tools use `need_crs`). Clip, Contours, Polygonize etc. should be checked for the same gap.
 
-### B-T1 — Export onto the source file overwrites it (Medium) — FIXED
+#### B-T1 — Export onto the source file overwrites it (Medium) — FIXED
 Fix: `nodes/export.rs::refuse_source_file` compares the canonicalized output path with every layer's `source` and raster path.
 - **Reproduce:** import `a.gpkg` (2 features), set a definition query `id = 1`, add an Export node writing GPKG to the same `a.gpkg`, run. Test: `--test formats -- --ignored exporting_never_overwrites`.
 - **Expected:** refuse ("this is the layer's source file") or at least ask; `CLAUDE.md` says never overwrite source data.
 - **Actual:** the file is silently replaced by the exported (filtered) content; the original 2 features are gone.
 - **Suspect:** `crates/engine/src/nodes/export.rs::build` never compares `path` with any layer's `source` (`LayerInfo.source`) or the existing file.
 
-### B-T4 — Cancel is slow on single-call geometry work (Medium) — FIXED
+#### B-T4 — Cancel is slow on single-call geometry work (Medium) — FIXED
 Fix (`nodes/batching.rs`, `Output::Script`): Cancel now stops a 1.5 M-point geodesic Buffer and a 200 k-polygon Dissolve in ~0.1 s (was ~12 s). The cause of the Buffer delay was not the size of the call but PROJ setup: every row group held features from all over the layer, so every thread built hundreds of projections behind a lock. The layer is now processed sorted by its projection centre (≈2× faster too) and the row order restored afterwards. Dissolve (and Buffer with Dissolve) does partial unions per spatial tile, one statement each, then pairwise unions of neighbouring tiles. Layers up to 50 k (Buffer) / 20 k (Dissolve) features use the old single query.
 - **Reproduce:** run `cargo test -p engine --test cancel -- --ignored cancel_geodesic_buffer cancel_dissolve` (1.5 M points geodesic Buffer; 200 k polygons Dissolve), or in the app generate that much test data and press Cancel 0.3 s after the run starts.
 - **Expected:** stops in about a second (the planar Buffer on 3 M points does, and so do Near, Voronoi and Spatial Join).
 - **Actual:** the step stops 11.8–12.5 s after Cancel; the progress bar shows "Cancelling…" meanwhile.
 - **Suspect:** DuckDB interrupts only between work units; per-feature geodesic projection (`nodes/buffer.rs`) and the single `ST_Union_Agg` of Dissolve (`nodes/dissolve.rs`) are long uninterruptible calls. Same cause as `PROJECT_STATUS.md` known issue 1; the numbers are new. Chunk the work or run it on a separate connection that can be dropped.
 
-### B-T2 — Blank layer name (Low) — FIXED
+#### B-T2 — Blank layer name (Low) — FIXED
 - **Reproduce:** `Engine::rename_layer(id, "   ")`; test `--test tables -- --ignored renaming_a_layer_to_blank`. In the app: rename a layer in Contents to spaces.
 - **Expected:** refused, or the old name kept. **Actual:** the layer name is stored blank (an invisible row in Contents and in citations).
 - **Suspect:** `crates/engine/src/lib.rs::rename_layer` does no validation.
 
-### B-T3 — Zero-size selection box (Low) — FIXED by M3, test enabled
+#### B-T3 — Zero-size selection box (Low) — FIXED by M3, test enabled
 - **Reproduce:** `Engine::select_box(point_layer, [x, y, x, y])` where (x, y) is a point's location; test `--test tables -- --ignored zero_size_box`.
 - **Expected:** the point is selected (a click with the rectangle tool is a zero-size box). **Actual:** empty selection.
 - **Suspect:** `crates/engine/src/table.rs::select_box` builds `ST_MakeEnvelope(x0, y0, x0, y0)`, a degenerate polygon that `ST_Intersects` does not match. Pad the box by a tiny tolerance or use a point/line when width or height is 0. (The UI may never send such a box; confirm in `MapView.tsx` after M3.)
 
-### B-T6 — Raster identify far from the raster errors (Low) — FIXED
+#### B-T6 — Raster identify far from the raster errors (Low) — FIXED
 - **Reproduce:** import a UTM 14N GeoTIFF; `Engine::raster_value(id, 0.0, 0.0)`; test `--test rasters -- --ignored identify_far`. In the app: Identify with the pointer on a point far from the raster's UTM zone.
 - **Expected:** `Ok(None)`. **Actual:** `Err("Invalid coordinate range while transforming points … Point outside of projection domain")` (and GDAL prints `ERROR 1`).
 - **Suspect:** `crates/engine/src/raster.rs::sample`: treat a PROJ domain error as "no value".
 
-### B-T8 — Progress above 100 % (Low, latent) — FIXED
+#### B-T8 — Progress above 100 % (Low, latent) — FIXED
 - **Reproduce:** `Task::start("x").part(3, 0); set(1.0)` (or `part(i, n)` with `i >= n`); test `--test progress_sources -- --ignored a_part_index_past_the_end`.
 - **Expected:** fraction ≤ 1. **Actual:** 4.0. No caller does this today; `part` should clamp `i` to `n - 1`.
 - **Suspect:** `crates/engine/src/progress.rs::Task::part`.
 
-## Observations (not bugs, worth knowing)
-- `NEAR_DIST` (Near tool) is in the units chosen for the search radius, not always metres. Covered by `tools::near_and_join_nearest_report_distance_and_respect_radius`.
-- `tiger_import` and `tnm_import` check dataset ids one at a time: with `["tracts", "bogus"]` the first dataset is downloaded and added before the second id is rejected. The UI never sends an unknown id. Covered (id first) by `downloads::a_refused_download_adds_no_layers_citations_or_lingering_tasks`.
-- `pyToSql` does not check that an expression is complete or that field names exist; the engine's SQL parser reports those errors. Covered by `queryEdge.test.ts`.
-- The layout test binary has crashed once with SIGSEGV on macOS CI (`PROJECT_STATUS.md` known issue 4). While writing the raster tests the same signal was reproduced locally, but it was B-T5, not that race.
-
-## For M3 (files owned by the map session)
-
-Nothing found. While cycling the map CRS (EPSG:3857 → 32615 → 5070 → 4326 → 3395 → ortho/laea custom → 3031/3413 → invalid ids set straight into the store, with layers loaded and a layout tab open), `MapView.tsx` never threw: invalid ids show the status message "The map can't be drawn in …" and keep the last good CRS. Checked at commit time of this branch; re-run after M3 lands (`window.__gis.useApp.getState().setMapCrs({id, name})` in the browser build).
-
-## Fixed on `claude/errors-crash-fixes-0cffd7`
+### Crash fixes (`claude/errors-crash-fixes-0cffd7`)
 
 | Crash | Cause | Fix |
 |---|---|---|
@@ -90,7 +101,7 @@ Nothing found. While cycling the map CRS (EPSG:3857 → 32615 → 5070 → 4326 
 | Damaged saved camera / dock layout aborted project open | uncaught in `restoreState` | wrapped; status message |
 | Export with no map frame | engine error only in the status bar | explained up front |
 
-## Found by e2e
+### Found by e2e
 
 Found 2026-10-25 while automating `docs/TEST_PLAN.md` §14 (`e2e/*.spec.ts`). Each had a `test.fixme("… BUG …")` in the spec; both are fixed and enabled (`MapNotices` keys by a stable id; `Engine::import` says "File not found").
 
@@ -99,12 +110,9 @@ Found 2026-10-25 while automating `docs/TEST_PLAN.md` §14 (`e2e/*.spec.ts`). Ea
 | E2E-1 | Low | **Fixed** —  Applying a definition query logs React's "two children with the same key" error: `MapNotices` uses the notice text (`Projecting <layer name>…`) as the key, and two projections of one layer (before and after the query) are listed at once. Can duplicate or drop a notice line | `table.spec.ts` "M-12 BUG E2E-1" (the real M-12 test filters this one message) |
 | E2E-2 | Low | **Fixed** —  Adding a path that does not exist reports "Could not read /path: Query returned no rows" instead of saying the file is missing | `misc.spec.ts` "M-1 BUG E2E-2" |
 
-| U-5 | High | **Fixed (Q3, 2026-10-28)** — Layout editor: the Properties pane went blank after clicking into it and editing a value; edits were dropped until the element was reselected. **Cause (confirmed):** `App.tsx` called `useLayouts.open(null)` whenever the dock's active panel was not a layout tab. Clicking into the Properties pane makes it the active panel, so the open layout was closed: `doc` became `null`, `selected` was cleared (the layout's effect then set Properties to `null` = blank hint), and `update()` returned early with no document (edit silently dropped). Reselecting an element re-activated the layout, which is why it worked again. Hypotheses H1–H7 were not the cause; the cause was a new one (H8). **Fix:** non-layout panels leave the layout open (`followActivePanel`), closing a layout tab closes the layout (`layoutPanelClosed`), and a layout tab clears only its own Properties target. Tracer: `?trace=layout` (LP-0). | `e2e/layout-props.spec.ts` LP-5 (fails 1.0 m timeout without the fix, passes with it); `store/layout.test.ts` LP-1, LP-3 |
-| D-1 | High | Downloading 3DEP elevation for a large area fails or causes problems (one request for the whole box; service limits unknown; silent coarsening; no tiling, retry or resume). **Guard added (Q3, 2026-10-28); tiled download still open (D0).** The guard (`tnm::plan_elevation`) sizes the download on the ellipsoid (D-H6), tells the user when the cell size was coarsened (D-H4) and refuses, in plain words and before any request, boxes wider than 6° / beyond 84° latitude (D-H3) or needing cells coarser than 90 m. Service limits (D-H1, D-H2, D-H5) are not measured yet: DEM-0/DEM-1 need the network and belong to D0. Hypotheses D-H1…D-H6 and cases DEM-0…DEM-13 in `docs/TEST_PLAN.md` §10A. Guard in Q3, tiled download in D0. | — |
-
 Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e test allows 30 s.
 
-## Reported by the user
+### Reported by the user, and found by Phase R
 
 | ID | Sev. | Summary | Fix |
 |---|---|---|---|
@@ -112,10 +120,9 @@ Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e te
 | U-2 | Medium | Importing TIGER tracts sometimes failed with "TIGERweb returned something that isn't JSON" | Fixed 2026-10-25. A tract page was one 16–22 MB response (13–17 s), and a cut-off response or a busy-server HTML page failed to parse, with no detail. Now each request retries up to 3 times, a page that keeps failing halves (1000 → 500 → 250 features), and the error names what came back (a web page and its title, a response that ended early, or a snippet). Test: `tiger::tests::bad_responses_are_described_not_just_not_json`; live tests `tiger_sample_data_downloads` and `tiger_year_list_and_availability` pass. |
 | U-3 | High | National Map import (federal lands, clipped) failed with "TopologyException: side location conflict at -119.1866 38.0327": USGS sent invalid polygons and the clip's `ST_Intersection` threw, aborting the whole import | Fixed 2026-10-25: `clip_layer_to` repairs invalid features first (`ST_MakeValid`, same dimension), makes the clip shape valid, runs in one transaction, and a dataset whose clip still fails goes to the dialog's "failed" list with a readable message while the others import. Test: `clip_tests::clipping_repairs_invalid_polygons_instead_of_failing`; the reported area (federal lands, ~25,000 km² around the error point) now imports 58 features. |
 | U-4 | High | Project → Open failed with "JSON.stringify cannot serialize cyclic structures" | Fixed 2026-10-25: the ribbon passed its click event into each command (`onClick={cmd.run}`). Since `openProject(path?)` gained a path parameter for the Catalog, the event was taken as the folder path and sent to the engine. The ribbon now calls `run()` with no arguments, covering every command, and `openProject` accepts only a string path. Test: `ui/src/openProject.test.ts`. |
-| U-6 | Medium | **Open, found 2026-10-28 while checking L1.** After New Project (or opening another project) a layer that gets the same id and version as one in the previous project (`L1`, version 2) is treated as already projected in a non-Mercator map CRS, so its tiles fail with "hasn't been projected for display in this coordinate system yet" and the map stays blank for that layer. Cause: `MapView.tsx` `displayReady` (key `id\|version\|crsKey`) is never cleared when the project changes. Fix idea: clear it (and `building`) on new/open project, or include a project counter in the key. | to add: e2e New Project then add a layer in UTM |
-| E2E-3 | Low | `misc.spec.ts` M-25 (progress UI, cancel) failed once in a full run on 2026-10-28 (waiting for the "cancelled" status, 60 s) and passed on the next two runs with no change to that code. Flaky; watch it. | `misc.spec.ts` M-25 |
+| U-5 | High | **Fixed (Q3, 2026-10-28)** — Layout editor: the Properties pane went blank after clicking into it and editing a value; edits were dropped until the element was reselected. **Cause (confirmed):** `App.tsx` called `useLayouts.open(null)` whenever the dock's active panel was not a layout tab. Clicking into the Properties pane makes it the active panel, so the open layout was closed: `doc` became `null`, `selected` was cleared (the layout's effect then set Properties to `null` = blank hint), and `update()` returned early with no document (edit silently dropped). Reselecting an element re-activated the layout, which is why it worked again. Hypotheses H1–H7 were not the cause; the cause was a new one (H8). **Fix:** non-layout panels leave the layout open (`followActivePanel`), closing a layout tab closes the layout (`layoutPanelClosed`), and a layout tab clears only its own Properties target. Tracer: `?trace=layout` (LP-0). | `e2e/layout-props.spec.ts` LP-5 (fails 1.0 m timeout without the fix, passes with it); `store/layout.test.ts` LP-1, LP-3 |
+| D-1 | High | Downloading 3DEP elevation for a large area fails or causes problems (one request for the whole box; service limits unknown; silent coarsening; no tiling, retry or resume). **Closed: guard added in Q3 (2026-10-28), tiled download built in D0.** The guard (`tnm::plan_elevation`) sizes the download on the ellipsoid (D-H6), tells the user when the cell size was coarsened (D-H4) and refuses, in plain words and before any request, boxes wider than 6° / beyond 84° latitude (D-H3) or needing cells coarser than 90 m. Service limits (D-H1, D-H2, D-H5) are not measured yet: DEM-0/DEM-1 need the network and belong to D0. Hypotheses D-H1…D-H6 and cases DEM-0…DEM-13 in `docs/TEST_PLAN.md` §10A. Guard in Q3, tiled download in D0. | — |
 | C-1 | High | **Fixed (R3, 2026-10-28)** — found by R1. Without PROJ's data, DuckDB Spatial's `ST_Transform` treated NAD83 ↔ WGS 84 (and ETRS89) as no change and NAD27 came out ~2 m off, silently. `Engine::new` now points PROJ at its data folder (`resources::ensure_proj_data`), a known-answer datum check (`crs::datum_data_report`) runs at start-up (error pop-up) and in `--self-test`, and tool results name a datum change. | `crs_reference.rs` r_a6_…_across_datums, r_d1–d3, r_d4 (child process with an empty PROJ_DATA) |
-| C-1b | Low | **Open, accepted.** DuckDB's embedded PROJ and libproj (cs2cs) pick equivalent datum operations that differ by up to ~12 cm for NAD83/ETRS89 ↔ WGS 84 and up to ~3.3 m for NAD27 away from the NADCON anchor. The anchor itself agrees to 1.3 cm. A full match needs transforms through GDAL's libproj instead of DuckDB (a large change across ~49 call sites): decide with F1. | `crs_reference.rs` datum_tol |
 | C-2 | Medium | **Fixed (R4)** — found by R1. `ST_Transform` returns `(inf, inf)` with no error for points a projection cannot show (Texas Central Lambert at the south pole). Tools now turn a non-finite result into a null geometry (`Ctx::geom_in`), and Project leaves such features out and counts them in its result (RD-6). Raw `ST_Transform` is unchanged. | `crs_tools.rs` r_j1 |
 | C-3 | Low | **Closed as a definition (R4, 2026-10-28)** — found by R1. The geodesic area of a polygon with corners on ±180° and ±90° measured 0. That is the right answer: its two ±180° edges run along the same meridian and its pole edges are single points, so it encloses nothing. The whole Earth measures 510 065 621.7 km² as two lunes. | `crs_reference.rs` r_j8 |
 | C-4 | High | **Fixed (R2, 2026-10-28)** — found by `crs_import::r_e4`. A GeoPackage with no SRS (srs_id 0 or −1) was imported as an "Undefined geographic SRS" with an unknown datum and treated as a real CRS, so the map and tools used it without asking (breaks I1, never guess). It now stays undefined with the usual warning. | `crs_import.rs` r_e4 |
@@ -127,33 +134,35 @@ Not new: M-13's cancel on a large geodesic Buffer takes ~12 s (B-T4); the e2e te
 | G11 | High | **Fixed (R5)** — terrain on a geographic DEM used one metres-per-degree scale for both axes, so a slope running east–west at 45° N read about 8° too gentle. Hillshade, slope and aspect now run on a metre-sized view of the pixels at the raster's centre latitude and keep the degrees georeferencing. | `crs_raster.rs` r_g5 |
 | G4 | High | **Fixed (R5, P18)** — identify and rectangle select went through the layer's Web Mercator copy, which cannot hold a pole. With a display table built for the map CRS they query it directly in map coordinates. | `crs_raster.rs` p18 |
 
+### Found in later sessions
 
-## P-1 — Packaged macOS app had no NAD27 datum grids (found by the R3 start-up check, 2026-10-28)
+#### P-1 — Packaged macOS app had no NAD27 datum grids (found by the R3 start-up check, 2026-10-28)
 - Symptom: `GIS Studio.app --self-test` failed ("NAD27 → NAD83 is off by 2.0 m … PROJ datum files are missing"). DuckDB's embedded PROJ cannot fetch grids from cdn.proj.org, and the bundle held only `proj.db`.
 - Fix: the seven NOAA NADCON grids (≈ 0.95 MB, public domain) live in `crates/engine/assets/proj-grids/` and `scripts/stage-resources.sh` copies them next to `proj.db`. Self-test passes. Canada's NTv2 grid (7.8 MB) is not bundled; the check names missing shifts.
 - Windows/Linux packaging uses the same script; verify on the CI run (R7).
 
-## W-1 — World outline temp file shared between simultaneous calls (fixed 2026-10-29)
+#### W-1 — World outline temp file shared between simultaneous calls (fixed 2026-10-29)
 `world_outline` wrote its GeoJSON to a file named only by process id, so two calls at once overwrote and deleted each other's file (seen as intermittent `world_view` test failures under load). Each call now uses its own name.
 
-## RS-1 — Three-band 8-bit imagery was drawn with the elevation ramp (found by the raster pixel protocol, fixed 2026-10-29)
+#### RS-1 — Three-band 8-bit imagery was drawn with the elevation ramp (found by the raster pixel protocol, fixed 2026-10-29)
 `raster::describe` recognised imagery by looking for "UInt8" in `format!("{:?}", band_type())`. With the current `gdal` crate that prints a descriptor struct (`GdalTypeDescriptor { name: "Byte", … }`), so no raster was ever classed as RGB: aerial/satellite imagery was coloured as if it were a DEM (hypsometric ramp + hillshade) on the map and in layouts, and Properties showed the descriptor text as the data type. Now `data_type` is GDAL's own name ("Byte", "Float32", …) and 8-bit unsigned rasters with 3 or more bands are imagery. Test: `raster_style.rs::three_band_bytes_are_imagery`, e2e `raster-pixels.spec.ts` RP-3.
 
-## CG-1 — Dotted lines made the whole layout unreadable (found by the cartography pixel protocol, fixed 2026-10-29)
+#### CG-1 — Dotted lines made the whole layout unreadable (found by the cartography pixel protocol, fixed 2026-10-29)
 A dotted line style (shape lines, and layer lines/outlines) added `stroke-linecap="round"` to an element that already had a `stroke-linecap`; the duplicate attribute made the renderer reject the page ("Layout SVG could not be read"), so the preview, PNG and PDF all failed. Dashes now carry only `stroke-dasharray`; round caps are added only where the element has none. Tests: `layout_shapes.rs::every_line_style_of_every_shape_renders_to_png_and_pdf`, `symbols.rs`, e2e `cartography-pixels.spec.ts` CP-2.
 
-## CG-2 — Overview extent rectangle drew as a zig-zag (found by looking at the rendered showcase page, fixed 2026-10-29)
+#### CG-2 — Overview extent rectangle drew as a zig-zag (found by looking at the rendered showcase page, fixed 2026-10-29)
 The CG4 extent indicator built its outline from `densified()`, an unordered point set meant for bounding boxes, so the path jumped between the four sides and, filled or stroked, drew a star-like blob instead of a rectangle. The unit test only checked the bounding box. The ring is now built side by side. Tests: `layout_shapes.rs::cg4_indicator_is_a_rectangle_not_a_zigzag`, e2e `cartography-pixels.spec.ts` CP-2 (outline, not a blob).
 
-## K-2 — Right-click and Shift+A did nothing in the Mac app (fixed 2026-10-30; confirmed working in the packaged app by the user)
+#### K-2 — Right-click and Shift+A did nothing in the Mac app (fixed 2026-10-30; confirmed working in the packaged app by the user)
 Causes found: (1) with layers loaded but none selected (a project just opened, a layer removed, data added from the Catalog) `openMenu` only wrote a status-bar message and Shift+A returned without any message, so nothing appeared; (2) since LW1 the layout workspace shrank the Model group to a 30 px strip, leaving no canvas to right-click. Fix: the Add menu selects the first layer itself (status bar says which) and says "Add data first" when there are no layers; the workspace keeps the Model group 170 px tall. Regression tests: `e2e/shift-a.spec.ts` (right-click and the no-layer case, run in Chrome and in WebKit with `E2E_WEBKIT=1 scripts/e2e.sh <out>`), `e2e/layout-items.spec.ts`. Real cause (found from the user's screenshot, "Add menu opened" but no menu): the Add menu was `position: fixed` inside a dock pane, and dockview renders panes in a transformed, paint-contained overlay, so "fixed" meant "relative to the pane" and the menu opened at y=1195 in a 950 px window, clipped away. Chrome and WebKit tests had passed because `toBeVisible` accepts a clipped box. Fix: the menu is rendered into `document.body` (portal); `expectAddMenuOnScreen` in `e2e/fixtures.ts` now requires the menu inside the window with the menu itself under its middle (the shift-a specs fail on the old code with it).
 
 Second round (2026-10-30, user: "it still shows the little hand icon"): right-click now has its own handler on the empty canvas (React Flow ignores a right click that moved a pixel or two, as a trackpad does, and right-drag no longer pans), and Shift+A opens the menu anywhere in the window while the Model canvas is on screen, with the pointer over another pane too (this one failed on the old code in WebKit). The Model toolbar now shows for 9 s what the editor did with the last Shift+A or right-click ("Shift+A received", "Add menu opened", "Shift+A ignored: …", "Right-click on the canvas received"): if it still fails, the words shown there (or their absence = the app never received the event) tell the cause.
 
-## K-1 — Shift+A (Add node) did nothing after a text box elsewhere had been used (fixed 2026-10-29, browser-verified)
+#### K-1 — Shift+A (Add node) did nothing after a text box elsewhere had been used (fixed 2026-10-29, browser-verified)
 Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the editor (the ribbon's Scale box, Properties fields, a search box) still had focus, even with the pointer over the Model canvas. Fix: the pointer decides (the box is blurred and the shortcut runs) unless keys were just being typed into the box (1.2 s); the Add menu opens at the middle of the canvas when no pointer position is known; when Shift+A is held back by a focused box the status bar says why. Regression tests: `e2e/shift-a.spec.ts` (fails on the old handler). **Not yet verified in the packaged app's WebView**: if Shift+A still fails there, the next step is the key-event diagnostic panel in the plan (docs/LAYOUT_REWORK_PLAN.md §2b, LW-K).
 
-## From the 20 test projects (2026-10-30; details and screenshots in docs/TEST_PROJECT_LOG.md and test-projects/)
+### From the 20 test projects (2026-10-30; details and screenshots in docs/TEST_PROJECT_LOG.md and test-projects/)
+
 - TP-1 [FIXED 2026-10-30] (T8-1, T9-2) Style crash "failed to parse rgba(NaN,NaN,NaN,NaN) as color": graduated colours with tied quantile breaks ("step … strictly ascending") and unique-values styles after the layer's values change. Guard the style builder; de-duplicate breaks.
 - TP-2 [FIXED 2026-10-30] (T12-1) Imagery & DEM (Sentinel-2) date range "2024-06-01/2024-09-30" (the dialog's own example) is rejected by the STAC service with HTTP 400 "does not match RFC3339"; convert to `T00:00:00Z/T23:59:59Z`.
 - TP-3 [FIXED 2026-10-30] (T13-1) Add USNG / MGRS Field fails with "ST_X only supports POINT geometries" on layers stored as MULTIPOINT (National Map summits); use ST_PointOnSurface/ST_Centroid when the geometry is not a single POINT (`nodes/usng_tools.rs:57`).
@@ -164,7 +173,6 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 - TP-8 [FIXED 2026-10-30] (T5-3, T7-2, T8-6, T10-3, T11-5) "≥" prints as a missing-glyph box in every graduated legend; class labels print six decimals; integer counts get a "< 0" class.
 - TP-9 [FIXED 2026-10-30] (T5-4) Long layout titles neither wrap nor shrink (cut off at the page edges).
 - TP-10 [FIXED 2026-10-30] (T7-1) Reclassified (categorical) rasters are resampled bilinearly and the legend shows blended breaks.
-- TP-11 [PARTLY FIXED 2026-10-30 (warnings added; result rasters still inherit the DEM renderer)] (T6-3, T6-4, T6-6) Extract Streams with an unsuitable threshold gives an all-no-data raster without a warning; Flow Accumulation accepts a flow-direction raster silently; result rasters inherit the DEM renderer and are invisible until restyled.
 - TP-12 [FIXED 2026-10-30] (T4-4, T10-4) Graduated colors defaults to the first numeric column (an ID: OGC_FID, CELL_ID).
 - TP-13 [FIXED 2026-10-30 (shows "still working, N min" and a creeping bar; the read itself is not faster)] (T10-1) Overture download sat at 5 % for ~8 min with no sign of progress.
 - TP-14 [NOT REPRODUCED 2026-10-30 (basemap warp of the world takes 0.3–1.3 s with a warm tile cache; the 2 minutes was probably the first, cold-cache tile download; time a cold run before changing code)] (T14-2) Layout preview of a world frame with 264 Tissot polygons in Mollweide took ~2 min (devserver at 2.8 GB).
@@ -172,9 +180,18 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 
 - TP-8 note: the bundled Noto Sans has no ≥ or ≤, so the last legend class now reads "N or more" instead of "≥ N" (adding a math font would be the alternative).
 
-- **UI-1 (fixed in dialogs by WP8, recheck in the final walk-through; 2026-11-03):** link text on a hovered `--surface-0` is 4.05:1, below AA. Fix before the redesign is done.
+### UI redesign
+
 - **UI-2 (fixed, 2026-11-03):** the map scale bar drew each bar wider than its true distance because its border and padding added to the width. Now `box-sizing: border-box`.
-- **MM-1 (Low, open, 2026-11-04):** a new map opens on the default view, and adding a layer with + in Map Layers doesn't move to it, so the layer can be off screen. Zoom To Layer or Full Extent works around it.
-- **MM-2 (Low, open, 2026-11-04):** the Series coverage picker, the Topo Map dialog's DEM pick and the Attribute Table's layer list read the active map's `order`, so they miss project layers not on that map. They should read project layers. Add the layer to the map as a workaround.
 - **MM-3 (fixed by WP12's CRS rule, 2026-11-04):** USGS Imagery in UTM 11N, centred far outside the zone, is now refused with a message. Whether the original blank was the reprojection or slow tiles wasn't established.
-- **LE-1 (Medium, open, 2026-11-04):** named text styles aren't saved in the project, so they're lost on another computer or browser profile. Element looks are saved; only the style's name and link are lost. Needs an engine field.
+
+## Notes (not bugs)
+
+- `NEAR_DIST` (Near tool) is in the units chosen for the search radius, not always metres. Covered by `tools::near_and_join_nearest_report_distance_and_respect_radius`.
+- `tiger_import` and `tnm_import` check dataset ids one at a time: with `["tracts", "bogus"]` the first dataset is downloaded and added before the second id is rejected. The UI never sends an unknown id. Covered (id first) by `downloads::a_refused_download_adds_no_layers_citations_or_lingering_tasks`.
+- `pyToSql` does not check that an expression is complete or that field names exist; the engine's SQL parser reports those errors. Covered by `queryEdge.test.ts`.
+- The layout test binary has crashed once with SIGSEGV on macOS CI (`PROJECT_STATUS.md` known issue 4). While writing the raster tests the same signal was reproduced locally, but it was B-T5, not that race.
+
+### Map CRS check for M3
+
+Nothing found. While cycling the map CRS (EPSG:3857 → 32615 → 5070 → 4326 → 3395 → ortho/laea custom → 3031/3413 → invalid ids set straight into the store, with layers loaded and a layout tab open), `MapView.tsx` never threw: invalid ids show the status message "The map can't be drawn in …" and keep the last good CRS. Checked at commit time of this branch; re-run after M3 lands (`window.__gis.useApp.getState().setMapCrs({id, name})` in the browser build).
