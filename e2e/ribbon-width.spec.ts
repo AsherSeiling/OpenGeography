@@ -44,14 +44,27 @@ for (const w of WIDTHS) {
       await noScroll(app, `${tab} at ${w}px`);
       await commandsReachable(app, `${tab} at ${w}px`);
     }
-    // The layout tab is the widest.
+    // The layout's tabs: Page, Insert, Arrange, View, Export, and Map Frame while a frame is selected.
     await gis(app, async (g) => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
     await app.waitForTimeout(600);
-    await app.locator(".rtab", { hasText: /^Layout$/ }).last().click();
-    await app.waitForTimeout(400);
-    await noScroll(app, `Layout at ${w}px`);
-    await commandsReachable(app, `Layout at ${w}px`);
+    await addFrame(app);
+    for (const tab of ["Page", "Insert", "Arrange", "View", "Export", "Map Frame"]) {
+      await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).last().click();
+      await app.waitForTimeout(400);
+      await noScroll(app, `Layout ${tab} at ${w}px`);
+      await commandsReachable(app, `Layout ${tab} at ${w}px`);
+    }
   });
+}
+
+/** A map frame in the open layout, selected (no coordinate system is needed for this). */
+async function addFrame(app: any) {
+  await gis(app, (g) => {
+    const s = g.useLayouts.getState();
+    s.addElement({ kind: "map_frame", id: "f1", x: 10, y: 30, w: 150, h: 120, rotation: 0, locked: false, visible: true, crs: "EPSG:4326", center: [0, 0], scale: 1000000, layers: "map", basemap: "none", graticule: null, grid: null, border: null });
+    s.select(["f1"]);
+  });
+  await app.waitForTimeout(300);
 }
 
 test("LW-T a narrow window collapses groups into menus but a command is still one click away", async ({ app }) => {
@@ -119,7 +132,7 @@ test("Undo and Redo act on the node tree, grey out when there is nothing to undo
   expect(await gis(app, (g) => g.useModel.getState().nodes.length)).toBe(before + 1);
   // A layout that is open takes over: its own history starts empty, so Undo is grey again.
   await gis(app, async () => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
-  await expect(app.locator(".rtab", { hasText: /^Layout$/ })).toBeVisible();
+  await expect(app.locator(".rtab", { hasText: /^Page$/ })).toBeVisible();
   await expect(undo).toBeDisabled();
 });
 
@@ -156,13 +169,21 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
   // And on screen: with a layer and a layout open and a very wide window, every tab shows a button for each of its commands.
   await app.setViewportSize({ width: 2560, height: 1000 });
   await addTestLayer(app, "points", 20);
-  await gis(app, async () => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
   const seen = new Set<string>();
-  for (const tab of ["Map", "Insert", "View", "Analysis", "Layout", "Elements", "Format", "Export", "Feature Layer"]) {
-    await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).click();
+  const readTab = async (tab: string) => {
+    await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).last().click();
     await app.waitForTimeout(250);
     for (const t of await app.locator(".ribbon-body .rbtn-label").allTextContents()) seen.add(t.trim());
-  }
+  };
+  for (const tab of ["Map", "Insert", "View", "Analysis", "Feature Layer"]) await readTab(tab);
+  // The layout: its tabs, the Insert rail and the rail's Shape menu.
+  await gis(app, async () => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
+  await addFrame(app);
+  for (const tab of ["Page", "Insert", "Arrange", "View", "Export", "Map Frame"]) await readTab(tab);
+  for (const t of await app.locator(".rail .rbtn-label").allTextContents()) seen.add(t.trim().replace(/ ▾$/, ""));
+  await app.locator(".rail-btn", { hasText: /^Shape/ }).click();
+  for (const t of await app.getByRole("menuitem").allTextContents()) seen.add(t.trim());
+  await app.keyboard.press("Escape");
   const missing = r.onTabs.filter((id: string) => id !== "newLayout" && !seen.has(r.labels[id])); // New Layout is the Insert gallery
   expect(missing, "commands with no button on screen").toEqual([]);
 });

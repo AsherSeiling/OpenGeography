@@ -2,6 +2,9 @@
 import { Button, Checkbox, Dropdown, Field, Input, Option, Textarea } from "@fluentui/react-components";
 import { FontPicker } from "../panes/LabelSettings";
 import { TextSection } from "./TextSection";
+import { InspectorTabs, type InspectorTab } from "./Inspector";
+import { PAGE_TARGET, PageProperties } from "./PageProperties";
+import { DEFAULT_STYLES, textMatches, textPatch, useNamedStyles } from "./namedStyles";
 import { withSlotStyle } from "./textStyles";
 import { useEffect, useState } from "react";
 import { crsName, loadCatalog } from "../crs/crs";
@@ -40,6 +43,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
   const el = useLayouts((s) => (s.id === layout ? s.doc : s.docs[layout])?.elements.find((e) => e.id === id));
   const set = (patch: Record<string, unknown>, burst?: string) => useLayouts.getState().update(id, patch, burst);
   useEffect(() => void loadCatalog().catch(() => {}), []);
+  if (id === PAGE_TARGET) return <PageProperties layout={layout} />;
   if (!el) return <div className="empty-hint pad">Element not found.</div>;
   const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", declination: "Declination Diagram", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart" }[el.kind];
   return (
@@ -49,56 +53,106 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
         <Field label="Name (shown in the Items list)" size="small">
           <Input size="small" aria-label="Element name" value={el.name ?? ""} placeholder={title} onChange={(_, d) => set({ name: d.value }, "name")} />
         </Field>
-        <Section title="Content" open>
-          {el.kind === "map_frame" && <FrameFields el={el} set={set} layout={layout} />}
-          {el.kind === "text" && <TextFields el={el} set={set} />}
-          {el.kind === "legend" && <LegendFields el={el} set={set} layout={layout} />}
-          {el.kind === "scale_bar" && <ScaleBarFields el={el} set={set} />}
-          {el.kind === "north_arrow" && <NorthArrowFields el={el} set={set} />}
-          {el.kind === "declination" && <DeclinationFields el={el} set={set} />}
-          {el.kind === "sources" && <SourcesFields el={el} set={set} />}
-          {el.kind === "table" && <TableFields el={el} set={set} />}
-          {el.kind === "chart" && <ChartFields el={el} set={set} />}
-          {el.kind === "shape" && <ShapeFields el={el} set={set} />}
-          {el.kind === "picture" && <PictureFields el={el} set={set} />}
-        </Section>
-        {el.kind === "text" && (
-          <Section title="Character" open>
-            <CharacterFields el={el} set={set} />
-          </Section>
-        )}
-        {el.kind !== "text" && el.kind !== "shape" && el.kind !== "picture" && (
-          <Section title="Text sizes and fonts" open>
-            <TextSection el={el} set={set} />
-          </Section>
-        )}
-        <Section title="Appearance">
-          <DecorFields el={el} set={set} />
-          <Num label="Opacity (%)" value={Math.round((el.opacity ?? 1) * 100)} min={0} max={100} step={5} decimals={0} onChange={(v) => set({ opacity: v >= 100 ? undefined : v / 100 }, "opacity")} />
-        </Section>
-        <Section title="Position and size" open>
-          <div className="props-grid">
-            <Num label="X (mm)" value={el.x} step={0.5} decimals={1} onChange={(x) => set({ x }, "x")} />
-            <Num label="Y (mm)" value={el.y} step={0.5} decimals={1} onChange={(y) => set({ y }, "y")} />
-            <Num label="Width (mm)" value={el.w} min={1} step={0.5} decimals={1} onChange={(w) => set({ w }, "w")} />
-            <Num label="Height (mm)" value={el.h} min={1} step={0.5} decimals={1} onChange={(h) => set({ h }, "h")} />
-            <Num label="Rotation (°)" value={el.rotation} decimals={2} onChange={(rotation) => set({ rotation }, "rotation")} />
-          </div>
-          <Checkbox label="Locked" checked={el.locked} onChange={(_, d) => set({ locked: !!d.checked })} />
-          <Checkbox label="Visible" checked={el.visible} onChange={(_, d) => set({ visible: !!d.checked })} />
-        </Section>
+        <InspectorTabs kind={el.kind} tabs={elementTabs(el, set, layout)} />
       </div>
     </div>
   );
 }
 
-/** A titled, collapsible group of settings. */
-function Section({ title, open, children }: { title: string; open?: boolean; children: React.ReactNode }) {
+/** The tabs for the selected element, what it is first and Position last. Every control the old long form had is on one of them. */
+function elementTabs(el: LayoutElement, set: Set, layout: string): InspectorTab[] {
+  const text = <TextSection el={el} set={set} />;
+  const style = {
+    id: "style",
+    label: "Style",
+    body: (
+      <>
+        <DecorFields el={el} set={set} />
+        <Num label="Opacity (%)" value={Math.round((el.opacity ?? 1) * 100)} min={0} max={100} step={5} decimals={0} onChange={(v) => set({ opacity: v >= 100 ? undefined : v / 100 }, "opacity")} />
+        {el.kind === "map_frame" && <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} decimals={2} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />}
+      </>
+    ),
+  };
+  const position: InspectorTab = {
+    id: "position",
+    label: "Position",
+    body: (
+      <>
+        <div className="props-grid">
+          <Num label="X (mm)" value={el.x} step={0.5} decimals={1} onChange={(x) => set({ x }, "x")} />
+          <Num label="Y (mm)" value={el.y} step={0.5} decimals={1} onChange={(y) => set({ y }, "y")} />
+          <Num label="Width (mm)" value={el.w} min={1} step={0.5} decimals={1} onChange={(w) => set({ w }, "w")} />
+          <Num label="Height (mm)" value={el.h} min={1} step={0.5} decimals={1} onChange={(h) => set({ h }, "h")} />
+          <Num label="Rotation (°)" value={el.rotation} decimals={2} onChange={(rotation) => set({ rotation }, "rotation")} />
+        </div>
+        <Checkbox label="Locked" checked={el.locked} onChange={(_, d) => set({ locked: !!d.checked })} />
+        <Checkbox label="Visible" checked={el.visible} onChange={(_, d) => set({ visible: !!d.checked })} />
+      </>
+    ),
+  };
+  const tabs: InspectorTab[] = [];
+  switch (el.kind) {
+    case "map_frame":
+      tabs.push({ id: "map", label: "Map", body: <FrameFields el={el} set={set} layout={layout} /> });
+      tabs.push({ id: "layers", label: "Layers", body: <><SeriesFollow el={el} set={set} /><FrameLabels el={el} set={set} /></> });
+      tabs.push({ id: "grid", label: "Grid", body: <FrameGridFields el={el} set={set} text={text} /> });
+      break;
+    case "legend":
+      tabs.push({ id: "entries", label: "Entries", body: <LegendFields el={el} set={set} layout={layout} /> }, { id: "text", label: "Text", body: text });
+      break;
+    case "text":
+      tabs.push({ id: "text", label: "Text", body: <><TextFields el={el} set={set} /><NamedStyleField el={el} set={set} /><CharacterFields el={el} set={set} /></> });
+      break;
+    case "scale_bar":
+      tabs.push({ id: "scale", label: "Scale", body: <ScaleBarFields el={el} set={set} /> }, { id: "text", label: "Text", body: text });
+      break;
+    case "north_arrow":
+      tabs.push({ id: "arrow", label: "Arrow", body: <><NorthArrowFields el={el} set={set} />{text}</> });
+      break;
+    case "declination":
+      tabs.push({ id: "diagram", label: "Diagram", body: <DeclinationFields el={el} set={set} /> }, { id: "text", label: "Text", body: text });
+      break;
+    case "sources":
+      tabs.push({ id: "text", label: "Text", body: <><SourcesFields el={el} set={set} />{text}</> });
+      break;
+    case "table":
+      tabs.push({ id: "data", label: "Data", body: <TableFields el={el} set={set} /> }, { id: "text", label: "Text", body: text });
+      break;
+    case "chart":
+      tabs.push({ id: "data", label: "Data", body: <ChartFields el={el} set={set} /> }, { id: "text", label: "Text", body: text });
+      break;
+    case "shape":
+      tabs.push({ id: "shape", label: "Shape", body: <ShapeFields el={el} set={set} /> });
+      break;
+    case "picture":
+      tabs.push({ id: "picture", label: "Picture", body: <PictureFields el={el} set={set} /> });
+      break;
+  }
+  return [...tabs, style, position];
+}
+
+/** Map frame › Grid: graticule, grid and the frame's text sizes (grid labels). */
+function FrameGridFields({ el, set, text }: { el: MapFrame; set: Set; text: React.ReactNode }) {
   return (
-    <details className="props-section" open={open}>
-      <summary className="props-section-title">{title}</summary>
-      <div className="stack">{children}</div>
-    </details>
+    <>
+      <GridFields graticule label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
+      <GridFields label="Grid (map coordinates)" unit="CRS units" value={el.grid} onChange={(grid) => set({ grid }, "grid")} />
+      {text}
+    </>
+  );
+}
+
+/** Text element: apply a named style (Title, Subtitle, …); the look is then the style's. Change a style for the whole page under Page › Text styles. */
+function NamedStyleField({ el, set }: { el: TextElement; set: Set }) {
+  const layoutId = useLayouts((s) => s.id) ?? "";
+  const styles = useNamedStyles((s) => s.byLayout[layoutId]) ?? DEFAULT_STYLES;
+  const match = styles.find((s) => textMatches(el, s));
+  return (
+    <Field label="Named style" size="small">
+      <Dropdown size="small" aria-label="Named style" value={match?.name ?? "Custom"} selectedOptions={match ? [match.name] : []} onOptionSelect={(_, d) => { const st = styles.find((x) => x.name === d.optionValue); if (st) set(textPatch(st)); }}>
+        {styles.map((s) => <Option key={s.name} value={s.name}>{s.name}</Option>)}
+      </Dropdown>
+    </Field>
   );
 }
 
@@ -165,11 +219,6 @@ function FrameFields({ el, set, layout }: { el: MapFrame; set: Set; layout: stri
           <Option value="osm" disabled title="OpenStreetMap's tile policy forbids bulk downloads, so it can't be used in a print layout.">OpenStreetMap (not for print)</Option>
         </Dropdown>
       </Field>
-      <GridFields graticule label="Graticule (lat/lon lines)" unit="degrees" value={el.graticule} onChange={(graticule) => set({ graticule }, "graticule")} />
-      <GridFields label="Grid (map coordinates)" unit="CRS units" value={el.grid} onChange={(grid) => set({ grid }, "grid")} />
-      <SeriesFollow el={el} set={set} />
-      <FrameLabels el={el} set={set} />
-      <Num label="Border width (mm, 0 = none)" value={el.border?.width ?? 0} min={0} step={0.05} decimals={2} onChange={(w) => set({ border: w > 0 ? { width: w, color: el.border?.color ?? "#000000" } : null }, "border")} />
     </>
   );
 }

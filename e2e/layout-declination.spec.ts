@@ -12,7 +12,9 @@ test("LW6 insert a declination diagram, change style, units and date, and see it
   await ribbon(app, "Layout", /^Declination$/);
   const el = async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "declination"))) as any;
   expect((await el()).style).toBe("usgs");
-  await expect(app.locator(".props-section-title", { hasText: "Text sizes and fonts" })).toBeVisible();
+  await app.getByRole("tab", { name: "Text" }).click();
+  await expect(app.getByTestId("text-slots")).toBeVisible();
+  await app.getByRole("tab", { name: "Diagram" }).click();
 
   await app.getByRole("combobox", { name: "Style" }).click();
   await app.getByRole("option", { name: "US Army (grid-magnetic angle)" }).click();

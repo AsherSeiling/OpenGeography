@@ -1,5 +1,5 @@
 // LW3/LW4: every piece of text an element draws has a size (and font, weight, colour) in its Properties; opacity and name too.
-import { test, expect, gis, ribbon, addTestLayer } from "./fixtures";
+import { inspectorTab, test, expect, gis, ribbon, addTestLayer } from "./fixtures";
 
 const doc = (page: any) => gis(page, (g) => g.useLayouts.getState().doc) as Promise<any>;
 const el = async (page: any, kind: string) => (await doc(page)).elements.find((e: any) => e.kind === kind);
@@ -24,6 +24,7 @@ async function openSlot(app: any, id: string) {
 test("LW3/LW4 legend: title, headings and entries each get their own size, font weight and colour", async ({ app }) => {
   await layoutWithFrame(app);
   await ribbon(app, "Layout", /^Legend$/);
+  await inspectorTab(app, "Text");
   const slots = app.getByTestId("text-slots");
   await expect(slots).toBeVisible();
   for (const s of ["legend.title", "legend.headings", "legend.entries"]) await expect(slots.locator(`[data-slot="${s}"]`)).toHaveCount(1);
@@ -50,6 +51,7 @@ test("LW3/LW4 legend: title, headings and entries each get their own size, font 
 test("LW3/LW4 scale bar, north arrow, sources, opacity and name", async ({ app }) => {
   await layoutWithFrame(app);
   await ribbon(app, "Layout", /^Scale Bar$/);
+  await inspectorTab(app, "Text");
   await openSlot(app, "scale_bar.numbers");
   await app.getByRole("spinbutton", { name: "Distances and units size (pt)" }).fill("12");
   await expect.poll(async () => (await el(app, "scale_bar")).textStyles?.["scale_bar.numbers"]?.size).toBe(12);
@@ -60,12 +62,13 @@ test("LW3/LW4 scale bar, north arrow, sources, opacity and name", async ({ app }
   await expect.poll(async () => (await el(app, "north_arrow")).textStyles?.["north_arrow.letters"]?.size).toBe(14);
 
   await app.getByRole("textbox", { name: "Element name" }).fill("Compass");
-  await app.locator(".props-section-title", { hasText: "Appearance" }).click();
+  await app.getByRole("tab", { name: "Style" }).click();
   await app.getByRole("spinbutton", { name: "Opacity (%)" }).fill("50");
   const na = await el(app, "north_arrow");
   expect(na.name).toBe("Compass");
   expect(na.opacity).toBe(0.5);
   // A size outside 1 to 400 pt is refused: the stored size stays.
+  await inspectorTab(app, "Arrow");
   await app.getByRole("spinbutton", { name: /size \(pt\)/ }).first().fill("900");
   expect((await el(app, "north_arrow")).textStyles["north_arrow.letters"].size).toBe(14);
 });

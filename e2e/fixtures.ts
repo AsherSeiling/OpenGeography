@@ -46,14 +46,29 @@ export const test = base.extend<{ app: Page; errors: { expected: boolean; known:
 });
 export { expect };
 
+/** Shapes are in the Insert rail's Shape menu, not on buttons of their own. */
+const SHAPES = ["Rectangle", "Ellipse", "Triangle", "Line", "Arrow"];
+
 /** Click a ribbon button by its label (switching tab first when given). */
 export async function ribbon(page: Page, tab: string | null, label: string | RegExp) {
+  const text = typeof label === "string" ? label : label.source.replace(/^\^|\$$/g, "");
+  if (SHAPES.includes(text)) {
+    // Insert rail › Shape ▾ › the shape.
+    await page.locator(".rail-btn", { hasText: /^Shape/ }).click();
+    await page.getByRole("menuitem", { name: text, exact: true }).click();
+    return;
+  }
   const btn = page.locator(".rbtn", { hasText: label }).first();
-  if (tab && tab !== "Layout") await page.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).click();
-  else if (tab === "Layout" || (await page.locator(".rtab.ctx", { hasText: /^Elements$/ }).count()) > 0) {
-    // The layout workspace splits its ribbon into Layout / Elements / Format / Export: find the tab that holds the button.
-    for (const t of ["Layout", "Elements", "Format", "Export"]) {
-      if (tab === null && t === "Layout" && (await btn.isVisible())) break;
+  const inLayout = (await page.locator(".rtab-back").count()) > 0;
+  if (tab && tab !== "Layout" && !(inLayout && ["Elements", "Format"].includes(tab))) await page.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).click();
+  else if (tab === "Layout" || inLayout) {
+    // The layout workspace has the Insert rail beside the page and the tabs Page / Arrange / View / Export (and Map Frame while a frame is selected): find the one that holds the button.
+    for (const t of [null, "Page", "Arrange", "View", "Export", "Map Frame"]) {
+      if (t === null) {
+        if (await btn.isVisible()) break;
+        continue;
+      }
+      if ((await page.locator(".rtab", { hasText: new RegExp(`^${t}$`) }).count()) === 0) continue;
       await page.locator(".rtab", { hasText: new RegExp(`^${t}$`) }).click();
       // The tab body renders a moment after the click: give the button a short chance before trying the next tab.
       if (await btn.waitFor({ timeout: 700 }).then(() => true, () => false)) break;
@@ -61,6 +76,9 @@ export async function ribbon(page: Page, tab: string | null, label: string | Reg
   }
   await btn.click();
 }
+
+/** Open a tab of the layout's Properties (Map, Layers, Grid, Style, Position, Text, …). */
+export const inspectorTab = (page: Page, name: string) => page.getByRole("tablist", { name: "Properties" }).getByRole("tab", { name, exact: true }).click();
 
 /** Open one of the Catalog's Public Data dialogs (the tree is open by default); `id` is the row id, e.g. "arcgis". */
 export async function publicData(page: Page, id: string) {
