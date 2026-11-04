@@ -1,7 +1,7 @@
 // Office / ArcGIS Pro style ribbon: a project cell at the top left, a tab row (tabs, Save / Undo / Redo, search) and a band of labelled
 // groups of large and small buttons. The open tab and its band are outlined as one shape. Contextual tabs appear for a layer and a layout.
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
-import { ArrowRotateClockwiseRegular, DocumentSettingsRegular, PageFitRegular } from "@fluentui/react-icons";
+import { ArrowLeftRegular, ArrowRotateClockwiseRegular, DocumentSettingsRegular, PageFitRegular } from "@fluentui/react-icons";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useDialog } from "../actions";
@@ -9,6 +9,7 @@ import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/t
 import { useNav } from "../nav/navStore";
 import { usePanes } from "../panes/panes";
 import { useLayouts } from "../store/layout";
+import { useLayoutView } from "../layout/view";
 import { useApp } from "../store/store";
 import { isAppearanceOpen } from "../theme/appearance";
 import { commands } from "./commands";
@@ -17,7 +18,7 @@ import { QuickAccess } from "./quickAccess";
 import { RButton } from "./rbutton";
 import { fitRibbon, type Variant } from "./ribbonFit";
 import { TopSearch } from "./search";
-import { KEY_TIPS, LAYOUT_TABS, MAIN_TABS, TABS } from "./tabsDef";
+import { KEY_TIPS, LAYOUT_ORDER, MAIN_TABS, TABS } from "./tabsDef";
 import { useRibbonTabs, type Group } from "./tabs";
 
 /** The contextual tab for the active layer: its name follows what the layer is. */
@@ -37,16 +38,25 @@ export function Ribbon() {
   const active = useApp((s) => (s.activeLayer ? s.layers[s.activeLayer] : null));
   // Any layer gets its tab (tables and rasters too), so the field, filter and export commands are always on a tab.
   const contextual = !!active;
+  // The layout tabs show while a layout is the active tab of the window; Back to Map (or any map tab) brings the map's tabs back.
   const layoutId = useLayouts((s) => s.id);
+  const workspace = useLayoutView((s) => s.workspace);
+  const inLayout = !!layoutId && workspace;
   useLayouts((s) => s.doc);
   useLayouts((s) => s.selected);
+  useLayoutView((s) => s.fit); // pressed state of View › Fit Page
+  useLayoutView((s) => s.preflightOpen);
+  // The Map Frame tab is there only while a map frame is selected.
+  const frameSelected = useLayouts((s) => !!s.doc?.elements.some((e) => e.kind === "map_frame" && s.selected.includes(e.id)));
   const registered = useRibbonTabs((s) => s.tabs);
-  // Opening a layout tab brings its contextual ribbon tab forward, as in ArcGIS Pro.
+  // Opening a layout brings its Page tab forward; the map's tabs (Map, Analysis, Feature Layer) leave while a layout is open.
   useEffect(() => {
-    if (layoutId) setTab("Layout");
-  }, [layoutId]);
+    if (inLayout) setTab("Page");
+    else setTab((t) => (LAYOUT_ORDER.includes(t) && !MAIN_TABS.includes(t) ? "Map" : t));
+  }, [inLayout, layoutId]);
   const extra = Object.values(registered).filter((t) => t.visible);
-  const current = (tab === "Feature Layer" && !contextual) || (LAYOUT_TABS.includes(tab) && !layoutId) || (!(tab in TABS) && !extra.some((t) => t.id === tab)) ? "Map" : tab;
+  const allowed = inLayout ? LAYOUT_ORDER.includes(tab) || (tab === "Map Frame" && frameSelected) : MAIN_TABS.includes(tab) || (tab === "Feature Layer" && contextual);
+  const current = allowed || extra.some((t) => t.id === tab) ? tab : inLayout ? "Page" : "Map";
   const groups: Group[] = TABS[current] ?? extra.find((t) => t.id === current)?.groups ?? [];
 
   // Collapse to the tab row (double-click a tab or Ctrl+F1); a click on a tab while collapsed shows the body until you click elsewhere.
@@ -192,24 +202,28 @@ export function Ribbon() {
       <div className="rib">
       <div className="ribbon-tabs" role="tablist" aria-label="Ribbon">
         <ProjectBox />
+        {inLayout && (
+          <button className="rtab-back" title="Go back to the map" onClick={() => commands.paneMap.run()}>
+            <ArrowLeftRegular />
+            <span>Back to Map</span>
+          </button>
+        )}
         <div className="rtabs">
-          {MAIN_TABS.map((t) => (
+          {(inLayout ? LAYOUT_ORDER : MAIN_TABS).map((t) => (
             <button key={t} role="tab" aria-selected={current === t} className={`rtab ${current === t ? "on" : ""}`} onClick={() => pickTab(t)} onDoubleClick={() => { setCollapsed((c) => !c); setPeek(false); }} title="Double-click to collapse or expand the ribbon (Ctrl+F1)">
               {t}
-              {tips && <span className="keytip">{KEY_TIPS[t]}</span>}
+              {tips && KEY_TIPS[t] && <span className="keytip">{KEY_TIPS[t]}</span>}
             </button>
           ))}
-          {layoutId && (
+          {inLayout && frameSelected && (
             <div className="rtab-context">
-              <span className="rtab-context-label">Layout</span>
-              {LAYOUT_TABS.map((t) => (
-                <button key={t} role="tab" aria-selected={current === t} className={`rtab ctx ${current === t ? "on" : ""}`} onClick={() => pickTab(t)}>
-                  {t}
-                </button>
-              ))}
+              <span className="rtab-context-label">Selected</span>
+              <button role="tab" aria-selected={current === "Map Frame"} className={`rtab ctx ${current === "Map Frame" ? "on" : ""}`} onClick={() => pickTab("Map Frame")}>
+                Map Frame
+              </button>
             </div>
           )}
-          {contextual && (
+          {contextual && !inLayout && (
             <div className="rtab-context">
               <span className="rtab-context-label">Layer</span>
               <button role="tab" aria-selected={current === "Feature Layer"} className={`rtab ctx ${current === "Feature Layer" ? "on" : ""}`} onClick={() => pickTab("Feature Layer")}>

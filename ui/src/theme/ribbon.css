@@ -19,6 +19,9 @@
 .rtab.on { height: 31.5px; margin-bottom: -1.5px; background: var(--band); border-color: var(--accent); border-radius: var(--r-tab); color: var(--link); font-weight: 600; }
 .rtab-context { display: flex; align-items: center; flex: none; }
 .rtab-context-label { font: var(--type-micro); color: var(--link); padding: 0 2px 0 10px; align-self: center; white-space: nowrap; }
+.rtab-back { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 22px; margin: 0 10px 4px 0; padding: 0 6px; border: 0; border-radius: var(--r-control); background: none; color: var(--link); font: 500 12px/16px var(--font-ui); cursor: default; white-space: nowrap; }
+.rtab-back:hover { background: var(--hover); }
+.rtab-back svg { font-size: 14px; }
 .ribbon-spacer { flex: 1; min-width: 0; }
 .keytip { position: absolute; left: 50%; bottom: -2px; transform: translateX(-50%); background: var(--text); color: var(--surface-2); border-radius: 3px; font-size: 10px; line-height: 1; padding: 2px 4px; font-weight: 600; z-index: 20; }
 

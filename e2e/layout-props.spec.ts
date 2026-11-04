@@ -1,5 +1,5 @@
 // Bug U-5 (layout Properties pane blank, edits lost). Cases LP-4, LP-5 of docs/TEST_PLAN.md §9A.
-import { test, expect, gis, ribbon } from "./fixtures";
+import { inspectorTab, test, expect, gis, ribbon } from "./fixtures";
 
 const layoutState = (page: any) => gis(page, (g) => { const s = g.useLayouts.getState(); return { open: s.id, selected: s.selected, props: g.useApp.getState().properties, text: s.doc?.elements.find((e: any) => e.kind === "text") }; }) as Promise<any>;
 
@@ -12,6 +12,7 @@ test("LP-5 clicking into Properties and editing a value keeps the pane and store
   const before = await layoutState(app);
   expect(before.selected).toHaveLength(1);
 
+  await inspectorTab(app, "Position");
   const x = app.getByLabel("X (mm)");
   await expect(x).toBeVisible();
   for (const v of ["20", "25", "30"]) {

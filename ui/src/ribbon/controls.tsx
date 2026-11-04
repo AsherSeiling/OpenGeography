@@ -1,17 +1,17 @@
 // The ribbon's custom controls: galleries, menus and boxes that sit in a group beside plain command buttons.
 import { Menu, MenuDivider, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
-import { AlignLeftRegular, ColorRegular, DeleteRegular, DocumentOnePageMultipleRegular, DocumentPdfRegular, DocumentRegular, DocumentSaveRegular, LayerRegular, PaintBrushRegular, TextAlignLeftRegular, ImageMultipleRegular } from "@fluentui/react-icons";
-import { useEffect, useState } from "react";
+import { AlignLeftRegular, ResizeRegular, MapRegular, ShapesRegular, ColorRegular, DeleteRegular, DocumentOnePageMultipleRegular, DocumentPdfRegular, DocumentRegular, DocumentSaveRegular, LayerRegular, PaintBrushRegular, TextAlignLeftRegular, ImageMultipleRegular } from "@fluentui/react-icons";
+import { useEffect, useState, type ReactElement } from "react";
 import { api, errorText, type LayoutTemplate } from "../ipc/api";
 import { pageCaption, useSeriesView } from "../layout/series";
 import { useDialog } from "../actions";
-import { applyTheme, exportLayoutSeries, deleteLayoutTemplate, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
-import { PAGE_SIZES, type Orientation } from "../layout/types";
+import { applyTheme, exportLayoutSeries, deleteLayoutTemplate, insertMapFrame, newLayout, newLayoutFromTemplate, saveLayoutAsTemplate } from "../layout/actions";
+import { followedMap, PAGE_SIZES, type MapFrame, type Orientation } from "../layout/types";
 import { useLayouts } from "../store/layout";
 import type { AlignOp, OrderOp } from "../layout/arrange";
 import { DPI_MAX, DPI_MIN, parseDpi, useExportDpi } from "../layout/exportDpi";
 import { useApp } from "../store/store";
-import { BASEMAP_OPTIONS } from "./commands";
+import { BASEMAP_OPTIONS, commands } from "./commands";
 
 /** Insert → Layouts: pick a page size and orientation for a new layout. */
 export function NewLayoutGallery() {
@@ -140,7 +140,7 @@ export function TemplateGroup() {
   );
 }
 
-/** Layout → Map Series: set it up, step through its pages in the view, export all pages (C3.2). */
+/** Page › Map Series: set it up and step through its pages in the view (C3.2). Exporting every page is in Export › Map Series. */
 export function SeriesGroup() {
   const series = useLayouts((s) => s.doc?.series ?? null);
   const open = useLayouts((s) => !!s.doc);
@@ -160,36 +160,21 @@ export function SeriesGroup() {
           {page !== null && <button className="rbtn small" onClick={() => show(null)} title="Show the frames as saved">As saved</button>}
         </div>
       )}
-      {series && (
-        <Menu>
-          <MenuTrigger>
-            <button className="rbtn small" disabled={!pages.length} title="Export every page of the series">
-              <span className="rbtn-icon"><DocumentPdfRegular /></span>
-              <span className="rbtn-label">Export Series ▾</span>
-            </button>
-          </MenuTrigger>
-          <MenuPopover>
-            <MenuList>
-              <MenuItem onClick={() => void exportLayoutSeries("pdf")}>One PDF with every page</MenuItem>
-              <MenuItem onClick={() => void exportLayoutSeries("png")}>One PNG per page (choose a folder)</MenuItem>
-            </MenuList>
-          </MenuPopover>
-        </Menu>
-      )}
     </div>
   );
 }
 
-/** Layout → Arrange: stacking order and alignment of the selected elements (C3.0). */
-export function ArrangeMenu() {
+const ORDER_OPS: [OrderOp, string][] = [["front", "Bring to Front"], ["forward", "Bring Forward"], ["backward", "Send Backward"], ["back", "Send to Back"]];
+const ALIGN_OPS: [AlignOp, string][] = [["left", "Align Left"], ["center", "Align Centre"], ["right", "Align Right"], ["top", "Align Top"], ["middle", "Align Middle"], ["bottom", "Align Bottom"]];
+
+/** One Arrange command: a button that opens a short list of operations on the selected elements. Greyed out until something is selected. */
+function ArrangeDrop({ label, icon, tip, items, run, need = 1 }: { label: string; icon: ReactElement; tip: string; items: [string, string][]; run: (op: string) => void; need?: number }) {
   const n = useLayouts((s) => s.selected.length);
-  const order: [OrderOp, string][] = [["front", "Bring to Front"], ["forward", "Bring Forward"], ["backward", "Send Backward"], ["back", "Send to Back"]];
-  const align: [AlignOp, string][] = [["left", "Align Left"], ["center", "Align Centre"], ["right", "Align Right"], ["top", "Align Top"], ["middle", "Align Middle"], ["bottom", "Align Bottom"]];
-  const menu = (label: string, items: [string, string][], run: (op: string) => void, tip: string) => (
+  return (
     <Menu>
       <MenuTrigger>
-        <button className="rbtn small" disabled={!n} title={tip}>
-          <span className="rbtn-icon">{label === "Align" ? <AlignLeftRegular /> : label === "Spread" ? <TextAlignLeftRegular /> : <LayerRegular />}</span>
+        <button className="rbtn large" disabled={n < need} title={tip}>
+          <span className="rbtn-icon">{icon}</span>
           <span className="rbtn-label">{label} ▾</span>
         </button>
       </MenuTrigger>
@@ -202,22 +187,119 @@ export function ArrangeMenu() {
       </MenuPopover>
     </Menu>
   );
-  const more: [string, string][] = [["distH", "Distribute Horizontally"], ["distV", "Distribute Vertically"], ["sameW", "Same Width as First"], ["sameH", "Same Height as First"], ["group", "Group"], ["ungroup", "Ungroup"]];
-  const runMore = (op: string) => {
-    const s = useLayouts.getState();
-    if (op === "distH") s.distribute("horizontal");
-    else if (op === "distV") s.distribute("vertical");
-    else if (op === "sameW") s.matchSize("w");
-    else if (op === "sameH") s.matchSize("h");
-    else if (op === "group") s.group();
-    else s.ungroup();
-  };
+}
+
+/** Arrange › Order: which selected elements are in front. */
+export const OrderMenu = () => <ArrangeDrop label="Order" icon={<LayerRegular />} tip="Change which selected elements are in front" items={ORDER_OPS} run={(op) => useLayouts.getState().arrange(op as OrderOp)} />;
+/** Arrange › Line Up › Align (one element aligns to the page margins). */
+export const AlignMenu = () => <ArrangeDrop label="Align" icon={<AlignLeftRegular />} tip="Line up the selected elements (one element aligns to the page margins)" items={ALIGN_OPS} run={(op) => useLayouts.getState().align(op as AlignOp)} />;
+/** Arrange › Line Up › Distribute: equal gaps, three or more elements. */
+export const DistributeMenu = () => <ArrangeDrop label="Distribute" icon={<TextAlignLeftRegular />} tip="Equal gaps between three or more selected elements" need={3} items={[["h", "Distribute Horizontally"], ["v", "Distribute Vertically"]]} run={(op) => useLayouts.getState().distribute(op === "h" ? "horizontal" : "vertical")} />;
+/** Arrange › Line Up › Same Size, matched to the first selected element. */
+export const SameSizeMenu = () => <ArrangeDrop label="Same Size" icon={<ResizeRegular />} tip="Give the selected elements the width or height of the first one" need={2} items={[["w", "Same Width as First"], ["h", "Same Height as First"]]} run={(op) => useLayouts.getState().matchSize(op as "w" | "h")} />;
+
+/** Export › Map Series: every page of the series as one PDF or one PNG each (C3.2). */
+export function SeriesExport() {
+  const series = useLayouts((s) => s.doc?.series ?? null);
+  const pages = useSeriesView((s) => s.pages);
   return (
-    <div className="rcol">
-      {menu("Order", order, (op) => useLayouts.getState().arrange(op as OrderOp), "Change which selected elements are in front")}
-      {menu("Align", align, (op) => useLayouts.getState().align(op as AlignOp), "Line up the selected elements (one element aligns to the page margins)")}
-      {menu("Spread", more, runMore, "Equal gaps (3 or more), same size, group so they move together")}
-    </div>
+    <Menu>
+      <MenuTrigger>
+        <button className="rbtn large" disabled={!series || !pages.length} title={series ? "Export every page of the series" : "Set up a map series first (Page › Map Series)"}>
+          <span className="rbtn-icon"><DocumentPdfRegular /></span>
+          <span className="rbtn-label">Export Series ▾</span>
+        </button>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          <MenuItem onClick={() => void exportLayoutSeries("pdf")}>One PDF with every page</MenuItem>
+          <MenuItem onClick={() => void exportLayoutSeries("png")}>One PNG per page (choose a folder)</MenuItem>
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Map Frame › Map › Which Map: the map whose layers the selected frame draws. */
+export function WhichMapMenu() {
+  const frame = useLayouts((s) => {
+    const fs = s.doc?.elements.filter((e) => e.kind === "map_frame") ?? [];
+    return (fs.find((f) => s.selected.includes(f.id)) ?? null) as MapFrame | null;
+  });
+  const maps = useApp((s) => s.maps);
+  const followed = frame ? followedMap(frame.layers) : null;
+  const current = frame ? (followed ? `map:${followed}` : Array.isArray(frame.layers) ? "list" : "active") : "";
+  return (
+    <Menu checkedValues={{ map: current ? [current] : [] }} onCheckedValueChange={(_, d) => {
+      const v = d.checkedItems[0];
+      if (!frame || !v) return;
+      useLayouts.getState().update(frame.id, { layers: v === "active" ? "map" : { map: v.slice(4) } });
+    }}>
+      <MenuTrigger>
+        <button className="rbtn large" disabled={!frame} title="Choose which map's layers this frame draws">
+          <span className="rbtn-icon"><MapRegular /></span>
+          <span className="rbtn-label">Which Map ▾</span>
+        </button>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          <MenuItemRadio name="map" value="active">The active map</MenuItemRadio>
+          {maps.map((m) => (
+            <MenuItemRadio key={m.id} name="map" value={`map:${m.id}`}>{m.name}</MenuItemRadio>
+          ))}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Insert › Maps › Map Frame: with more than one map the button asks which map the new frame draws; with one it just inserts. */
+export function MapFrameInsert() {
+  const maps = useApp((s) => s.maps);
+  const inLayout = useLayouts((s) => !!s.doc);
+  const cmd = commands.layoutMapFrame;
+  const button = (
+    <button className="rbtn rail-btn" disabled={!inLayout} title={cmd.tip} aria-label={maps.length > 1 ? "Map Frame, choose a map" : "Map Frame"} onClick={maps.length > 1 ? undefined : () => cmd.run()}>
+      <span className="rbtn-icon">{cmd.icon}</span>
+      <span className="rbtn-label">Map Frame{maps.length > 1 ? " ▾" : ""}</span>
+    </button>
+  );
+  if (maps.length < 2) return button;
+  return (
+    <Menu>
+      <MenuTrigger>{button}</MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          <MenuItem onClick={() => insertMapFrame()}>The active map</MenuItem>
+          {maps.map((m) => (
+            <MenuItem key={m.id} onClick={() => insertMapFrame({ layers: { map: m.id } })}>{m.name}</MenuItem>
+          ))}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
+  );
+}
+
+/** Insert › Graphics › Shape: rectangle, ellipse, triangle, line or arrow. */
+export function ShapeMenu() {
+  const inLayout = useLayouts((s) => !!s.doc);
+  const ids = ["layoutRect", "layoutEllipse", "layoutTriangle", "layoutLine", "layoutArrow"];
+  return (
+    <Menu>
+      <MenuTrigger>
+        <button className="rbtn rail-btn" disabled={!inLayout} title="Insert a rectangle, ellipse, triangle, line or arrow">
+          <span className="rbtn-icon"><ShapesRegular /></span>
+          <span className="rbtn-label">Shape ▾</span>
+        </button>
+      </MenuTrigger>
+      <MenuPopover>
+        <MenuList>
+          {ids.map((id) => (
+            <MenuItem key={id} icon={commands[id].icon} onClick={() => commands[id].run()}>{commands[id].label}</MenuItem>
+          ))}
+        </MenuList>
+      </MenuPopover>
+    </Menu>
   );
 }
 

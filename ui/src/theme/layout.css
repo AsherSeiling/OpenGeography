@@ -66,3 +66,98 @@
 .layout-toolbar a, .layout-msg a, .layout-stat a { color: var(--link); }
 .layout-toolbar :is(button, a):hover, .layout-msg a:hover { color: var(--text); }
 .field-warn { color: var(--warn); font-size: 11px; margin-top: 4px; }
+
+/* ---------- Layout editor, option B (WP 13): Insert rail, start gallery, pre-flight, menus, context bar, inspector tabs ---------- */
+.layout-body { flex: 1; min-height: 0; display: flex; }
+.layout-main { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.layout-main > .layout-stage { flex: 1; }
+
+/* The Insert rail */
+.rail { flex: none; width: 76px; overflow: auto; background: var(--surface-1); border-right: 1px solid var(--rule); padding: 4px 0 8px; display: flex; flex-direction: column; }
+.rail-head { font: var(--type-strong); color: var(--link); text-align: center; padding: 2px 0 3px; border-bottom: 1.5px solid var(--accent); }
+.rail-group hr { width: 40px; border: 0; border-top: 1px solid var(--rule-soft); margin: 4px auto; }
+.rail-label { font: var(--type-micro); color: var(--text-2); text-align: center; padding: 3px 2px 1px; }
+.rail-item { display: flex; }
+.rail-item > * { flex: 1; min-width: 0; }
+.rail-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 100%; padding: 4px 2px; font: var(--type-micro); text-align: center; color: var(--text); }
+.rail-btn .rbtn-icon { font-size: 20px; line-height: 1; }
+.rail-btn:hover:not(:disabled) { background: var(--hover); }
+.rail-btn:disabled { opacity: 0.4; }
+.rail-btn:focus-visible, .rail-map:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.rail-hint { font: var(--type-micro); color: var(--text-2); text-align: center; padding: 0 4px 3px; }
+.rail-map { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: calc(100% - 12px); margin: 0 6px 4px; padding: 3px; border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); font: var(--type-micro); text-align: left; cursor: grab; }
+.rail-map:hover:not(:disabled) { border-color: var(--accent); }
+.rail-map-thumb { display: block; height: 22px; background: color-mix(in srgb, var(--ok) 18%, var(--surface-2)); border: 1px solid var(--rule-soft); }
+.rail-map-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-map-on { color: var(--text-2); }
+
+/* Start gallery: tiles on the pasteboard; the backdrop lets pointer events through to the (empty) page below. */
+.start-gallery { position: absolute; left: 18px; top: 18px; right: 0; bottom: 0; z-index: 4; display: grid; place-items: center; overflow: auto; background: var(--canvas); pointer-events: none; padding: 16px; }
+.gal { pointer-events: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: min(760px, 100%); }
+.gal h2 { grid-column: 1 / -1; margin: 0; font: var(--type-title); color: var(--text); }
+.gal p { grid-column: 1 / -1; margin: -8px 0 0; font: var(--type-body); color: var(--text-2); }
+.tile { display: block; text-align: left; padding: 0; background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); border-radius: var(--r-card); overflow: hidden; cursor: default; font: var(--type-body); }
+.tile:hover { border-color: var(--accent); }
+.tile:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.tile .thumb { display: block; position: relative; height: 110px; background: var(--surface-1); border-bottom: 1px solid var(--rule-soft); }
+.tile .thumb i { position: absolute; background: color-mix(in srgb, var(--ok) 18%, var(--surface-2)); border: 1px solid var(--text-2); }
+.tile .thumb i.inset { background: var(--surface-2); }
+.tile .thumb u { position: absolute; height: 3px; background: var(--text-2); text-decoration: none; }
+.tile b { display: block; padding: 7px 10px 0; font: var(--type-strong); }
+.tile small { display: block; padding: 0 10px 8px; font: var(--type-small); color: var(--text-2); }
+
+/* The hint on an empty page whose gallery was closed */
+.layout-empty { flex-direction: column; gap: 6px; text-align: center; padding: 0 12%; font-size: 13px; }
+.layout-empty p { margin: 0; }
+.layout-empty button { pointer-events: auto; margin-top: 6px; padding: 3px 10px; border: 1.5px solid var(--accent); border-radius: var(--r-control); background: var(--surface-2); color: var(--link); font: var(--type-strong); cursor: default; }
+.layout-empty button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* Pre-flight */
+.preflight { flex: none; background: var(--surface-1); border-top: 1px solid var(--rule); font: var(--type-body); }
+.preflight header, .preflight footer { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+.preflight header { background: var(--surface-0); border-bottom: 1px solid var(--rule-soft); }
+.preflight ul { list-style: none; margin: 0; padding: 6px 12px; display: grid; gap: 4px; }
+.preflight li { display: flex; align-items: flex-start; gap: 6px; }
+.preflight li svg { flex: none; font-size: 16px; margin-top: 0; }
+.preflight li.ok svg, .pf-ok { color: var(--ok); }
+.preflight li.warn svg, .pf-warn { color: var(--warn); }
+.preflight footer { border-top: 1px solid var(--rule-soft); }
+
+/* Right-click and Shift+A menus */
+.lmenu { position: fixed; z-index: 40; min-width: 190px; max-height: 70vh; overflow: auto; padding: 4px 0; background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); box-shadow: var(--e-float); font: var(--type-body); }
+.lmenu > button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 24px; padding: 3px 12px 3px 6px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: default; }
+.lmenu > button:hover:not(:disabled), .lmenu > button:focus-visible { background: var(--sel-bg); color: var(--sel-text); outline: 0; }
+.lmenu > button:disabled { opacity: 0.45; }
+.lmenu hr { border: 0; border-top: 1px solid var(--rule-soft); margin: 4px 0; }
+.lm-check { width: 14px; flex: none; text-align: center; }
+.lm-label { flex: 1; min-width: 0; }
+.lm-hint { flex: none; color: var(--text-2); font: var(--type-micro); }
+.lmenu > button:hover:not(:disabled) .lm-hint, .lmenu > button:focus-visible .lm-hint { color: inherit; }
+.add-menu { width: 280px; padding: 0; }
+.add-search { box-sizing: border-box; width: 100%; height: 30px; padding: 0 10px; border: 0; border-bottom: 1.5px solid var(--accent); background: var(--surface-2); color: var(--text); font: var(--type-input); outline: 0; }
+.add-list { max-height: 300px; overflow: auto; padding: 4px 0; }
+.add-row { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 2px 10px; cursor: default; }
+.add-row .rbtn-icon { font-size: 16px; }
+.add-row.on { background: var(--sel-bg); color: var(--sel-text); }
+.add-row.on .lm-hint { color: inherit; }
+.add-row[aria-disabled="true"] { opacity: 0.5; }
+.lm-none { padding: 8px 10px; color: var(--text-2); }
+
+/* The bar over a selected element: chrome, so it uses the app's tokens, not the page's colours */
+.ctxbar { position: absolute; z-index: 5; display: flex; align-items: center; gap: 2px; height: 32px; padding: 0 6px; background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); box-shadow: var(--e-float); border-radius: var(--r-control); white-space: nowrap; font: var(--type-body); cursor: default; }
+.ctxbar select, .ctxbar .ctx-size { height: 22px; border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); font: var(--type-body); }
+.ctxbar .ctx-size { width: 48px; padding: 0 4px; }
+.ctxbar input[type="color"] { width: 24px; height: 22px; padding: 0; border: 1px solid var(--rule-soft); background: none; }
+.ctxbar button { display: inline-flex; align-items: center; gap: 4px; height: 24px; min-width: 24px; justify-content: center; padding: 0 6px; border: 0; background: none; color: inherit; font: inherit; border-radius: var(--r-control); cursor: default; }
+.ctxbar button:hover { background: var(--hover); }
+.ctxbar button.on { color: var(--link); font-weight: 600; }
+.ctxbar :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ctx-sep { width: 1px; height: 20px; background: var(--rule-soft); margin: 0 4px; }
+
+/* Inspector tabs in Properties */
+.itabs { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); overflow-x: auto; scrollbar-width: none; background: var(--surface-0); border-bottom: 1px solid var(--rule-soft); margin: 0 -8px; }
+.itabs button { height: 28px; padding: 0 8px; border: 0; background: none; color: var(--text); font: var(--type-body); cursor: default; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.itabs button:hover { background: var(--hover); }
+.itabs button.on { color: var(--link); font-weight: 600; background: var(--surface-1); box-shadow: inset 0 -2px 0 var(--accent); }
+.itabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.itab-body { padding-top: 8px; }

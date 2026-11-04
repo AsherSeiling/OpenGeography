@@ -26,7 +26,7 @@ test("CG1 shapes, pictures and background/frame/shadow in a layout", async ({ ap
   await expect.poll(async () => (await state(app)).els.find((e: any) => e.kind === "picture")?.source).toMatch(/^data:image\/svg\+xml;base64,/);
 
   // Decor on the selected picture: background, frame and shadow from Properties.
-  await app.locator(".props-section-title", { hasText: "Appearance" }).click();
+  await app.getByRole("tab", { name: "Style" }).click();
   await app.getByRole("checkbox", { name: "Background" }).check();
   await app.getByRole("checkbox", { name: "Drop shadow" }).check();
   const pic = (await state(app)).els.find((e: any) => e.kind === "picture");
@@ -136,13 +136,14 @@ test("CG6 page setup, guides, snapping, spread, group and the element list", asy
 
   // Page Setup: bleed, crop marks, author and a vertical guide.
   await app.locator(".rbtn", { hasText: /Page Setup/ }).click();
-  await app.getByLabel("Bleed (mm)").fill("3");
-  await app.getByRole("checkbox", { name: /Crop marks/ }).check();
-  await app.getByLabel(/Author/).fill("A. Mapper");
-  await app.getByRole("checkbox", { name: /world file/ }).check();
-  await app.getByRole("button", { name: "Add vertical" }).click();
-  await app.getByLabel("Guide 1 position").fill("100");
-  await app.getByRole("button", { name: "OK" }).click();
+  const dlg = app.getByRole("dialog"); // the page's own Properties show the same fields beside it
+  await dlg.getByLabel("Bleed (mm)").fill("3");
+  await dlg.getByRole("checkbox", { name: /Crop marks/ }).check();
+  await dlg.getByLabel(/Author/).fill("A. Mapper");
+  await dlg.getByRole("checkbox", { name: /world file/ }).check();
+  await dlg.getByRole("button", { name: "Add vertical" }).click();
+  await dlg.getByLabel("Guide 1 position").fill("100");
+  await dlg.getByRole("button", { name: "OK" }).click();
   let d = await doc();
   expect([d.page.bleed, d.page.cropMarks, d.author, d.guides, d.worldFile]).toEqual([3, true, "A. Mapper", [{ axis: "x", pos: 100 }], true]);
   await expect(app.locator('[data-guide="x:100"]')).toBeVisible();
@@ -227,7 +228,7 @@ test("CG9 a theme restyles the page and recolours single-symbol layers", async (
   await ribbon(app, "Layout", /^Map Frame$/);
   await ribbon(app, "Layout", /^Legend$/);
   await ribbon(app, "Layout", /^Text$/);
-  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab", { hasText: /^Page$/ }).click();
   await app.locator(".rbtn", { hasText: /Look \+ layer colours/ }).click();
   await app.getByRole("menuitem", { name: "Thematic" }).click();
   await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "text").color)) as string).toBe("#1f2a44");
@@ -238,7 +239,7 @@ test("CG9 a theme restyles the page and recolours single-symbol layers", async (
   expect(st.fill).toBe("#0072b2");
   // Page look alone leaves layer colours.
   await gis(app, (g, x: any) => g.useApp.getState().setStyle(x.id, { ...g.useApp.getState().styles[x.id], fill: "#123456" }), { id: a.id });
-  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab", { hasText: /^Page$/ }).click();
   await app.locator(".rbtn", { hasText: /Page look/ }).click();
   await app.getByRole("menuitem", { name: "Minimalist" }).click();
   await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "scale_bar" || e.kind === "text").color)) as string).toBe("#333333");

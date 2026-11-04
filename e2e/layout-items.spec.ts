@@ -56,20 +56,22 @@ test("LW1/LW4 layout ribbon tabs, pointer readout and the Character panel", asyn
   await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
   await expect(app.locator(".layout-page")).toBeVisible();
 
-  // Four contextual tabs under the Layout band, each with its own groups and no scroll bar.
-  for (const [tab, group] of [["Layout", "Page"], ["Elements", "Graphics"], ["Format", "Arrange"], ["Export", "Export"]]) {
-    await app.locator(".rtab.ctx", { hasText: new RegExp(`^${tab}$`) }).click();
+  // The layout's tabs, each with its own groups and no scroll bar; the Insert rail holds the elements (Graphics group included).
+  for (const [tab, group] of [["Page", "Sheet"], ["Arrange", "Line Up"], ["View", "Zoom"], ["Export", "This Page"]]) {
+    await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).click();
     await expect(app.locator(`.rg-slot[data-group="${group}"]`)).toHaveCount(1);
   }
+  await expect(app.locator('.rail [role="group"][aria-label="Graphics"]')).toHaveCount(1);
 
-  // Pointer position over the page, in mm.
+  // Pointer position over the page, in mm (the start gallery that an empty page shows is closed first).
+  await app.getByTestId("start-gallery").locator('[data-start="blank"]').click();
   const box = (await app.locator(".layout-page").boundingBox())!;
   await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await expect(app.getByTestId("layout-pointer")).toContainText(/\d+(\.\d)?, \d+(\.\d)? mm/);
 
   // Character panel on a text element: underline, letter spacing and halo are stored as the text slot's style.
   await ribbon(app, "Layout", /^Text$/);
-  await expect(app.locator(".props-section-title", { hasText: "Character" })).toBeVisible();
+  await expect(app.getByRole("checkbox", { name: "Underline" })).toBeVisible();
   await app.getByRole("checkbox", { name: "Underline" }).check();
   await app.getByRole("spinbutton", { name: "Halo width (mm)" }).fill("0.4");
   const t = (await doc(app)).elements.find((e: any) => e.kind === "text");

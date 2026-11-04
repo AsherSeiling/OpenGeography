@@ -13,6 +13,14 @@ import { layoutRequest } from "./actions";
 import { dragged, withFeatureEdit, withoutDropped } from "./labelEdits";
 import { sameLabel, useLabelHits } from "./labelHits";
 import { Ruler, RULER_PX } from "./Rulers";
+import { ContextBar, LayoutPopups, useLayoutMenus } from "./LayoutMenus";
+import { PAGE_TARGET } from "./PageProperties";
+import { PreflightPanel } from "./PreflightPanel";
+import { Rail, MAP_DRAG } from "./Rail";
+import { StartGallery } from "./StartGallery";
+import { copySelected, cutSelected, duplicateSelected, pasteHeld } from "./clipboard";
+import { insertMapFrame, setFrameFromMapView } from "./actions";
+import { useLayoutView, zoomPercent } from "./view";
 import { useSeriesView } from "./series";
 import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
@@ -57,8 +65,10 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const pageEl = useRef<HTMLDivElement>(null);
   // Where the page's corner sits in the scroll area, for the rulers (C3.0).
   const [org, setOrg] = useState({ x: 0, y: 0, w: 0, h: 0 });
-  const [fit, setFit] = useState(true);
-  const [zoom, setZoom] = useState(2); // screen px per mm
+  const fit = useLayoutView((s) => s.fit); // View › Zoom on the ribbon and the buttons here share this
+  const zoom = useLayoutView((s) => s.zoom);
+  const preflightOpen = useLayoutView((s) => s.preflightOpen);
+  const galleryClosed = useLayoutView((s) => !!s.galleryClosed[layout.id]);
   const [box, setBox] = useState({ w: 800, h: 600 });
   const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; labels: PlacedLabel[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,10 +87,12 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const fitRaw = Math.min((box.w - 48) / page.width, (box.h - 48) / page.height);
   const fitZoom = Number.isFinite(fitRaw) ? Math.max(0.2, fitRaw) : 2;
   const z = fit ? fitZoom : zoom;
-  const zoomTo = (v: number) => {
-    setFit(false);
-    setZoom(Math.min(12, Math.max(0.3, v)));
-  };
+  const zoomTo = (v: number) => useLayoutView.getState().setZoom(v);
+  // The ribbon's In and Out step from what is on screen.
+  const active = useLayouts((s) => s.id === layout.id);
+  useEffect(() => {
+    if (active) useLayoutView.getState().setShown(z);
+  }, [z, active]);
 
   const measureOrigin = () => {
     const c = wrap.current;
@@ -105,8 +117,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      setFit(false);
-      setZoom((cur) => Math.min(12, Math.max(0.3, (fit ? fitZoom : cur) * (e.deltaY < 0 ? 1.1 : 1 / 1.1))));
+      useLayoutView.getState().setZoom((fit ? fitZoom : useLayoutView.getState().zoom) * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -156,12 +167,16 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, styles, order, visible, maps, results, showOriginal, layers, dpi, seriesPage]);
 
-  // Selecting one element shows it in Properties.
+  // Selecting one element shows it in Properties; with nothing selected Properties shows the page.
   useEffect(() => {
     const app = useApp.getState();
     if (selected.length === 1) app.setProperties({ kind: "layoutElement", layout: layout.id, id: selected[0] });
+    else if (selected.length === 0 && useLayouts.getState().id === layout.id) {
+      // A label chosen on the page keeps Properties until something else is picked.
+      if (!(app.properties?.kind === "layoutLabel" && app.properties.layout === layout.id)) app.setProperties({ kind: "layoutElement", layout: layout.id, id: PAGE_TARGET });
+    }
     else if (app.properties?.kind === "layoutElement" && app.properties.layout === layout.id) app.setProperties(null);
-  }, [selected, layout.id]);
+  }, [selected, layout.id, active]);
 
   const activate = () => useLayouts.getState().open(layout.id);
   // A drag from a ruler onto the page drops a guide where it is released (CG6); dropping outside the page makes none.
@@ -241,6 +256,35 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     box.addEventListener("pointerup", up);
   };
 
+  const openContext = (e: React.MouseEvent, target: "page" | "element" | "frame") => {
+    e.preventDefault();
+    e.stopPropagation();
+    activate();
+    wrap.current?.focus();
+    const r = pageEl.current?.getBoundingClientRect();
+    useLayoutMenus.getState().open({ kind: "context", x: e.clientX, y: e.clientY, target, at: r ? pointerMm(e.clientX, e.clientY, r, z, page) : null });
+  };
+  // A map dragged from the rail onto the page becomes a frame that draws that map, with its top-left corner where it was dropped.
+  const dropMap = (e: React.DragEvent) => {
+    const id = e.dataTransfer.getData(MAP_DRAG);
+    if (!id) return;
+    e.preventDefault();
+    activate();
+    const r = pageEl.current?.getBoundingClientRect();
+    const at = r ? pointerMm(e.clientX, e.clientY, r, z, page) : null;
+    const before = new Set(layout.elements.map((x) => x.id));
+    insertMapFrame({ layers: { map: id } });
+    const doc = store().doc;
+    const f = doc?.elements.find((x) => x.kind === "map_frame" && !before.has(x.id));
+    if (f && at) {
+      const w = Math.min(f.w, page.width / 2);
+      const h = Math.min(f.h, page.height / 2);
+      store().update(f.id, { w, h, x: Math.max(0, Math.min(at.x, page.width - w)), y: Math.max(0, Math.min(at.y, page.height - h)) });
+      for (const e2 of doc!.elements) if (e2.kind === "sources" && (e2 as { frame?: string }).frame === f.id) store().update(e2.id, { x: Math.max(0, Math.min(at.x, page.width - w)), y: Math.min(page.height - e2.h, Math.max(0, Math.min(at.y, page.height - h)) + h + 1.5), w });
+      void setFrameFromMapView(f.id);
+    }
+  };
+
   const onKey = (e: React.KeyboardEvent) => {
     const s = store();
     const mod = e.ctrlKey || e.metaKey;
@@ -250,6 +294,23 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     } else if (mod && e.key.toLowerCase() === "y") {
       e.preventDefault();
       s.redo();
+    } else if (mod && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      copySelected();
+    } else if (mod && e.key.toLowerCase() === "x") {
+      e.preventDefault();
+      cutSelected();
+    } else if (mod && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      pasteHeld();
+    } else if (mod && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      duplicateSelected();
+    } else if ((e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) && wrap.current) {
+      e.preventDefault();
+      const c = wrap.current.getBoundingClientRect();
+      const one = s.selected.length === 1 ? s.doc?.elements.find((x) => x.id === s.selected[0]) : undefined;
+      useLayoutMenus.getState().open({ kind: "context", x: c.left + 60, y: c.top + 60, target: s.selected.length ? (one?.kind === "map_frame" ? "frame" : "element") : "page", at: null });
     } else if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       s.removeElements(s.selected.filter((id) => !s.doc?.elements.find((x) => x.id === id)?.locked));
@@ -272,11 +333,11 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   return (
     <div className="layout-view">
       <div className="layout-toolbar">
-        <Button size="small" appearance={fit ? "primary" : "subtle"} onClick={() => setFit(true)}>Fit page</Button>
-        <Button size="small" appearance="subtle" onClick={() => zoomTo(96 / 25.4)}>100%</Button>
+        <Button size="small" appearance={fit ? "primary" : "subtle"} onClick={() => useLayoutView.getState().fitPage()}>Fit page</Button>
+        <Button size="small" appearance="subtle" onClick={() => useLayoutView.getState().actualSize()}>100%</Button>
         <Button size="small" appearance="subtle" title="Zoom out" onClick={() => zoomTo(z / 1.25)}>−</Button>
         <Button size="small" appearance="subtle" title="Zoom in" onClick={() => zoomTo(z * 1.25)}>+</Button>
-        <span className="muted">{Math.round(((z * 25.4) / 96) * 100)}%</span>
+        <span className="muted">{zoomPercent(z)}%</span>
         <span className="layout-pointer muted" data-testid="layout-pointer" title="Pointer position on the page, mm from the top-left corner">
           {ptr ? `${ptr.x}, ${ptr.y} mm` : "— mm"}
         </span>
@@ -295,6 +356,9 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
           <MessageBarBody>{warnings.join(" · ")}</MessageBarBody>
         </MessageBar>
       )}
+      <div className="layout-body">
+      <Rail />
+      <div className="layout-main">
       <div className="layout-stage" style={{ gridTemplateColumns: `${RULER_PX}px 1fr`, gridTemplateRows: `${RULER_PX}px 1fr` }}>
         <div className="ruler-corner" />
         <div className="ruler-box" data-testid="ruler-h"><Ruler vertical={false} length={org.w} origin={org.x} zoom={z} onGuide={(cx, cy) => addGuide("y", cx, cy)} /></div>
@@ -304,6 +368,9 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         ref={wrap}
         tabIndex={0}
         onKeyDown={onKey}
+        onContextMenu={(e) => openContext(e, "page")}
+        onDragOver={(e) => { if (e.dataTransfer.types.includes(MAP_DRAG)) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }}
+        onDrop={dropMap}
         onPointerMove={(e) => {
           const r = pageEl.current?.getBoundingClientRect();
           setPtr(r ? pointerMm(e.clientX, e.clientY, r, z, page) : null);
@@ -320,22 +387,37 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
             <div key={i} className={`layout-guide ${g.axis}`} data-guide={`${g.axis}:${g.pos}`} style={g.axis === "x" ? { left: g.pos * z } : { top: g.pos * z }} title={`Guide at ${g.pos} mm (double-click to remove)`} onDoubleClick={() => store().setMeta({ guides: (layout.guides ?? []).filter((_, j) => j !== i) })} />
           ))}
           {preview && <img className="layout-img" src={preview.src} alt="" draggable={false} />}
-          {layout.elements.length === 0 && <div className="layout-empty">Insert a Map Frame or Text from the Elements tab.</div>}
+          {layout.elements.length === 0 && galleryClosed && (
+            <div className="layout-empty" data-testid="empty-hint">
+              <p>This page is empty.</p>
+              <p>Add a map frame or text from the Insert rail on the left, press Shift+A to search for an element, or pick a start.</p>
+              <button onClick={() => useLayoutView.getState().closeGallery(layout.id, false)}>Show the starts</button>
+            </div>
+          )}
           {sorted.map((el) => {
             const on = selected.includes(el.id);
             return (
-              <Tooltip key={el.id} content={`${LABEL[el.kind] ?? el.kind} ${el.id}${el.locked ? " (locked)" : ""}`} relationship="description" positioning="above-start">
+              <Tooltip key={el.id} content={`${LABEL[el.kind] ?? el.kind} ${el.id}${el.locked ? " (locked)" : ""}`} relationship="description" positioning="below-start">
                 <div
                   className={`layout-el ${on ? "on" : ""} ${el.locked ? "locked" : ""}`}
                   data-el={el.id}
                   style={{ left: el.x * z, top: el.y * z, width: el.w * z, height: el.h * z, transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined }}
                   onPointerDown={(e) => startDrag(e, el, null)}
+                  onContextMenu={(e) => {
+                    const sel = store().selected;
+                    const only = sel.length <= 1 || !sel.includes(el.id);
+                    if (only) store().select([el.id]);
+                    openContext(e, el.kind === "map_frame" && (only || sel.length === 1) ? "frame" : "element");
+                  }}
                 >
                   {on && !el.locked && HANDLES.map((h) => <span key={h} className={`layout-handle ${h}`} onPointerDown={(e) => startDrag(e, el, h)} />)}
                 </div>
               </Tooltip>
             );
           })}
+          {selEl && selected.length === 1 && (
+            <ContextBar el={selEl} left={Math.max(0, selEl.x * z)} top={selEl.y * z >= 40 ? selEl.y * z - 38 : (selEl.y + selEl.h) * z + 6} />
+          )}
           {!rendering &&
             (preview?.labels ?? []).map((l) => {
               const chosen = props?.kind === "layoutLabel" && sameLabel(props, l);
@@ -354,6 +436,11 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         </div>
       </div>
       </div>
+      {layout.elements.length === 0 && !galleryClosed && <StartGallery layoutId={layout.id} />}
+      {preflightOpen && <PreflightPanel layout={layout} />}
+      </div>
+      </div>
+      <LayoutPopups />
     </div>
   );
 }

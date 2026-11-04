@@ -44,6 +44,13 @@ import {
   GlobeRegular,
   HandLeftRegular,
   InfoRegular,
+  LockClosedRegular,
+  GroupRegular,
+  ZoomInRegular,
+  ZoomOutRegular,
+  TaskListSquareLtrRegular,
+  ArrowMaximizeRegular,
+  PanelLeftContractRegular,
   MountainTrailRegular,
   PaintBrushRegular,
   PanelLeftRegular,
@@ -100,6 +107,8 @@ import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
 import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
 import { addChart, addShape, addTable, addText, useLayouts } from "../store/layout";
+import { toggleLockSelected } from "../layout/clipboard";
+import { useLayoutView } from "../layout/view";
 import { defaultLayout, isPaneOpen, showPane, togglePane, type PaneId } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
 
@@ -220,9 +229,20 @@ const list: Command[] = [
   { id: "layoutPng", label: "PNG", icon: <ImageRegular />, run: () => void exportLayout("png"), enabled: inLayout, tip: "Export the page as a PNG at the resolution in the dpi box (300 by default)" },
   { id: "layoutSvg", label: "SVG", icon: <ShapesRegular />, run: () => void exportLayout("svg"), enabled: inLayout, tip: "Export the page as SVG for finishing in Inkscape or Illustrator" },
 
+  // Arrange tab › Group, View tab › Zoom, Export tab › This Page (the layout workspace)
+  { id: "layoutGroup", label: "Group", icon: <GroupRegular />, run: () => useLayouts.getState().group(), enabled: () => useLayouts.getState().selected.length > 1, tip: "Select and move the chosen elements together" },
+  { id: "layoutUngroup", label: "Ungroup", icon: <GroupRegular />, run: () => useLayouts.getState().ungroup(), enabled: () => { const s = useLayouts.getState(); return s.selected.some((id) => s.doc?.elements.find((e) => e.id === id)?.group); }, tip: "Split the selected group into separate elements" },
+  { id: "layoutLock", label: "Lock", icon: <LockClosedRegular />, run: () => void toggleLockSelected(), enabled: () => useLayouts.getState().selected.length > 0, checked: () => { const s = useLayouts.getState(); const els = s.doc?.elements.filter((e) => s.selected.includes(e.id)) ?? []; return els.length > 0 && els.every((e) => e.locked); }, tip: "Lock the selected elements so they cannot be moved or deleted by mistake; press again to unlock" },
+  { id: "layoutFit", label: "Fit Page", icon: <ArrowMaximizeRegular />, run: () => useLayoutView.getState().fitPage(), enabled: inLayout, checked: () => inLayout() && useLayoutView.getState().fit, tip: "Show the whole page in the window" },
+  { id: "layoutActual", label: "100%", icon: <ZoomFitRegular />, run: () => useLayoutView.getState().actualSize(), enabled: inLayout, tip: "Show the page at its printed size on screen" },
+  { id: "layoutZoomIn", label: "Zoom In", icon: <ZoomInRegular />, run: () => useLayoutView.getState().zoomBy(1.25), enabled: inLayout },
+  { id: "layoutZoomOut", label: "Zoom Out", icon: <ZoomOutRegular />, run: () => useLayoutView.getState().zoomBy(1 / 1.25), enabled: inLayout },
+  { id: "layoutPreflight", label: "Check Page", icon: <TaskListSquareLtrRegular />, run: () => { const v = useLayoutView.getState(); v.setPreflight(!v.preflightOpen); }, enabled: inLayout, checked: () => useLayoutView.getState().preflightOpen, tip: "Before exporting: is the coordinate system named, are the sources listed, do the scale bar and legend belong to a frame on the page" },
+
   // View tab › Windows
   paneToggle("paneContents", "contents", "Map Layers", <PanelLeftRegular />, "Show or hide the list of layers"),
   paneToggle("paneCatalog", "catalog", "Catalog", <FolderOpenRegular />, "Show or hide the Catalog: this project, its layouts and Public Data"),
+  paneToggle("paneItems", "items", "Items", <PanelLeftContractRegular />, "Show or hide the list of what is on the layout page"),
   paneToggle("paneProperties", "properties", "Properties", <PanelRightRegular />, "Show or hide Properties"),
   paneToggle("paneSources", "sources", "Sources", <BookRegular />, "Every data source used in this project, as an annotated bibliography you can export"),
   { id: "paneMap", label: "Map", icon: <MapRegular />, run: () => showPane("map") },

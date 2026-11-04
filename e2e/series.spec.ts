@@ -2,7 +2,7 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, expect, gis, ribbon } from "./fixtures";
+import { inspectorTab, test, expect, gis, ribbon } from "./fixtures";
 
 const NAMES = ["Yuma", "Adams", "Polk", "Cass", "Wake"];
 
@@ -24,7 +24,7 @@ async function setup(app: any) {
 test("C3.2 set up a series, follow it, step through the pages", async ({ app }) => {
   const layer = await setup(app);
   // The dialog: index layer, name field.
-  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab", { hasText: /^Page$/ }).click();
   await app.getByRole("button", { name: /Set Up Map Series/ }).click();
   const dlg = app.getByRole("dialog");
   await expect(dlg.getByText("Map Series", { exact: true })).toBeVisible();
@@ -37,6 +37,7 @@ test("C3.2 set up a series, follow it, step through the pages", async ({ app }) 
   // Tick "Follows the map series" on the frame.
   const frameId = await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame").id);
   await gis(app, (g, id) => g.useLayouts.getState().select([id]), frameId);
+  await inspectorTab(app, "Layers");
   await app.getByLabel("Follows the map series").check();
   expect(await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame").followsSeries)).toBe(true);
 
@@ -59,7 +60,7 @@ test("C3.2 set up a series, follow it, step through the pages", async ({ app }) 
 test("C3.2 exporting the series writes one PDF with every page, and one PNG per page", async ({ app }) => {
   await setup(app);
   await gis(app, (g) => { const s = g.useLayouts.getState(); const f = s.doc.elements.find((e: any) => e.kind === "map_frame"); const layer = Object.keys(g.useApp.getState().layers)[0]; s.setSeries({ indexLayer: layer, nameField: "NAME", extent: "fit", marginPct: 10 }); s.update(f.id, { followsSeries: true }); });
-  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab", { hasText: /^Page$/ }).click();
   await expect(app.getByTestId("series-caption")).toHaveText("5 pages");
   const dir = mkdtempSync(join(tmpdir(), "gis-e2e-series-"));
   const pdf = join(dir, "series.pdf");
@@ -80,7 +81,7 @@ test("C3.2 a series with no following frame explains what to do, and an empty in
   await setup(app);
   const layer = Object.keys(await gis(app, (g) => g.useApp.getState().layers))[0];
   await gis(app, (g, id) => g.useLayouts.getState().setSeries({ indexLayer: id, nameField: "NAME", extent: "fit", marginPct: 10 }), layer);
-  await app.locator(".rtab.ctx", { hasText: /^Layout$/ }).click();
+  await app.locator(".rtab", { hasText: /^Page$/ }).click();
   await expect(app.getByTestId("series-caption")).toHaveText("5 pages");
   const err = await gis(app, async (g) => { try { await g.api.renderLayoutPreview({ ...g.layoutActions.layoutRequest(g.useLayouts.getState().doc), seriesPage: 0 }, 72); return null; } catch (e) { return String(e); } });
   expect(err).toContain("Follows the map series");

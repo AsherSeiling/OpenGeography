@@ -1,5 +1,5 @@
 // LW5: grid and graticule styles, label formats and the UTM zone designation from the map frame's Properties.
-import { test, expect, gis, ribbon, addTestLayer } from "./fixtures";
+import { inspectorTab, test, expect, gis, ribbon, addTestLayer } from "./fixtures";
 
 test("LW5 grid style, label format and zone designation reach the drawing", async ({ app }) => {
   await addTestLayer(app, "polygons", 5, [-93.1, 45.0, -92.9, 45.1]);
@@ -11,6 +11,7 @@ test("LW5 grid style, label format and zone designation reach the drawing", asyn
   await gis(app, (g) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, { crs: "EPSG:26915", center: [490000, 4985000], scale: 24000, basemap: "none" }); });
   const frame = async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"))) as any;
 
+  await inspectorTab(app, "Grid");
   await app.getByRole("checkbox", { name: "Grid (map coordinates)" }).check();
   await app.getByRole("combobox", { name: "Style" }).click();
   await app.getByRole("option", { name: "Ticks at the edges" }).click();

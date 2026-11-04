@@ -4,6 +4,9 @@ import type { LayerStyle } from "../store/store";
 
 export const LAYOUT_VERSION = 1;
 
+/** Ink and paper colours of page content (the page is white in both themes); the editor's chrome takes its colours from tokens. */
+export const PAPER = { white: "#ffffff", black: "#000000", dark: "#333333", mid: "#444444" } as const;
+
 export interface Page {
   width: number;
   height: number;
