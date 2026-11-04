@@ -2,6 +2,10 @@
 // and the "Tell me" search all read from it.
 import { createElement } from "react";
 import { toolIcon } from "../nodes/toolIcon";
+import { openToolMenu } from "../nodes/toolMenuStore";
+import { PUBLIC_DATA } from "../panes/CatalogPane";
+import { toggleAppearance, useAppearance } from "../theme/appearance";
+import { addToolFromUi, focusPublicData } from "./addTool";
 import {
   BorderAllRegular,
   AddCircleRegular,
@@ -17,21 +21,14 @@ import {
   CompassNorthwestRegular,
   LayerDiagonalAddRegular,
   CalculatorRegular,
-  ArrowDownloadRegular,
-  BuildingMultipleRegular,
   DatabaseRegular,
   EarthRegular,
   FullScreenMaximizeRegular,
   GlobeLocationRegular,
   GridRegular,
-  ImageMultipleRegular,
   LocationTargetSquareRegular,
   Map16Regular,
-  MapPinRegular,
-  PlugConnectedRegular,
   ScanObjectRegular,
-  ServerRegular,
-  WarningRegular,
   RulerRegular,
   TableAddRegular,
   ArrowExportRegular,
@@ -48,7 +45,6 @@ import {
   InfoRegular,
   MountainTrailRegular,
   PaintBrushRegular,
-  PanelBottomRegular,
   PanelLeftRegular,
   PanelRightRegular,
   PlayRegular,
@@ -58,7 +54,6 @@ import {
   SelectAllOnRegular,
   TableRegular,
   TopSpeedRegular,
-  WrenchRegular,
   DataUsageRegular,
   ZoomFitRegular,
   TextTRegular,
@@ -72,6 +67,8 @@ import {
   LineHorizontal1Regular,
   ArrowRightRegular,
   ImageAddRegular,
+  AddSquareRegular,
+  ColorRegular,
 } from "@fluentui/react-icons";
 import type { ReactElement } from "react";
 import {
@@ -101,8 +98,7 @@ import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
 import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
 import { addChart, addShape, addTable, addText, useLayouts } from "../store/layout";
-import { addToolToModel } from "../panes/ModelPane";
-import { defaultLayout, showPane, togglePane } from "../panes/panes";
+import { defaultLayout, isPaneOpen, showPane, togglePane, type PaneId } from "../panes/panes";
 import { useApp, type Basemap, type MapTool } from "../store/store";
 
 export interface Command {
@@ -132,6 +128,11 @@ const tool = (t: MapTool) => () => app().tool === t;
 const inLayout = () => !!useLayouts.getState().doc;
 const hasFrame = () => !!useLayouts.getState().doc?.elements.some((e) => e.kind === "map_frame");
 
+/** A Windows button: pressed while the pane is open, a click opens or closes it. */
+function paneToggle(id: string, pane: PaneId, label: string, icon: ReactElement, tip: string): Command {
+  return { id, label, icon, tip, run: () => togglePane(pane), checked: () => isPaneOpen(pane) };
+}
+
 const list: Command[] = [
   // Project
   { id: "new", label: "New", icon: <DocumentAddRegular />, run: newProject, tip: "Start a new project" },
@@ -155,11 +156,6 @@ const list: Command[] = [
   { id: "resection", label: "Resection", icon: <MyLocationRegular />, run: () => useNav.getState().set({ navPanel: "resection" }), checked: () => useNav.getState().navPanel === "resection", tip: "Find your position from azimuths to known landmarks (MGRS, mils, G-M angle)" },
   { id: "intersection", label: "Intersection", icon: <TargetArrowRegular />, run: () => useNav.getState().set({ navPanel: "intersection" }), checked: () => useNav.getState().navPanel === "intersection", tip: "Locate an unseen point from azimuths taken at known positions" },
   { id: "census", label: "Census Data", icon: <TableAddRegular />, run: () => active() && useDialog.getState().show({ kind: "census", layer: active()!.id }), enabled: () => !!active() && active()!.geomType !== "Raster", tip: "Join American Community Survey or 2020 Census values to the active layer by GEOID" },
-  { id: "overture", label: "Overture Maps", icon: <BuildingMultipleRegular />, run: () => useDialog.getState().show({ kind: "overture" }), tip: "Download buildings, places, roads, water, land use or boundaries for your area from Overture Maps (open GeoParquet)" },
-  { id: "ogc", label: "OGC API Features", icon: <PlugConnectedRegular />, run: () => useDialog.getState().show({ kind: "ogc" }), tip: "Download features from USGS Water Data or any OGC API – Features service for your area" },
-  { id: "hazardsSoils", label: "Earthquakes & Soils", icon: <WarningRegular />, run: () => useDialog.getState().show({ kind: "hazardsSoils" }), tip: "Download USGS earthquakes or NRCS soil map units for your area" },
-  { id: "stac", label: "Imagery & DEM", icon: <ImageMultipleRegular />, run: () => useDialog.getState().show({ kind: "stac" }), tip: "Search Sentinel-2 imagery and the Copernicus DEM (STAC) and clip a scene to your area straight from the cloud" },
-  { id: "arcgis", label: "ArcGIS Services", icon: <ServerRegular />, run: () => useDialog.getState().show({ kind: "arcgis" }), tip: "Download PAD-US, FEMA flood zones, wetlands, wildfire perimeters or any ArcGIS REST layer for your area" },
   { id: "worldView", label: "World View", icon: <EarthRegular />, run: toggleWorldView, checked: () => app().worldView, tip: "Show the whole Earth in this coordinate system (cut at the opposite side of its central meridian)" },
   { id: "usngGrid", label: "MGRS Grid", icon: <BorderAllRegular />, run: () => void addUsngGrid(), tip: "Add an MGRS (USNG) grid for the map view: squares sized for how far you are zoomed, each labelled with its reference" },
   { id: "worldGraticule", label: "Graticule", icon: <GridRegular />, run: addWorldReference, tip: "Add curved latitude/longitude lines and the coordinate system's own reference lines (central meridian, standard parallels, edge of the map)" },
@@ -177,18 +173,21 @@ const list: Command[] = [
   { id: "splitByAttribute", label: "Split by Attribute", icon: <LayerDiagonalAddRegular />, run: () => active() && splitByAttribute(active()!.id), enabled: () => !!active() && active()!.geomType !== "Raster", tip: "Make one layer or one file per value of a field" },
   { id: "exportTable", label: "Export Table", icon: <ArrowExportRegular />, run: () => active() && exportTable(active()!.id), enabled: () => active()?.geomType === "Point", tip: "Write a point layer's attributes and coordinates (in a coordinate system you choose) as CSV or Parquet" },
   { id: "exportLayer", label: "Export Features", icon: <ArrowExportRegular />, run: () => active() && exportLayer(active()!.id), enabled: () => !!active() },
-  { id: "nationalMap", label: "National Map", icon: <MapPinRegular />, run: () => useDialog.getState().show({ kind: "nationalMap" }), tip: "Download USGS streams, lakes, watersheds, roads, trails, structures, place names and federal lands for an area" },
-  { id: "elevation", label: "Elevation (3DEP)", icon: <MountainTrailRegular />, run: () => useDialog.getState().show({ kind: "elevation" }), tip: "Download USGS 3DEP elevation for the map view or a layer's area" },
-  { id: "tiger", label: "Sample Data (TIGER)", icon: <ArrowDownloadRegular />, run: () => useDialog.getState().show({ kind: "tiger" }), tip: "Download Census boundaries, roads and water for any state or county" },
   { id: "addField", label: "Add Field", icon: <TableAddRegular />, run: () => active() && useDialog.getState().show({ kind: "addField", layer: active()!.id }), enabled: canEditActive },
   { id: "calcField", label: "Calculate Field", icon: <CalculatorRegular />, run: () => active() && useDialog.getState().show({ kind: "calcField", layer: active()!.id, owner: active()!.id }), enabled: canEditActive },
   { id: "calcGeometry", label: "Calculate Geometry", icon: <RulerRegular />, run: () => active() && useDialog.getState().show({ kind: "calcGeometry", layer: active()!.id, owner: active()!.id }), enabled: () => canEditActive() && active()!.geomType !== "Table" },
   { id: "testData", label: "Generate Test Data", icon: <DataUsageRegular />, run: () => useDialog.getState().show({ kind: "testData" }), tip: "Random points or polygons, to try tools and check speed" },
 
   // Analysis tab
-  { id: "modelBuilder", label: "Model", icon: <FlowchartRegular />, run: () => showPane("model"), tip: "Open the Model (node editor)" },
-  { id: "runModel", label: "Run Model", icon: <PlayRegular />, run: () => runModel(), tip: "Run every step of the model" },
-  { id: "tools", label: "Tools", icon: <WrenchRegular />, run: () => showPane("tools"), tip: "Open the Geoprocessing pane" },
+
+  // Map › Layer. Public Data goes to the Catalog's tree; its eight dialogs are the Catalog's rows (PUBLIC_DATA below).
+  { id: "catalog", label: "Public Data", icon: <FolderOpenRegular />, run: focusPublicData, tip: "Open the Catalog at its Public Data tree: Census, USGS, Overture, ArcGIS services and more. Double-click a row to download for your area" },
+
+  // Analysis tab
+  { id: "addTool", label: "Add Tool", icon: <AddSquareRegular />, run: () => openToolMenu(), keys: "Shift+A", tip: "Find a tool by name or plain words and add it to the active layer's node tree" },
+  { id: "runModel", label: "Run", icon: <PlayRegular />, run: () => runModel(), tip: "Run every step of the active layer's node tree" },
+  paneToggle("paneModel", "model", "Node Editor", <FlowchartRegular />, "Show or hide the Node Editor in the bottom panel"),
+  paneToggle("paneTable", "table", "Attribute Table", <TableRegular />, "Show or hide the Attribute Table in the bottom panel"),
 
   // Insert tab (later milestones)
   { id: "newLayout", label: "New Layout", icon: <DocumentPdfRegular />, run: () => newLayout(), tip: "Create a print layout (Letter landscape); more page sizes are in the Insert tab's gallery" },
@@ -217,21 +216,17 @@ const list: Command[] = [
   { id: "layoutPng", label: "PNG", icon: <ImageRegular />, run: () => void exportLayout("png"), enabled: inLayout, tip: "Export the page as a PNG at the resolution in the dpi box (300 by default)" },
   { id: "layoutSvg", label: "SVG", icon: <ShapesRegular />, run: () => void exportLayout("svg"), enabled: inLayout, tip: "Export the page as SVG for finishing in Inkscape or Illustrator" },
 
-  // View tab
-  { id: "paneContents", label: "Contents", icon: <PanelLeftRegular />, run: () => togglePane("contents") },
-  { id: "paneTable", label: "Attribute Table", icon: <TableRegular />, run: () => togglePane("table") },
-  { id: "paneModel", label: "Model", icon: <PanelBottomRegular />, run: () => togglePane("model") },
-  { id: "paneProperties", label: "Properties", icon: <PanelRightRegular />, run: () => togglePane("properties") },
-  { id: "sources", label: "Sources & Citations", icon: <BookRegular />, run: () => showPane("sources"), tip: "Every data source used in this project, as an annotated bibliography you can export" },
-  { id: "paneSources", label: "Sources", icon: <BookRegular />, run: () => togglePane("sources") },
-  { id: "catalog", label: "Catalog", icon: <FolderOpenRegular />, run: () => showPane("catalog"), tip: "Browse folders and add GIS data (file manager)" },
-  { id: "paneCatalog", label: "Catalog", icon: <FolderOpenRegular />, run: () => togglePane("catalog") },
-  { id: "paneTools", label: "Geoprocessing", icon: <WrenchRegular />, run: () => togglePane("tools") },
+  // View tab › Windows
+  paneToggle("paneContents", "contents", "Map Layers", <PanelLeftRegular />, "Show or hide the list of layers"),
+  paneToggle("paneCatalog", "catalog", "Catalog", <FolderOpenRegular />, "Show or hide the Catalog: this project, its layouts and Public Data"),
+  paneToggle("paneProperties", "properties", "Properties", <PanelRightRegular />, "Show or hide Properties"),
+  paneToggle("paneSources", "sources", "Sources", <BookRegular />, "Every data source used in this project, as an annotated bibliography you can export"),
   { id: "paneMap", label: "Map", icon: <MapRegular />, run: () => showPane("map") },
   { id: "resetPanes", label: "Reset Panes", icon: <ArrowResetRegular />, run: defaultLayout, tip: "Restore the default pane layout" },
   { id: "fps", label: "Frame Rate", icon: <TopSpeedRegular />, run: () => app().set({ showFps: !app().showFps }), checked: () => app().showFps, tip: "Show map frames per second" },
   { id: "benchmark", label: "Benchmark", icon: <TopSpeedRegular />, run: () => useDialog.getState().show({ kind: "benchmark" }), tip: "Fly the map and measure smoothness" },
   { id: "theme", label: "Dark Theme", icon: <DarkThemeRegular />, run: () => app().set({ dark: !app().dark }), checked: () => app().dark },
+  { id: "colours", label: "Colours", icon: <ColorRegular />, run: toggleAppearance, checked: () => useAppearance.getState().open, tip: "Choose the accent, highlight, panel and tool colours" },
 
   // Feature Layer contextual tab
   { id: "zoomLayer", label: "Zoom To Layer", icon: <ZoomFitRegular />, run: () => active() && zoomToLayer(active()!.id), enabled: () => !!active()?.extent },
@@ -241,18 +236,13 @@ const list: Command[] = [
   { id: "removeLayer", label: "Remove", icon: <DeleteRegular />, run: () => active() && removeLayer(active()!.id), enabled: () => !!active() },
 ];
 
-export const TOOL_BUTTONS = ["buffer", "clip", "intersect", "dissolve", "spatial_join", "attribute_join", "project", "filter", "calculate_field", "calculate_geometry"];
-
 export function toolCommand(toolId: string, name: string, description: string): Command {
   return {
     id: `tool:${toolId}`,
     label: name,
     icon: createElement(toolIcon(toolId)),
     tip: description,
-    run: () => {
-      showPane("model");
-      addToolToModel(toolId);
-    },
+    run: () => void addToolFromUi(toolId),
   };
 }
 
@@ -264,7 +254,12 @@ export const BASEMAP_OPTIONS: [Basemap, string][] = [
   ["none", "None"],
 ];
 
-export const commands: Record<string, Command> = Object.fromEntries(list.map((c) => [c.id, c]));
+/** The Catalog's Public Data rows are also commands (search, tests); the list itself lives in CatalogPane. */
+const publicData: Command[] = PUBLIC_DATA.map((p) => ({ id: p.id, label: p.label, icon: <>{p.icon}</>, tip: p.tip, run: () => useDialog.getState().show(p.dialog) }));
+
+export const commands: Record<string, Command> = Object.fromEntries([...list, ...publicData].map((c) => [c.id, c]));
+/** Ids of the commands that live in the Catalog's Public Data tree rather than on a ribbon tab. */
+export const CATALOG_COMMANDS: string[] = PUBLIC_DATA.map((p) => p.id);
 
 function zoomFull() {
   const s = app();

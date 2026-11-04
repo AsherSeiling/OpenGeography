@@ -1,7 +1,7 @@
-import { test, expect, ribbon } from "./fixtures";
+import { test, expect, publicData } from "./fixtures";
 
 test("D3 Imagery & DEM dialog lists the catalog and explains a bad date before searching", async ({ app }) => {
-  await ribbon(app, "Data", /Imagery & DEM/);
+  await publicData(app, "stac");
   const dlg = app.getByRole("dialog");
   await expect(dlg).toContainText("Imagery and elevation (STAC)");
   await expect(dlg.getByRole("combobox").nth(1)).toContainText(/Sentinel-2 surface reflectance/, { timeout: 10_000 });

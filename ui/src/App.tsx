@@ -14,7 +14,7 @@ import { AttributeTable } from "./panes/AttributeTable";
 import { ContentsPane } from "./panes/ContentsPane";
 import { MapView } from "./panes/MapView";
 import { ModelPane } from "./panes/ModelPane";
-import { defaultLayout, setDock, type PaneId } from "./panes/panes";
+import { defaultLayout, restoreDock, serializeDock, setDock, type PaneId } from "./panes/panes";
 import { CatalogPane } from "./panes/CatalogPane";
 import { ItemsPane } from "./panes/ItemsPane";
 import { PropertiesPane } from "./panes/PropertiesPane";
@@ -23,7 +23,6 @@ import { ErrorDialog } from "./errors/ErrorDialog";
 import { PaneBoundary } from "./errors/PaneBoundary";
 import { LayoutView } from "./layout/LayoutView";
 import { followActivePanel, layoutPanelClosed } from "./layout/actions";
-import { ToolsPane } from "./panes/ToolsPane";
 import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { useModel, useRun } from "./store/model";
@@ -38,13 +37,12 @@ const guard = (pane: string, title: string, el: React.ReactNode) => (
 
 const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPanelProps>> = {
   layout: (p) => guard(`layout:${(p.params as { layoutId: string }).layoutId}`, "Layout", <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />),
-  contents: () => guard("contents", "Contents", <ContentsPane />),
+  contents: () => guard("contents", "Map Layers", <ContentsPane />),
   catalog: () => guard("catalog", "Catalog", <CatalogPane />),
   map: () => guard("map", "Map", <MapView />),
   table: () => guard("table", "Attribute Table", <AttributeTable />),
-  model: () => guard("model", "Model", <ModelPane />),
+  model: () => guard("model", "Node Editor", <ModelPane />),
   properties: () => guard("properties", "Properties", <PropertiesPane />),
-  tools: () => guard("tools", "Geoprocessing", <ToolsPane />),
   sources: () => guard("sources", "Sources", <SourcesPane />),
   items: () => guard("items", "Items", <ItemsPane />),
 };
@@ -88,7 +86,7 @@ export function App() {
       }
     };
     window.addEventListener("keydown", onKey);
-    // The Model shows the node tree of the layer selected in Contents.
+    // The Node Editor shows the node tree of the layer selected in Map Layers.
     useModel.getState().openTree(useApp.getState().activeLayer);
     const unTree = useApp.subscribe((s, prev) => {
       if (s.activeLayer !== prev.activeLayer) useModel.getState().openTree(s.activeLayer);
@@ -108,16 +106,7 @@ export function App() {
 
   const onReady = (e: DockviewReadyEvent) => {
     setDock(e.api);
-    registerDock(
-      () => e.api.toJSON(),
-      (d) => {
-        try {
-          e.api.fromJSON(d as never);
-        } catch {
-          defaultLayout();
-        }
-      },
-    );
+    registerDock(serializeDock, restoreDock);
     defaultLayout();
     // The Layout ribbon tab and Properties follow the active layout tab.
     e.api.onDidActivePanelChange((ev) => {

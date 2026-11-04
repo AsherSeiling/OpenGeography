@@ -1,7 +1,7 @@
-import { test, expect, ribbon } from "./fixtures";
+import { test, expect, publicData } from "./fixtures";
 
 test("D5 OGC API dialog lists the catalog with its citation and explains a bad address", async ({ app }) => {
-  await ribbon(app, "Data", /OGC API Features/);
+  await publicData(app, "ogc");
   const dlg = app.getByRole("dialog");
   await expect(dlg.getByRole("radio", { name: /Water monitoring locations/ })).toBeChecked({ timeout: 10_000 });
   await expect(dlg).toContainText(/U\.S\. Geological Survey/);

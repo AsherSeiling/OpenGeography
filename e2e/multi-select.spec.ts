@@ -50,7 +50,7 @@ test("MS-2 actions on the selection: hide, move to top, apply symbology, export,
   const dir = mkdtempSync(join(tmpdir(), "gis-e2e-ms-"));
   await menu(/Export Layers/);
   await app.getByPlaceholder("Folder to write into").fill(dir);
-  await app.getByRole("button", { name: "Export", exact: true }).click();
+  await app.getByRole("dialog").getByRole("button", { name: "Export", exact: true }).click();
   await expect.poll(() => readdirSync(dir).filter((f) => f.endsWith(".gpkg")).length).toBe(2);
 
   app.once("dialog", (d: any) => d.accept());

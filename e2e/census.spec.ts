@@ -5,7 +5,7 @@ test("D2 Census dialog guesses the GEOID field, checks variable codes, and the b
     const info = await g.api.createFeatures("Tracts", [{ wkt: "POINT(-97 35)", props: { GEOID: "40109100100", name: "a" } }, { wkt: "POINT(-96.9 35.1)", props: { GEOID: "40109100200", name: "b" } }]);
     g.useApp.getState().addLayers([info]);
   });
-  await ribbon(app, "Data", /Census Data/);
+  await ribbon(app, "Feature Layer", /Census Data/);
   const dlg = app.getByRole("dialog");
   await expect(dlg).toContainText("Census data — join to Tracts");
   await expect(dlg.getByRole("combobox").first()).toContainText("GEOID");

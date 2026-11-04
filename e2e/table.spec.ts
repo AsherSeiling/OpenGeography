@@ -80,7 +80,7 @@ test("M-11 attribute table: edit, cancel, Tab, sort, filter, fields and errors",
 
 test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear", async ({ app, errors }) => {
   const info = await addKnownPoints(app);
-  await ribbon(app, "Data", /^Definition Query$/);
+  await ribbon(app, "Feature Layer", /^Definition Query$/);
   const qe = app.locator(".qe");
   await expect(qe).toBeVisible();
   const row0 = qe.locator(".qe-row").nth(0);
@@ -111,7 +111,7 @@ test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear"
   await expect(app.locator(".grid-row")).toHaveCount(1);
   expect((await gis(app, (g, id) => g.useApp.getState().layers[id].definitionQuery, info.id))).toBeTruthy();
 
-  await ribbon(app, "Data", /^Definition Query$/);
+  await ribbon(app, "Feature Layer", /^Definition Query$/);
   await app.getByRole("button", { name: "Clear", exact: true }).click();
   await expect.poll(() => gis(app, (g, id) => g.useApp.getState().layers[id].definitionQuery, info.id)).toBeNull();
   await expect(app.locator(".grid-row")).toHaveCount(4);

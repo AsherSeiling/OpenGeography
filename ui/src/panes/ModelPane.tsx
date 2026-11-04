@@ -23,7 +23,7 @@ let addAtCenter: ((tool: string, params?: Record<string, unknown>) => void) | nu
 /** Add a tool node in the middle of the visible model canvas. */
 export function addToolToModel(tool: string, params?: Record<string, unknown>) {
   if (!useModel.getState().layer) {
-    useApp.getState().setStatus("Select a layer in Contents first: tools go into that layer's node tree.");
+    useApp.getState().setStatus("Select a layer in Map Layers first: tools go into that layer's node tree.");
     return;
   }
   if (addAtCenter) addAtCenter(tool, params);
@@ -444,7 +444,7 @@ function ModelCanvas() {
   return (
     <div className={`model ${active === "on" ? "shortcuts-on" : ""}`}>
       <Toolbar size="small" className="model-bar">
-        <span className="model-title" title="Each layer has its own node tree. Select a layer in Contents to switch.">
+        <span className="model-title" title="Each layer has its own node tree. Select a layer in Map Layers to switch.">
           {treeName ? <>Node tree: <b>{treeName}</b></> : "No layer selected"}
         </span>
         <ToolbarDivider />
@@ -550,7 +550,7 @@ function ModelCanvas() {
         {!treeLayer && (
           <div className="model-empty">
             <div>
-              Select a layer in <b>Contents</b> to open its node tree.
+              Select a layer in <b>Map Layers</b> to open its node tree.
               <br />
               Each layer has its own tree, from its <b>Layer Input</b> to its <b>Output</b>.
             </div>
@@ -561,7 +561,7 @@ function ModelCanvas() {
             <div>
               Press <b>Shift+A</b> (or right-click) to add a tool. Drop it onto a connection to insert it there.
               <br />
-              Drag another layer from <b>Contents</b> onto the canvas or onto a tool to use it (e.g. as Clip features).
+              Drag another layer from <b>Map Layers</b> onto the canvas or onto a tool to use it (e.g. as Clip features).
             </div>
           </div>
         )}

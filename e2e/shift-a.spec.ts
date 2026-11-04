@@ -3,7 +3,7 @@ import { test, expect, gis, addTestLayer, hoverCanvas, expectAddMenuOnScreen, mo
 
 test("Shift+A works after a text box outside the editor was used, once the pointer is over the canvas", async ({ app }) => {
   await addTestLayer(app, "points", 20);
-  const box = app.getByPlaceholder(/Command search/);
+  const box = app.getByPlaceholder(/Search commands and tools/);
   await box.click();
   await hoverCanvas(app);
   await app.waitForTimeout(1400); // typing wins for a moment, then the pointer decides
@@ -15,7 +15,7 @@ test("Shift+A works after a text box outside the editor was used, once the point
 
 test("keys still go to a text box while it is being typed in, with the pointer over the canvas", async ({ app }) => {
   await addTestLayer(app, "points", 20);
-  const box = app.getByPlaceholder(/Command search/);
+  const box = app.getByPlaceholder(/Search commands and tools/);
   await box.click();
   await hoverCanvas(app);
   await app.keyboard.type("ab"); // typing starts: a shortcut now would corrupt it
@@ -174,7 +174,7 @@ test("Mod+D marks a favourite, the Start view lists it, Recent lists what was ad
 
 test("Shift+A works with the Node Editor closed, and picking opens it first", async ({ app }) => {
   await addTestLayer(app, "points", 20);
-  await app.locator(".dv-default-tab, .dv-tab", { hasText: /^Model$/ }).first().locator(".dv-default-tab-action").click();
+  await app.locator(".dv-default-tab, .dv-tab", { hasText: /^Node Editor$/ }).first().locator(".dv-default-tab-action").click();
   await expect(app.locator(".model-canvas")).toBeHidden();
   await app.keyboard.press("Shift+A");
   await expectAddMenuOnScreen(app);

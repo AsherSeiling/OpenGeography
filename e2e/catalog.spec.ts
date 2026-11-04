@@ -73,7 +73,7 @@ test("CAT-3 a layout opens from the Layouts branch; Contents no longer lists lay
   await app.locator(".layout-row", { hasText: "Layout 1" }).dblclick();
   await expect(app.locator(".layout-page")).toBeVisible();
   // Contents (Map Layers) has no Layouts section any more.
-  await app.getByRole("tab", { name: "Contents" }).click();
+  await app.getByRole("tab", { name: "Map Layers" }).click();
   await expect(app.locator(".contents .layouts, .contents .layouts-head, .contents .layout-row")).toHaveCount(0);
 });
 

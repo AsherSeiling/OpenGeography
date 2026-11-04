@@ -1,4 +1,4 @@
-/* Dockview theme and docked pane chrome, Tools pane (removed by WP 6). Owner: WP 6. */
+/* Dockview theme and docked pane chrome. Owner: WP 6. */
 /* ---------- Dock ---------- */
 .dock { flex: 1; min-height: 0; }
 /* Dockview's own light class is used in both modes; every colour below is a token, so dark follows data-theme. */
@@ -34,20 +34,5 @@
 /* Inset rule: a border would make every .dv-view 2 px larger than its box and scroll. */
 .dv-groupview { box-shadow: inset 0 0 0 1px var(--rule-soft); }
 
-.tools { height: 100%; display: flex; flex-direction: column; background: var(--surface-1); padding: 6px; box-sizing: border-box; gap: 6px; }
-.tools-list { flex: 1; overflow: auto; }
-.tools-cat { font-weight: 600; padding: 6px 4px 2px; color: var(--text-2); }
-.tools-fold { display: flex; align-items: center; gap: 4px; width: 100%; background: none; border: 0; cursor: pointer; text-align: left; font: inherit; font-weight: 600; color: var(--text-2); }
-.tools-subcat { padding: 3px 4px 2px 14px; color: var(--text-2); font-weight: 500; }
-.tools-sub .tool-item { padding-left: 22px; }
-.tools-count { margin-left: auto; font-weight: 400; opacity: 0.7; }
-.tool-item { display: flex; gap: 8px; padding: 4px 6px; cursor: default; align-items: flex-start; }
-.tool-item:hover { background: var(--hover); }
-.tool-item svg { font-size: 16px; color: var(--link); flex: none; margin-top: 1px; }
-.tool-name { font-weight: 600; }
-.tool-desc { color: var(--text-2); font-size: 11px; }
-
-.tools-hint, .tree-hint { color: var(--text-2); font-size: 11px; padding: 0 2px; }
-.tool-item.input svg { color: var(--link); }
-.tool-item.output svg { color: var(--ok); }
-.tool-empty { padding: 2px 6px 6px; font-size: 11px; }
+/* Hint line under the layer list (Map Layers); padding is in contents.css. */
+.tree-hint { color: var(--text-2); font-size: 11px; }

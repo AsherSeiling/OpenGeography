@@ -6,11 +6,13 @@ type Gis = Record<string, any>;
 export const gis = <T,>(page: Page, fn: (g: Gis) => T | Promise<T>, arg?: unknown): Promise<T> =>
   page.evaluate(`(async () => { const g = window.__gis; return (${fn.toString()})(g, ${JSON.stringify(arg ?? null)}); })()`) as Promise<T>;
 
-export const test = base.extend<{ app: Page; errors: { expected: boolean; known: RegExp[] } }>({
+export const test = base.extend<{ app: Page; errors: { expected: boolean; known: RegExp[] }; bottom: boolean }>({
+  /** The bottom panel (Node Editor, Attribute Table) is closed at start-up. Most specs work in it, so it is opened before the test; `test.use({ bottom: false })` keeps the start-up state. */
+  bottom: [true, { option: true }],
   /** Set `errors.expected = true` in a test that deliberately provokes an error pop-up. */
   /** `errors.known`: console errors of a bug already listed in docs/BUGS.md ("Found by e2e"); anything else still fails. */
   errors: async ({}, use) => { await use({ expected: false, known: [] }); },
-  app: async ({ page, errors: errState }, use, testInfo) => {
+  app: async ({ page, errors: errState, bottom }, use, testInfo) => {
     // The Layout tab needs about 2,300 px to show every group at full size; the specs that drive it get a wide window, the rest keep the
     // usual 1600 x 950 (their node and map positions depend on it). The ribbon's own width spec sets its own sizes.
     if (/layout|series|templates|labels/.test(testInfo.file)) await page.setViewportSize({ width: 2560, height: 1300 });
@@ -20,12 +22,18 @@ export const test = base.extend<{ app: Page; errors: { expected: boolean; known:
       if (m.type() !== "error") return;
       const t = m.text();
       if (/Failed to load resource|net::ERR|favicon/.test(t)) return; // network noise (tiles, offline)
+      if (/ResizeObserver loop completed with undelivered notifications/.test(t)) return; // the browser's own note when a pane is resized during layout (opening a layout shrinks the bottom panel); not a script error
       if (errState.known.some((r) => r.test(t))) return;
       errors.push(`console.error: ${t}`);
     });
     await page.goto("/");
     await page.waitForFunction(() => !!(window as any).__gis);
     await gis(page, async (g) => { await g.api.newProject(); g.useApp.setState({ basemap: "none" }); }); // the devserver's engine outlives the page: start every test empty
+    await page.locator(".dv-tab").first().waitFor(); // the dock is ready
+    if (bottom) {
+      await gis(page, async () => { const m = await import("/src/panes/panes.ts"); m.showPane("table"); m.showPane("model"); });
+      await page.locator(".model-canvas").waitFor({ state: "visible" });
+    }
     await use(page);
     // A test that stopped early (a timeout) must not leave a long job running on the shared devserver for the tests after it.
     await Promise.race([
@@ -52,6 +60,11 @@ export async function ribbon(page: Page, tab: string | null, label: string | Reg
     }
   }
   await btn.click();
+}
+
+/** Open one of the Catalog's Public Data dialogs (the tree is open by default); `id` is the row id, e.g. "arcgis". */
+export async function publicData(page: Page, id: string) {
+  await page.locator(`[role="treeitem"][data-node="public:${id}"]`).dblclick();
 }
 
 /** Generate a test layer through the engine (what Data → Generate Test Data does) and add it to the app. */

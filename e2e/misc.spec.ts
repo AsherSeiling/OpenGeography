@@ -1,11 +1,11 @@
 import { mkdtempSync, writeFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test, expect, gis, addTestLayer } from "./fixtures";
+import { test, expect, gis, addTestLayer, ribbon } from "./fixtures";
 
 const MOD = "ControlOrMeta";
 const projectMenu = async (page: any, item: RegExp) => {
-  await page.locator(".rtab.file").click();
+  await page.locator(".proj-btn").click();
   await page.getByRole("menuitem", { name: item }).click();
 };
 
@@ -16,7 +16,8 @@ test("M-22 sources pane (no dialogs): entries, edit author/year, APA/MLA/Chicago
   await gis(app, (g, f) => g.actions.addData([f]), file);
   await expect.poll(() => gis(app, (g) => g.useApp.getState().order.length)).toBe(1);
 
-  await projectMenu(app, /Sources & Citations/);
+  // The Sources pane is open at start-up (right column, under Properties); View › Sources opens it when it is not.
+  if (!(await app.locator(".sources-pane").isVisible())) await ribbon(app, "View", /^Sources$/);
   const entry = app.locator(".src-entry").first();
   await expect(entry).toContainText("parcels");
   await entry.getByRole("button", { name: /Edit/ }).click();

@@ -1,8 +1,8 @@
-import { test, expect, addTestLayer, ribbon } from "./fixtures";
+import { test, expect, addTestLayer, publicData } from "./fixtures";
 
 test("D6 Earthquakes & Soils dialog: soils refuse a large area before any request, bad dates are explained", async ({ app }) => {
   await addTestLayer(app, "polygons", 20, [-100, 30, -90, 40]);
-  await ribbon(app, "Data", /Earthquakes & Soils/);
+  await publicData(app, "hazardsSoils");
   const dlg = app.getByRole("dialog");
   await dlg.getByRole("combobox").first().click();
   await app.getByRole("option", { name: /Extent of/ }).click();

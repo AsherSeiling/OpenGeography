@@ -464,7 +464,7 @@ export async function runModel(target?: string) {
   if (run.running) return;
   const owner = useModel.getState().layer;
   if (!owner) {
-    status("Select a layer in Contents to open and run its node tree.");
+    status("Select a layer in Map Layers to open and run its node tree.");
     return;
   }
   const graph = graphPayload();

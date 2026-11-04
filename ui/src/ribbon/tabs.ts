@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { create } from "zustand";
 
 export type Size = "large" | "small";
-export type Item = { cmd: string; size?: Size } | { custom: ReactNode };
+/** `covers`: ids of commands a custom control already offers (a gallery or menu), so they count as reachable. */
+export type Item = { cmd: string; size?: Size } | { custom: ReactNode; covers?: string[] };
 export interface Group {
   label: string;
   items: Item[];
