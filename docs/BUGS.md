@@ -174,3 +174,6 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 
 - **UI-1 (fixed in dialogs by WP8, recheck in the final walk-through; 2026-11-03):** link text on a hovered `--surface-0` is 4.05:1, below AA. Fix before the redesign is done.
 - **UI-2 (fixed, 2026-11-03):** the map scale bar drew each bar wider than its true distance because its border and padding added to the width. Now `box-sizing: border-box`.
+- **MM-1 (Low, open, 2026-11-04):** a new map opens on the default view, and adding a layer with + in Map Layers doesn't move to it, so the layer can be off screen. Zoom To Layer or Full Extent works around it.
+- **MM-2 (Low, open, 2026-11-04):** the Series coverage picker, the Topo Map dialog's DEM pick and the Attribute Table's layer list read the active map's `order`, so they miss project layers not on that map. They should read project layers. Add the layer to the map as a workaround.
+- **MM-3 (Low, check in WP12, 2026-11-04):** seen once: USGS Imagery left the bottom of a UTM 11N map blank at 1:20,000,000, centred far outside the zone. Not confirmed as a multi-map problem or as slow tiles. WP12's rule for basemaps that can't draw in a CRS should cover it.

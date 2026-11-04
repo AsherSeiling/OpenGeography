@@ -1063,3 +1063,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SH-8 | Undo and Redo follow the node tree or open layout and grey out when empty | `e2e/map.spec.ts` |
 | SH-9 | No ribbon scrollbar or clipped tab at 900, 1024, 1280, 1440, 1920 px | `e2e/ribbon-width.spec.ts` |
 | SH-10 | Every command is reachable on a tab, the project menu or the Public Data tree | `e2e/map.spec.ts` |
+| MM-1 | Two maps side by side stay independent: layers, CRS, basemap, view; focus sets the active map | `e2e/multi-map.spec.ts`, `store/maps.test.ts` |
+| MM-2 | A new layer goes to the active map only; removing from a map keeps it in the project; deleting from the project leaves every map; deleting a map keeps its layers | `e2e/multi-map.spec.ts`, `store/maps.test.ts` |
+| MM-3 | A new map takes the last map's CRS and says so; with none, it stays unset (never guessed) | `store/maps.test.ts`, `e2e/multi-map.spec.ts` |
+| MM-4 | A version 1 project opens as one map named "Map" with order, visibility, CRS, basemap and view unchanged, including `mapCrs: null` | `store/maps.test.ts`, `e2e/multi-map.spec.ts` |
+| MM-5 | A version 2 project round-trips: maps, active map, tabs | `store/maps.test.ts`, `e2e/multi-map.spec.ts` |
+| MM-6 | A newer or unreadable project format is refused before the engine opens it: the open project, its next Save and the refused file are all untouched | `crates/engine/tests/project.rs`, `e2e/multi-map.spec.ts` |
+| MM-7 | A layout frame follows the map it names; a frame whose map was deleted draws nothing, warns and blocks export; "map" and fixed lists still work | `e2e/multi-map.spec.ts` |
+| MM-8 | Every map's basemap is cited, earlier citations stay | `e2e/multi-map.spec.ts`; manual: Sources count on a real project |
+| MM-9 | Manual: drag a map tab to the side of another; tiles draw in both; packaged app not yet checked | lead review 2026-11-04 (browser only) |
