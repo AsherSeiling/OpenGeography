@@ -72,7 +72,8 @@ test("CAT-3 a layout opens from the Layouts branch; Contents no longer lists lay
   await app.getByRole("tab", { name: "Catalog" }).click();
   await app.locator(".layout-row", { hasText: "Layout 1" }).dblclick();
   await expect(app.locator(".layout-page")).toBeVisible();
-  // Contents (Map Layers) has no Layouts section any more.
+  // Contents (Map Layers) has no Layouts section any more. (While a layout is open Map Layers makes way for Items, WP9: Back to Map brings it back.)
+  await app.locator(".rtab-back").click();
   await app.getByRole("tab", { name: "Map Layers" }).click();
   await expect(app.locator(".contents .layouts, .contents .layouts-head, .contents .layout-row")).toHaveCount(0);
 });

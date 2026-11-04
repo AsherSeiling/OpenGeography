@@ -55,6 +55,17 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64). Test cases 
 | Hydrology, interpolation, spatial statistics, remote sensing | ✅ H1 interpolation, H2 kriging, H3 Moran's I + hot spots, H4 hydrology (WhiteboxTools sidecar), H5 spectral indices + K-means classification done 2026-10-29 (Phase H complete; supervised classification not built) |
 | Measure, MGRS, resection/intersection | ✅ |
 
+### UI redesign (`docs/UI_REDESIGN_PLAN.md`, 2026-11-03 to 2026-11-04)
+| Feature | Status | Notes |
+|---|---|---|
+| Tokens, light/dark, custom colours (AA by construction) | ✅ | WP1, WP8b; `appearance.test.ts`; AA measured on the running app in both themes (`e2e/redesign-a11y.spec.ts`) |
+| Shift+A tool menu, keywords, search, project box, ribbon, default layout, conditional bottom panel | ✅ | WP2, WP3, WP6; browser only |
+| Catalog tree, node cards, panes, dialogs, error pop-up | ✅ | WP4, WP5, WP7, WP8 |
+| Multiple maps (project format 2), open basemaps | ✅ | WP10 to WP12; live basemap checks are ignored network tests |
+| Layout editor (option B: rail, start gallery, Properties tabs, pre-flight), layout workspace closes the bottom panel and gives Items a column | ✅ | WP13, WP9 |
+| Control audit (every ribbon tab, menu, pane and right-click menu) | ✅ | `e2e/redesign.spec.ts`, WP9: 827 controls clicked, none dead; 22 stop at a native file dialog (answered Cancel); see `docs/UI_REDESIGN_VERIFY.md` |
+| Packaged app, Windows, Linux | ⬜ | not run on the redesign; Inter and the layout are portable but unverified there |
+
 ## 2. Platform matrix
 Status levels: implemented → build-verified → tested → release-ready.
 
