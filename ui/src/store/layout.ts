@@ -333,9 +333,10 @@ export const newLayoutId = () => `L${Date.now().toString(36)}${counter++}`;
 /** Room under a new frame for its Sources line, mm. */
 const SOURCES_H = 9.5;
 
-/** The map view's basemap as a print basemap. OpenStreetMap can't be printed (its tile policy forbids bulk downloads), so it maps to none. */
+/** The map view's basemap as a print basemap. Only USGS and Natural Earth can be printed; the rest (OpenStreetMap, OpenFreeMap,
+ *  VersaTiles, OpenTopoMap) forbid bulk tile downloads, so they map to none. */
 export function printBasemap(b: Basemap): MapFrame["basemap"] {
-  return b === "usgsTopo" || b === "usgsImagery" || b === "usgsRelief" ? b : "none";
+  return b === "usgsTopo" || b === "usgsImagery" || b === "usgsRelief" || b === "naturalEarth" ? b : "none";
 }
 
 /** `over` overrides the new frame's fields (an inset/overview); `sources: false` skips its Sources line. */

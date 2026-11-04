@@ -3,6 +3,7 @@
 // A map owns its coordinate system, basemap, saved view, world view, and which project layers it shows with their order and visibility.
 // Layer data, sources, node trees, styles and layouts stay project-wide.
 import type { Camera } from "../map/mapController";
+import { readBasemap } from "../map/basemaps";
 import type { Basemap, MapCrs } from "./store";
 
 export interface MapDoc {
@@ -95,7 +96,14 @@ interface SavedUi {
   camera?: Camera | null;
 }
 
-export type LoadedMaps = { ok: true; maps: MapDoc[]; activeMapId: string } | { ok: false; error: string };
+export type LoadedMaps = { ok: true; maps: MapDoc[]; activeMapId: string; /** Sentences for the status bar (a basemap this version doesn't have became none). */ notes: string[] } | { ok: false; error: string };
+
+/** A saved basemap value: kept as written when this build has it, else none plus a note (never an error). */
+function readMapBasemap(value: unknown, notes: string[]): Basemap {
+  const r = readBasemap(value);
+  if (r.message && !notes.includes(r.message)) notes.push(r.message);
+  return r.id;
+}
 
 const isCrs = (c: unknown): c is MapCrs => !!c && typeof (c as MapCrs).id === "string" && typeof (c as MapCrs).name === "string";
 
@@ -117,6 +125,7 @@ export function loadMaps(ui: SavedUi, layerIds: string[]): LoadedMaps {
     const raw = Array.isArray(ui.maps) ? (ui.maps as Partial<SavedMap>[]) : [];
     const used = new Set<string>();
     const maps: MapDoc[] = [];
+    const notes: string[] = [];
     for (const r of raw) {
       if (!r || typeof r !== "object") continue;
       let id = typeof r.id === "string" && r.id && !used.has(r.id) ? r.id : "";
@@ -127,7 +136,7 @@ export function loadMaps(ui: SavedUi, layerIds: string[]): LoadedMaps {
         id,
         name: typeof r.name === "string" && r.name.trim() ? r.name : "Map",
         crs: isCrs(r.crs) ? r.crs : null,
-        basemap: (typeof r.basemap === "string" ? r.basemap : "usgsTopo") as Basemap,
+        basemap: readMapBasemap(r.basemap, notes),
         order,
         visible: { ...Object.fromEntries(order.map((x) => [x, true])), ...pickKnown(r.visible, known) },
         camera: r.camera ?? null,
@@ -135,19 +144,20 @@ export function loadMaps(ui: SavedUi, layerIds: string[]): LoadedMaps {
     }
     if (!maps.length) maps.push(emptyMap());
     const active = typeof ui.activeMapId === "string" && maps.some((m) => m.id === ui.activeMapId) ? (ui.activeMapId as string) : maps[0].id;
-    return { ok: true, maps, activeMapId: active };
+    return { ok: true, maps, activeMapId: active, notes };
   }
   // Version 1.
   const order = (ui.order ?? []).filter((id) => known.has(id));
   for (const id of layerIds) if (!order.includes(id)) order.unshift(id);
+  const notes: string[] = [];
   const map = emptyMap({
     crs: isCrs(ui.mapCrs) ? ui.mapCrs : null,
-    basemap: (ui.basemap as Basemap) ?? "usgsTopo",
+    basemap: readMapBasemap(ui.basemap, notes),
     order,
     visible: { ...Object.fromEntries(order.map((id) => [id, true])), ...pickKnown(ui.visible, known) },
     camera: ui.camera ?? null,
   });
-  return { ok: true, maps: [map], activeMapId: map.id };
+  return { ok: true, maps: [map], activeMapId: map.id, notes };
 }
 
 function pickKnown(v: Record<string, boolean> | undefined, known: Set<string>): Record<string, boolean> {

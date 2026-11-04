@@ -1,21 +1,40 @@
-//! USGS base maps for print (docs/LAYOUTS_PLAN.md C2.4): GDAL's WMS/TMS driver
+//! Base maps for print (docs/LAYOUTS_PLAN.md C2.4): GDAL's WMS/TMS driver
 //! reads the National Map tile service, and the area of the frame is warped to
-//! the frame CRS. OpenStreetMap is excluded: its tile policy forbids bulk
-//! downloads, which a print export is.
+//! the frame CRS. Natural Earth is the bundled raster (public domain, offline).
+//! Every other screen basemap (OpenStreetMap, OpenFreeMap, VersaTiles,
+//! OpenTopoMap) is excluded: their tile terms forbid bulk downloads, which a
+//! print export is.
 
 use anyhow::{anyhow, bail, Result};
 use gdal::Dataset;
 
 /// Base maps a layout frame may use, besides "none".
-pub const IDS: [&str; 3] = ["usgsTopo", "usgsImagery", "usgsRelief"];
+pub const IDS: [&str; 4] = ["usgsTopo", "usgsImagery", "usgsRelief", NATURAL_EARTH];
+
+/// The bundled Natural Earth basemap's id.
+pub const NATURAL_EARTH: &str = "naturalEarth";
+
+/// Basemaps the map view draws from a live tile service that a layout may not use, with their names (the one engine-side list of
+/// them; the map view's list is `ui/src/map/basemaps.ts`).
+pub const SCREEN_ONLY: [(&str, &str); 6] = [
+    ("osm", "OpenStreetMap"),
+    ("ofmLiberty", "OpenFreeMap Liberty"),
+    ("ofmBright", "OpenFreeMap Bright"),
+    ("ofmPositron", "OpenFreeMap Positron"),
+    ("versatiles", "VersaTiles Colorful"),
+    ("openTopoMap", "OpenTopoMap"),
+];
 
 /// Error text for a basemap id that can't be printed (None = fine).
 pub fn check(id: &str) -> Result<()> {
     match id {
         "none" => Ok(()),
         i if IDS.contains(&i) => Ok(()),
-        "osm" => bail!("OpenStreetMap can't be used in a print layout: its tile usage policy forbids bulk downloads. Choose a USGS base map."),
-        other => bail!("Unknown basemap '{other}' (use none, usgsTopo, usgsImagery or usgsRelief)"),
+        "osm" => bail!("OpenStreetMap can't be used in a print layout: its tile usage policy forbids bulk downloads. Choose a USGS base map or Natural Earth."),
+        i => match SCREEN_ONLY.iter().find(|(k, _)| *k == i) {
+            Some((_, name)) => bail!("{name} can't be used in a print layout: the service's terms don't allow bulk tile downloads, which a print export is. Choose a USGS base map or Natural Earth."),
+            None => bail!("Unknown basemap '{i}' (use none, usgsTopo, usgsImagery, usgsRelief or naturalEarth)"),
+        },
     }
 }
 
@@ -61,8 +80,24 @@ pub fn open_url(url: &str, cache: Option<&std::path::Path>) -> Result<Dataset> {
     Dataset::open(tile_xml_at(url, cache)).map_err(|e| anyhow!("Could not open the base map service: {e}"))
 }
 
-/// Open a USGS base map over the network (GDAL WMS driver), with the per-user tile cache.
+/// Open the bundled Natural Earth raster.
+pub fn open_natural_earth() -> Result<Dataset> {
+    let path = crate::resources::natural_earth_raster().ok_or_else(|| anyhow!("The bundled Natural Earth basemap file is missing from this installation"))?;
+    Dataset::open(&path).map_err(|e| anyhow!("Could not open the Natural Earth basemap: {e}"))
+}
+
+/// One map tile of the Natural Earth basemap on a grid of the map CRS `crs`: `bounds` (`[xmin, ymin, xmax, ymax]`) at `size` px
+/// square, as PNG. Works in any CRS GDAL can warp to; pixels outside the data are transparent.
+pub fn natural_earth_tile(crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
+    let ds = open_natural_earth()?;
+    render(&ds, crs, bounds, size, size)
+}
+
+/// Open a base map (GDAL WMS driver over the network for USGS, with the per-user tile cache; the bundled raster for Natural Earth).
 pub fn open(id: &str) -> Result<Dataset> {
+    if id == NATURAL_EARTH {
+        return open_natural_earth();
+    }
     let svc = service(id).ok_or_else(|| anyhow!("'{id}' is not a printable basemap"))?;
     let cache = crate::resources::tile_cache_dir();
     Dataset::open(tile_xml(svc, cache.as_deref())).map_err(|e| anyhow!("Could not open the USGS base map service: {e}"))
@@ -106,6 +141,11 @@ mod tests {
         assert!(check("none").is_ok() && check("usgsTopo").is_ok());
         assert!(check("osm").unwrap_err().to_string().contains("bulk downloads"));
         assert!(check("bing").is_err());
+        assert!(check("naturalEarth").is_ok());
+        for (id, name) in SCREEN_ONLY {
+            let e = check(id).unwrap_err().to_string();
+            assert!(e.contains(name) && e.contains("bulk"), "{e}");
+        }
     }
 
     #[test]

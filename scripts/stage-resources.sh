@@ -43,6 +43,7 @@ cp -L "$PROJ_SRC/proj.db" "$OUT/proj/"
 cp -L "$ROOT"/crates/engine/assets/proj-grids/*.tif "$OUT/proj/"
 # More grids for Canada, Australia, New Zealand, the UK and Europe: downloaded once from the PROJ-data server, checksum-pinned (see the manifest).
 "$ROOT/scripts/fetch-bundled-grids.sh" "$OUT/proj"
+mkdir -p "$OUT/natural-earth" && cp -L "$ROOT"/crates/engine/assets/natural-earth/*.tif "$OUT/natural-earth/"
 touch "$OUT/gdalplugins/.keep"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$OUT/THIRD_PARTY_NOTICES.md"
 echo "Staged resources for $PLATFORM in $OUT ($(du -sh "$OUT" | cut -f1))"

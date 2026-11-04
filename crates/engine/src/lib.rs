@@ -1,6 +1,8 @@
 //! GIS engine: data storage, coordinate systems, vector tiles and the
 //! geoprocessing graph. The Tauri app is a thin wrapper around [`Engine`].
 
+/// The tile-URL layer id that stands for the bundled Natural Earth basemap (`/tiles/__naturalEarth/{crsKey}/{z}/{x}/{y}.png`).
+pub const NATURAL_EARTH_TILE_ID: &str = "__naturalEarth";
 pub mod attrs;
 pub mod catalog;
 pub mod usng;
@@ -1045,10 +1047,37 @@ impl Engine {
         Ok(t)
     }
 
+    /// A tile of the bundled Natural Earth basemap on the grid of the map CRS `key` (not a layer: it has no entry in the project).
+    fn natural_earth_tile(&self, key: &str, z: u32, x: u32, y: u32) -> Result<Arc<Vec<u8>>> {
+        let cache_key: TileKey = (NATURAL_EARTH_TILE_ID.to_string(), 0, z, x, y, key.to_string());
+        if let Some(t) = self.tile_cache.lock().get(&cache_key) {
+            return Ok(t.clone());
+        }
+        let (crs, bounds, size) = if key == display::MERCATOR_KEY {
+            let world = 20037508.342789244;
+            let span = 2.0 * world / 2f64.powi(z as i32);
+            let (x0, y1) = (-world + x as f64 * span, world - y as f64 * span);
+            (crs::WEB_MERCATOR.to_string(), [x0, y1 - span, x0 + span, y1], 256)
+        } else {
+            let (crs, di) = self.display_key(key)?;
+            (crs, di.grid.tile_bounds(z, x, y)?, di.grid.tile_size)
+        };
+        let png = {
+            let _slot = raster::WarpSlot::take();
+            layout::basemap::natural_earth_tile(&crs, bounds, size)?
+        };
+        let t = Arc::new(png);
+        self.tile_cache.lock().put(cache_key, t.clone());
+        Ok(t)
+    }
+
     /// A tile on the grid of the map CRS `key` (from `crs_display_info`).
     /// `3857` is the Web Mercator tile above; any other key reads the layer's
     /// display table and fails while that is still being built.
     pub fn tile_in_crs(&self, id: &str, key: &str, z: u32, x: u32, y: u32, fields: &[String]) -> Result<Arc<Vec<u8>>> {
+        if id == NATURAL_EARTH_TILE_ID {
+            return self.natural_earth_tile(key, z, x, y);
+        }
         if key == display::MERCATOR_KEY {
             return self.tile(id, z, x, y, fields);
         }
