@@ -27,6 +27,7 @@ import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { useModel, useRun } from "./store/model";
 import { useApp } from "./store/store";
+import { basemapsInUse } from "./store/maps";
 import { applyThemeMode, dockTheme, fluentDark, fluentLight } from "./theme/fluentTheme";
 
 const guard = (pane: string, title: string, el: React.ReactNode) => (
@@ -58,10 +59,11 @@ export function App() {
       if (!r.ok) reportError(r.problems.join("\n"), "datum-data", { title: "Datum shifts can't be trusted on this computer", context: "checking the coordinate system data" });
     }, () => {});
   }, []);
-  const basemap = useApp((s) => s.basemap);
+  // Every map's basemap is cited, not only the active map's (the engine keeps earlier citations).
+  const basemaps = useApp((s) => basemapsInUse(s.maps).join("|"));
   useEffect(() => {
-    if (basemap) api.recordBasemap(basemap).catch(() => {});
-  }, [basemap]);
+    for (const b of basemaps.split("|")) if (b) api.recordBasemap(b).catch(() => {});
+  }, [basemaps]);
   useEffect(() => {
     api.toolSpecs().then(useRun.getState().setSpecs).catch((e) => useApp.getState().setStatus(`Engine not available: ${e}`));
     // Live step status while a model runs; drag and drop files onto the window to add them.

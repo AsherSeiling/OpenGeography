@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { reportError } from "./errors/store";
 import { api, errorText, type TableExportSpec, type SplitTarget, type LayerInfo } from "./ipc/api";
 import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent } from "./map/mapController";
+import { loadMaps, PROJECT_VERSION, serializeMaps, type LoadedMaps, type SavedMap } from "./store/maps";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
@@ -542,39 +543,48 @@ export async function previewNode(nodeId: string) {
 
 // ---------- projects ----------
 
-interface UiStateV1 {
-  version: 1;
-  order: string[];
-  visible: Record<string, boolean>;
+/** What the project file keeps besides the engine's data. Version 1 had one map in `order` / `visible` / `mapCrs` / `basemap` / `camera`. */
+interface UiState {
+  version: number;
+  /** Version 2. */
+  maps?: SavedMap[];
+  activeMapId?: string;
   styles: Record<string, LayerStyle>;
-  mapCrs: { id: string; name: string } | null;
-  basemap: string;
-  camera: Camera | null;
   /** Node tree per layer id. */
   trees: Record<string, Tree>;
   /** Last run's snapshot table per layer then node (B5). Absent in older projects, which kept it in each node's data. */
   lastOutputs?: Record<string, Record<string, string>>;
   dock: unknown;
+  // Version 1 only (read, never written):
+  order?: string[];
+  visible?: Record<string, boolean>;
+  mapCrs?: { id: string; name: string } | null;
+  basemap?: string;
+  camera?: Camera | null;
 }
 
 let dockSerializer: (() => unknown) | null = null;
+let mapPanelSync: (() => void) | null = null;
+/** The dock registers how to make its map tabs match the project's maps (after open, new project, delete). */
+export function registerMapPanelSync(fn: () => void) {
+  mapPanelSync = fn;
+}
 let dockRestorer: ((d: unknown) => void) | null = null;
 export function registerDock(serialize: () => unknown, restore: (d: unknown) => void) {
   dockSerializer = serialize;
   dockRestorer = restore;
 }
 
-function uiState(): UiStateV1 {
+function uiState(): UiState {
   const s = useApp.getState();
   const m = useModel.getState();
+  // A map with a live view saves where it is; a map whose tab is closed keeps the view it had.
+  const maps = s.maps.map((mp) => ({ ...mp, camera: snapshotCamera(mp.id) ?? mp.camera }));
   return {
-    version: 1,
-    order: s.order,
-    visible: s.visible,
+    version: PROJECT_VERSION,
+    maps: serializeMaps(maps),
+    activeMapId: s.activeMapId,
     styles: s.styles,
-    mapCrs: s.mapCrs,
-    basemap: s.basemap,
-    camera: snapshotCamera(),
     trees: m.allTrees(),
     lastOutputs: m.lastOutputs,
     dock: dockSerializer?.() ?? null,
@@ -629,45 +639,55 @@ export async function openProject(path?: string) {
   if (!picked || Array.isArray(picked)) return;
   const res = await busy("Opening project", () => api.openProject(picked));
   if (!res) return;
-  let ui: Partial<UiStateV1> = {};
+  let ui: Partial<UiState> = {};
   try {
     ui = JSON.parse(res.uiState);
   } catch {
     /* older or hand-edited project: fall back to defaults */
   }
+  // Decide before anything on screen changes: a project from a newer app is refused whole, never half-read.
+  const byId = projectLayers(res.layers);
+  const loaded = loadMaps(ui, Object.keys(byId));
+  if (!loaded.ok) {
+    status(loaded.error);
+    reportError(loaded.error, "action:Opening project", { title: "This project can't be opened", context: "opening a project" });
+    return;
+  }
   await loadLayouts();
-  restoreState(res.layers, ui, picked);
+  restoreState(res.layers, ui, picked, loaded);
   status(`Opened ${picked}`);
 }
 
-function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string | null) {
+/** The project's own layers (not temporary, not node results) by id. */
+const projectLayers = (layers: LayerInfo[]) => Object.fromEntries(layers.filter((l) => !l.temporary && !l.resultOf).map((l) => [l.id, l]));
+
+function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | null, loaded?: Extract<LoadedMaps, { ok: true }>) {
   closeLayoutPanels(); // the dock layout below brings back the new project's layout tabs
-  const byId = Object.fromEntries(layers.filter((l) => !l.temporary && !l.resultOf).map((l) => [l.id, l]));
+  const byId = projectLayers(layers);
   const results = Object.fromEntries(layers.filter((l) => l.resultOf && byId[l.resultOf]).map((l) => [l.resultOf!, l]));
-  const order = (ui.order ?? []).filter((id) => byId[id]);
-  for (const l of Object.values(byId)) if (!order.includes(l.id)) order.unshift(l.id);
+  const { maps, activeMapId } = loaded ?? (loadMaps(ui, Object.keys(byId)) as Extract<LoadedMaps, { ok: true }>);
+  const order = maps.find((m) => m.id === activeMapId)?.order ?? [];
   useApp.setState({
     layers: byId,
     results,
     showOriginal: {},
     selectedLayers: [],
     layerAnchor: null,
-    order,
-    visible: { ...Object.fromEntries(order.map((id) => [id, true])), ...(ui.visible ?? {}) },
-    styles: Object.fromEntries(order.map((id) => [id, ui.styles?.[id] ?? defaultStyle(byId[id])])),
+    maps,
+    activeMapId,
+    // Every project layer keeps a style, shown on a map or not.
+    styles: Object.fromEntries(Object.keys(byId).map((id) => [id, ui.styles?.[id] ?? defaultStyle(byId[id])])),
     selection: {},
-    mapCrs: ui.mapCrs ?? null,
-    basemap: (ui.basemap as never) ?? "usgsTopo",
-    activeLayer: order[0] ?? null,
+    activeLayer: order[0] ?? Object.keys(byId)[0] ?? null,
     properties: null,
     projectDir: dir,
     dirty: false,
   });
-  useModel.getState().load(ui.trees ?? {}, order[0] ?? null, ui.lastOutputs ?? {});
+  useModel.getState().load(ui.trees ?? {}, useApp.getState().activeLayer, ui.lastOutputs ?? {});
   useRun.getState().set({ results: {} });
   // A damaged camera or dock layout must not stop the project from opening.
   try {
-    if (ui.camera) restoreCamera(ui.camera);
+    for (const m of maps) if (m.camera) restoreCamera(m.camera, m.id);
   } catch (e) {
     status(`The saved map view could not be restored (${errorText(e)}); showing the default view.`);
   }
@@ -676,6 +696,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiStateV1>, dir: string |
   } catch (e) {
     status(`The saved window layout could not be restored (${errorText(e)}).`);
   }
+  mapPanelSync?.();
 }
 
 /** Read the project's layouts from the engine; their tabs come back with the dock layout. */

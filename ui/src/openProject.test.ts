@@ -12,6 +12,7 @@ const dialogOpen = vi.fn(async () => null as string | null);
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn(), open: () => dialogOpen() }));
 
 import { openProject } from "./actions";
+import { useApp } from "./store/store";
 
 beforeEach(() => {
   openProjectApi.mockClear();
@@ -32,5 +33,23 @@ describe("openProject", () => {
     dialogOpen.mockResolvedValue("/tmp/Madera County.gproj");
     await openProject();
     expect(openProjectApi).toHaveBeenCalledWith("/tmp/Madera County.gproj");
+  });
+
+  it("refuses a project saved by a newer format with a readable message and leaves the open project as it was", async () => {
+    useApp.setState({ status: "before", layers: {}, dirty: false, projectDir: null });
+    openProjectApi.mockResolvedValueOnce({ uiState: JSON.stringify({ version: 99, maps: [] }), layers: [] });
+    await openProject("/tmp/future.gproj");
+    expect(useApp.getState().status).toMatch(/newer version of GIS Studio/);
+    expect(useApp.getState().projectDir).toBeNull();
+    expect(useApp.getState().maps).toHaveLength(1);
+  });
+
+  it("opens a version 1 project as one map named Map", async () => {
+    openProjectApi.mockResolvedValueOnce({ uiState: JSON.stringify({ version: 1, order: [], visible: {}, mapCrs: null, basemap: "osm" }), layers: [] });
+    await openProject("/tmp/old.gproj");
+    const s = useApp.getState();
+    expect(s.maps.map((m) => m.name)).toEqual(["Map"]);
+    expect(s.mapCrs).toBeNull();
+    expect(s.basemap).toBe("osm");
   });
 });
