@@ -115,3 +115,7 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
   --xy-minimap-background-color-default: var(--surface-2);
 }
 .react-flow__attribution a { color: var(--text-2); }
+
+/* Run is outlined like the mock-up's .btn.pri (docs/design/ui-redesign-mockup.html): surface-2 fill, rule border, semibold. */
+.model-bar .model-run { background: var(--surface-2); color: var(--text); border: 1px solid var(--rule); font-weight: 600; }
+.model-bar .model-run:hover:not(:disabled) { background: var(--surface-0); color: var(--text); border-color: var(--rule); }

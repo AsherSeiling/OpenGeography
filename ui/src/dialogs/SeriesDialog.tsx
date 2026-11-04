@@ -1,6 +1,7 @@
 // Map Series (C3.2): one page per feature of an index layer; map frames that follow the series move to each feature.
 import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, MessageBar, MessageBarBody, Option } from "@fluentui/react-components";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { projectLayerIds } from "../store/maps";
 import { parseMargin, parseSeriesScale, withSeries } from "../layout/series";
 import type { SeriesSpec } from "../layout/types";
 import { useLayouts } from "../store/layout";
@@ -11,7 +12,8 @@ export function SeriesDialog({ onClose }: { onClose: () => void }) {
   const hasFollower = useLayouts((s) => !!s.doc?.elements.some((e) => e.kind === "map_frame" && e.followsSeries));
   const layers = useApp((s) => s.layers);
   const order = useApp((s) => s.order);
-  const vector = order.map((id) => layers[id]).filter((l) => l && (l.geomType === "Point" || l.geomType === "Line" || l.geomType === "Polygon" || l.geomType === "Mixed"));
+  const all = useMemo(() => projectLayerIds(order, layers), [order, layers]);
+  const vector = all.map((id) => layers[id]).filter((l) => l && (l.geomType === "Point" || l.geomType === "Line" || l.geomType === "Polygon" || l.geomType === "Mixed"));
   const [spec, setSpec] = useState<SeriesSpec>(() => withSeries(cur, cur ? {} : { indexLayer: vector[0]?.id ?? "", nameField: vector[0]?.fields[0]?.name ?? "" }, ""));
   const [margin, setMargin] = useState(String(spec.marginPct));
   const [scale, setScale] = useState(spec.scale ? String(spec.scale) : "");

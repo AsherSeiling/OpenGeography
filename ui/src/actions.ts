@@ -14,7 +14,7 @@ import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
-import { defaultStyle, displayInfo, useApp, type LayerStyle, type SelectMode } from "./store/store";
+import { defaultStyle, displayInfo, setFrameHook, useApp, type LayerStyle, type SelectMode } from "./store/store";
 import { styleFromSymbologyNode } from "./layers/nodeStyle";
 import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
 import { flushLayoutSaves, useLayouts } from "./store/layout";
@@ -48,7 +48,7 @@ export type DialogState =
   | { kind: "hazardsSoils" }
   | { kind: "ogc" }
   | { kind: "datumGrids" }
-  | { kind: "topoMap" }
+  | { kind: "topoMap"; preset?: string }
   | { kind: "responsibleUse" }
   | { kind: "overture" }
   | { kind: "stac" }
@@ -61,6 +61,8 @@ export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) =>
   show: (dialog) => set({ dialog }),
   close: () => set({ dialog: null }),
 }));
+
+setFrameHook((mapId, ext) => zoomToExtent(ext, 16, mapId));
 
 const status = (s: string) => useApp.getState().setStatus(s);
 
@@ -92,15 +94,13 @@ export async function addData(paths?: string[]): Promise<LayerInfo[]> {
   }
   const infos = await busy(`Adding ${paths.length} file(s)`, () => api.importFiles(paths!));
   if (!infos) return [];
-  const hadLayers = useApp.getState().order.length > 0;
-  useApp.getState().addLayers(infos);
+  useApp.getState().addLayers(infos); // frames a map with no layers and no saved view on the first layer (store.addLayers)
   const noCrs = infos.filter((i) => i.geomType !== "Table" && !i.crs);
   status(
     noCrs.length
       ? `Added ${infos.length} layer(s). ${noCrs.length} without a coordinate system — use Define Projection.`
       : `Added ${infos.length} layer(s) · ${infos.reduce((n, i) => n + i.featureCount, 0).toLocaleString()} features`,
   );
-  if (!hadLayers) zoomToExtent(infos.find((i) => i.extent)?.extent ?? null);
   if (noCrs.length) useDialog.getState().show({ kind: "defineProjection", layer: noCrs[0].id });
   return infos;
 }

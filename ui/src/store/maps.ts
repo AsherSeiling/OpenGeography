@@ -163,3 +163,9 @@ export function loadMaps(ui: SavedUi, layerIds: string[]): LoadedMaps {
 function pickKnown(v: Record<string, boolean> | undefined, known: Set<string>): Record<string, boolean> {
   return Object.fromEntries(Object.entries(v ?? {}).filter(([k]) => known.has(k)));
 }
+
+/** Every project layer id: the active map's order first (top layer first), then the layers that map does not show. Pickers read this, not `order`. */
+export function projectLayerIds(order: string[], layers: Record<string, unknown>): string[] {
+  const seen = new Set(order.filter((id) => id in layers));
+  return [...seen, ...Object.keys(layers).filter((id) => !seen.has(id))];
+}

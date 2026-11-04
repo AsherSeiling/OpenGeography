@@ -290,6 +290,10 @@ const firstMapCrs = (infos: LayerInfo[]): MapCrs | null => {
 
 const initialMap = emptyMap();
 
+/** Set by actions.ts: frames a map on an extent (the store cannot import the map controller). */
+let frameHook: ((mapId: string, ext: [number, number, number, number]) => void) | null = null;
+export const setFrameHook = (f: typeof frameHook) => { frameHook = f; };
+
 export const useApp = create<AppState>()((rawSet, get) => {
   const set = (p: Patch | ((s: AppState) => Patch)) => rawSet((s) => reconcile(s, typeof p === "function" ? p(s) : p));
   return {
@@ -346,6 +350,10 @@ export const useApp = create<AppState>()((rawSet, get) => {
             },
       );
       const activeLayer = s.activeLayer ?? infos[0]?.id ?? null;
+      // A map with no layers and no saved view is framed on the first layer added to it (MM-1); one with layers or a view keeps its view.
+      const target = activeMapOf(s);
+      const ext = target.order.length === 0 && !target.camera ? added.map((id) => layers[id]).find((i) => i.geomType !== "Table" && i.extent)?.extent : undefined;
+      if (ext && frameHook) queueMicrotask(() => frameHook?.(target.id, ext));
       return { layers, results, maps, styles, activeLayer, dirty: true };
     }),
 

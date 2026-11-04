@@ -80,14 +80,13 @@ test("LW1/LW4 layout ribbon tabs, pointer readout and the Character panel", asyn
   await expect(app.getByTestId("layout-selsize")).toContainText("mm");
 });
 
-test("LW1 the Model canvas stays tall enough to use in the layout workspace", async ({ app }) => {
+test("LW1 the bottom panel is closed under a layout (WP9: it used to be shrunk to 170 px) and the page gets the height", async ({ app }) => {
   await addTestLayerSimple(app);
   await app.locator(".rtab", { hasText: /^Insert$/ }).click();
   await app.locator(".rbtn", { hasText: /New Layout/ }).click();
   await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
   await expect(app.locator(".layout-page")).toBeVisible();
-  const h = (await app.locator(".model-canvas").boundingBox())!.height;
-  expect(h).toBeGreaterThan(60);
+  await expect(app.locator(".model-canvas")).toHaveCount(0);
 });
 
 async function addTestLayerSimple(app: any) {

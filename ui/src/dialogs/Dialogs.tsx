@@ -77,7 +77,7 @@ function DialogHost() {
     case "ogc":
       return <OgcDialog onClose={close} />;
     case "topoMap":
-      return <TopoMapDialog onClose={close} />;
+      return <TopoMapDialog onClose={close} preset={dialog.preset} />;
     case "datumGrids":
       return <DatumGridsDialog onClose={close} />;
     case "responsibleUse":
