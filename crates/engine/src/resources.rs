@@ -31,6 +31,20 @@ pub fn dir() -> Option<&'static Path> {
         .as_deref()
 }
 
+/// The bundled Natural Earth basemap (public domain, 1:110m land, lakes and country boundaries as an EPSG:4326 raster):
+/// `natural-earth/natural_earth_110m.tif` in the app's resource folder, or the copy in the source tree in a dev/test build.
+pub fn natural_earth_raster() -> Option<PathBuf> {
+    const REL: &str = "natural-earth/natural_earth_110m.tif";
+    if let Some(d) = dir() {
+        let p = d.join(REL);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets").join(REL);
+    p.is_file().then_some(p)
+}
+
 /// Per-user folder for downloaded map tiles (layout basemap previews), created on first use. `GIS_STUDIO_CACHE`
 /// overrides it (tests, portable installs). Safe to delete: tiles are fetched again.
 pub fn tile_cache_dir() -> Option<PathBuf> {

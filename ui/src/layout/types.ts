@@ -151,7 +151,7 @@ export interface MapFrame extends Placement {
   scale: number;
   layers: FrameLayers;
   /** OpenStreetMap is not offered: its tile policy forbids bulk downloads (the engine refuses it). */
-  basemap: "none" | "usgsTopo" | "usgsImagery" | "usgsRelief";
+  basemap: "none" | "usgsTopo" | "usgsImagery" | "usgsRelief" | "naturalEarth";
   graticule: GridSpec | null;
   grid: GridSpec | null;
   border: Border | null;

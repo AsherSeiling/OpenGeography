@@ -1,6 +1,6 @@
 // Converts layer symbology into Mapbox-style layers (drawn by OpenLayers through ol-mapbox-style). Pure functions (tested).
 import type { GeomType } from "../ipc/api";
-import type { Basemap, LayerStyle, StrokeSpec } from "../store/store";
+import type { LayerStyle, StrokeSpec } from "../store/store";
 
 /** ArcGIS-style cyan selection highlight. */
 export const SELECTION_COLOR = "#00ffff";
@@ -165,16 +165,6 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl
   }
   return out;
 }
-
-const USGS = (svc: string) => `https://basemap.nationalmap.gov/arcgis/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`;
-
-export const BASEMAPS: Record<Basemap, { label: string; tiles: string[]; attribution: string; maxzoom: number } | null> = {
-  usgsTopo: { label: "USGS Topo", tiles: [USGS("USGSTopo")], attribution: "USGS The National Map", maxzoom: 16 },
-  usgsImagery: { label: "USGS Imagery", tiles: [USGS("USGSImageryOnly")], attribution: "USGS The National Map", maxzoom: 16 },
-  usgsRelief: { label: "USGS Shaded Relief", tiles: [USGS("USGSShadedReliefOnly")], attribution: "USGS The National Map", maxzoom: 16 },
-  osm: { label: "OpenStreetMap", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], attribution: "© OpenStreetMap contributors", maxzoom: 19 },
-  none: null,
-};
 
 export const SCALE_PRESETS = [1000, 5000, 10000, 24000, 25000, 50000, 100000, 250000, 500000, 1000000, 5000000];
 

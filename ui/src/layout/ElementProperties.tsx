@@ -242,7 +242,7 @@ function FrameLabels({ el, set }: { el: MapFrame; set: Set }) {
   );
 }
 
-const BASEMAPS: [MapFrame["basemap"], string][] = [["none", "None"], ["usgsTopo", "USGS Topo"], ["usgsImagery", "USGS Imagery"], ["usgsRelief", "USGS Shaded Relief"]];
+const BASEMAPS: [MapFrame["basemap"], string][] = [["none", "None"], ["usgsTopo", "USGS Topo"], ["usgsImagery", "USGS Imagery"], ["usgsRelief", "USGS Shaded Relief"], ["naturalEarth", "Natural Earth"]];
 
 /** Graticule/grid: off, or on with an interval ("auto" or a number) and edge labels. */
 function GridFields({ label, unit, value, onChange, graticule }: { graticule?: boolean; label: string; unit: string; value: GridSpec | null; onChange: (v: GridSpec | null) => void }) {

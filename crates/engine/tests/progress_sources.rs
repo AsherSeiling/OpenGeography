@@ -199,7 +199,7 @@ fn derived_layers_cite_every_input_once() {
 
 #[test]
 fn builtin_citations_are_complete_and_well_formed() {
-    for id in ["usgsTopo", "usgsImagery", "usgsRelief", "osm"] {
+    for id in ["usgsTopo", "usgsImagery", "usgsRelief", "osm", "ofmLiberty", "ofmBright", "ofmPositron", "versatiles", "openTopoMap", "naturalEarth"] {
         let c = sources::for_basemap(id).unwrap_or_else(|| panic!("no citation for basemap {id}"));
         assert_eq!(c.kind, "Basemap", "{id}");
         assert!(!c.title.is_empty() && !c.author.is_empty() && !c.url.is_empty() && !c.license.is_empty() || id == "osm", "{id}: {c:?}");
@@ -219,4 +219,30 @@ fn builtin_citations_are_complete_and_well_formed() {
     assert!(c.key.contains("roads.shp") && c.annotation.contains("12") && c.annotation.contains("UTM"), "{c:?}");
     let none = sources::for_file(Path::new("noext"), "DATA", 0, None);
     assert_eq!(none.title, "noext");
+}
+
+/// WP12: every open basemap records its own citation, with the licence and the provider's credit wording, and a distinct key
+/// (so two maps with different basemaps list two sources, and one basemap on two maps lists one).
+#[test]
+fn open_basemaps_each_record_their_own_licence_and_credit() {
+    let want = [
+        ("ofmLiberty", "OpenFreeMap © OpenMapTiles Data from OpenStreetMap"),
+        ("ofmBright", "OpenFreeMap © OpenMapTiles Data from OpenStreetMap"),
+        ("ofmPositron", "OpenFreeMap © OpenMapTiles Data from OpenStreetMap"),
+        ("versatiles", "Open Database License"),
+        ("openTopoMap", "© OpenTopoMap (CC-BY-SA)"),
+        ("naturalEarth", "Public domain"),
+    ];
+    let mut keys = std::collections::HashSet::new();
+    for (id, text) in want {
+        let c = sources::for_basemap(id).unwrap();
+        assert!(c.license.contains(text), "{id}: {}", c.license);
+        assert!(c.complete && !c.annotation.is_empty(), "{id}");
+        assert!(keys.insert(c.key.clone()), "{id}: key {} repeats", c.key);
+    }
+    assert!(sources::for_basemap("openTopoMap").unwrap().license.contains("CC BY-SA 3.0"));
+    assert!(sources::for_basemap("blueMarble").is_none(), "Blue Marble isn't offered");
+    for id in ["usgsTopo", "usgsImagery", "usgsRelief", "osm"] {
+        assert!(keys.insert(sources::for_basemap(id).unwrap().key), "{id} key collides with a new one");
+    }
 }

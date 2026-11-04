@@ -823,6 +823,12 @@ export function tileUrl(layer: LayerInfo, fields: string[], crsKey?: string): st
   return `${TILE_BASE}/tiles/${layer.id}/${key}{z}/{x}/{y}.${ext}?v=${layer.version}${f}`;
 }
 
+/** Tile URL template of the bundled Natural Earth basemap on a map CRS's grid (the engine warps it; works in every CRS, offline). */
+export function naturalEarthTileUrl(crsKey: string): string {
+  const key = crsKey && crsKey !== "3857" ? `${crsKey}/` : "";
+  return `${TILE_BASE}/tiles/__naturalEarth/${key}{z}/{x}/{y}.png`;
+}
+
 export function errorText(e: unknown): string {
   return typeof e === "string" ? e : e instanceof Error ? e.message : JSON.stringify(e);
 }

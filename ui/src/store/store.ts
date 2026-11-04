@@ -154,7 +154,7 @@ export interface LayerStyle {
 }
 
 export type MapTool = "pan" | "identify" | "select" | "selectBox" | "measure";
-export type Basemap = "usgsTopo" | "usgsImagery" | "usgsRelief" | "osm" | "none";
+export type Basemap = "usgsTopo" | "usgsImagery" | "usgsRelief" | "osm" | "openTopoMap" | "ofmLiberty" | "ofmBright" | "ofmPositron" | "versatiles" | "naturalEarth" | "none";
 
 export interface MapCrs {
   id: string;

@@ -655,7 +655,7 @@ export async function openProject(path?: string) {
   }
   await loadLayouts();
   restoreState(res.layers, ui, picked, loaded);
-  status(`Opened ${picked}`);
+  status(`Opened ${picked}${loaded.notes.length ? `. ${loaded.notes.join(" ")}` : ""}`);
 }
 
 /** The project's own layers (not temporary, not node results) by id. */

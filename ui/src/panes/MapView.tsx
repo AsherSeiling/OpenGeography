@@ -10,13 +10,15 @@ import VectorLayer from "ol/layer/Vector";
 import VectorTileLayer from "ol/layer/VectorTile";
 import type BaseLayer from "ol/layer/Base";
 import type { Coordinate } from "ol/coordinate";
+import LayerGroup from "ol/layer/Group";
 import XYZ from "ol/source/XYZ";
+import { apply as applyMapboxStyle } from "ol-mapbox-style";
 import VectorSource from "ol/source/Vector";
 import VectorTileSource from "ol/source/VectorTile";
 import "ol/ol.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
-import { api, errorText, tileUrl, type LayerInfo } from "../ipc/api";
+import { api, errorText, naturalEarthTileUrl, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, resolutionForScale, scaleOf, tileGridFor } from "../map/crs";
@@ -26,7 +28,8 @@ import { mapOf } from "../store/maps";
 import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
-import { BASEMAPS, labelField, styleFields } from "../map/style";
+import { basemapDef, basemapRefusal } from "../map/basemaps";
+import { labelField, styleFields } from "../map/style";
 import { displayInfo, drawableLayerIds, ownerOf, useApp } from "../store/store";
 import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
 import { MeasurePanel } from "../nav/MeasurePanel";
@@ -62,6 +65,8 @@ export const useMapView = create<{
 
 /** A basemap datum offset above this many metres gets a warning chip (R1). */
 const BASEMAP_OFFSET_WARN_M = 5;
+/** Finest grid level the bundled Natural Earth raster is cut to (it is ~10 km per pixel; finer views stretch it). */
+const NATURAL_EARTH_MAX_LEVEL = 6;
 
 interface IdentifyResult {
   x: number;
@@ -113,6 +118,10 @@ export function MapView({ mapId }: { mapId: string }) {
   const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [tick, setTick] = useState(0);
   const [scaleState, setScaleState] = useState<{ resolution: number; scale: number } | null>(null);
+  /** The view centre as lon/lat (engine), for the basemap CRS rule. */
+  const [centerLL, setCenterLL] = useState<[number, number] | null>(null);
+  /** Why this map's basemap failed to load (the CRS rule's refusals are computed, not stored). */
+  const [basemapError, setBasemapError] = useState<string | null>(null);
   const tool = useApp((s) => s.tool);
   const showFps = useApp((s) => s.showFps);
   const mapCrs = doc?.crs ?? null;
@@ -123,7 +132,8 @@ export function MapView({ mapId }: { mapId: string }) {
   useEffect(() => {
     const map = new OlMap({
       target: el.current!,
-      controls: defaultControls({ rotate: false, attributionOptions: { collapsible: true } }),
+      // A basemap provider's credit must stay readable on the map, so the attribution is never collapsed away.
+      controls: defaultControls({ rotate: false, attributionOptions: { collapsible: false } }),
       layers: [],
     });
     // Web Mercator until the project has a coordinate system: the same US view the map always opened on.
@@ -162,6 +172,7 @@ export function MapView({ mapId }: { mapId: string }) {
     const res = mapRef.current?.getView().getResolution();
     if (!cache || !crs || !res) return;
     lastK.current = cache.k;
+    setCenterLL((p) => (p && p[0] === cache.center[0] && p[1] === cache.center[1] ? p : cache.center));
     setScaleState({ resolution: res, scale: scaleOf(res, crs.info.unitM, cache.k) });
     if (isActiveRef.current) useMapView.setState({ resolution: res, scale: scaleOf(res, crs.info.unitM, cache.k) });
   }, [mapId]);
@@ -257,21 +268,56 @@ export function MapView({ mapId }: { mapId: string }) {
 
   // ---------- basemap ----------
   const basemap = doc?.basemap ?? "none";
+  const def = basemapDef(basemap);
+  // A basemap that can't be placed right in this map's CRS says so and doesn't draw (it never changes the CRS).
+  const refusal = active ? basemapRefusal(def, { crsKey: active.info.crsKey, crsName: mapCrs?.name ?? "Web Mercator", world: !!active.info.world, center: centerLL, areaOfUse: active.info.areaOfUse, areaKnown: active.info.areaOfUseKnown }) : null;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !active) return;
-    const bm = BASEMAPS[basemap];
-    if (!bm) return;
-    // OL reprojects these Web Mercator tiles to the map CRS in the client (proj4, no datum grids: R1).
-    const layer = new TileLayer({
-      source: new XYZ({ urls: bm.tiles, maxZoom: bm.maxzoom, attributions: bm.attribution, crossOrigin: "anonymous", transition: 0 }),
-      zIndex: -1,
-    });
+    if (!map || !active || !def || refusal) return;
+    setBasemapError(null);
+    let layer: BaseLayer | null = null;
+    let cancelled = false;
+    if (def.kind === "xyz") {
+      // OL reprojects these Web Mercator tiles to the map CRS in the client (proj4, no datum grids: R1).
+      layer = new TileLayer({
+        source: new XYZ({ urls: def.tiles, maxZoom: def.maxzoom, attributions: def.credit, crossOrigin: "anonymous", transition: 0 }),
+        zIndex: -1,
+      });
+    } else if (def.kind === "engine") {
+      // The engine warps the bundled raster to this map CRS's own grid: no reprojection in the browser, any CRS, offline.
+      layer = new TileLayer({
+        source: new XYZ({ url: naturalEarthTileUrl(active.info.crsKey), projection: active.projection, tileGrid: tileGridFor(active.info.grid, NATURAL_EARTH_MAX_LEVEL), attributions: def.credit, crossOrigin: "anonymous", transition: 0 }),
+        zIndex: -1,
+      });
+    } else {
+      const group = new LayerGroup({ zIndex: -1 });
+      layer = group;
+      void (async () => {
+        try {
+          const url = new URL(def.bundled ? `${import.meta.env.BASE_URL}${def.style}` : def.style!, document.baseURI).href;
+          const style = await (await fetch(url)).json();
+          if (def.bundled && typeof style.sprite === "string") style.sprite = new URL(`${import.meta.env.BASE_URL}basemaps/versatiles/sprites/base`, document.baseURI).href;
+          if (cancelled) return;
+          // `webfonts` points at an empty stylesheet: no font files are fetched from anywhere; labels use the computer's own fonts.
+          await applyMapboxStyle(group, style, { styleUrl: url, webfonts: "data:text/css;charset=utf-8," });
+          if (cancelled) return;
+          // The provider's own wording, on every layer of the style (the control lists identical credits once).
+          const credit = (l: BaseLayer) => {
+            if (l instanceof LayerGroup) l.getLayers().forEach(credit);
+            else (l as TileLayer<XYZ>).getSource?.()?.setAttributions(def.credit);
+          };
+          credit(group);
+        } catch (e) {
+          if (!cancelled) setBasemapError(`${def.label} could not be loaded (${errorText(e)}). Check the network connection or choose another basemap.`);
+        }
+      })();
+    }
     map.addLayer(layer);
     return () => {
-      map.removeLayer(layer);
+      cancelled = true;
+      map.removeLayer(layer!);
     };
-  }, [basemap, active]);
+  }, [basemap, active, refusal]);
 
   // ---------- data layers ----------
   const layers = useApp((s) => s.layers);
@@ -614,7 +660,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
           style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
         />
       )}
-      <MapNotices basemap={basemap} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
+      <MapNotices basemap={basemap} basemapNote={refusal ?? basemapError} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
       <ScaleBar scale={scaleState?.scale ?? null} />
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
       {isActive && tool === "measure" && <MeasurePanel />}
@@ -626,7 +672,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
 }
 
 /** "Projecting…", dropped-feature and basemap-offset messages. */
-function MapNotices({ basemap, crsKey, offset }: { basemap: string; crsKey: string | null; offset: number | null }) {
+function MapNotices({ basemap, basemapNote, crsKey, offset }: { basemap: string; basemapNote: string | null; crsKey: string | null; offset: number | null }) {
   const projecting = useMapView((s) => s.projecting);
   const notices = useMapView((s) => s.notices);
   // Keys end in the CRS key they were made for ("rasters" has none and is always current).
@@ -636,7 +682,8 @@ function MapNotices({ basemap, crsKey, offset }: { basemap: string; crsKey: stri
     ...Object.entries(projecting).filter(([k]) => here(k)).map(([k, n]) => ({ id: `projecting:${k}`, text: `Projecting ${n}…`, kind: "busy" as const })),
     ...Object.entries(notices).filter(([k]) => here(k)).map(([k, text]) => ({ id: `notice:${k}`, text, kind: "warn" as const })),
   ];
-  if (offset !== null && basemap !== "none") all.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
+  if (basemapNote) all.push({ id: "basemap-note", text: basemapNote, kind: "warn" });
+  if (offset !== null && basemap !== "none" && !basemapNote) all.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
   const lines = visibleNotices(all, dismissed);
   if (!lines.length) return null;
   const warnings = lines.filter((l) => l.kind === "warn");
