@@ -100,6 +100,13 @@ export interface BasemapView {
   areaKnown: boolean;
 }
 
+/**
+ * How far past a coordinate system's area of use (degrees) raster tiles still draw. The area of use is where the CRS is meant to be
+ * used, not where it stops working: a map straddling a UTM zone edge or a state line reprojects correctly, and hiding its basemap
+ * there would be wrong. Far past it the reprojection is what goes blank (MM-3).
+ */
+export const AREA_OF_USE_MARGIN_DEG = 10;
+
 /** Latitude where Web Mercator tiles end. */
 export const MERCATOR_MAX_LAT = 85.0511;
 
@@ -107,8 +114,8 @@ export const MERCATOR_MAX_LAT = 85.0511;
  * Why `def` can't be drawn for this view, in words (null = it can). A basemap never changes the map's coordinate system and never
  * draws misaligned or partly blank where it can't be placed right:
  *  - vector tiles exist only in Web Mercator and can't be reprojected, so any other CRS refuses them;
- *  - Web Mercator raster tiles are reprojected in the browser, which holds only inside the coordinate system's area of use and
- *    within Web Mercator's 85° limit, so a view centred outside either is refused (docs/BUGS.md MM-3: USGS Imagery left a
+ *  - Web Mercator raster tiles are reprojected in the browser, which holds only near the coordinate system's area of use and
+ *    within Web Mercator's 85° limit, so a view centred well outside either is refused (docs/BUGS.md MM-3: USGS Imagery left a
  *    UTM 11N map blank when centred far outside the zone);
  *  - the bundled Natural Earth raster is warped by the engine to the map's own grid, so it draws in every CRS.
  */
@@ -124,11 +131,17 @@ export function basemapRefusal(def: BasemapDef | null, v: BasemapView): string |
   if (Math.abs(lat) > MERCATOR_MAX_LAT) return `${def.label} doesn't cover the poles (its tiles stop at ${MERCATOR_MAX_LAT.toFixed(0)}° latitude), so it isn't drawn here. Choose Natural Earth.`;
   if (v.areaKnown) {
     const [w, s, e, n] = v.areaOfUse;
-    const inLon = w <= e ? lon >= w && lon <= e : lon >= w || lon <= e;
-    if (!inLon || lat < s || lat > n) return `${def.label} isn't drawn here: the view is outside the area where ${v.crsName} is valid, and a basemap there would be misplaced or blank. Pan back into the area, or choose Natural Earth.`;
+    const m = AREA_OF_USE_MARGIN_DEG;
+    const [west, east] = [wrapLon(w - m), wrapLon(e + m)];
+    // A margin that closes the gap around the globe means every longitude is in range.
+    const whole = (w <= e ? e - w : e - w + 360) + 2 * m >= 360;
+    const inLon = whole || (west <= east ? lon >= west && lon <= east : lon >= west || lon <= east);
+    if (!inLon || lat < s - m || lat > n + m) return `${def.label} isn't drawn here: the view is outside the area where ${v.crsName} is valid, and a basemap there would be misplaced or blank. Pan back into the area, or choose Natural Earth.`;
   }
   return null;
 }
+
+const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 
 /** The sentence for a map frame that gets no basemap because the map's own can't be printed (null when it can, or there is none). */
 export function printRefusal(id: string): string | null {

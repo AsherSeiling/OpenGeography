@@ -1072,3 +1072,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | MM-7 | A layout frame follows the map it names; a frame whose map was deleted draws nothing, warns and blocks export; "map" and fixed lists still work | `e2e/multi-map.spec.ts` |
 | MM-8 | Every map's basemap is cited, earlier citations stay | `e2e/multi-map.spec.ts`; manual: Sources count on a real project |
 | MM-9 | Manual: drag a map tab to the side of another; tiles draw in both; packaged app not yet checked | lead review 2026-11-04 (browser only) |
+| BM-1 | Open basemaps draw, each map shows its own credit, one citation each | `e2e/basemaps.spec.ts`, `map/basemaps.test.ts`, `progress_sources.rs`; live: `network_open_basemap_providers_answer` (ignored, network) |
+| BM-2 | Vector basemaps outside Web Mercator, and raster tiles more than 10° outside the CRS's area of use, say so and don't draw; just past a zone edge still draws; the CRS never changes | `map/basemaps.test.ts`, `e2e/basemaps.spec.ts` |
+| BM-3 | Natural Earth draws offline in every CRS and in a UTM layout export; other screen basemaps are refused in print, in words | `basemaps_wp12.rs`, `layout/basemap.rs` |
+| BM-4 | A saved basemap this build doesn't know opens as none with a message, never an error | `e2e/basemaps.spec.ts`, `map/basemaps.test.ts` |
+| LE-1 | Empty page: start gallery, truthful hint; a Thematic start adds its six elements | `e2e/layout-editor.spec.ts` |
+| LE-2 | Layout tabs Page, Insert, Arrange, View, Export; Map tabs leave in a layout; Back to Map returns; every old command reachable | `e2e/layout-editor.spec.ts`, `e2e/ribbon-width.spec.ts`, `ribbon/reach.test.ts` |
+| LE-3 | Properties tabs follow the selection; right-click menus; Shift+A inserts at the pointer | `e2e/layout-editor.spec.ts` |
+| LE-4 | Rail: drag a map onto the page makes a frame that draws it; Which Map changes it | `e2e/layout-editor.spec.ts` |
+| LE-5 | Check Page, Lock, zoom, Cut and Paste, named text style; page white in dark; keyboard-only rail, tabs and menus | `e2e/layout-editor.spec.ts` |

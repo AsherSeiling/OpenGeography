@@ -112,6 +112,8 @@ def main():
     w("| World Magnetic Model 2025 coefficients (via `geomagnetism`) | Public domain (NOAA NCEI / British Geological Survey) | https://www.ncei.noaa.gov/products/world-magnetic-model |")
     w("| Noto Sans Regular, Bold, Italic (`crates/engine/assets/fonts/`, embedded in print layouts; license text in `OFL.txt` there) | SIL Open Font License 1.1, © The Noto Project Authors | https://github.com/notofonts/latin-greek-cyrillic |")
     w("| Datum-shift grids shipped with the installers (Canada, Australia, New Zealand, UK, Austria, Belgium, France, Germany, Netherlands, Portugal, Spain, Switzerland; list in `crates/engine/assets/bundled_grids.txt`) | Per provider: Open Government Licence – Canada, CC BY 4.0, CC0, BSD-2-Clause, Licence Ouverte, Data licence Germany – attribution 2.0; attribution texts are the providers' README files on cdn.proj.org | https://cdn.proj.org/ |")
+    w("| Natural Earth 1:110m land 5.1.1, lakes 5.0.0, admin-0 countries 4.1.0 (`crates/engine/assets/natural-earth/`, rasterized by `scripts/make-natural-earth.sh`). Made with Natural Earth. | Public domain | https://www.naturalearthdata.com |")
+    w("| VersaTiles Colorful style and sprite sheet, versatiles-style 8.1.1 (`ui/public/basemaps/versatiles/`); icons from Maki and Temaki | Style and icons CC0; style code MIT, © 2023–2026 yetzt, Michael Kreil | https://versatiles.org |")
     w("| Extra CRS definitions (`crates/engine/assets/extra_crs.json`) | Derived from PROJ / EPSG (terms above) | https://proj.org/ |")
     w("")
 

@@ -22,7 +22,11 @@ GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC
 | React 19, React DOM | MIT | user interface | `ui/src` |
 | Fluent UI React v9 (`@fluentui/react-components`, `react-icons`) | MIT | components and icons | `ui/src` |
 | Inter (`@fontsource-variable/inter`), bundled; UI typeface only (layout and map fonts are separate), imported in `ui/src/main.tsx`, no network request | SIL OFL 1.1 | UI typeface | `docs/UI_REDESIGN_PLAN.md` §2 |
-| Planned basemaps, not built yet: OpenFreeMap (data ODbL, code MIT), VersaTiles (data ODbL), OpenTopoMap (CC BY-SA 3.0), NASA GIBS Blue Marble (terms to confirm), larger Natural Earth (public domain) | see plan | map basemaps | `docs/UI_REDESIGN_PLAN.md` §2c |
+| OpenFreeMap Liberty, Bright, Positron (tiles.openfreemap.org); screen only | Data ODbL, tile schema OpenMapTiles, code MIT | vector basemaps, read live; policy re-read 2026-11-04 | `ui/src/map/basemaps.ts`, `sources.rs` |
+| VersaTiles Colorful (style and sprites bundled, tiles from tiles.versatiles.org); screen only | Data ODbL, land cover ESA WorldCover CC BY 4.0, schema and style CC0, style code MIT | vector basemap; policy re-read 2026-11-04 | `ui/public/basemaps/versatiles`, `ui/src/map/basemaps.ts` |
+| OpenTopoMap (tile.opentopomap.org); screen only | CC BY-SA 3.0, data ODbL and SRTM | raster basemap; policy re-read 2026-11-04. It asks to be told about use, which is for the project owner to send | `ui/src/map/basemaps.ts`, `sources.rs` |
+| Natural Earth 1:110m land, lakes, admin-0 countries | Public domain | bundled basemap, works offline, in every CRS and in layouts | `crates/engine/assets/natural-earth`, `scripts/make-natural-earth.sh`, `layout/basemap.rs` |
+| NASA GIBS Blue Marble: referenced, **not offered** | No licence marking found on the layer (GIBS docs, capabilities and metadata read 2026-11-04) | left out under the plan's rule | `docs/UI_REDESIGN_PLAN.md` §2c |
 | `@xyflow/react` | MIT | node editor canvas | `ui/src/nodes` |
 | `dockview-react` | MIT | dockable panes | `ui/src` |
 | OpenLayers (`ol`), `ol-mapbox-style` | BSD-2-Clause | map display | `ui/src/map` |

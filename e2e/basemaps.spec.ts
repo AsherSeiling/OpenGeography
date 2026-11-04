@@ -83,7 +83,6 @@ test.describe("basemaps", () => {
   test("the Basemap menu lists every open basemap", async ({ app }) => {
     await app.getByRole("button", { name: /^Basemap/ }).click();
     const names = await app.getByRole("menuitemradio").allInnerTexts();
-    test.skip(!names.includes("Natural Earth"), "needs the WP12 diff to ribbon/commands.tsx (the menu still reads its old list)");
     expect(names).toEqual(["USGS Topo", "USGS Imagery", "USGS Shaded Relief", "OpenStreetMap", "OpenTopoMap", "OpenFreeMap Liberty", "OpenFreeMap Bright", "OpenFreeMap Positron", "VersaTiles Colorful", "Natural Earth", "None"]);
   });
 });

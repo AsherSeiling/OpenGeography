@@ -405,3 +405,9 @@ The USGS and military looks are built from three general capabilities, not speci
 - **`FrameLayers::Map { map }`:** the plan expected no engine change, but the engine rejected `{ map: id }` when saving a layout. The engine only stores it. The UI turns it into an explicit layer list in `layoutRequest`, so renders and pixel tests are unchanged. A frame whose map was deleted draws nothing, warns and blocks export.
 - **Layer styles in layout renders** cover every project layer, because a fixed-list frame can draw a layer that is on no map.
 
+## Basemaps (WP12, 2026-11-04)
+Policies were re-read live before enabling each one (table in `docs/OPEN_SOURCE.md`). Blue Marble is left out because no licence marking was found on the layer; GIBS gives only an acknowledgment request. Vector basemaps draw only in Web Mercator because OpenLayers can't reproject vector tiles. Web Mercator raster tiles are refused more than 10° outside the CRS's area of use, or past 85° latitude: the worker's first rule refused at the area's exact edge, which would have hidden a working basemap as soon as a map crossed a UTM zone line. The margin is a judgment call, picked to keep the MM-3 case refused. Natural Earth (1:110m, a 4096×2048 raster) draws in every CRS and prints. The map attribution no longer collapses, so required credits stay visible.
+
+## Layout editor (WP13, 2026-11-04)
+Layout tabs are Page, Insert, Arrange, View, Export (and Map Frame while one is selected). Map tabs leave while a layout is active. A Shift+A listener loads with `LayoutMenus.tsx` so it runs before the Node Editor's. **Kept against option B's text:** the Insert tab stays, holding New Layout and Maps only, because the rail inserts page elements and those two aren't page elements. **Known limit:** named text styles live in this browser profile's localStorage, not the project: a style counts as used by any text with exactly its look. Saving them needs an engine field.
+

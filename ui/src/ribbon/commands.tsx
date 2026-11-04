@@ -110,7 +110,7 @@ import { addChart, addShape, addTable, addText, useLayouts } from "../store/layo
 import { toggleLockSelected } from "../layout/clipboard";
 import { useLayoutView } from "../layout/view";
 import { defaultLayout, isPaneOpen, showPane, togglePane, type PaneId } from "../panes/panes";
-import { useApp, type Basemap, type MapTool } from "../store/store";
+import { useApp, type MapTool } from "../store/store";
 
 export interface Command {
   id: string;
@@ -270,13 +270,7 @@ export function toolCommand(toolId: string, name: string, description: string): 
   };
 }
 
-export const BASEMAP_OPTIONS: [Basemap, string][] = [
-  ["usgsTopo", "USGS Topo"],
-  ["usgsImagery", "USGS Imagery"],
-  ["usgsRelief", "USGS Shaded Relief"],
-  ["osm", "OpenStreetMap"],
-  ["none", "None"],
-];
+export { BASEMAP_OPTIONS } from "../map/basemaps";
 
 /** The Catalog's Public Data rows are also commands (search, tests); the list itself lives in CatalogPane. */
 const publicData: Command[] = PUBLIC_DATA.map((p) => ({ id: p.id, label: p.label, icon: <>{p.icon}</>, tip: p.tip, run: () => useDialog.getState().show(p.dialog) }));

@@ -47,6 +47,12 @@ describe("CRS refusal", () => {
     const away = basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-98.5, 39.5] });
     expect(away).toMatch(/outside the area where NAD83 \/ UTM zone 11N is valid/);
     expect(basemapRefusal(basemapDef("openTopoMap"), { ...utm11, center: [-98.5, 39.5] })).toBe(away!.replace("USGS Imagery", "OpenTopoMap"));
+    // A view just past the zone edge still draws: the area of use is advice, not where the projection stops working.
+    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-122, 36] })).toBeNull();
+    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-129.9, 36] })).toBeNull();
+    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-130.1, 36] })).toMatch(/outside the area/);
+    // A wide area plus the margin that covers the whole globe never refuses on longitude.
+    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, areaOfUse: [-175, -80, 175, 80], center: [179.9, 0] })).toBeNull();
     // Antimeridian-crossing areas of use work.
     const fiji = { ...utm11, areaOfUse: [172, -30, -170, -10] as [number, number, number, number], center: [179, -17] as [number, number] };
     expect(basemapRefusal(basemapDef("osm"), fiji)).toBeNull();

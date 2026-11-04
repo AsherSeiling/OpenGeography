@@ -15,6 +15,7 @@ import { useApp, type LayerStyle } from "../store/store";
 import { recolour } from "./themes";
 import { followedMap, frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 import { isMapPanelId, mapOf } from "../store/maps";
+import { printRefusal } from "../map/basemaps";
 
 const status = (s: string) => useApp.getState().setStatus(s);
 
@@ -209,7 +210,8 @@ export async function setFrameFromMapView(frameId?: string) {
     if (!center.every(Number.isFinite)) return status("That map position can't be shown in the frame's coordinate system. Choose a different one.");
     const mapBasemap = src?.basemap ?? useApp.getState().basemap;
     useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)), basemap: printBasemap(mapBasemap) });
-    if (mapBasemap === "osm") status("OpenStreetMap can't be used in print layouts (its tile policy forbids bulk downloads), so the frame has no basemap. Choose a USGS basemap.");
+    const refused = printRefusal(mapBasemap);
+    if (refused) status(refused);
   } catch (e) {
     status(`Could not place the frame: ${errorText(e)}`);
   }
