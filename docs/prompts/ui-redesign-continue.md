@@ -24,6 +24,6 @@ You are the Opus lead for the rest of GIS Studio's UI redesign. Work on branch `
 
 **Rules:** tests pass before any push; push only with `[skip ci]`; never tags or force-push; never commit `.claude/`, build artifacts, `test-projects/` or `Madera County.gproj/`; new open-source or data goes in `docs/OPEN_SOURCE.md` in the same commit; ask before anything outward-facing beyond this repo. After each change, add a row to the Change log of the user's status doc (see memory `status-doc`).
 
-**Open items:** BUGS.md UI-1 (recheck link hover contrast in the walk-through). `Show in Folder` and `Details` commands were removed from the Catalog with the file browser; the user was told.
+**Open items:** BUGS.md UI-1 (recheck link hover contrast in the walk-through). The Node Editor Run button is still solid blue in the app; the mock-up has it outlined, so make it match in WP13 or WP9. The last full e2e run had 8 failures fixed and re-run individually, so start with one whole `scripts/e2e.sh` on `ui-redesign`. Merged session worktrees under `.claude/worktrees/` can be removed once their sessions are idle; the user wants the folder small. `Show in Folder` and `Details` commands were removed from the Catalog with the file browser; the user was told.
 
 **Done when:** plan §7 is met, before and after screenshots are in `docs/screenshots/ui-redesign/`, `PROJECT_STATUS.md` is updated, `graphify update .` has run, and you report what changed, what you decided, and what is left for the user.
