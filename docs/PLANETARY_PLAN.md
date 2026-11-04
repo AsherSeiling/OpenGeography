@@ -226,7 +226,7 @@ Existing tools become correct once §8 lands. The new tools below are built from
 
 Same way of working as the redesign: Opus reviews and merges, Sonnet writes code, one commit per package, `[skip ci]`, and one full test run and one real-app review per batch. **Read closely: pivots, geodesics, project format, licences.**
 
-**Starts after** the UI redesign merges into `main`, because this builds on multiple maps and basemaps.
+**Starts after** the UI redesign merges into `main`, because this builds on multiple maps and basemaps, and after the open bugs are fixed and a rebuilt Mac app has been tested (user, 2026-11-04).
 
 | WP | Work | Done when | Sessions |
 |---|---|---|---|

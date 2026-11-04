@@ -5,7 +5,7 @@ _Updated 2026-11-04. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why 
 ## Where the project stands (2026-11-04)
 Phases A (code), B, D, E and H are done. C's main work is built. R is built except R7. F (planetary) is planned and is the last feature before the first release (`docs/PLANETARY_PLAN.md`). G (Python SDK) moved to after it. Phase by phase: the table at the top of `docs/MASTER_PLAN.md` §3.
 
-Before a release: finish and merge the UI redesign, build F, do the one full CI push (R7) and fix what it finds, rebuild the Mac app, run the open manual checks (Windows and Linux installers, M-31, M-32), then you push the tag.
+Before a release: finish and merge the UI redesign, fix the open bugs and test a rebuilt Mac app, build F, do the one full CI push (R7) and fix what it finds, rebuild the Mac app, run the open manual checks (Windows and Linux installers, M-31, M-32), then you push the tag.
 
 ## Exact next action
 - **UI redesign (2026-11-03, branch `ui-redesign`, `docs/UI_REDESIGN_PLAN.md`):** plan, mock-up (`docs/design/ui-redesign-mockup.html`) and layout options (`docs/LAYOUT_UI_OPTIONS.md`, `docs/design/layout-options-mockup.html`) are **approved (2026-11-03); build in progress.** Scope now includes multiple maps and more open basemaps. Design changes so far: blue outline around the open tab and pane only, rounded node cards, Save/Undo/Redo in the tab row, layout menu levels. WP1 to WP8b and WP10 to WP13 (multiple maps with project format 2, open basemaps, layout editor) are merged on `ui-redesign`, not pushed; last full run 168 passed, 1 skipped. Left: WP9, on branch `claude/wp9-verify-1963d8` with one of its three commits made. To continue: `docs/prompts/ui-redesign-continue.md`.
@@ -48,10 +48,11 @@ e2e M-4 fails on the WP9 branch because of CRS-1 (`docs/BUGS.md`).
 - **Intermittent local failure:** on 2026-10-28 `cargo test -p engine` reported the `layout` test target failed once in a full parallel run (output not captured); it passed on the next two runs. Capture the output if it recurs (it may be the crash below).
 - **macOS CI crash:** one intermittent SIGSEGV in layout tests (run 40055424934, conda GDAL, parallel tests). It hasn't happened again. M4's P17 stress test is the gate.
 
-## Next tasks (in order)
+## Next tasks (in order; user, 2026-11-04)
 1. Finish WP9, merge it, then merge `ui-redesign` into `main`.
-2. Build Phase F, planetary (`docs/PLANETARY_PLAN.md` §10), once you've answered its §12. Craterstats is bundled, with model ages in the first release (user, 2026-11-04).
-3. Fix the open bugs worth fixing before release (`docs/BUGS.md`).
-4. R7: one full CI push on all three platforms, and fix what it finds.
-5. Rebuild the Mac app, then run the open manual checks: Windows and Linux installers (A3), keychain (M-31), hydrology (M-32).
-6. You push the `v0.1.0` tag.
+2. Fix the open bugs worth fixing (`docs/BUGS.md`).
+3. Rebuild the Mac app and test it directly: it doesn't include the UI redesign yet.
+4. Build Phase F, planetary (`docs/PLANETARY_PLAN.md` §10), once you've answered its §12. Craterstats is bundled, with model ages in the first release (user, 2026-11-04).
+5. R7: one full CI push on all three platforms, and fix what it finds.
+6. Rebuild the Mac app again and run the open manual checks: Windows and Linux installers (A3), keychain (M-31), hydrology (M-32).
+7. You push the `v0.1.0` tag.

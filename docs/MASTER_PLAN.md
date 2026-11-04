@@ -74,7 +74,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | R. CRS hardening | R0–R6, R6b and R8 built | R7: CI on all three platforms, thread stress, performance baselines, manual Windows and Linux run. R7 must also fix the Phase C Windows/macOS CI failure. |
 | D. Public data | ✅ Complete | The keychain hasn't been tried on a real OS (M-31). WMS/WMTS and NASA POWER were left out on purpose; NAIP needs a later connector (`DECISIONS.md`). |
 | E. Raster foundation | ✅ Done | Nothing |
-| F. Planetary GIS | Full plan rewritten 2026-11-04, not built. **The last feature before the first release (user, 2026-11-04).** | Build P0–P7 in `PLANETARY_PLAN.md` after the UI redesign merges |
+| F. Planetary GIS | Full plan rewritten 2026-11-04, not built. **The last feature before the first release (user, 2026-11-04).** | Build P0–P7 in `PLANETARY_PLAN.md` after the UI redesign merges, the open bugs are fixed and the Mac app is rebuilt and tested |
 | G. Python SDK + CLI | Not built; moved to after the first release | Nothing before release |
 | H. Advanced analysis | ✅ Complete | Hydrology is untested in the packaged app (M-32) and on Windows and Linux (R7). Supervised classification not built. |
 | UI redesign | WP1–WP8b and WP10–WP13 merged on `ui-redesign`; not pushed | WP9 final verification, then merge into `main` |
@@ -231,7 +231,9 @@ D  Public data           complete
 E  Raster foundation     complete
 H  Advanced analysis     complete
 UI UI redesign           ← now: WP9 final verification on branch ui-redesign
-F  Planetary GIS         next: last feature before the first release (docs/PLANETARY_PLAN.md)
+-- Bug fixes             the open bugs worth fixing (docs/BUGS.md)
+-- Mac app               rebuild and test the redesign in the packaged app
+F  Planetary GIS         last feature before the first release (docs/PLANETARY_PLAN.md)
 R7 One full CI push      at the very end (your skip-CI rule); fix what it finds
 -- First release, fine tuning
 G  Python SDK + CLI      after the first release
