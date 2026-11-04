@@ -305,6 +305,12 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
 .tree button.cur{color:var(--link);font-weight:600}
 .crsrow small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .qa{display:flex;align-items:center;gap:2px;margin:0 8px 4px 0;height:22px}.qa button{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 6px;font-size:12px;line-height:16px;border-radius:var(--r-control)}.qa button svg{font-size:15px}.qa button:hover:not(:disabled){background:var(--hover)}.qa button:disabled{opacity:.42}
+/* v6: toolbar is the full window width; project menu is a small box in the tab row */
+.app{grid-template-rows:104px minmax(0,1fr) 24px}
+.top{grid-template-columns:minmax(0,1fr)}
+.qat{display:contents}
+.qat-project{flex:none;width:170px;height:22px;margin:0 8px 4px 8px;padding:0 6px;background:var(--surface-2);border:1px solid var(--rule);border-radius:var(--r-control);font:500 12px/16px Inter,system-ui,sans-serif;justify-content:space-between;align-self:flex-end}
+.qat-project:hover{background:var(--surface-2);outline:1px solid var(--rule)}
 </style>
 </head>
 <body>
@@ -365,11 +371,9 @@ input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--rule);
   <span>Everything responds. Dialogs that already exist in the app stop at a short note. Shift+A adds a tool.</span></div>
 <div class="app">
   <header class="top">
-    <div class="qat" role="toolbar" aria-label="Project and quick access">
-      <button class="qat-project" id="qatProject" aria-haspopup="menu"><span id="projName">Madera County</span><svg class="i" style="font-size:12px"><use href="#chev"/></svg></button>
-      </div>
+    
     <div class="rib">
-      <div class="tabs" role="tablist" aria-label="Ribbon" id="tabs"><span class="sp"></span><div class="qa" role="toolbar" aria-label="Quick access"><button data-save><svg class="i"><use href="#save"/></svg>Save</button><button data-undo><svg class="i"><use href="#undo"/></svg>Undo</button><button data-redo><svg class="i"><use href="#redo"/></svg>Redo</button></div><label class="search"><svg class="i"><use href="#search"/></svg><input id="topSearch" aria-label="Search commands and tools" placeholder="Search commands and tools" autocomplete="off"><kbd>Alt+Q</kbd></label></div>
+      <div class="tabs" role="tablist" aria-label="Ribbon" id="tabs"><button class="qat-project" id="qatProject" aria-haspopup="menu"><span id="projName">Madera County</span><svg class="i" style="font-size:12px"><use href="#chev"/></svg></button><span class="sp"></span><div class="qa" role="toolbar" aria-label="Quick access"><button data-save><svg class="i"><use href="#save"/></svg>Save</button><button data-undo><svg class="i"><use href="#undo"/></svg>Undo</button><button data-redo><svg class="i"><use href="#redo"/></svg>Redo</button></div><label class="search"><svg class="i"><use href="#search"/></svg><input id="topSearch" aria-label="Search commands and tools" placeholder="Search commands and tools" autocomplete="off"><kbd>Alt+Q</kbd></label></div>
       <div class="band" id="band" role="tabpanel"></div>
     </div>
   </header>

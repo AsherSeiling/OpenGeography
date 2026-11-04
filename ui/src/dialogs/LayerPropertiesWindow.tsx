@@ -243,10 +243,10 @@ function Fields({ id }: { id: string }) {
               <td>{f.name}</td>
               <td className="muted">{f.type.toLowerCase()}</td>
               <td className="lp-field-actions">
-                <button title="Rename" onClick={() => dlg({ kind: "renameField", layer: id, field: f.name })}>
+                <button title="Rename" aria-label="Rename field" onClick={() => dlg({ kind: "renameField", layer: id, field: f.name })}>
                   <EditRegular />
                 </button>
-                <button title="Delete" onClick={() => del(f.name)}>
+                <button title="Delete" aria-label="Delete field" onClick={() => del(f.name)}>
                   <DeleteRegular />
                 </button>
               </td>

@@ -11,10 +11,10 @@
 .ruler-box:nth-child(3) { border-right: 1px solid var(--rule); }
 .ruler line { stroke: var(--text-2); stroke-width: 1; }
 .ruler text { fill: var(--text-2); user-select: none; }
-.layout-canvas { min-width: 0; flex: 1; min-height: 0; overflow: auto; background: #7d8187; padding: 24px; outline: none; }
-.layout-page { position: relative; margin: 0 auto; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); flex: none; }
+.layout-canvas { min-width: 0; flex: 1; min-height: 0; overflow: auto; background: var(--canvas); padding: 24px; outline: none; }
+.layout-page { position: relative; margin: 0 auto; box-shadow: var(--e-float), 0 0 0 1px var(--rule-soft); flex: none; }
 .layout-img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; }
-.layout-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #8a8f96; pointer-events: none; }
+.layout-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #5a6068; pointer-events: none; }
 .layout-el { position: absolute; box-sizing: border-box; cursor: move; outline: 1px solid transparent; }
 .layout-el:hover { outline: 1px dashed rgba(43, 87, 154, 0.8); }
 .layout-el.on { outline: 2px solid #2b579a; }
@@ -49,7 +49,7 @@
 .layout-guide.y { left: 0; right: 0; height: 7px; margin-top: -3px; cursor: row-resize; background: linear-gradient(#00b7c3, #00b7c3) center / 100% 1px no-repeat; }
 .layout-outline { display: flex; flex-direction: column; gap: 1px; }
 .layout-outline .row { display: flex; align-items: center; gap: 4px; padding: 1px 4px; cursor: default; }
-.layout-outline .row.on { background: var(--sel-bg); }
+.layout-outline .row.on { background: var(--sel-bg); color: var(--sel-text); }
 .layout-outline .row .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- Layout Properties sections and text slots (LW3/LW4) ---------- */
@@ -59,3 +59,9 @@
 .text-slot { border: 1px solid var(--rule-soft); border-radius: 3px; padding: 2px 6px; }
 .text-slot > summary { cursor: default; padding: 2px 0; }
 .text-slot > .stack { padding: 4px 0 6px; }
+
+/* Chrome focus. Page overlays keep their own colours: the page is white in both themes. */
+.layout-canvas:focus-visible, .quad:focus-visible, .scale-input:focus-visible, .layout-outline .row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.layout-el:focus-visible, .layout-label:focus-visible { outline: 2px solid #2b579a; outline-offset: 1px; }
+.layout-toolbar a, .layout-msg a, .layout-stat a { color: var(--link); }
+.layout-toolbar :is(button, a):hover, .layout-msg a:hover { color: var(--text); }

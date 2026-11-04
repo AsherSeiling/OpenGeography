@@ -273,8 +273,8 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       <div className="layout-toolbar">
         <Button size="small" appearance={fit ? "primary" : "subtle"} onClick={() => setFit(true)}>Fit page</Button>
         <Button size="small" appearance="subtle" onClick={() => zoomTo(96 / 25.4)}>100%</Button>
-        <Button size="small" appearance="subtle" onClick={() => zoomTo(z / 1.25)}>−</Button>
-        <Button size="small" appearance="subtle" onClick={() => zoomTo(z * 1.25)}>+</Button>
+        <Button size="small" appearance="subtle" title="Zoom out" onClick={() => zoomTo(z / 1.25)}>−</Button>
+        <Button size="small" appearance="subtle" title="Zoom in" onClick={() => zoomTo(z * 1.25)}>+</Button>
         <span className="muted">{Math.round(((z * 25.4) / 96) * 100)}%</span>
         <span className="layout-pointer muted" data-testid="layout-pointer" title="Pointer position on the page, mm from the top-left corner">
           {ptr ? `${ptr.x}, ${ptr.y} mm` : "— mm"}
@@ -319,7 +319,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
             <div key={i} className={`layout-guide ${g.axis}`} data-guide={`${g.axis}:${g.pos}`} style={g.axis === "x" ? { left: g.pos * z } : { top: g.pos * z }} title={`Guide at ${g.pos} mm (double-click to remove)`} onDoubleClick={() => store().setMeta({ guides: (layout.guides ?? []).filter((_, j) => j !== i) })} />
           ))}
           {preview && <img className="layout-img" src={preview.src} alt="" draggable={false} />}
-          {layout.elements.length === 0 && <div className="layout-empty">Insert a Map Frame or Text from the Layout tab.</div>}
+          {layout.elements.length === 0 && <div className="layout-empty">Insert a Map Frame or Text from the Elements tab.</div>}
           {sorted.map((el) => {
             const on = selected.includes(el.id);
             return (

@@ -6,7 +6,7 @@ Newest first. One entry per decision that isn't obvious from the code; details l
 
 - **Look:** cool flat panels, hairline rules, one accent used only as an outline around the open tab and its pane; selected text is blue; selected rows use a lighter, brighter highlight. Rounded node cards. All colours user-customisable, with text colour computed so a label can't become unreadable; saved per user, not per project.
 - **Tools:** the Shift+A menu is the way in; the Geoprocessing pane is removed. Plain-language words live in one engine table keyed by tool id (`nodes/keywords.rs`), so `ToolSpec` stays the one catalogue.
-- **Layout of the window:** the user's wireframe, except Save/Undo/Redo, which the user moved to the tab row. The Data tab goes. Bottom panel exists only while the Node Editor or Attribute Table is open. Sources is the unlabelled lower-right box. Catalog drops its file browser and folder connections, and holds Maps, Layouts and one Public Data tree.
+- **Layout of the window:** the user's wireframe, except that the user moved Save/Undo/Redo and the project menu into the tab row and made the toolbar the full window width, so there is no top-left cell. The Data tab goes. Bottom panel exists only while the Node Editor or Attribute Table is open. Sources is the unlabelled lower-right box. Catalog drops its file browser and folder connections, and holds Maps, Layouts and one Public Data tree.
 - **Multiple maps:** a map owns its name, CRS, basemap, view and layer list. Layer data, sources and node trees belong to the project. Style stays shared in this version. App name stays GIS Studio.
 - **Layout editor:** option B with add-ons 1, 2, 3, 4, 7, 9; five tabs that each answer one question, plus a Map Frame tab while a frame is selected.
 

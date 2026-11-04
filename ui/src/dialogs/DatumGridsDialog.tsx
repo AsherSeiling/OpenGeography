@@ -95,16 +95,16 @@ export function DatumGridsDialog({ onClose }: { onClose: () => void }) {
                 {SHOW.map(([v, l]) => (<Option key={v} value={v}>{l}</Option>))}
               </Dropdown>
             </div>
-            <div data-testid="grid-list" style={{ maxHeight: "50vh", overflow: "auto", border: "1px solid var(--border, #8884)", borderRadius: 4 }}>
+            <div data-testid="grid-list" style={{ maxHeight: "50vh", overflow: "auto", border: "1px solid var(--rule-soft)", borderRadius: 4 }}>
               {rows.length === 0 && <div className="muted" style={{ padding: 12 }}>No grids match.</div>}
               {rows.map((g) => {
                 const heads: ReactNode[] = [];
-                if (g.continent !== lastContinent) { lastContinent = g.continent; lastCountry = ""; heads.push(<div key={`c-${g.continent}`} style={{ padding: "6px 10px", fontWeight: 700, background: "var(--subtle, #8882)" }}>{g.continent}</div>); }
+                if (g.continent !== lastContinent) { lastContinent = g.continent; lastCountry = ""; heads.push(<div key={`c-${g.continent}`} style={{ padding: "6px 10px", fontWeight: 700, background: "var(--surface-0)" }}>{g.continent}</div>); }
                 if (g.country !== lastCountry) { lastCountry = g.country; heads.push(<div key={`k-${g.continent}-${g.country}`} style={{ padding: "4px 10px 2px", fontWeight: 600 }}>{g.country}</div>); }
                 return (
                   <div key={g.name}>
                     {heads}
-                    <div data-grid={g.name} style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 150px", gap: 8, padding: "4px 10px", alignItems: "center", borderTop: "1px solid #8882" }}>
+                    <div data-grid={g.name} style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 150px", gap: 8, padding: "4px 10px", alignItems: "center", borderTop: "1px solid var(--rule-soft)" }}>
                       <div>
                         <div>{g.description || `${g.from} → ${g.to}`}{g.area ? <span className="muted"> · {g.area}</span> : null}</div>
                         <div className="muted mono" style={{ fontSize: 12 }}>{g.name} · {g.source}</div>

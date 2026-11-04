@@ -134,7 +134,7 @@ Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), an
 
 | What | Where | Why |
 |---|---|---|
-| Project name and menu | Top-left cell, as wide as the left column | Reference. |
+| Project name and menu | Small box at the far left of the tab row, styled like the search bar (user, 2026-11-03; replaces the reference's top-left cell) | Toolbar gets the full window width. |
 | Save, Undo, Redo | Tab row, upper right, in line with the tabs and search (user, 2026-11-03; replaces the reference) | Undo acts on whatever is active (layout, else node tree). |
 | Commands | Ribbon: Map, Insert, View, Analysis, plus contextual tabs | Reference. |
 | Search (commands, tools, layers) | Tab row, right; Alt+Q | Reference. Uses the same matcher as the menu. |
@@ -164,7 +164,7 @@ Not offered: EOX Sentinel-2 cloudless (its licence restricts commercial use), an
 
 ## 4. Screen by screen
 
-- **Top-left cell.** Project name with a chevron (New, Open, Save As). In a layout it also holds Back to Map. Its width follows the left column (minimum 190 px), or 190 px when that column is closed.
+- **Project box.** Far left of the tab row, 22 px high like the search bar: project name with a chevron (New, Open, Save As), truncating long names. The ribbon band spans the full window width beneath it. In a layout, Back to Map sits beside it.
 - **Ribbon.** Tab row 30 px on `--surface-0`, with Save, Undo, Redo and search at the right; active tab is `--band` with `--r-tab`, joined to the band. Band 74 px with `--band-text` icons and labels; rule between groups; `--band-on-*` for checked tools. `ribbonFit.ts` keeps adapting to width, measuring the smaller space. Contextual tabs keep their band name as a small `--link` label, now beside the tab name. Keytips stay.
 - **Analysis tab.** Add Tool (large), Run, Node Editor, Attribute Table, and a shelf of favourite tools (the old Tool Gallery, now showing favourites and recents).
 - **Map Layers.** Map row with the CRS always visible, then layers; active layer is `--sel-bg`. Drawing order, drag, multi-select and context menus unchanged. Layouts section leaves.

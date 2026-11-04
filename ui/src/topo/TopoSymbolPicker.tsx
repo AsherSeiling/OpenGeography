@@ -56,7 +56,7 @@ export function TopoSymbolPicker({ id }: { id: string }) {
                 {g.items.map((s) => (
                   <Option key={s.id} value={s.id} text={s.name}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      {preview(s) ? <img src={preview(s)} alt="" width={42} height={30} style={{ border: "1px solid #bbb" }} /> : <span style={{ width: 42, height: 30 }} />}
+                      {preview(s) ? <img src={preview(s)} alt="" width={42} height={30} style={{ border: "1px solid var(--rule-soft)" }} /> : <span style={{ width: 42, height: 30 }} />}
                       {s.name}
                     </span>
                   </Option>
