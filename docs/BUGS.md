@@ -12,6 +12,7 @@ Updated 2026-11-05, after the bug batch.
 |---|---|---|---|
 | C-1b | Low | **Accepted.** DuckDB's embedded PROJ and libproj (cs2cs) pick equivalent datum operations that differ by up to ~12 cm for NAD83/ETRS89 ↔ WGS 84 and up to ~3.3 m for NAD27 away from the NADCON anchor. The anchor itself agrees to 1.3 cm. Test: `crs_reference.rs` datum_tol. | A full match needs transforms through GDAL's libproj instead of DuckDB (a large change across ~49 call sites): decide with F1. |
 | E2E-3 | Low | `misc.spec.ts` M-25 (progress UI, cancel) failed once in a full run on 2026-10-28 (waiting for the "cancelled" status, 60 s) and passed on the next two runs with no change to that code. | Flaky; watch it. |
+| UR-1 | Medium | Export Table fails with "ST_X only supports POINT geometries" on a layer holding MultiPoint features (seen on TNM "Cities, towns and populated places", 2026-11-05 Mac test). `detect_geom_type` calls MultiPoint "Point" by dimension; `export_table.rs` then calls `ST_X`. Cause read from the code, not yet reproduced with a test. | `docs/USER_REQUESTS_2026-11-05.md` Batch A. |
 
 ## Closed bugs
 
