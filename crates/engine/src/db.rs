@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use duckdb::Connection;
-use parking_lot::Mutex;
+use parking_lot::{Condvar, Mutex};
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
@@ -50,24 +50,55 @@ pub fn load_httpfs(conn: &Connection) -> Result<()> {
 pub struct Pool {
     root: Mutex<Connection>,
     idle: Mutex<Vec<Connection>>,
+    gate: std::sync::Arc<Gate>,
+}
+
+/// Counts the connections in use. Whatever a connection is doing (an import, a display table, a model step), it is counted, so Save can wait
+/// for the work in flight instead of colliding with it (SAVE-1). The engine owns one for good, so Save can wait without holding the pool.
+#[derive(Default)]
+pub struct Gate {
+    active: Mutex<usize>,
+    quiet: Condvar,
+}
+
+impl Gate {
+    /// Block until no connection is in use, or `until` passes. Returns whether it is quiet. The caller must not hold a connection.
+    pub fn wait_quiet(&self, until: std::time::Instant) -> bool {
+        let mut n = self.active.lock();
+        while *n > 0 {
+            if self.quiet.wait_until(&mut n, until).timed_out() {
+                return *n == 0;
+            }
+        }
+        true
+    }
+
+    /// How many connections are in use right now.
+    pub fn in_use(&self) -> usize {
+        *self.active.lock()
+    }
 }
 
 impl Pool {
-    pub fn open(path: Option<&Path>) -> Result<Self> {
+    pub fn open(path: Option<&Path>, gate: std::sync::Arc<Gate>) -> Result<Self> {
         let root = match path {
             Some(p) => Connection::open(p)?,
             None => Connection::open_in_memory()?,
         };
         load_spatial(&root)?;
-        Ok(Self { root: Mutex::new(root), idle: Mutex::new(Vec::new()) })
+        Ok(Self { root: Mutex::new(root), idle: Mutex::new(Vec::new()), gate })
     }
 
     pub fn get(&self) -> Result<Conn<'_>> {
-        if let Some(c) = self.idle.lock().pop() {
-            return Ok(Conn { conn: Some(c), pool: self });
-        }
-        let c = self.root.lock().try_clone()?;
-        load_spatial(&c)?;
+        let c = match self.idle.lock().pop() {
+            Some(c) => c,
+            None => {
+                let c = self.root.lock().try_clone()?;
+                load_spatial(&c)?;
+                c
+            }
+        };
+        *self.gate.active.lock() += 1;
         Ok(Conn { conn: Some(c), pool: self })
     }
 }
@@ -97,6 +128,9 @@ impl Drop for Conn<'_> {
             if idle.len() < 16 {
                 idle.push(c);
             }
+            drop(idle);
+            *self.pool.gate.active.lock() -= 1;
+            self.pool.gate.quiet.notify_all();
         }
     }
 }

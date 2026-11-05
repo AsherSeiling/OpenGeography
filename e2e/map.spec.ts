@@ -238,7 +238,6 @@ test("U-6 (guard) a layer with the id and version of one already drawn in UTM, i
     }, id) as Promise<string>;
   // 1. A layer in Web Mercator; the project is saved before any UTM display table exists.
   const layer = await addTestLayer(app, "polygons", 12, [-100, 34, -99.7, 34.3]);
-  await app.waitForTimeout(1000); // a save right after adding a layer sometimes fails with "Cannot CHECKPOINT: other write transactions active" (see BUGS.md U-6 note)
   const dir = join(mkdtempSync(join(tmpdir(), "gis-e2e-u6-")), "u6.gproj");
   await gis(app, (g, d) => g.useApp.setState({ projectDir: d }), dir);
   await gis(app, (g) => g.actions.saveProject());
@@ -257,4 +256,13 @@ test("U-6 (guard) a layer with the id and version of one already drawn in UTM, i
   await gis(app, (g, u: any) => g.useApp.getState().setMapCrs(u), UTM);
   await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
   await expect.poll(() => draws(layer.id), { timeout: 30_000 }).toBe("ok");
+});
+
+test("SAVE-1 Save right after adding a layer succeeds while the map is still preparing it", async ({ app }) => {
+  // The map starts building a display table for the layer's CRS as soon as it is added; Save used to fail with "Cannot CHECKPOINT" when it overlapped.
+  await addTestLayer(app, "polygons", 12, [-100, 34, -99.7, 34.3]);
+  const dir = join(mkdtempSync(join(tmpdir(), "gis-e2e-save1-")), "s.gproj");
+  await gis(app, (g, d) => g.useApp.setState({ projectDir: d }), dir);
+  await gis(app, (g) => g.actions.saveProject());
+  await expect.poll(() => gis(app, (g) => g.useApp.getState().dirty)).toBe(false);
 });

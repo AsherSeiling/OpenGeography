@@ -91,6 +91,8 @@ pub struct Engine {
     layers: RwLock<HashMap<String, LayerInfo>>,
     node_layers: Mutex<HashMap<String, String>>,
     next_id: AtomicU64,
+    /// Connections in use, across pools (Save waits on it; SAVE-1).
+    gate: std::sync::Arc<db::Gate>,
     tile_cache: Mutex<LruCache<TileKey, Arc<Vec<u8>>>>,
     tools: Vec<Box<dyn Tool>>,
     graph_cache: Mutex<Cache>,
@@ -99,6 +101,8 @@ pub struct Engine {
 }
 
 const PROJECT_DB: &str = "project.duckdb";
+/// How long Save waits for work already running on the project before giving up (SAVE-1).
+const SAVE_WAIT: std::time::Duration = std::time::Duration::from_secs(120);
 const PROJECT_JSON: &str = "project.json";
 /// Newest project format this build reads. The UI's `PROJECT_VERSION` (`ui/src/store/maps.ts`) is the same number.
 const PROJECT_FORMAT: f64 = 2.0;
@@ -116,11 +120,17 @@ fn check_project_format(ui_state: &str) -> Result<()> {
     }
 }
 
+fn save_busy(wait: std::time::Duration) -> anyhow::Error {
+    anyhow!("The project couldn't be saved yet: other work on it (an import, a map being prepared or a tool still running) hasn't finished after {} seconds. Nothing was lost and the earlier saved copy is untouched. Try Save again when it is done.", wait.as_secs().max(1))
+}
+
 impl Engine {
     pub fn new() -> Result<Self> {
         resources::ensure_proj_data();
+        let gate = std::sync::Arc::new(db::Gate::default());
         let e = Self {
-            pool: RwLock::new(Pool::open(None)?),
+            pool: RwLock::new(Pool::open(None, gate.clone())?),
+            gate,
             project_dir: RwLock::new(None),
             layers: RwLock::new(HashMap::new()),
             node_layers: Mutex::new(HashMap::new()),
@@ -1462,34 +1472,110 @@ impl Engine {
 
     /// Save to a `.gproj` folder: `project.duckdb` (data) + `project.json` (UI state).
     pub fn save_project(&self, dir: &Path, ui_state: &str) -> Result<()> {
+        self.save_project_within(dir, ui_state, SAVE_WAIT)
+    }
+
+    /// [`Engine::save_project`] with a limit on how long it waits for work already running on the project (SAVE-1). Tests use a short one.
+    ///
+    /// Nothing is cancelled or dropped to make room: a checkpoint cannot run while another connection has a write open, so Save waits for those
+    /// to finish (reported as a task, cancellable). The files are replaced only once the new copy is complete, and `project.json` is written
+    /// last, so a save that fails leaves the previous saved copy as it was.
+    #[doc(hidden)]
+    pub fn save_project_within(&self, dir: &Path, ui_state: &str, wait: std::time::Duration) -> Result<()> {
         std::fs::create_dir_all(dir)?;
         let same = self.project_dir().as_deref() == Some(dir);
         if same {
             self.bring_rasters_into(dir)?;
-            let pool = self.pool.read();
-            pool.get()?.execute_batch("CHECKPOINT")?;
+            self.checkpoint_when_quiet(wait)?;
         } else {
             let db_path = dir.join(PROJECT_DB);
-            if db_path.exists() {
-                std::fs::remove_file(&db_path)?;
-            }
-            {
+            // Save As replaces the target, so let work in flight finish first: nothing of the target is touched if that takes too long.
+            self.wait_until_quiet(wait)?;
+            // Build the copy beside the project database and swap it in when it is whole: Save As onto an existing project never leaves it half-written.
+            let tmp = dir.join(format!("{PROJECT_DB}.saving"));
+            let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(dir.join(format!("{PROJECT_DB}.saving.wal")));
+            let copied: Result<()> = (|| {
                 let pool = self.pool.read();
                 let conn = pool.get()?;
                 let cur: String = conn.query_row("SELECT current_database()", [], |r| r.get(0))?;
                 conn.execute_batch(&format!(
                     "ATTACH {} AS __dst; COPY FROM DATABASE {} TO __dst; DETACH __dst;",
-                    lit(db_path.to_str().ok_or_else(|| anyhow!("Bad path"))?),
+                    lit(tmp.to_str().ok_or_else(|| anyhow!("Bad path"))?),
                     ident(&cur)
                 ))?;
+                Ok(())
+            })();
+            if let Err(e) = copied {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(e);
             }
+            let _ = std::fs::remove_file(dir.join(format!("{PROJECT_DB}.wal")));
+            std::fs::rename(&tmp, &db_path)?;
             *self.project_dir.write() = Some(dir.to_path_buf());
             self.open_db(&db_path)?;
             self.bring_rasters_into(dir)?;
-            self.pool.read().get()?.execute_batch("CHECKPOINT")?;
+            self.checkpoint_when_quiet(wait)?;
         }
-        std::fs::write(dir.join(PROJECT_JSON), ui_state)?;
+        let json = dir.join(PROJECT_JSON);
+        let json_tmp = dir.join(format!("{PROJECT_JSON}.saving"));
+        std::fs::write(&json_tmp, ui_state)?;
+        std::fs::rename(&json_tmp, &json)?;
         Ok(())
+    }
+
+    /// Wait until no connection is in use, for at most `wait` (a task shows it and can cancel it).
+    fn wait_until_quiet(&self, wait: std::time::Duration) -> Result<()> {
+        let deadline = std::time::Instant::now() + wait;
+        let mut task: Option<progress::Task> = None;
+        while self.gate.in_use() > 0 {
+            let t = task.get_or_insert_with(|| progress::Task::start("Saving project").cancellable());
+            t.check()?;
+            let now = std::time::Instant::now();
+            if now >= deadline {
+                return Err(save_busy(wait));
+            }
+            t.detail(format!("Waiting for {} other task(s) on the project to finish", self.gate.in_use()));
+            self.gate.wait_quiet((now + std::time::Duration::from_millis(500)).min(deadline));
+        }
+        Ok(())
+    }
+
+    /// CHECKPOINT the project database. DuckDB refuses while another connection has a write open ("Cannot CHECKPOINT: there are other write
+    /// transactions active"); `FORCE CHECKPOINT` would abort that work, which is the user's. So: wait until every connection in use has been
+    /// given back, then try again, for at most `wait`. Waiting is reported as a task and can be cancelled; running out of time is a plain sentence.
+    fn checkpoint_when_quiet(&self, wait: std::time::Duration) -> Result<()> {
+        let deadline = std::time::Instant::now() + wait;
+        let mut task: Option<progress::Task> = None;
+        let mut backoff = std::time::Duration::from_millis(10);
+        loop {
+            let tried = {
+                let pool = self.pool.read();
+                let conn = pool.get()?;
+                conn.execute_batch("CHECKPOINT")
+            };
+            match tried {
+                Ok(()) => return Ok(()),
+                Err(e) if e.to_string().contains("other write transactions") => {
+                    let t = task.get_or_insert_with(|| progress::Task::start("Saving project").cancellable());
+                    t.check()?;
+                    let now = std::time::Instant::now();
+                    if now >= deadline {
+                        return Err(save_busy(wait));
+                    }
+                    let n = self.gate.in_use();
+                    t.detail(if n > 0 { format!("Waiting for {n} other task{} on the project to finish", if n == 1 { "" } else { "s" }) } else { "Waiting for other work on the project to finish".to_string() });
+                    // Wake as soon as the last connection in use is given back (slices of half a second, so Cancel is honoured).
+                    let quiet = self.gate.wait_quiet((now + std::time::Duration::from_millis(500)).min(deadline));
+                    if quiet {
+                        // Nothing of ours is running; the writer is not on the pool. Back off rather than spin.
+                        std::thread::sleep(backoff);
+                        backoff = (backoff * 2).min(std::time::Duration::from_millis(250));
+                    }
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
     }
 
     /// Copy every raster layer not yet in the project into `<project>/rasters`
@@ -1542,7 +1628,7 @@ impl Engine {
     }
 
     pub fn new_project(&self) -> Result<()> {
-        *self.pool.write() = Pool::open(None)?;
+        *self.pool.write() = Pool::open(None, self.gate.clone())?;
         *self.project_dir.write() = None;
         *self.graph_cache.lock() = Cache::default();
         self.tile_cache.lock().clear();
@@ -1550,7 +1636,7 @@ impl Engine {
     }
 
     fn open_db(&self, path: &Path) -> Result<()> {
-        *self.pool.write() = Pool::open(Some(path))?;
+        *self.pool.write() = Pool::open(Some(path), self.gate.clone())?;
         *self.graph_cache.lock() = Cache::default();
         self.tile_cache.lock().clear();
         self.init_schema()
