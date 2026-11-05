@@ -1,6 +1,6 @@
 # Project status
 
-_Updated 2026-11-04. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Bugs: `docs/BUGS.md`. Test cases: `docs/TEST_PLAN.md`. Session prompts: `docs/prompts/`. The user follows the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj), which the orchestrator updates at every change._
+_Updated 2026-11-05. Read this first. Order of work: `docs/MASTER_PLAN.md`. Why things are the way they are: `docs/DECISIONS.md` (read only for the area you touch). Bugs: `docs/BUGS.md`. Test cases: `docs/TEST_PLAN.md`. Session prompts: `docs/prompts/`. The user follows the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj), which the orchestrator updates at every change._
 
 ## Where the project stands (2026-11-04)
 Phases A (code), B, D, E and H are done. C's main work is built. R is built except R7. F (planetary) is planned and is the last feature before the first release (`docs/PLANETARY_PLAN.md`). G (Python SDK) moved to after it. Phase by phase: the table at the top of `docs/MASTER_PLAN.md` §3.
@@ -8,6 +8,7 @@ Phases A (code), B, D, E and H are done. C's main work is built. R is built exce
 Before a release: finish and merge the UI redesign, fix the open bugs and test a rebuilt Mac app, build F, do the one full CI push (R7) and fix what it finds, rebuild the Mac app, run the open manual checks (Windows and Linux installers, M-31, M-32), then you push the tag.
 
 ## Exact next action
+- **Bug batch done (2026-11-05):** E2E-5, E2E-4, U-6 (not reproduced; closed as a defensive fix), TP-11, MM-4, LE-1 and new SAVE-1 (Save could fail, Save As could damage its target) are fixed on `ui-redesign` and merged into local `main`; nothing pushed. Last full e2e: 197 passed, 1 skipped. **Next:** the user rebuilds and tests the Mac app, then push with `[skip ci]` (user's decision, 2026-11-05), then server connections (`docs/SERVER_CONNECTIONS_PLAN.md`). Lead prompt: `docs/prompts/bugs-and-planetary-lead.md`.
 - **UI redesign (2026-11-03, branch `ui-redesign`, `docs/UI_REDESIGN_PLAN.md`):** every work package is built; **WP9 (verify) is merged into `ui-redesign`; nothing pushed.** WP9: the bottom panel closes under a layout (back on Back to Map), Items is the left column with Catalog under it (option B), MM-1/MM-2 fixed, Run outlined, UI-1 fixed in CSS, gallery tiles pre-select their Topo preset; a control audit (`e2e/redesign.spec.ts`: 827 controls clicked, none dead, 22 stop at a native file dialog), AA/label/focus checks and a walk-through (light, dark, 1024 px, keyboard only, layout) with screenshots; results and limits in `docs/UI_REDESIGN_VERIFY.md`. Open from WP9: MM-4 (more layer lists still read the active map's `order`), LE-1 (named text styles not saved in the project). After the merge: the default highlight is light green and only the selected tab is coloured (no outline round the tab or ribbon band); Mod+Z, Mod+Shift+Z and Mod+Y work across the app. Last full e2e 188 passed, 3 failed, 1 skipped, all three dealt with and rerun in part (`docs/UI_REDESIGN_VERIFY.md`, BUGS E2E-4); engine 540 passed. **Not checked: the packaged app, Windows, Linux, WebKit.** Next, in this order: the user decides on the push, fix the open bugs worth fixing, rebuild and test the Mac app, then build planetary (Phase F).
 - **USNG / MGRS (2026-10-30):** three tools (Add USNG / MGRS Field, USNG / MGRS to Points, USNG / MGRS Grid), USNG/MGRS columns in Export Table, USNG and MGRS buttons in the coordinate system dialog that pick the UTM zone of the view. Checked against the `mgrs` package and NGA GeoTrans. Polar (UPS) references done; MGRS Grid button on the map; USNG/MGRS column in Export Features; defaults MGRS / 1 km / WGS 84. Not built: UPS squares in the grid tool.
 - **USGS classic + military sheets (2026-10-30, `docs/TOPO_USGS_PLAN.md`, `docs/TEST_PLAN.md` TU):** Insert → Topo Map now has Sheet style (land navigation / USGS quadrangle / military installation) and Symbol look (classic / modern), presets "USGS quadrangle 1:24,000" and "Military installation map 1:50,000 (A2)", A2/A1 paper, and step 4 "Apply topographic symbols" (by layer name and geometry; lists what it skipped). New underneath: stroke stacks (casings, rail ties; map + layouts + legends), a symbol catalogue of ≈ 90 symbols from the USGS "Topographic Map Symbols" sheet plus the military overlay (engine `topo_symbols.rs`, picker in Properties › Symbology › Topographic symbol), patterns (marsh, orchard, vineyard, scrub, sand, gravel), markers, legend entries by symbol id, legend `auto: false`. Sheets: title block, 3 scale bars, contour/datum notes, declination, road-classification key, adjoining quads (USGS); military legend, viewpoint and facilities boxes, mils declination, grid-reference box. Pixel tests and two rendered showcase pages checked by eye. Not built: purple revisions, USGS lettering/label placement, facilities table from data, GeoPDF. Not yet checked in the packaged app.
@@ -26,19 +27,16 @@ Before a release: finish and merge the UI redesign, fix the open bugs and test a
 - CI history: `docs/CI_LOG.md`. CI logs need a GitHub login: read failures from the run annotations.
 - The packaged Mac app and DMG are copied into the project folder (`GIS Studio.app`, `GIS-Studio-<version>-macos-arm64.dmg`).
 
-## Build and test status (macOS arm64, 2026-11-04)
+## Build and test status (macOS arm64, 2026-11-05)
 | Check | Result |
 |---|---|
-| Full browser e2e on `ui-redesign` (with WP12 and WP13 merged) | 168 passed, 1 skipped on purpose |
-| `npx tsc`, `npx vitest run` | pass; 598 vitest tests in the merged run |
-| `cargo test -p engine` | pass; 540 passed, 28 ignored in the merged run |
+| Full browser e2e on `ui-redesign` and `main` at the bug batch (2026-11-05) | 197 passed, 1 skipped on purpose |
+| `npx tsc`, `npx vitest run` | pass; 616 vitest tests in the merged run |
+| `cargo test -p engine` | pass; 548 passed, 28 ignored in the merged run |
 | Packaged Mac app | Doesn't include the UI redesign yet; rebuild after WP9 |
 | GitHub CI | Skipped until the end by your rule; the Phase C Windows/macOS failure is still to fix (R7) |
 
-e2e M-4 fails on the WP9 branch because of CRS-1 (`docs/BUGS.md`).
-
 ## Known gaps (layouts)
-- Named text styles aren't saved in the project (LE-1).
 - LW7, LW8 and LW10–LW12 in `docs/LAYOUT_REWORK_PLAN.md` have no sessions of their own.
 
 ## Known issues
@@ -49,11 +47,10 @@ e2e M-4 fails on the WP9 branch because of CRS-1 (`docs/BUGS.md`).
 - **macOS CI crash:** one intermittent SIGSEGV in layout tests (run 40055424934, conda GDAL, parallel tests). It hasn't happened again. M4's P17 stress test is the gate.
 
 ## Next tasks (in order; user, 2026-11-04)
-1. Finish WP9, merge it, then merge `ui-redesign` into `main`.
-2. Fix the open bugs worth fixing (`docs/BUGS.md`).
-3. Rebuild the Mac app and test it directly: it doesn't include the UI redesign yet.
-4. Build server connections: REST and WMS (`docs/SERVER_CONNECTIONS_PLAN.md`).
-5. Build Phase F, planetary (`docs/PLANETARY_PLAN.md` §10), once you've answered its §12. Craterstats is bundled, with model ages in the first release (user, 2026-11-04).
-6. R7: one full CI push on all three platforms, and fix what it finds.
-7. Rebuild the Mac app again and run the open manual checks: Windows and Linux installers (A3), keychain (M-31), hydrology (M-32).
-8. You push the `v0.1.0` tag.
+1. Done: `ui-redesign` merged into local `main`; open bugs fixed (2026-11-05).
+2. Rebuild the Mac app and test it directly: it doesn't include the UI redesign yet. Then push with `[skip ci]`.
+3. Build server connections: REST and WMS (`docs/SERVER_CONNECTIONS_PLAN.md`).
+4. Build Phase F, planetary (`docs/PLANETARY_PLAN.md` §10), once you've answered its §12. Craterstats is bundled, with model ages in the first release (user, 2026-11-04).
+5. R7: one full CI push on all three platforms, and fix what it finds.
+6. Rebuild the Mac app again and run the open manual checks: Windows and Linux installers (A3), keychain (M-31), hydrology (M-32).
+7. You push the `v0.1.0` tag.

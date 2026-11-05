@@ -6,7 +6,7 @@ Known performance and platform issues that are not bugs in the code live in `PRO
 
 ## Open bugs
 
-Updated 2026-11-04, after the WP9 merge.
+Updated 2026-11-05, after the bug batch.
 
 | ID | Sev. | Summary | Next step |
 |---|---|---|---|
