@@ -122,3 +122,66 @@ fn usng_export_of_a_generated_test_layer_writes_every_row() {
     let text = std::fs::read_to_string(&out).unwrap();
     assert_eq!(text.lines().count(), 13, "{text}");
 }
+
+fn write_multipoints(path: &Path) {
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    // Two features: one MultiPoint of three points, one of a single point (as National Map place names are stored).
+    c.execute_batch(&format!(
+        "COPY (SELECT * FROM (VALUES (1, 'a', ST_GeomFromText('MULTIPOINT((500000 4400000),(500100 4400200),(500300 4400300))')), (2, 'b', ST_GeomFromText('MULTIPOINT((500400 4400400))'))) t(id, x, geom)) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', SRS 'EPSG:26915', USE_TMP_FILE false)",
+        path.display()
+    ))
+    .unwrap();
+}
+
+// UR-1: a layer called "Point" that stores MULTIPOINT used to fail with "ST_X only supports POINT geometries".
+#[test]
+fn multipoint_layer_writes_one_row_per_point_and_says_how_many_were_added() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("mp.gpkg");
+    write_multipoints(&src);
+    let e = Engine::new().unwrap();
+    let l = e.import(&src).unwrap().remove(0);
+    assert_eq!(l.geom_type, "Point");
+
+    let out = dir.path().join("mp.csv");
+    let r = e.export_table(&l.id, &spec(&out, "csv", "EPSG:26915")).unwrap();
+    assert_eq!((r.rows, r.extra_rows), (4, 2));
+    let text = std::fs::read_to_string(&out).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 5, "{text}");
+    // Each point keeps its feature's attributes.
+    assert!(lines[1].starts_with("1,1,a,500000"), "{}", lines[1]);
+    assert!(lines[2].starts_with("1,1,a,500100"), "{}", lines[2]);
+    assert!(lines[3].starts_with("1,1,a,500300"), "{}", lines[3]);
+    assert!(lines[4].starts_with("2,2,b,500400"), "{}", lines[4]);
+    let side = std::fs::read_to_string(&r.sidecar).unwrap();
+    assert!(side.contains("2 extra rows") && side.contains("MultiPoint"), "{side}");
+
+    // The grid reference column works on the same layer, one per point.
+    let out2 = dir.path().join("mp_usng.csv");
+    let mut s = spec(&out2, "csv", "");
+    s.grid_ref = Some(GridRefSpec { style: "usng".into(), precision: 5, datum: "auto".into() });
+    let r = e.export_table(&l.id, &s).unwrap();
+    assert_eq!((r.rows, r.extra_rows), (4, 2));
+    let text = std::fs::read_to_string(&out2).unwrap();
+    assert!(text.lines().nth(3).unwrap().ends_with(",15S WE 00300 00300"), "{text}");
+
+    // Only the selected feature: its three points.
+    let mut s = spec(&dir.path().join("sel.csv"), "csv", "EPSG:26915");
+    s.fids = Some(vec![1]);
+    let r = e.export_table(&l.id, &s).unwrap();
+    assert_eq!((r.rows, r.extra_rows), (3, 2));
+}
+
+// A plain Point layer reports no extra rows.
+#[test]
+fn a_single_point_layer_has_no_extra_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("p.gpkg");
+    write_utm(&src);
+    let e = Engine::new().unwrap();
+    let l = e.import(&src).unwrap().remove(0);
+    let r = e.export_table(&l.id, &spec(&dir.path().join("o.csv"), "csv", "EPSG:4326")).unwrap();
+    assert_eq!(r.extra_rows, 0);
+}

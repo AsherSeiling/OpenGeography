@@ -44,6 +44,8 @@ pub struct TableExportResult {
     pub path: String,
     pub sidecar: String,
     pub rows: i64,
+    /// Rows beyond one per feature: a MultiPoint feature is written as one row per point (0 for plain points).
+    pub extra_rows: i64,
     pub x_column: String,
     pub y_column: String,
     pub crs_name: String,
@@ -117,14 +119,20 @@ impl Engine {
             None => String::new(),
         };
         // The grid reference is added to the whole table first (it needs the geometry), then the columns are picked.
+        // A "Point" layer may store MULTIPOINT features (National Map place names do), and ST_X takes only a single POINT. Each
+        // feature is split into one row per point, keeping its attributes; empty or missing geometries stay as one row.
+        let points = format!(
+            "(SELECT * EXCLUDE (geom, __geoms), __pt AS geom FROM (SELECT *, UNNEST(__geoms) AS __pt, UNNEST(range(1, len(__geoms) + 1)) AS __sub FROM (SELECT *, CASE WHEN geom IS NULL OR ST_IsEmpty(geom) THEN [geom] ELSE list_transform(ST_Dump(geom), __d -> __d.geom) END AS __geoms FROM {}))) ",
+            ident(&info.table)
+        );
         let (source, skipped) = match &spec.grid_ref {
             Some(g) => {
                 let style = crate::usng::Style::parse(&g.style)?;
                 let datum = crate::usng::Datum::parse(&g.datum)?;
-                let (sql, skipped) = self.with_conn(|c| crate::usng::add_field_sql(Some(c), &info.table, &from, "t.geom", grid_col.as_deref().unwrap_or("USNG"), g.precision, style, datum, None))?;
+                let (sql, skipped) = self.with_conn(|c| crate::usng::add_field_sql(Some(c), points.trim_end(), &from, "t.geom", grid_col.as_deref().unwrap_or("USNG"), g.precision, style, datum, None))?;
                 (format!("({sql})"), skipped)
             }
-            None => (ident(&info.table), 0),
+            None => (points.trim_end().to_string(), 0),
         };
         let transformed = if target.is_some() {
             format!("*, ST_Transform(geom, {}, {}, true) AS g", lit(&crs::resolve(&from)), lit(&crs::resolve(&spec.crs)))
@@ -141,7 +149,7 @@ impl Engine {
         if let Some(c) = &grid_col {
             cols.push(ident(c));
         }
-        let query = format!("SELECT {} FROM (SELECT {transformed} FROM {source} WHERE TRUE{}{only} ORDER BY __fid)", cols.join(", "), info.def_and());
+        let query = format!("SELECT {} FROM (SELECT {transformed} FROM {source} WHERE TRUE{}{only} ORDER BY __fid, __sub)", cols.join(", "), info.def_and());
         let task = Task::start(format!("Export table: {}", info.name)).cancellable();
         task.check()?;
         let copy = match format.as_str() {
@@ -151,6 +159,8 @@ impl Engine {
         self.with_conn(|c| Ok(c.execute_batch(&copy)?))?;
         task.set(0.9, Some("Writing the coordinate system note"));
         let rows = self.with_conn(|c| Ok(c.query_row(&format!("SELECT count(*) FROM ({query})"), [], |r| r.get::<_, i64>(0))?))?;
+        let features: i64 = self.with_conn(|c| Ok(c.query_row(&format!("SELECT count(*) FROM {} WHERE TRUE{}{only}", ident(&info.table), info.def_and()), [], |r| r.get(0))?))?;
+        let extra_rows = (rows - features).max(0);
         let file = Path::new(&spec.path).file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
         let mut note = String::new();
         let (crs_name, unit) = match &target {
@@ -193,8 +203,11 @@ impl Engine {
                 },
             ));
         }
+        if extra_rows > 0 {
+            note.push_str(&format!("\n{extra_rows} extra rows: some features are MultiPoint, so each point is written as its own row with the feature's attributes repeated (fid identifies the feature).\n"));
+        }
         let side = sidecar_path(&path);
         std::fs::write(&side, note)?;
-        Ok(TableExportResult { path: spec.path.clone(), sidecar: side.to_string_lossy().into_owned(), rows, x_column: if target.is_some() { xc } else { String::new() }, y_column: if target.is_some() { yc } else { String::new() }, crs_name, unit, grid_column: grid_col })
+        Ok(TableExportResult { path: spec.path.clone(), sidecar: side.to_string_lossy().into_owned(), rows, extra_rows, x_column: if target.is_some() { xc } else { String::new() }, y_column: if target.is_some() { yc } else { String::new() }, crs_name, unit, grid_column: grid_col })
     }
 }

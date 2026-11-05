@@ -860,6 +860,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | ET-3 | Selected features only (empty selection = 0 rows); definition query honoured; rows in feature order | as stated | auto: same test (selection); definition query to add |
 | ET-4 | Parquet written; refusals: output = a layer's source file, no CRS chosen, unknown CRS, non-point layer, layer without CRS → readable sentence | as stated | auto: export_table::parquet_and_refusals (non-point and no-CRS cases to add) |
 | ET-5 | UI: Export is disabled until a CRS is chosen (none assumed); file written with the right header | | auto: e2e/export-table.spec.ts |
+| ET-7 | A Point layer holding MultiPoint features: one row per point with the feature's attributes, `extraRows` and the sidecar say how many were added, USNG column and selection work; plain points report 0 | as stated | auto: export_table::multipoint_layer_writes_one_row_per_point_and_says_how_many_were_added, a_single_point_layer_has_no_extra_rows |
 | ET-6 | XLSX output | not built (needs a writer dependency; CSV opens in Excel) | decision D-ET |
 
 ## MS. Selecting several layers
