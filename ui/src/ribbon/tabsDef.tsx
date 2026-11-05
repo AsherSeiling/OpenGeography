@@ -50,6 +50,7 @@ export const TABS: Record<string, Group[]> = {
   // Elements are inserted from the rail beside the page (RAIL below); Map Frame appears only while a frame is selected.
   Page: [
     { label: "Sheet", items: [{ custom: <PageMenu /> }] },
+    { label: "Guides", items: [{ cmd: "layoutGuideV", size: "small" }, { cmd: "layoutGuideH", size: "small" }, { cmd: "layoutGuidesClear", size: "small" }] },
     { label: "Look", items: [{ custom: <ThemeMenu /> }] },
     { label: "Template", items: [{ custom: <TemplateGroup /> }] },
     { label: "Map Series", items: [{ custom: <SeriesGroup /> }] },

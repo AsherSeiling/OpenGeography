@@ -245,3 +245,31 @@ test("CG9 a theme restyles the page and recolours single-symbol layers", async (
   await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "scale_bar" || e.kind === "text").color)) as string).toBe("#333333");
   expect(((await gis(app, (g, x: any) => g.useApp.getState().styles[x.id], { id: a.id })) as any).fill).toBe("#123456");
 });
+
+test("UR-6 guides can be added from the Page tab of the ribbon, and cleared", async ({ app }) => {
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  const guides = () => gis(app, (g) => g.useLayouts.getState().doc.guides ?? []) as Promise<{ axis: string; pos: number }[]>;
+  expect(await guides()).toEqual([]);
+
+  await ribbon(app, "Page", /^Vertical Guide$/);
+  await ribbon(app, "Page", /^Horizontal Guide$/);
+  await ribbon(app, "Page", /^Vertical Guide$/); // a second one does not sit on the first
+  expect(await guides()).toEqual([{ axis: "x", pos: 140 }, { axis: "y", pos: 108 }, { axis: "x", pos: 150 }]);
+  await expect(app.locator('[data-guide="x:140"]')).toBeVisible();
+  await expect(app.locator('[data-guide="y:108"]')).toBeVisible();
+  await expect(app.locator('[data-guide="x:150"]')).toBeVisible();
+  // The same guides are in the page's Properties, so there is one list.
+  await app.locator(".layout-page").click({ position: { x: 5, y: 5 } });
+  const input = app.getByLabel("Guide 3 position (mm)");
+  if (!(await input.isVisible())) await app.locator(".sections-head, .section-head, button, [role=button]", { hasText: /^Guides$/ }).first().click();
+  await expect(input).toHaveValue("150");
+
+  await ribbon(app, "Page", /^Clear Guides$/);
+  expect(await guides()).toEqual([]);
+  await expect(app.locator(".layout-guide")).toHaveCount(0);
+  await gis(app, (g) => g.useLayouts.getState().undo()); // one undo step brings them all back (the shortcut is off while the start gallery is open)
+  await expect.poll(async () => (await guides()).length).toBe(3);
+});

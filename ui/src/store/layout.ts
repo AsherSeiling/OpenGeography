@@ -469,6 +469,25 @@ export function addPicture(source = ""): string | null {
   return el.id;
 }
 
+/** Where a new guide goes: the middle of the page, moved along by 10 mm while a guide of the same direction is already there. */
+export function nextGuidePos(guides: Guide[], axis: "x" | "y", page: Page): number {
+  let pos = Math.round((axis === "x" ? page.width : page.height) / 2);
+  while (guides.some((g) => g.axis === axis && g.pos === pos)) pos += 10;
+  return pos;
+}
+
+/** Add a vertical (`x`) or horizontal (`y`) guide from the ribbon or the Guides section; the one place that does it. One undo step. */
+export function addGuide(axis: "x" | "y", pos?: number): void {
+  const d = useLayouts.getState().doc;
+  if (!d) return;
+  const guides = d.guides ?? [];
+  useLayouts.getState().setMeta({ guides: [...guides, { axis, pos: pos ?? nextGuidePos(guides, axis, d.page) }] });
+}
+
+export function clearGuides(): void {
+  if (useLayouts.getState().doc?.guides?.length) useLayouts.getState().setMeta({ guides: [] });
+}
+
 export function addText(text = "{layout_name}"): string | null {
   const s = useLayouts.getState();
   if (!s.doc) return null;

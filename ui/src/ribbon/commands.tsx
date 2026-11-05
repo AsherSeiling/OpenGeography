@@ -7,6 +7,8 @@ import { PUBLIC_DATA } from "../panes/CatalogPane";
 import { toggleAppearance, useAppearance } from "../theme/appearance";
 import { addToolFromUi, focusPublicData } from "./addTool";
 import {
+  AlignCenterHorizontalRegular,
+  AlignCenterVerticalRegular,
   BorderAllRegular,
   AddCircleRegular,
   MyLocationRegular,
@@ -106,7 +108,7 @@ import { duplicateMap, newMap } from "../maps/mapActions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
 import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
-import { addChart, addShape, addTable, addText, useLayouts } from "../store/layout";
+import { addChart, addGuide, addShape, addTable, addText, clearGuides, useLayouts } from "../store/layout";
 import { toggleLockSelected } from "../layout/clipboard";
 import { useLayoutView } from "../layout/view";
 import { defaultLayout, isPaneOpen, showPane, togglePane, type PaneId } from "../panes/panes";
@@ -207,6 +209,9 @@ const list: Command[] = [
   { id: "topoMap", label: "Topo Map", icon: <MountainTrailRegular />, run: () => useDialog.getState().show({ kind: "topoMap" }), tip: "Build a land-navigation topographic sheet: UTM and MGRS grid, declination diagram, scale bars, grid-reference box and legend, for an area, scale and paper you choose" },
 
   // Layout contextual tab (shown while a layout tab is active)
+  { id: "layoutGuideV", label: "Vertical Guide", icon: <AlignCenterVerticalRegular />, run: () => addGuide("x"), enabled: inLayout, tip: "Add a vertical guide in the middle of the page. Elements snap to guides; type its position in Properties › Guides. You can also drag from a ruler" },
+  { id: "layoutGuideH", label: "Horizontal Guide", icon: <AlignCenterHorizontalRegular />, run: () => addGuide("y"), enabled: inLayout, tip: "Add a horizontal guide in the middle of the page. Elements snap to guides; you can also drag from a ruler" },
+  { id: "layoutGuidesClear", label: "Clear Guides", icon: <DeleteRegular />, run: clearGuides, enabled: () => !!useLayouts.getState().doc?.guides?.length, tip: "Remove every guide from this layout (one undo step)" },
   { id: "layoutMapFrame", label: "Map Frame", icon: <MapRegular />, run: insertMapFrame, enabled: inLayout, tip: "Insert a map frame in the map's coordinate system, centred on the map view" },
   { id: "layoutOverview", label: "Overview Map", icon: <Map16Regular />, run: insertOverview, enabled: hasFrame, tip: "Insert a small overview map of the selected frame with its extent outlined" },
   { id: "layoutText", label: "Text", icon: <TextTRegular />, run: () => void addText(), enabled: inLayout, tip: "Insert a text box ({layout_name}, {scale}, {date} … are replaced when drawn)" },

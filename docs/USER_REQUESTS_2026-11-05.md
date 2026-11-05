@@ -18,8 +18,8 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 | UR-2 **done** (`5ce9146`) | Rename the node editor to "Processing nodes" | "Node Editor" in `ui/src/App.tsx:50`, `panes.ts`, `ShortcutsDialog.tsx` | Rename user-facing text. Note: the user's spelling was "Proccesing"; this assumes a typo. Check e2e selectors. |
 | UR-3 **done** (`8773a2d`) | Sources pane closed by default | Default layout adds it, `ui/src/panes/panes.ts:129` | Leave it out of the default layout, keep it in the view menu. |
 | UR-4 **done** (`438545b`) | Maps in a layout don't start with an outline frame | Frame is a per-element setting (`frameWidth`, 0 = none) | Find what a new map frame gets, and default it to none. Old layouts keep their frames. |
-| UR-5 **done** (commit: `git log --grep UR-5`) | Layout of any size | Allowed 20–5000 mm, `ui/src/dialogs/PageSetupDialog.tsx:12` | Widen the limits as far as export really works, and say what limits remain. Test a very large page's export. |
-| UR-6 | Guides in layouts | **Already exists**: drag from a ruler, or Page Setup. The user didn't find it | Add a visible ribbon control, so it can be found. |
+| UR-5 **done** (`7c6423e`) | Layout of any size | Allowed 20–5000 mm, `ui/src/dialogs/PageSetupDialog.tsx:12` | Widen the limits as far as export really works, and say what limits remain. Test a very large page's export. |
+| UR-6 **done** (commit: `git log --grep UR-6`) | Guides in layouts | **Already exists**: drag from a ruler, or Page Setup. The user didn't find it | Add a visible ribbon control, so it can be found. |
 | UR-7 | Zoom toward the cursor for everything in a layout | Ctrl/⌘+wheel zooms the page, plain wheel scrolls (`LayoutView.tsx:113`) | Anchor zoom at the cursor. Decide with the user whether plain wheel should zoom. |
 
 ### Batch B: map and data working
