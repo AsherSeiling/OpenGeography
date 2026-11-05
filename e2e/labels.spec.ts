@@ -116,3 +116,30 @@ test("L3 adjusting labels in the layout: select, drag, edit text, hide, reset, u
   expect(await overrides()).toBeNull();
   await expect(app.locator(`.layout-label:not(.hidden)[data-label="${key}"]`)).toBeVisible({ timeout: 30_000 });
 });
+
+test("L3b a label drag is kept when the preview redraws in the middle of it (E2E-5)", async ({ app }) => {
+  const layer = await addTestLayer(app, "polygons", 12, [-100, 34, -99.7, 34.3]);
+  await gis(app, (g) => g.useApp.getState().setMapCrs({ id: "EPSG:26914", name: "NAD83 / UTM zone 14N" }));
+  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
+  await labelsOn(app, layer.id, "value");
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await app.locator(".rbtn", { hasText: /^Map Frame$/ }).first().click();
+  const frameUpdate = (patch: any) => gis(app, (g, p: any) => { const f = g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame"); g.useLayouts.getState().update(f.id, p); }, patch);
+  await frameUpdate({ center: [420000, 3779000], scale: 150000, basemap: "none" });
+  const box = app.locator(".layout-label:not(.hidden)").first();
+  await expect(box).toBeVisible({ timeout: 30_000 });
+  // Wait for the redraw the frame update caused to finish, so the only redraw is the one below.
+  await expect(app.locator(".layout-label").first()).toBeVisible({ timeout: 30_000 });
+  const key = (await box.getAttribute("data-label"))!;
+  const fid = key.split(":")[1];
+  const b = (await box.boundingBox())!;
+  await app.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await app.mouse.down();
+  await frameUpdate({ scale: 149000 }); // the preview redraws (and the label boxes are replaced) while the button is down
+  await expect(app.locator(".layout-label")).toHaveCount(0); // the redraw has started: the box under the pointer is gone
+  await app.mouse.move(b.x + b.width / 2 + 60, b.y + b.height / 2 + 30, { steps: 5 });
+  await app.mouse.up();
+  await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "map_frame").labelOverrides ?? null) as any)?.[layer.id]?.features?.[fid]?.dxMm).toBeGreaterThan(0);
+});

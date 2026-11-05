@@ -242,18 +242,24 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     const x0 = e.clientX;
     const y0 = e.clientY;
     const box = e.currentTarget as HTMLElement;
-    box.setPointerCapture(e.pointerId);
+    // Listen on the window, not the box: the boxes are removed while the preview redraws (any layout change, even one that
+    // starts mid-drag), and a drag whose box vanished would otherwise be lost (E2E-5).
     const move = (m: PointerEvent) => (box.style.transform = `translate(${m.clientX - x0}px, ${m.clientY - y0}px)`);
-    const up = (m: PointerEvent) => {
-      box.removeEventListener("pointermove", move);
-      box.removeEventListener("pointerup", up);
+    const done = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", done);
       box.style.transform = "";
+    };
+    const up = (m: PointerEvent) => {
+      done();
       const frame = store().doc?.elements.find((el) => el.id === l.frame && el.kind === "map_frame") as MapFrame | undefined;
       const edit = frame && dragged(frame.labelOverrides?.[l.layer]?.features?.[String(l.fid)], (m.clientX - x0) / z, (m.clientY - y0) / z);
       if (frame && edit) store().update(frame.id, { labelOverrides: withFeatureEdit(frame.labelOverrides, l.layer, l.fid, edit) });
     };
-    box.addEventListener("pointermove", move);
-    box.addEventListener("pointerup", up);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", done);
   };
 
   const openContext = (e: React.MouseEvent, target: "page" | "element" | "frame") => {
