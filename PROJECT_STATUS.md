@@ -42,7 +42,7 @@ e2e M-4 fails on the WP9 branch because of CRS-1 (`docs/BUGS.md`).
 - LW7, LW8 and LW10–LW12 in `docs/LAYOUT_REWORK_PLAN.md` have no sessions of their own.
 
 ## Known issues
-- **e2e suite:** `e2e/*.spec.ts` (Playwright, devDependency). `scripts/run-test-plan.sh --e2e` runs it; run it alone with `scripts/e2e.sh <out-dir>`. Needs Google Chrome, `/Applications/Chromium.app`, `E2E_BROWSER_PATH`, or `npx playwright install chromium`. The devserver address and vite port come from `GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER` (defaults unchanged).
+- **e2e suite:** `e2e/*.spec.ts` (Playwright, devDependency). `scripts/run-test-plan.sh --e2e` runs it; run it alone with `scripts/e2e.sh <out-dir>`. `scripts/e2e.sh <out-dir> --quick` leaves out the control audit (about 8 min instead of 46; the audit is 38 min of it); run the full suite before a merge into `main`, an app rebuild or a push. Needs Google Chrome, `/Applications/Chromium.app`, `E2E_BROWSER_PATH`, or `npx playwright install chromium`. The devserver address and vite port come from `GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER` (defaults unchanged).
 - **Bugs:** see the Open bugs section of `docs/BUGS.md`.
 - **Cancel granularity:** cancel lands between DuckDB work units. Big geodesic Buffer and Dissolve now stop in ~0.1 s (`nodes/batching.rs`); other single-call work may still lag. gdaldem steps ignore GDAL's progress callback.
 - **Intermittent local failure:** on 2026-10-28 `cargo test -p engine` reported the `layout` test target failed once in a full parallel run (output not captured); it passed on the next two runs. Capture the output if it recurs (it may be the crash below).

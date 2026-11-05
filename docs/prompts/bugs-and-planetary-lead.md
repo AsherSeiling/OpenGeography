@@ -13,7 +13,7 @@ The user's instruction: keep as many tasks as possible in the same sessions, and
 - **Opus only for** deciding, reviewing risky code, and hard debugging. Sonnet writes code. If a debugging job needs Opus, start one Opus session and reuse it the same way.
 - **Do the work inline** when it's a few tool calls. Don't spawn a session or subagent for a small read or edit.
 - **Tell workers:** run `tsc`, vitest and only the e2e specs you touched. Don't end your turn to wait for a test. Run long tests in the foreground with a timeout. Use your own ports (`GIS_DEVSERVER_ADDR`, `GIS_VITE_PORT`, `VITE_GIS_DEVSERVER`) and kill only your own processes, by PID.
-- **You:** one full `scripts/e2e.sh` and one real-app review per merge batch. Read closely only what can damage data or correctness: CRS, geodesics, the project format and old-project migration, licences. Grep the rest.
+- **You:** `scripts/e2e.sh <out> --quick` (about 8 min, no control audit) after a merge into `ui-redesign` or the working branch when you need a wider check than the worker ran. One full `scripts/e2e.sh` (about 46 min) at the end of each batch and before any merge into `main`, app rebuild or push, plus one real-app review per merge batch. Read closely only what can damage data or correctness: CRS, geodesics, the project format and old-project migration, licences. Grep the rest.
 - **Don't poll.** You're woken when a session finishes. Check a worker's report against its diff before telling the user it's done.
 - The app only starts sessions from the user's own message. When you need a new session, ask for one message, and batch what you need into it.
 

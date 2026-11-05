@@ -2,6 +2,8 @@
 # Browser end-to-end suite (docs/TEST_PLAN.md §14 cases a browser can do).
 #
 #   scripts/e2e.sh <out-dir>        writes <out-dir>/e2e.md; exit 1 if any test fails
+#   scripts/e2e.sh <out-dir> --quick  everything except the control audit: about 8 min instead of 46.
+#                                   Use it between merges. Run the full suite before a merge into main, an app rebuild or a push.
 #
 # Builds the release devserver, starts it and vite on free ports, runs Playwright
 # headless against them, and always stops both servers.
@@ -12,6 +14,9 @@ export PATH=/opt/homebrew/opt/rustup/bin:/opt/homebrew/bin:$PATH
 OUT="${1:?usage: scripts/e2e.sh <out-dir>}"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
+shift
+QUICK=0
+if [ "${1:-}" = "--quick" ]; then QUICK=1; shift; set -- --grep-invert "audit: " "$@"; fi
 
 free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])'; }
 API_PORT=$(free_port); VITE_PORT=$(free_port)
@@ -30,8 +35,9 @@ wait_for "http://localhost:$VITE_PORT/" && wait_api || {
   echo "servers did not start"; printf '# Browser end-to-end\n\nFAILED: servers did not start, see e2e-*.log\n' > "$OUT/e2e.md"; exit 1; }
 
 export E2E_VITE_PORT=$VITE_PORT E2E_API_PORT=$API_PORT E2E_JSON="$OUT/e2e.json" E2E_ARTIFACTS="$OUT/e2e-artifacts"
-npx playwright test "${@:2}" > "$OUT/e2e.log" 2>&1
+npx playwright test "$@" > "$OUT/e2e.log" 2>&1
 RC=$?
 tail -25 "$OUT/e2e.log"
 python3 scripts/e2e_report.py "$OUT/e2e.json" > "$OUT/e2e.md"
+[ "$QUICK" = 1 ] && printf '\nQuick run: the control audit (redesign.spec.ts "audit: ...") was not run.\n' >> "$OUT/e2e.md"
 exit $RC
