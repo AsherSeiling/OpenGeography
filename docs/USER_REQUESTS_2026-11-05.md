@@ -26,7 +26,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 
 | ID | Request | Today | Work |
 |---|---|---|---|
-| UR-8 | Clip raster by a layer's shape | Only "Clip Raster by Extent" (`nodes/raster_tools.rs:133`, `raster::clip_to_extent`) | New tool or mode: GDAL warp cutline. Handle CRS mismatch explicitly, keep no-data outside. |
+| UR-8 **done** (commit: `git log --grep UR-8`) | Clip raster by a layer's shape | Only "Clip Raster by Extent" (`nodes/raster_tools.rs:133`, `raster::clip_to_extent`) | New tool or mode: GDAL warp cutline. Handle CRS mismatch explicitly, keep no-data outside. |
 | UR-9 | Keep working during public data downloads | Needs checking: `busy()` in `actions.ts` isn't itself modal; find what blocks | Downloads run in the background with progress and cancel. Guard against saving, or closing the project, mid-download. |
 | UR-10 | Layers from the data importer in the project catalog | Catalog lists files, maps and layouts (`ui/src/panes/CatalogPane.tsx`) | Add a section listing project layers, including imported ones. |
 | UR-11 | CRS list sorted: projected or geographic, then location, then for example state, then datum | Flat search list (`searchCatalog`, `ui/src/crs/crs.ts:36`); `crs-list.json` has projected flag and area text only | Tree view. Location and state come from EPSG area-of-use text, so needs parsing with a test on all entries, and an "Other" group for what doesn't parse. Datum is in the name, or from PROJ. Search stays. Don't change any CRS definition. |

@@ -563,6 +563,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(raster_tools::Hillshade),
         Box::new(raster_tools::Slope),
         Box::new(raster_tools::ClipRaster),
+        Box::new(raster_tools::ClipRasterByLayer),
         Box::new(qgis_raster::Aspect),
         Box::new(qgis_raster::Ruggedness),
         Box::new(qgis_raster::Warp),

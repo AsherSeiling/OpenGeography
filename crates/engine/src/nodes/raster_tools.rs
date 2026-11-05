@@ -119,6 +119,55 @@ impl Tool for Slope {
     }
 }
 
+/// Cut a raster to the shapes of a polygon layer (cells outside become no-data).
+/// Equivalent of QGIS "Clip raster by mask layer" (gdal:cliprasterbymasklayer), which runs `gdalwarp -cutline`.
+/// https://docs.qgis.org/latest/en/docs/user_manual/processing_algs/gdal/rasterextraction.html#clip-raster-by-mask-layer
+/// "Selected features only" is chosen where the layer enters the graph (Layer Input's selection), as for every tool.
+pub struct ClipRasterByLayer;
+
+impl Tool for ClipRasterByLayer {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            id: "clip_raster_by_layer",
+            name: "Clip Raster by Layer",
+            category: "Raster › Management",
+            role: Role::Tool,
+            description: "Keep only the cells inside the polygons of a layer; cells outside become no-data. The shapes are moved into the raster's coordinate system first. Cell values and the cell grid are not changed.",
+            inputs: vec![
+                Port { id: "in", label: "Raster", kind: PortKind::Raster },
+                Port { id: "mask", label: "Shapes (polygons)", kind: PortKind::Vector },
+            ],
+            output: Some(PortKind::Raster),
+            params: vec![Param::new("crop", "Crop to the shapes' extent", ParamKind::Bool).default(true)],
+        }
+    }
+
+    fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
+        let (r, m) = (&inputs["in"], &inputs["mask"]);
+        let from = m.crs.as_deref().ok_or_else(|| anyhow!("The shapes layer has no coordinate system, so it can't be placed on the raster. Use Define Projection on it first."))?;
+        let to = need_raster_crs(r)?;
+        if ctx.dimension(m)? != 2 {
+            bail!("Clip Raster by Layer needs polygons. Use Buffer to turn points or lines into areas first.");
+        }
+        let (src, dst) = (lit(&crate::crs::resolve(from)), lit(&crate::crs::resolve(to)));
+        let moved = format!("SELECT ST_Transform(geom, {src}, {dst}, true) AS geom FROM {} WHERE geom IS NOT NULL AND NOT ST_IsEmpty(geom)", ident(&m.table));
+        let (n, x0, y0, x1, y1): (i64, Option<f64>, Option<f64>, Option<f64>, Option<f64>) =
+            ctx.conn.query_row(&format!("SELECT count(*), min(ST_XMin(geom)), min(ST_YMin(geom)), max(ST_XMax(geom)), max(ST_YMax(geom)) FROM ({moved})"), [], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))?;
+        let bbox = match (n, x0, y0, x1, y1) {
+            (n, Some(a), Some(b), Some(c), Some(d)) if n > 0 => [a, b, c, d],
+            _ => bail!("The shapes layer has no features with a shape, so there is nothing to keep."),
+        };
+        let file = crate::raster::new_store_path("cutline", "gpkg");
+        ctx.conn.execute_batch(&format!("COPY ({moved}) TO {} (FORMAT GDAL, DRIVER 'GPKG', SRS {}, USE_TMP_FILE false)", lit(&file.display().to_string()), lit(&crate::crs::resolve(to))))?;
+        let out = raster::clip_to_cutline(Path::new(need_raster(r)?), &file, bbox, p.0.get("crop").and_then(|v| v.as_bool()).unwrap_or(true));
+        let _ = std::fs::remove_file(&file);
+        Ok(Output::Raster { path: out?.display().to_string(), crs: r.crs.clone() })
+    }
+}
+
 /// Crop a raster to the extent of features.
 /// Equivalent of QGIS "Clip raster by extent" (gdal:cliprasterbyextent).
 /// https://docs.qgis.org/latest/en/docs/user_manual/processing_algs/gdal/rasterextraction.html#clip-raster-by-extent

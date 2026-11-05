@@ -359,3 +359,118 @@ fn lw9_topo_data_step_makes_contours_with_index_lines_and_a_hillshade_from_one_d
     assert!(err.contains("not an elevation raster"), "{err}");
     assert!(e.topo_prepare_data(&id, 0.0, 5, "x", "metric").unwrap_err().to_string().contains("greater than zero"));
 }
+
+// UR-8: Clip Raster by Layer keeps the cells inside the polygons exactly, makes the rest no-data, and moves the shapes into the raster's CRS.
+fn polygon_layer(path: &Path, wkt: &str, srs: &str) {
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    c.execute_batch(&format!("COPY (SELECT 1 AS id, ST_GeomFromText('{wkt}') AS geom) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', SRS '{srs}', USE_TMP_FILE false)", path.display())).unwrap();
+}
+
+fn pixel_nodata(path: &str, col: isize, row: isize) -> (f32, Option<f64>) {
+    let ds = gdal::Dataset::open(path).unwrap();
+    let b = ds.rasterband(1).unwrap();
+    (b.read_as::<f32>((col, row), (1, 1), (1, 1), None).unwrap().data()[0], b.no_data_value())
+}
+
+#[test]
+fn clip_raster_by_layer_keeps_inside_cells_and_blanks_the_rest() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let p = dir.path().join("ramp.tif");
+    dem(&p, 40, None, Some(32614), |r, c| (r * 100 + c) as f32); // value = row*100 + col, unique per cell
+    let id = import(&e, &p);
+    // A triangle with corners at cols 10..20, rows 10..20 (30 m cells): the lower-left half of that box.
+    let pt = |c: f64, r: f64| format!("{} {}", X0 + c * 30.0, Y0 - r * 30.0);
+    let tri = dir.path().join("tri.gpkg");
+    polygon_layer(&tri, &format!("POLYGON(({}, {}, {}, {}))", pt(10.0, 10.0), pt(10.0, 20.0), pt(20.0, 20.0), pt(10.0, 10.0)), "EPSG:32614");
+    let t = import(&e, &tri);
+    let r = ok(&e, "clip_raster_by_layer", json!({}), &[&id, &t]);
+    let out = r.output.unwrap();
+    assert_eq!(r.crs.as_deref(), Some("EPSG:32614"));
+    let ds = gdal::Dataset::open(&out).unwrap();
+    assert_eq!(ds.raster_size(), (10, 10), "cropped to the shapes' extent, on the source grid");
+    let gt = ds.geo_transform().unwrap();
+    close(gt[0], X0 + 300.0, 1e-6);
+    close(gt[3], Y0 - 300.0, 1e-6);
+    close(gt[1], 30.0, 1e-9);
+    // Inside (lower-left, e.g. col 11,row 18 of the source = out col 1,row 8): value unchanged. Outside (upper-right): no-data.
+    let (v, nd) = pixel_nodata(&out, 1, 8);
+    assert_eq!(v, 18.0 * 100.0 + 11.0);
+    assert_eq!(nd, Some(-9999.0));
+    assert_eq!(pixel_nodata(&out, 8, 1).0, -9999.0, "outside the triangle");
+    assert_eq!(pixel_nodata(&out, 0, 9).0, 19.0 * 100.0 + 10.0, "a corner cell inside");
+
+    // Not cropped: the whole grid is kept, the cells outside the shapes are no-data.
+    let r2 = ok(&e, "clip_raster_by_layer", json!({"crop": false}), &[&id, &t]);
+    let out2 = r2.output.unwrap();
+    assert_eq!(gdal::Dataset::open(&out2).unwrap().raster_size(), (40, 40));
+    assert_eq!(pixel_nodata(&out2, 11, 18).0, 18.0 * 100.0 + 11.0);
+    assert_eq!(pixel_nodata(&out2, 0, 0).0, -9999.0);
+}
+
+#[test]
+fn clip_raster_by_layer_moves_shapes_from_another_crs() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let p = dir.path().join("ramp.tif");
+    dem(&p, 40, Some(-1.0), Some(32614), |r, c| (r * 100 + c) as f32);
+    let id = import(&e, &p);
+    // The same square as lon/lat: take the UTM square's corners through the engine's own transform.
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    let wkt: String = c
+        .query_row(
+            &format!("SELECT ST_AsText(ST_Transform(ST_MakeEnvelope({}, {}, {}, {}), 'EPSG:32614', 'EPSG:4326', true))", X0 + 300.0, Y0 - 600.0, X0 + 600.0, Y0 - 300.0),
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let sq = dir.path().join("sq.gpkg");
+    polygon_layer(&sq, &wkt, "EPSG:4326");
+    let s = import(&e, &sq);
+    let r = ok(&e, "clip_raster_by_layer", json!({}), &[&id, &s]);
+    let out = r.output.unwrap();
+    let ds = gdal::Dataset::open(&out).unwrap();
+    let (w, h) = ds.raster_size();
+    assert!((10..=12).contains(&w) && (10..=12).contains(&h), "{w}×{h}"); // 10 cells, plus at most one from the rounded-out edge
+    let gt = ds.geo_transform().unwrap();
+    close(gt[0], X0 + 300.0, 31.0);
+    // The centre cell (source col 15, row 15) is inside; its value is untouched and the source's no-data (-1) is kept.
+    let cx = ((X0 + 450.0 - gt[0]) / 30.0) as isize;
+    let cy = ((gt[3] - (Y0 - 450.0)) / 30.0) as isize;
+    let (v, nd) = pixel_nodata(&out, cx, cy);
+    assert_eq!(v, 15.0 * 100.0 + 15.0);
+    assert_eq!(nd, Some(-1.0));
+}
+
+#[test]
+fn clip_raster_by_layer_refuses_what_it_cannot_do_in_words() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = Engine::new().unwrap();
+    let ok_r = dir.path().join("a.tif");
+    dem(&ok_r, 10, None, Some(32614), |_, c| c as f32);
+    let nocrs = dir.path().join("b.tif");
+    dem(&nocrs, 10, None, None, |_, c| c as f32);
+    let (a, b) = (import(&e, &ok_r), import(&e, &nocrs));
+    let poly = dir.path().join("p.gpkg");
+    polygon_layer(&poly, &format!("POLYGON(({0} {1}, {2} {1}, {2} {3}, {0} {1}))", X0 + 30.0, Y0 - 90.0, X0 + 150.0, Y0 - 30.0), "EPSG:32614");
+    let pl = import(&e, &poly);
+    let far = dir.path().join("far.gpkg");
+    polygon_layer(&far, "POLYGON((0 0, 1 0, 1 1, 0 0))", "EPSG:4326");
+    let fl = import(&e, &far);
+    let pts = e.generate_test_layer("points", 3, [-98.0, 35.0, -97.0, 36.0]).unwrap().id;
+    for (inputs, want) in [(vec![&b, &pl], "coordinate system"), (vec![&a, &fl], "don't overlap"), (vec![&a, &pts], "polygons")] {
+        let res = run(&e, "clip_raster_by_layer", json!({}), &inputs.iter().map(|s| s.as_str()).collect::<Vec<_>>());
+        assert_eq!(res.status, Status::Error, "{want}");
+        assert!(res.error.as_deref().is_some_and(|m| m.contains(want)), "{want}: {:?}", res.error);
+    }
+    // A shapes layer with no coordinate system is refused too.
+    let nc = dir.path().join("nc.shp");
+    let c = engine::duckdb::Connection::open_in_memory().unwrap();
+    engine::db::load_spatial(&c).unwrap();
+    c.execute_batch(&format!("COPY (SELECT 1 AS id, ST_GeomFromText('POLYGON((0 0, 1 0, 1 1, 0 0))') AS geom) TO '{}' (FORMAT GDAL, DRIVER 'ESRI Shapefile', USE_TMP_FILE false)", nc.display())).unwrap();
+    let n = import(&e, &nc);
+    let res = run(&e, "clip_raster_by_layer", json!({}), &[&a, &n]);
+    assert!(res.error.as_deref().is_some_and(|m| m.contains("no coordinate system")), "{:?}", res.error);
+}
