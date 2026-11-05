@@ -4,7 +4,7 @@ You are the Opus lead for the list the user gave after testing the Mac app. Use 
 
 Read only: `CLAUDE.md`, `PROJECT_STATUS.md`, and `docs/USER_REQUESTS_2026-11-05.md`. Read other docs only for the area you touch.
 
-**First:** ask the user the three decisions at the top of `docs/USER_REQUESTS_2026-11-05.md` in one message, unless this prompt says below that they're already answered. Then ask about nothing else that has a sensible default.
+**First:** the order is decided (this list first). Before Batch D, ask the user the two remaining decisions at the top of `docs/USER_REQUESTS_2026-11-05.md` in one message. Then ask about nothing else that has a sensible default.
 
 ## Keep usage low: this comes first
 

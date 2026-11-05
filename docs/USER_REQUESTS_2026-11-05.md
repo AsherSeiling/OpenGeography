@@ -4,7 +4,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 
 ## Decisions to confirm with the user before building
 
-1. **Order.** Recommended: this list comes before server connections and planetary, so planetary stays the last feature before the first release. It replaces the "no other new features first" rule only if the user confirms.
+1. **Order. Decided by the user, 2026-11-05:** this list comes first, then server connections, then planetary, which stays the last feature before the first release.
 2. **What runs Python.** Today's "Python" mode is only a translator to SQL (`ui/src/query/pyToSql.ts`); it can't run a function, and Calculate Field takes SQL. A function whose return value fills a field needs a real interpreter. Recommended: ship CPython with the app (python-build-standalone, PSF licence), running in its own process, exchanging rows through Arrow. It adds about 30–60 MB, and it pulls part of Phase G (Python SDK, `docs/MASTER_PLAN.md`) ahead of the release. Rejected: RustPython (MIT, but no NumPy, and Python users would expect NumPy); keeping the translator (can't do what was asked).
 3. **Scripts inside projects run code.** A shared project holding Python could do anything on the machine that opens it. Recommended: ask before running scripts from a project this computer didn't create, and don't sandbox beyond that. Say so plainly in the prompt.
 
