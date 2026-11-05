@@ -16,7 +16,7 @@
 .rtabs { display: flex; flex: none; align-items: flex-end; height: 30px; }
 .rtab { position: relative; flex: none; height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 18px; border: 1.5px solid transparent; border-bottom: 0; background: none; font: var(--type-tab); color: var(--text); cursor: default; border-radius: 0; }
 .rtab:hover { background: var(--hover); }
-.rtab.on { height: 31.5px; margin-bottom: -1.5px; background: var(--band); border-color: var(--accent); border-radius: var(--r-tab); color: var(--link); font-weight: 600; }
+.rtab.on { background: var(--sel-bg); border-radius: var(--r-tab); color: var(--sel-text); font-weight: 600; }
 .rtab-context { display: flex; align-items: center; flex: none; }
 .rtab-context-label { font: var(--type-micro); color: var(--link); padding: 0 2px 0 10px; align-self: center; white-space: nowrap; }
 .rtab-back { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 22px; margin: 0 10px 4px 0; padding: 0 6px; border: 0; border-radius: var(--r-control); background: none; color: var(--link); font: 500 12px/16px var(--font-ui); cursor: default; white-space: nowrap; }
@@ -51,7 +51,7 @@
 .search-none { padding: 8px 10px; color: var(--text-2); }
 
 /* ---------- Band ---------- */
-.ribbon-body { position: relative; box-sizing: border-box; display: flex; height: 74px; padding: 2px 2px 0; overflow: hidden; background: var(--band); color: var(--band-text); border: 1.5px solid var(--accent); }
+.ribbon-body { position: relative; box-sizing: border-box; display: flex; height: 74px; padding: 2px 2px 0; overflow: hidden; background: var(--band); color: var(--band-text); border-bottom: 1px solid var(--rule-soft); }
 .rg-slot { flex: none; display: flex; }
 .rg-more { align-self: flex-start; }
 .rg-more.rg-measure { position: absolute; visibility: hidden; pointer-events: none; }

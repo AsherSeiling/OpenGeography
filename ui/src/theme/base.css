@@ -19,7 +19,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .warn-text { color: var(--warn); font-weight: 600; }
 
 /* Selected things sit on --sel-bg: all text inside them is --sel-text, so muted and link colours can never drop below AA there. */
-.tree-layer.active, .cat-row.sel, .grid-row.sel, .cell.fid.sel, .rbtn.checked, .rtab.file, .sel-count, .mp-tabs button.on {
+.rtab.on, .tree-layer.active, .cat-row.sel, .grid-row.sel, .cell.fid.sel, .rbtn.checked, .rtab.file, .sel-count, .mp-tabs button.on {
   color: var(--sel-text); --text-2: var(--sel-text); --link: var(--sel-text);
 }
 

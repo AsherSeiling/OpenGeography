@@ -6,11 +6,11 @@
   --dv-background-color: var(--surface-0);
   --dv-group-view-background-color: var(--surface-1);
   --dv-tabs-and-actions-container-background-color: var(--surface-0);
-  --dv-activegroup-visiblepanel-tab-background-color: var(--surface-1);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--sel-bg);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--surface-0);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(--surface-1);
   --dv-inactivegroup-hiddenpanel-tab-background-color: var(--surface-0);
-  --dv-activegroup-visiblepanel-tab-color: var(--link);
+  --dv-activegroup-visiblepanel-tab-color: var(--sel-text);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-2);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--text-2);

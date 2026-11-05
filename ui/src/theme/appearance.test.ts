@@ -45,7 +45,8 @@ describe("readability is enforced", () => {
   });
 
   it("a blue-ish accent keeps a blue link; the default light link matches tokens.css", () => {
-    expect(deriveTokens(defaultAppearance(), "light").link).toBe("#0869A9");
+    expect(deriveTokens(defaultAppearance(), "light").link).toBe("#277343");
+    expect(deriveTokens({ ...defaultAppearance(), accent: "#22CCF5" }, "light").link).toBe("#0869A9");
     const [, g, b] = deriveTokens({ ...defaultAppearance(), accent: "#3B9BFF" }, "light").link.match(/\w\w/g)!.map((x) => parseInt(x, 16));
     expect(b).toBeGreaterThan(g);
   });
@@ -88,6 +89,15 @@ describe("storage", () => {
     const d = defaultAppearance();
     for (const raw of [null, "", "{not json", "42", "null", '"x"', "[]"]) expect(parseAppearance(raw).appearance, String(raw)).toEqual(d);
     expect(parseAppearance("{}").dark).toBeNull();
+  });
+
+  it("moves the old default pair to the new default, but keeps it once saved as a choice", () => {
+    const old = { palette: "Glacier", accent: "#22CCF5", hilite: "#6FE0FF", mode: "light" };
+    const moved = parseAppearance(JSON.stringify(old)).appearance;
+    expect([moved.accent, moved.hilite]).toEqual([defaultAppearance().accent, defaultAppearance().hilite]);
+    const kept = parseAppearance(JSON.stringify({ ...old, v: 2 })).appearance;
+    expect([kept.accent, kept.hilite]).toEqual(["#22CCF5", "#6FE0FF"]);
+    expect(parseAppearance(JSON.stringify({ ...old, hilite: "#FFE680" })).appearance.accent).toBe("#22CCF5");
   });
 
   it("repairs bad fields one by one", () => {

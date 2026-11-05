@@ -1,5 +1,5 @@
 /* Design tokens (docs/UI_REDESIGN_PLAN.md §2). The only file besides the test allow-list that may hold raw chrome colours.
-   Values are the default palette "Glacier" with accent #22CCF5 and highlight #6FE0FF, derived exactly as applyTheme() in
+   Values are the default palette "Glacier" with accent #4ADE80 and highlight #9BE9B2, derived exactly as applyTheme() in
    docs/design/ui-redesign-mockup.html (colorMath.ts holds the same maths; tokens.test.ts proves the match).
    The user's Colours panel (WP 8b) overrides these as inline properties on :root, so every consumer follows live. */
 
@@ -65,17 +65,17 @@
   --rule-soft: #BCC6CE;
   --text: #121A20;
   --text-2: #46535D;
-  --accent: #22CCF5;
+  --accent: #4ADE80;
   --band: var(--surface-2);
   --band-text: var(--text);
   --band-edge: var(--accent);
   --band-hover: var(--hover);
   --band-on-bg: transparent;
   --band-on-text: var(--link);
-  --sel-bg: #6FE0FF;
+  --sel-bg: #9BE9B2;
   --sel-text: #06222B;
   --hover: rgba(18, 26, 32, 0.08);
-  --link: #0869A9;
+  --link: #277343;
   --focus: var(--text);
   --error: #B3261E;
   --warn: #8A5A00;
@@ -122,7 +122,7 @@
   --text: #EDF1F4;
   --text-2: #AEB9C2;
   --hover: rgba(255, 255, 255, 0.08);
-  --link: #22CCF5;
+  --link: #4ADE80;
   --focus: var(--link);
   --error: #FF8A80;
   --warn: #F2C14E;

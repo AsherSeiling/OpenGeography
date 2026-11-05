@@ -42,7 +42,7 @@ export const untilAA = (c: string, toward: string, on: string): string => {
   return v;
 };
 
-/** Blue text colour derived from the accent, AA on `surface0`; falls back to `text` when no shift reaches AA. */
+/** Text colour derived from the accent, AA on `surface0`; falls back to `text` when no shift reaches AA. */
 export function linkColour(accent: string, dark: boolean, surface0: string, text: string): string {
   const [ar, ag, ab] = rgb(accent);
   const blueish = ab > ar && ab >= ag * 0.9;

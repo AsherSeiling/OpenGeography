@@ -25,7 +25,7 @@ test("accent change applies live, survives a reload, and Reset undoes it", async
 
   await openPanel(app);
   await app.getByRole("button", { name: "Reset to default" }).click();
-  expect(await cssVar(app, "--accent")).toBe("#22CCF5");
+  expect(await cssVar(app, "--accent")).toBe("#4ADE80");
 });
 
 test("Dark sets the app's mode, Escape closes the panel, and it stays on screen at a narrow window", async ({ app }) => {
@@ -48,7 +48,7 @@ test("corrupt saved colours fall back to the defaults without an error", async (
   await app.evaluate(() => localStorage.setItem("gis.appearance.v1", "{oops"));
   await app.reload();
   await app.waitForFunction(() => !!(window as any).__gis?.appearance);
-  expect(await cssVar(app, "--accent")).toBe("#22CCF5");
+  expect(await cssVar(app, "--accent")).toBe("#4ADE80");
 });
 
 test("screenshots of the panel in light and dark", async ({ app }, testInfo) => {

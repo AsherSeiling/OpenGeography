@@ -94,15 +94,22 @@ export function parseAppearance(raw: string | null): { appearance: Appearance; d
   if (!v || typeof v !== "object") return { appearance: d, dark: null };
   const fam = { ...d.fam };
   for (const k of FAMILIES) fam[k] = colour(v.fam?.[k], d.fam[k]);
+  // Saved before the default went green (no `v`) and still on the old default pair: that is not a choice, so it follows the new default.
+  const oldDefault = v.v === undefined && colour(v.accent, "") === tables.formerDefault.accent && colour(v.hilite, "") === tables.formerDefault.hilite;
   return {
-    appearance: { palette: PALETTE_NAMES.includes(v.palette) ? v.palette : d.palette, accent: colour(v.accent, d.accent), hilite: colour(v.hilite, d.hilite), fam },
+    appearance: {
+      palette: PALETTE_NAMES.includes(v.palette) ? v.palette : d.palette,
+      accent: oldDefault ? d.accent : colour(v.accent, d.accent),
+      hilite: oldDefault ? d.hilite : colour(v.hilite, d.hilite),
+      fam,
+    },
     dark: v.mode === "dark" ? true : v.mode === "light" ? false : null,
   };
 }
 
 export function saveAppearance(a: Appearance, dark: boolean, storage: Pick<Storage, "setItem"> | undefined = safeStorage()): void {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify({ ...a, mode: dark ? "dark" : "light" }));
+    storage?.setItem(STORAGE_KEY, JSON.stringify({ ...a, v: 2, mode: dark ? "dark" : "light" }));
   } catch {
     /* private mode or full: the choice still applies for this session */
   }

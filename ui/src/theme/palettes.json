@@ -13,8 +13,9 @@
       "dark": { "surface-0": "#23272A", "surface-1": "#1A1D1F", "surface-2": "#101214", "canvas": "#141618", "canvas-dot": "#32383C", "rule": "#566067", "rule-soft": "#3A4146", "text": "#ECEFF1", "text-2": "#AEB7BC", "hover": "rgba(255, 255, 255, 0.08)" }
     }
   },
-  "accents": [["Sky", "#22CCF5"], ["Azure", "#3B9BFF"], ["Teal", "#19C9A6"], ["Violet", "#9B8CFF"], ["Coral", "#FF8A6B"], ["Marigold", "#FFC233"]],
-  "highlights": [["Bright sky", "#6FE0FF"], ["Ice", "#A5ECFF"], ["Azure", "#8CC4FF"], ["Mint", "#7EECCB"], ["Lilac", "#C7BEFF"], ["Peach", "#FFC2AD"], ["Lemon", "#FFE680"]],
+  "accents": [["Light green", "#4ADE80"], ["Sky", "#22CCF5"], ["Azure", "#3B9BFF"], ["Teal", "#19C9A6"], ["Violet", "#9B8CFF"], ["Coral", "#FF8A6B"], ["Marigold", "#FFC233"]],
+  "highlights": [["Light green", "#9BE9B2"], ["Bright sky", "#6FE0FF"], ["Ice", "#A5ECFF"], ["Azure", "#8CC4FF"], ["Mint", "#7EECCB"], ["Lilac", "#C7BEFF"], ["Peach", "#FFC2AD"], ["Lemon", "#FFE680"]],
+  "formerDefault": { "accent": "#22CCF5", "hilite": "#6FE0FF" },
   "families": { "Input": "#22CCF5", "Vector": "#9ADBB0", "Raster": "#F5CF73", "Hydrology": "#A9C4FF", "Tables": "#D2C3F7", "Coordinate": "#F6B8CF", "Analysis": "#F9B48C", "Styling": "#DDE0A8" },
   "statusColours": {
     "light": { "error": "#B3261E", "warn": "#8A5A00", "ok": "#1F6B3A" },
