@@ -41,9 +41,9 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
     <Dialog open onOpenChange={(_, d) => !d.open && !recording && onClose()}>
       <DialogSurface style={{ maxWidth: 640 }}>
         <DialogBody>
-          <DialogTitle>Node editor shortcuts</DialogTitle>
+          <DialogTitle>Processing nodes shortcuts</DialogTitle>
           <DialogContent className="stack">
-            <div className="muted">Blender-style keys. They work only while the pointer is over the node editor (or you are working in it), so they never affect the map or the attribute table.</div>
+            <div className="muted">Blender-style keys. They work only while the pointer is over the Processing nodes editor (or you are working in it), so they never affect the map or the attribute table.</div>
             <div className="keymap">
               {groups.map((g) => (
                 <div key={g} className="keymap-group">

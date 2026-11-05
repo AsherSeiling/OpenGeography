@@ -88,6 +88,8 @@ export interface TableExportResult {
   path: string;
   sidecar: string;
   rows: number;
+  /** Rows beyond one per feature (a MultiPoint is written one row per point). */
+  extraRows: number;
   xColumn: string;
   yColumn: string;
   crsName: string;

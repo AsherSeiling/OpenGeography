@@ -860,6 +860,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | ET-3 | Selected features only (empty selection = 0 rows); definition query honoured; rows in feature order | as stated | auto: same test (selection); definition query to add |
 | ET-4 | Parquet written; refusals: output = a layer's source file, no CRS chosen, unknown CRS, non-point layer, layer without CRS → readable sentence | as stated | auto: export_table::parquet_and_refusals (non-point and no-CRS cases to add) |
 | ET-5 | UI: Export is disabled until a CRS is chosen (none assumed); file written with the right header | | auto: e2e/export-table.spec.ts |
+| ET-7 | A Point layer holding MultiPoint features: one row per point with the feature's attributes, `extraRows` and the sidecar say how many were added, USNG column and selection work; plain points report 0 | as stated | auto: export_table::multipoint_layer_writes_one_row_per_point_and_says_how_many_were_added, a_single_point_layer_has_no_extra_rows |
 | ET-6 | XLSX output | not built (needs a writer dependency; CSV opens in Excel) | decision D-ET |
 
 ## MS. Selecting several layers
@@ -1056,6 +1057,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SH-1 | Default layout: Map Layers over Catalog, Properties over Sources, no bottom panel | `e2e/map.spec.ts` |
 | SH-2 | Bottom panel appears when Node Editor or Attribute Table opens, goes when the last tab closes | `e2e/map.spec.ts` |
 | SH-3 | Picking a tool opens the Node Editor; Add Tool and Run are on the Analysis tab | `e2e/map.spec.ts` |
+| UR-2 | The pane, ribbon button, tooltips and hints say "Processing nodes" (internal id `model` unchanged); a project saved with the old tab title "Node Editor" opens with the new one | `e2e/map.spec.ts` (UR-2) |
+| UR-3 | The default layout has no Sources pane (Properties takes the whole right column); View › Sources opens it under Properties; a layout the user saved is restored as saved | `e2e/map.spec.ts` (WP6 default layout, M-8, old project) , `e2e/misc.spec.ts` M-22 |
+| UR-4 | A new map frame (ribbon, start gallery) has no border and no decor frame; the overview inset still gets its border; a saved layout keeps its border; themes still set one | `ui/src/layout/newFrame.test.ts`, `e2e/layout-graphics.spec.ts` (theme) |
+| UR-5 | Page Setup accepts 20 to 20,000 mm (was 5,000); PDF and SVG export of 20 m and 100 m pages works; a PNG over 600 million pixels is refused with the dpi that would work; the preview of a huge page is drawn at a lower dpi and says so; a hint warns that Acrobat opens PDF pages only up to 5,080 mm | `crates/engine/tests/layout_size.rs`, `ui/src/dialogs/pageSetup.test.ts`, `e2e/layout.spec.ts` (UR-5) |
+| UR-6 | Page tab › Guides: Vertical Guide, Horizontal Guide (middle of the page, 10 mm along if one is there), Clear Guides; the same list as the rulers, Page Setup and Properties; one undo step each | `ui/src/layout/guides.test.ts`, `e2e/layout-graphics.spec.ts` (UR-6) |
+| UR-7 | Ctrl/⌘+wheel and a pinch (WebKit gesture events) zoom the layout page around the pointer: the page position under it stays under it (to 1.5 px, while the page overflows the canvas); a notch is 10 %, a pinch is proportional; plain wheel scrolls | `ui/src/layout/zoomAnchor.test.ts`, `e2e/layout-graphics.spec.ts` (UR-7; fails with the scroll step removed) |
 | SH-4 | Search finds a command, a tool and a layer; a tool is placed like the menu | `e2e/map.spec.ts` |
 | SH-5 | Public Data opens the Catalog and focuses its row | `e2e/map.spec.ts` |
 | SH-6 | A saved dock layout of this version comes back; an old one falls back, project data untouched | `e2e/map.spec.ts` |

@@ -498,7 +498,9 @@ test("audit: panes (Map Layers, Catalog, Properties, Sources, Items, Attribute T
   const env = await mk(app, "map-model", true);
   const pane = (id: string) => async () => {
     await app.evaluate(async (pid) => {
-      const p = (await import("/src/panes/panes.ts")).getDock()!.getPanel(pid);
+      const panes = await import("/src/panes/panes.ts");
+      if (!panes.getDock()!.getPanel(pid)) panes.showPane(pid as never); // Sources is not in the default layout
+      const p = panes.getDock()!.getPanel(pid);
       p?.api.setActive();
       (p?.view as any)?.content?.element?.setAttribute("data-audit-pane", pid);
     }, id);

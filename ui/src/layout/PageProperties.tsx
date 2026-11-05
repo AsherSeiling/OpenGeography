@@ -1,7 +1,7 @@
 // Properties of the page itself (nothing selected): Sheet, Guides, Info, and the layout's named text styles.
 import { Button, Checkbox, Dropdown, Field, Input, Option } from "@fluentui/react-components";
 import { useState } from "react";
-import { beginStep, useLayouts } from "../store/layout";
+import { addGuide, beginStep, useLayouts } from "../store/layout";
 import { InspectorTabs } from "./Inspector";
 import { Num } from "./ElementProperties";
 import { DEFAULT_STYLES, parseStyleSize, restyle, useNamedStyles, usesOf, type NamedStyle } from "./namedStyles";
@@ -64,7 +64,7 @@ function Guides({ doc }: { doc: Layout }) {
   const setGuides = (g: typeof guides) => useLayouts.getState().setMeta({ guides: g });
   return (
     <>
-      <div className="props-hint">Drag from a ruler onto the page to add a guide; double-click a guide to remove it. Alt while dragging turns snapping off.</div>
+      <div className="props-hint">Add one here or from the ribbon (Page › Guides), or drag from a ruler onto the page; double-click a guide to remove it. Alt while dragging turns snapping off.</div>
       {guides.map((g, i) => (
         <div key={i} className="btn-row">
           <span className="grow">{g.axis === "x" ? "Vertical at x =" : "Horizontal at y ="}</span>
@@ -74,8 +74,8 @@ function Guides({ doc }: { doc: Layout }) {
       ))}
       {!guides.length && <div className="muted">No guides yet.</div>}
       <div className="btn-row">
-        <Button size="small" onClick={() => setGuides([...guides, { axis: "x", pos: Math.round(doc.page.width / 2) }])}>Add vertical</Button>
-        <Button size="small" onClick={() => setGuides([...guides, { axis: "y", pos: Math.round(doc.page.height / 2) }])}>Add horizontal</Button>
+        <Button size="small" onClick={() => addGuide("x")}>Add vertical</Button>
+        <Button size="small" onClick={() => addGuide("y")}>Add horizontal</Button>
       </div>
     </>
   );

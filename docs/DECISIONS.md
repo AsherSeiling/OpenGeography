@@ -430,3 +430,12 @@ The default highlight is light green (accent `#4ADE80`, highlight `#9BE9B2`) ins
 ## Undo and redo shortcuts work across the app (user, 2026-11-04)
 Mod+Z, Mod+Shift+Z and Mod+Y (Cmd on Mac, Ctrl on Windows and Linux; rebindable in the node editor's shortcut list) do what the Undo and Redo buttons do from anywhere in the app: the open layout, else the active node tree. Text boxes keep their own undo, an open dialog or tool menu takes no shortcut, and with the focus in the Attribute Table Mod+Z undoes the last cell edit first.
 
+
+## Layout page size limits (UR-5, 2026-11-05)
+
+The old 20–5,000 mm limit was only in Page Setup; the engine accepts any positive page. Measured on a 16 GB Mac (`crates/engine/tests/layout_size.rs`, `probe_*`, run with `--ignored`):
+
+- **PDF and SVG** do not depend on page size: a 1,000,000 mm page exports in milliseconds (the page is a MediaBox number). Adobe Acrobat only opens pages up to 14,400 units (200 in, 5,080 mm); other viewers were not tried.
+- **PNG** costs pixels: 610 million pixels took 2.4 s and 4.4 GB of memory at peak; a 20 m × 14 m page at 300 dpi (39 billion pixels) was killed by the system (out of memory) before this change. The engine now refuses a PNG over 600 million pixels and says which dpi would work (or that no dpi would).
+- **Preview** in the layout editor was always drawn at 96–144 dpi, so a 20 m page would have needed gigabytes just to look at. It now lowers its dpi to stay under 60 million pixels, reports the dpi, and the toolbar says "lowered".
+- Page Setup now accepts 20 to 20,000 mm. Above that the editor's preview would be too coarse to work with (about 12 dpi at 20 m). Not tried: PDF viewers other than the file's MediaBox, and a PNG on a machine with less than 16 GB (the 600 million pixel limit needs about 4.4 GB free).

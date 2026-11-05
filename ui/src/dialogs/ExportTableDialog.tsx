@@ -1,5 +1,5 @@
 // Export Table: a point layer's attributes plus its coordinates (X/Y or lon/lat) as CSV or Parquet, in a coordinate system the user picks.
-import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, Option, Radio, RadioGroup } from "@fluentui/react-components";
+import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, Option, Radio, RadioGroup, Text } from "@fluentui/react-components";
 import { save } from "../ipc/dialogs";
 import { useState } from "react";
 import { runExportTable } from "../actions";
@@ -52,9 +52,10 @@ export function ExportTableDialog({ owner, onClose }: { owner: string; onClose: 
           <DialogTitle>Export Table — {base.name}</DialogTitle>
           <DialogContent className="stack">
             <RadioGroup value={which} onChange={(_, d) => setWhich(d.value as never)}>
-              <Radio value="all" label={`All points (${info.featureCount.toLocaleString()}${base.definitionQuery ? ", after the definition query" : ""})`} />
-              <Radio value="selected" disabled={nsel === 0} label={`Selected points only (${nsel.toLocaleString()})`} />
+              <Radio value="all" label={`All features (${info.featureCount.toLocaleString()}${base.definitionQuery ? ", after the definition query" : ""})`} />
+              <Radio value="selected" disabled={nsel === 0} label={`Selected features only (${nsel.toLocaleString()})`} />
             </RadioGroup>
+            <Text size={200}>A feature that holds several points (a MultiPoint) is written as one row per point, with its attributes repeated.</Text>
             <Field label="Coordinates to write" size="small">
               <Dropdown size="small" aria-label="Coordinates to write" value={COORD_MODES.find((m) => m[0] === mode)![1]} selectedOptions={[mode]} onOptionSelect={(_, d) => setMode(d.optionValue as CoordMode)}>
                 {COORD_MODES.map(([v, l]) => <Option key={v} value={v}>{l}</Option>)}

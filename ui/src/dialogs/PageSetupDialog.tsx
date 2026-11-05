@@ -4,12 +4,17 @@ import { useState } from "react";
 import type { Guide, Page } from "../layout/types";
 import { useLayouts } from "../store/layout";
 
+/** Largest page side. PDF and SVG export work at any size; a PNG is limited by its pixel count (see `svg_to_png`), and the editor's preview gets coarser on huge pages. */
+export const MAX_PAGE_MM = 20000;
+/** Adobe Acrobat opens pages up to 200 inches (14 400 PDF units) only; other viewers are not limited that way. */
+export const ACROBAT_MAX_MM = 5080;
+
 const num = (s: string): number | null => (s.trim() !== "" && Number.isFinite(Number(s)) ? Number(s) : null);
 
 /** The page with the typed values applied; null with a message when something is not usable. */
 export function parsePageSetup(f: { width: string; height: string; margin: string; bleed: string }, page: Page): { page: Page } | { error: string } {
   const [w, h, m, b] = [num(f.width), num(f.height), num(f.margin), num(f.bleed)];
-  if (w === null || h === null || w < 20 || h < 20 || w > 5000 || h > 5000) return { error: "Page width and height must be between 20 and 5000 mm." };
+  if (w === null || h === null || w < 20 || h < 20 || w > MAX_PAGE_MM || h > MAX_PAGE_MM) return { error: `Page width and height must be between 20 mm and ${MAX_PAGE_MM.toLocaleString("en-US")} mm (${MAX_PAGE_MM / 1000} m).` };
   if (m === null || m < 0 || m * 2 >= Math.min(w, h)) return { error: "The margin must be 0 or more and leave room on the page." };
   if (b === null || b < 0 || b > 10) return { error: "Bleed must be between 0 and 10 mm." };
   return { page: { ...page, width: w, height: h, margin: m, bleed: b } };
@@ -49,6 +54,9 @@ export function PageSetupDialog({ onClose }: { onClose: () => void }) {
               {field("margin", "Margin (mm)")}
               {field("bleed", "Bleed (mm)")}
             </div>
+            {(num(f.width) ?? 0) > ACROBAT_MAX_MM || (num(f.height) ?? 0) > ACROBAT_MAX_MM ? (
+              <div className="props-hint">A page this large exports to PDF and SVG at full quality, but Adobe Acrobat only opens PDF pages up to {ACROBAT_MAX_MM.toLocaleString("en-US")} mm (200 in) per side. A PNG is limited to 600 million pixels, so choose a lower resolution when exporting (the export says how low); the preview here is drawn coarser.</div>
+            ) : null}
             <Checkbox label="Crop marks outside the bleed" checked={marks} onChange={(_, d) => setMarks(!!d.checked)} />
             <Checkbox label="PNG export also writes a world file (.pgw) and .prj for the map frame" checked={world} onChange={(_, d) => setWorld(!!d.checked)} />
             <div className="props-hint">The world file places the first map frame (not rotated, nominal scale); the rest of the page is layout. PDF exports embed their fonts as subsets and are RGB: for a print shop that needs CMYK, convert the PDF in Acrobat, Scribus or Ghostscript.</div>

@@ -20,7 +20,7 @@ import { Rail, MAP_DRAG } from "./Rail";
 import { StartGallery } from "./StartGallery";
 import { copySelected, cutSelected, duplicateSelected, pasteHeld } from "./clipboard";
 import { insertMapFrame, setFrameFromMapView } from "./actions";
-import { useLayoutView, zoomPercent } from "./view";
+import { clampZoom, pageMmAt, scrollToKeep, useLayoutView, wheelZoomFactor, zoomPercent } from "./view";
 import { useSeriesView } from "./series";
 import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
@@ -70,7 +70,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const preflightOpen = useLayoutView((s) => s.preflightOpen);
   const galleryClosed = useLayoutView((s) => !!s.galleryClosed[layout.id]);
   const [box, setBox] = useState({ w: 800, h: 600 });
-  const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; labels: PlacedLabel[] } | null>(null);
+  const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; dpi: number; labels: PlacedLabel[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
   const [ptr, setPtr] = useState<{ x: number; y: number } | null>(null);
@@ -110,18 +110,63 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     return () => c?.removeEventListener("scroll", measureOrigin);
   }, []);
 
-  // Ctrl/⌘ + wheel zooms the page; plain wheel scrolls.
+  // Ctrl/⌘ + wheel and a trackpad pinch zoom the page around the pointer: the page position under it stays under it (UR-7).
+  // Plain wheel scrolls. Chromium sends a pinch as a Ctrl+wheel; WebKit (the Mac app) sends gesture events instead.
+  const anchor = useRef<{ mm: { x: number; y: number }; cx: number; cy: number } | null>(null);
+  const zoomAround = (target: number, cx: number, cy: number) => {
+    const p = pageEl.current;
+    if (!p) return;
+    const r = p.getBoundingClientRect();
+    const next = clampZoom(target);
+    const v = useLayoutView.getState();
+    if (Math.abs(next - (v.fit ? v.shown : v.zoom)) < 1e-6) return; // at the limit: nothing will redraw to use the anchor
+    anchor.current = { mm: pageMmAt(r.left, r.top, r.width / page.width, cx, cy), cx, cy };
+    useLayoutView.getState().setZoom(next);
+  };
+  const zoomAroundRef = useRef(zoomAround);
+  zoomAroundRef.current = zoomAround;
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      useLayoutView.getState().setZoom((fit ? fitZoom : useLayoutView.getState().zoom) * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+      const v = useLayoutView.getState();
+      zoomAroundRef.current((v.fit ? v.shown : v.zoom) * wheelZoomFactor(e.deltaY), e.clientX, e.clientY);
+    };
+    let start = 1;
+    const gesture = (e: Event) => e as Event & { scale: number; clientX: number; clientY: number };
+    const onStart = (e: Event) => {
+      e.preventDefault();
+      start = useLayoutView.getState().shown;
+    };
+    const onChange = (e: Event) => {
+      e.preventDefault();
+      const g = gesture(e);
+      zoomAroundRef.current(start * g.scale, g.clientX, g.clientY);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [fit, fitZoom]);
+    el.addEventListener("gesturestart", onStart);
+    el.addEventListener("gesturechange", onChange);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onStart);
+      el.removeEventListener("gesturechange", onChange);
+    };
+  }, []);
+  // After the page is redrawn at its new size, scroll so the anchored point is back under the pointer.
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    const c = wrap.current;
+    const p = pageEl.current;
+    if (!a || !c || !p) return;
+    anchor.current = null;
+    const r = p.getBoundingClientRect();
+    const { dx, dy } = scrollToKeep(a.mm, r.left, r.top, z, a.cx, a.cy);
+    c.scrollLeft += dx;
+    c.scrollTop += dy;
+    measureOrigin();
+  }, [z]);
 
   // Preview: the engine renders the page (debounced), the newest request wins.
   const styles = useApp((s) => s.styles);
@@ -148,7 +193,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       try {
         const res = await api.renderLayoutPreview(layoutRequest(layout), dpi);
         if (mine !== seq.current) return;
-        setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), labels: res.labels ?? [] });
+        setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), dpi: res.dpi ?? dpi, labels: res.labels ?? [] });
         useLabelHits.getState().set(layout.id, res.labels ?? []);
         useLegendRows.getState().set(layout.id, res.legendRows ?? []);
         // Edits for features that are gone are removed (the engine already ignored them).
@@ -349,7 +394,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         </span>
         {selEl && <span className="layout-pointer muted" data-testid="layout-selsize" title="Selected item: size in mm">{`${Math.round(selEl.w * 10) / 10} × ${Math.round(selEl.h * 10) / 10} mm`}</span>}
         <span className="layout-stat muted" title="Engine-rendered preview: the export uses the same renderer">
-          {rendering ? "Rendering…" : preview ? `Preview ${dpi} dpi · ${Math.round(preview.bytes / 1024)} KB · ${preview.ms} ms` : ""}
+          {rendering ? "Rendering…" : preview ? `Preview ${Math.round(preview.dpi * 10) / 10} dpi${preview.dpi < dpi ? " (lowered: the page is very large)" : ""} · ${Math.round(preview.bytes / 1024)} KB · ${preview.ms} ms` : ""}
         </span>
       </div>
       {error && (

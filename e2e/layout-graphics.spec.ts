@@ -245,3 +245,94 @@ test("CG9 a theme restyles the page and recolours single-symbol layers", async (
   await expect.poll(async () => (await gis(app, (g) => g.useLayouts.getState().doc.elements.find((e: any) => e.kind === "scale_bar" || e.kind === "text").color)) as string).toBe("#333333");
   expect(((await gis(app, (g, x: any) => g.useApp.getState().styles[x.id], { id: a.id })) as any).fill).toBe("#123456");
 });
+
+test("UR-6 guides can be added from the Page tab of the ribbon, and cleared", async ({ app }) => {
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  const guides = () => gis(app, (g) => g.useLayouts.getState().doc.guides ?? []) as Promise<{ axis: string; pos: number }[]>;
+  expect(await guides()).toEqual([]);
+
+  await ribbon(app, "Page", /^Vertical Guide$/);
+  await ribbon(app, "Page", /^Horizontal Guide$/);
+  await ribbon(app, "Page", /^Vertical Guide$/); // a second one does not sit on the first
+  expect(await guides()).toEqual([{ axis: "x", pos: 140 }, { axis: "y", pos: 108 }, { axis: "x", pos: 150 }]);
+  await expect(app.locator('[data-guide="x:140"]')).toBeVisible();
+  await expect(app.locator('[data-guide="y:108"]')).toBeVisible();
+  await expect(app.locator('[data-guide="x:150"]')).toBeVisible();
+  // The same guides are in the page's Properties, so there is one list.
+  await app.locator(".layout-page").click({ position: { x: 5, y: 5 } });
+  const input = app.getByLabel("Guide 3 position (mm)");
+  if (!(await input.isVisible())) await app.locator(".sections-head, .section-head, button, [role=button]", { hasText: /^Guides$/ }).first().click();
+  await expect(input).toHaveValue("150");
+
+  await ribbon(app, "Page", /^Clear Guides$/);
+  expect(await guides()).toEqual([]);
+  await expect(app.locator(".layout-guide")).toHaveCount(0);
+  await gis(app, (g) => g.useLayouts.getState().undo()); // one undo step brings them all back (the shortcut is off while the start gallery is open)
+  await expect.poll(async () => (await guides()).length).toBe(3);
+});
+
+test("UR-7 Ctrl+wheel and a pinch zoom around the pointer: the page position under it stays under it; plain wheel scrolls", async ({ app }) => {
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await expect(app.locator(".layout-page")).toBeVisible();
+  const pageW = await gis(app, (g) => g.useLayouts.getState().doc.page.width) as number;
+  // Zoom in to 12 px/mm (the maximum) and scroll to the middle, so there is room to scroll either way after a zoom (a page that no longer fills the canvas is centred and cannot be anchored).
+  await app.evaluate(async () => (await import("/src/layout/view.ts")).useLayoutView.getState().setZoom(12));
+  await app.waitForTimeout(300);
+
+  const mmUnder = (cx: number, cy: number) => app.evaluate(({ cx, cy, pageW }) => {
+    const r = document.querySelector(".layout-page")!.getBoundingClientRect();
+    const z = r.width / pageW;
+    return { x: (cx - r.left) / z, y: (cy - r.top) / z, z };
+  }, { cx, cy, pageW });
+  const canvas = (await app.locator(".layout-canvas").boundingBox())!;
+  const wheel = (cx: number, cy: number, deltaY: number, ctrl = true) =>
+    app.evaluate(({ cx, cy, deltaY, ctrl }) => document.querySelector(".layout-canvas")!.dispatchEvent(new WheelEvent("wheel", { clientX: cx, clientY: cy, deltaY, ctrlKey: ctrl, bubbles: true, cancelable: true })), { cx, cy, deltaY, ctrl });
+
+  for (const [fx, fy] of [[0.5, 0.5], [0.25, 0.3], [0.8, 0.7]]) {
+    const cx = canvas.x + canvas.width * fx;
+    const cy = canvas.y + canvas.height * fy;
+    await app.evaluate(async () => (await import("/src/layout/view.ts")).useLayoutView.getState().setZoom(12));
+    await app.waitForTimeout(200);
+    await app.evaluate(() => { const c = document.querySelector(".layout-canvas")!; c.scrollLeft = (c.scrollWidth - c.clientWidth) / 2; c.scrollTop = (c.scrollHeight - c.clientHeight) / 2; });
+    for (const dy of [100, 100, 100, -100, -100]) {
+      const before = await mmUnder(cx, cy);
+      await wheel(cx, cy, dy);
+      await app.waitForTimeout(120);
+      const after = await mmUnder(cx, cy);
+      expect(after.z, "the zoom changed").not.toBeCloseTo(before.z, 3);
+      expect(Math.abs(after.x - before.x) * after.z, `x under the pointer moved by ${(after.x - before.x).toFixed(2)} mm ${JSON.stringify({ fx, fy, dy, before, after, canvas })}`).toBeLessThan(1.5); // px
+      expect(Math.abs(after.y - before.y) * after.z).toBeLessThan(1.5);
+    }
+  }
+
+  // A pinch in WebKit arrives as gesture events (not testable in Chromium except by dispatching them).
+  await app.evaluate(async () => (await import("/src/layout/view.ts")).useLayoutView.getState().setZoom(5));
+  await app.waitForTimeout(200);
+  await app.evaluate(() => { const c = document.querySelector(".layout-canvas")!; c.scrollLeft = (c.scrollWidth - c.clientWidth) / 2; c.scrollTop = (c.scrollHeight - c.clientHeight) / 2; });
+  const cx = canvas.x + canvas.width * 0.4;
+  const cy = canvas.y + canvas.height * 0.6;
+  const b = await mmUnder(cx, cy);
+  await app.evaluate(({ cx, cy }) => {
+    const el = document.querySelector(".layout-canvas")!;
+    const ev = (type: string, scale: number) => { const e = new Event(type, { bubbles: true, cancelable: true }); Object.assign(e, { scale, clientX: cx, clientY: cy }); el.dispatchEvent(e); };
+    ev("gesturestart", 1);
+    ev("gesturechange", 1.3);
+    ev("gesturechange", 1.6);
+  }, { cx, cy });
+  await app.waitForTimeout(200);
+  const a = await mmUnder(cx, cy);
+  expect(a.z / b.z).toBeCloseTo(1.6, 1);
+  expect(Math.abs(a.x - b.x) * a.z).toBeLessThan(1.5);
+  expect(Math.abs(a.y - b.y) * a.z).toBeLessThan(1.5);
+
+  // Plain wheel does not zoom (it scrolls).
+  const z0 = (await mmUnder(cx, cy)).z;
+  await wheel(cx, cy, -100, false);
+  await app.waitForTimeout(150);
+  expect((await mmUnder(cx, cy)).z).toBeCloseTo(z0, 6);
+});

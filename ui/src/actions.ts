@@ -352,7 +352,8 @@ export async function runExportTable(owner: string, spec: TableExportSpec): Prom
   if (!r) return false;
   const coords = r.xColumn ? `${r.xColumn}/${r.yColumn} in ${r.crsName} (${r.unit})` : "";
   const grid = r.gridColumn ? `${r.gridColumn} references` : "";
-  status(`Exported ${r.rows.toLocaleString()} row(s) to ${r.path} with ${[coords, grid].filter(Boolean).join(" and ")}; what they mean is described in ${r.sidecar}`);
+  const extra = r.extraRows > 0 ? ` (${r.extraRows.toLocaleString()} more than the features, because some hold several points: one row per point)` : "";
+  status(`Exported ${r.rows.toLocaleString()} row(s)${extra} to ${r.path} with ${[coords, grid].filter(Boolean).join(" and ")}; what they mean is described in ${r.sidecar}`);
   return true;
 }
 

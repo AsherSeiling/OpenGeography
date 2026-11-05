@@ -129,9 +129,9 @@ test("M-14 node editor gestures: Add menu, insert on connection, box select, cut
 
 test("M-15 shortcuts dialog: rebind Mute to X names the conflict; Reset restores", async ({ app }) => {
   await addTestLayer(app, "points", 50);
-  await app.getByRole("button", { name: /Node editor keyboard shortcuts/ }).click();
+  await app.getByRole("button", { name: /Processing nodes keyboard shortcuts/ }).click();
   const dlg = app.getByRole("dialog");
-  await expect(dlg).toContainText("Node editor shortcuts");
+  await expect(dlg).toContainText("Processing nodes shortcuts");
   const mute = dlg.locator(".keymap-row", { hasText: "Mute (bypass)" });
   await mute.locator(".keyadd").first().click();
   await app.keyboard.press("x");

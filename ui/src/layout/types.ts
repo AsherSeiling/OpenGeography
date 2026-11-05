@@ -422,6 +422,8 @@ export interface LayoutPreview {
   /** PNG, base64. */
   png: string;
   pngBytes: number;
+  /** The resolution drawn: the one asked for, or lower on a very large page. */
+  dpi?: number;
   warnings: string[];
   labels: PlacedLabel[];
   droppedLabelEdits: DroppedLabelEdit[];

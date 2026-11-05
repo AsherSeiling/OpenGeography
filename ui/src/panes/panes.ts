@@ -18,7 +18,7 @@ export const PANE_TITLES: Record<PaneId, string> = {
   catalog: "Catalog",
   map: "Map",
   table: "Attribute Table",
-  model: "Node Editor",
+  model: "Processing nodes",
   properties: "Properties",
   sources: "Sources",
   items: "Items",
@@ -116,7 +116,7 @@ export function syncMapPanels() {
   }
 }
 
-/** Default layout: Map Layers over Catalog on the left, the map in the middle, Properties over Sources on the right. No bottom panel. */
+/** Default layout: Map Layers over Catalog on the left, the map in the middle, Properties on the right. No bottom panel; Sources is left out and opens from View. */
 export function defaultLayout() {
   if (!dock) return;
   rebuilding++;
@@ -126,7 +126,6 @@ export function defaultLayout() {
     add("contents", { direction: "left" }); // whole-height column on the far left
     add("catalog", { referencePanel: "contents", direction: "below" });
     add("properties", { direction: "right" }); // whole-height column on the far right
-    add("sources", { referencePanel: "properties", direction: "below" });
     anchorMapPanel()?.api.setActive();
   } finally {
     rebuilding--;
@@ -212,6 +211,11 @@ export function restoreDock(saved: unknown) {
   rebuilding++;
   try {
     dock.fromJSON(saved.layout as never);
+    // A project saved before a pane was renamed still holds the old tab title.
+    for (const p of dock.panels) {
+      const t = PANE_TITLES[p.id as PaneId];
+      if (t && KNOWN.has(p.id) && p.title !== t) p.api.setTitle(t);
+    }
   } catch {
     defaultLayout();
   } finally {
