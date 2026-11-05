@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { cpSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, expect, gis, addTestLayer, ribbon } from "./fixtures";
@@ -223,11 +223,11 @@ test.describe("shell with the bottom panel closed at start-up", () => {
   });
 });
 
-test("U-6 after opening a project, a layer with the id and version of one drawn before still draws in UTM", async ({ app }) => {
+test("U-6 (guard) a layer with the id and version of one already drawn in UTM, in a project with no UTM table, still draws in UTM", async ({ app }) => {
   const UTM = { id: "EPSG:26914", name: "NAD83 / UTM zone 14N" };
-  const draws = async (id: string) => {
+  const draws = async (id: string) =>
     // A tile of the layer's own source answers with data (the engine 404s until the display table is built).
-    return gis(app, async (g, lid: string) => {
+    gis(app, async (g, lid: string) => {
       const m = g.getMap();
       const lay = m.getLayers().getArray().find((l: any) => l.getSource?.()?.getTileUrlFunction && l.getSource().getUrls?.()?.[0]?.includes(`/${lid}/`));
       if (!lay) return "no layer";
@@ -236,19 +236,25 @@ test("U-6 after opening a project, a layer with the id and version of one drawn 
       const r = await fetch(src.getTileUrlFunction()(coord, 1, src.getProjection()));
       return r.ok ? "ok" : `HTTP ${r.status}`;
     }, id) as Promise<string>;
-  };
+  // 1. A layer in Web Mercator; the project is saved before any UTM display table exists.
   const layer = await addTestLayer(app, "polygons", 12, [-100, 34, -99.7, 34.3]);
-  await gis(app, (g, u: any) => g.useApp.getState().setMapCrs(u), UTM);
-  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
-  await expect.poll(() => draws(layer.id), { timeout: 30_000 }).toBe("ok");
+  await app.waitForTimeout(1000); // a save right after adding a layer sometimes fails with "Cannot CHECKPOINT: other write transactions active" (see BUGS.md U-6 note)
   const dir = join(mkdtempSync(join(tmpdir(), "gis-e2e-u6-")), "u6.gproj");
   await gis(app, (g, d) => g.useApp.setState({ projectDir: d }), dir);
   await gis(app, (g) => g.actions.saveProject());
   await expect.poll(() => gis(app, (g) => g.useApp.getState().dirty)).toBe(false);
-  await gis(app, (g) => g.actions.newProject());
-  await gis(app, (g, d) => g.actions.openProject(d), dir); // the same layer comes back with the same id and version, but the engine has dropped its display table
-  const again = await gis(app, (g) => Object.values(g.useApp.getState().layers).map((l: any) => `${l.id}@${l.version}`)) as string[];
-  expect(again).toContain(`${layer.id}@${layer.version}`);
+  // A second copy of the saved project, taken now: it has the same layer id and version and no UTM table.
+  const dir2 = join(mkdtempSync(join(tmpdir(), "gis-e2e-u6b-")), "u6.gproj");
+  cpSync(dir, dir2, { recursive: true });
+  // 2. UTM: the engine builds the table and the map remembers it.
+  await gis(app, (g, u: any) => g.useApp.getState().setMapCrs(u), UTM);
+  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
+  await expect.poll(() => draws(layer.id), { timeout: 30_000 }).toBe("ok");
+  // 3. The copy: the engine loads a project whose layer has the same id and version but no UTM table.
+  await gis(app, (g, d) => g.actions.openProject(d), dir2);
+  expect(await gis(app, (g, id) => { const l = g.useApp.getState().layers[id]; return l ? `${l.id}@${l.version}` : null; }, layer.id)).toBe(`${layer.id}@${layer.version}`);
+  // 4. UTM again.
+  await gis(app, (g, u: any) => g.useApp.getState().setMapCrs(u), UTM);
   await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
   await expect.poll(() => draws(layer.id), { timeout: 30_000 }).toBe("ok");
 });
