@@ -501,24 +501,39 @@ export function layerList(): LayerInfo[] {
 type Displayable = Pick<AppState, "layers" | "results" | "showOriginal">;
 
 /** What a layer currently shows: its node-tree result, or its original data. */
+/** Result raster styles as saved in the project: only when there are any (old projects have none), and only for layers that exist. */
+export const savedResultStyles = (styles: Record<string, RasterStyle>) => (Object.keys(styles).length ? styles : undefined);
+export const restoredResultStyles = (saved: Record<string, RasterStyle> | undefined, layerIds: string[]): Record<string, RasterStyle> =>
+  Object.fromEntries(Object.entries(saved ?? {}).filter(([id, st]) => layerIds.includes(id) && !!st && typeof st === "object" && typeof st.renderer === "string"));
+
+export type ResultLook = "derived" | "source" | "gray";
+let resultLookOf: (owner: string) => ResultLook = () => "derived";
+/** The model store says which look a layer's raster result gets (from the tool that made it, `ToolSpec.resultLook`); the store cannot import the model. */
+export const setResultLookResolver = (f: typeof resultLookOf) => (resultLookOf = f);
+
 /**
- * What a raster that came out of a node tree looks like until the user styles it. The source's renderer (an elevation ramp with hillshade) would
- * hide it: a stream raster holds the value 1, a slope raster has no relief. So: a plain colour ramp over the result's own value range, no shading;
- * one value only (a mask) is a single class. Never the source raster's style (TP-11).
+ * What a raster that came out of a node tree looks like until the user styles it, by what made it (the engine's `ResultLook`):
+ * `derived` (slope, flow accumulation, streams, reclassify, calculator, indices …) a plain colour ramp over the result's own value range, no shading,
+ * one value only (a mask) a single class; `gray` (hillshade) grey; `source` (clip, mosaic, resample … the same kind of values) is not decided here:
+ * it keeps the source layer's renderer. Never writes the source's style (TP-11).
  */
-export function resultRasterStyle(info: LayerInfo): RasterStyle {
+export function resultRasterStyle(info: LayerInfo, look: ResultLook = "derived"): RasterStyle {
   const r = info.raster;
   if (!r || r.kind === "rgb" || r.empty) return { renderer: "default" };
+  if (look === "gray") return { renderer: "gray", stretch: { mode: "minmax" } };
   if (r.min === r.max) return { renderer: "paletted", entries: [{ value: r.min, color: "#1f78b4", label: String(r.min) }] };
   return { renderer: "pseudocolor", ramp: "viridis", stretch: { mode: "minmax" } };
 }
 
-/** The style a layer is drawn with: its own, or for a raster node-tree result the user's result style or the result default. */
+/** The style a layer is drawn with: its own, or for a raster node-tree result the user's result style, else the default for what made it. */
 export function effectiveStyle(s: Pick<AppState, "styles" | "results" | "showOriginal" | "resultRasterStyles">, id: string): LayerStyle | undefined {
   const own = s.styles[id];
   const r = s.results[id];
   if (!own || !r || s.showOriginal[id] || r.geomType !== "Raster") return own;
-  return { ...own, raster: s.resultRasterStyles[id] ?? resultRasterStyle(r) };
+  const mine = s.resultRasterStyles[id];
+  if (mine) return { ...own, raster: mine };
+  const look = resultLookOf(id);
+  return look === "source" ? own : { ...own, raster: resultRasterStyle(r, look) };
 }
 
 export function displayInfo(s: Displayable, id: string): LayerInfo | undefined {

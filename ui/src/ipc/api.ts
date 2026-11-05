@@ -502,6 +502,8 @@ export interface ToolSpec {
   fields: OutFieldsRule;
   /** Plain-language search words for the Add menu (engine: nodes::keywords). */
   keywords?: string[];
+  /** How a raster this tool makes looks by default: "derived" (new values: colour ramp over the range), "source" (same kind of values: keeps the source's renderer) or "gray" (a shade). */
+  resultLook?: "derived" | "source" | "gray";
 }
 
 export interface OutFieldsRule {

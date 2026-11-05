@@ -78,6 +78,9 @@ impl Tool for Reclassify {
 
 pub struct NoData;
 impl Tool for NoData {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "nodata", name: "NoData Cells", category: "Raster › Map Algebra", role: Role::Tool,
             description: "Set the value that means no data, give no-data cells a value, or fill them by interpolating from the cells around them.",
@@ -106,6 +109,9 @@ impl Tool for NoData {
 
 pub struct SelectBands;
 impl Tool for SelectBands {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "select_bands", name: "Select Bands", category: "Raster › Management", role: Role::Tool,
             description: "Keep some bands of a multi-band raster, in the order given (for example 3,2,1).",
@@ -120,6 +126,9 @@ impl Tool for SelectBands {
 
 pub struct ResampleRaster;
 impl Tool for ResampleRaster {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "resample_raster", name: "Resample Raster", category: "Raster › Management", role: Role::Tool,
             description: "Change the cell size (in the raster's own units: metres, or degrees for a geographic raster).",
@@ -140,6 +149,9 @@ impl Tool for ResampleRaster {
 
 pub struct AlignRaster;
 impl Tool for AlignRaster {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "align_raster", name: "Align Raster", category: "Raster › Management", role: Role::Tool,
             description: "Put a raster on another raster's grid: its coordinate system, extent and cell size, so the two can be combined cell by cell.",
@@ -161,6 +173,9 @@ impl Tool for AlignRaster {
 
 pub struct MosaicRasters;
 impl Tool for MosaicRasters {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "mosaic_rasters", name: "Mosaic Rasters", category: "Raster › Management", role: Role::Tool,
             description: "Join two rasters into one covering both (the second wins where they overlap). Join more by chaining Mosaic nodes. The result is in the first raster's coordinate system.",
@@ -256,6 +271,9 @@ impl Tool for Interpolate {
 /// Record which height reference a raster's values use (CRS accuracy plan C1).
 pub struct DefineVerticalDatum;
 impl Tool for DefineVerticalDatum {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "define_vertical_datum", name: "Define Vertical Datum", category: "Raster › Management", role: Role::Tool,
             description: "Record which height reference an elevation raster uses (NAVD88, a geoid such as EGM2008, ellipsoidal heights from GPS, …). The values do not change. Raster Calculator, Align and Mosaic then warn when you combine rasters on different vertical datums, whose heights can differ by metres. USGS 3DEP downloads are recorded as NAVD88 and Copernicus DEM as EGM2008 automatically. Converting between datums needs a geoid grid and is not done here.",

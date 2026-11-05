@@ -65,6 +65,9 @@ impl Tool for Contours {
 pub struct Hillshade;
 
 impl Tool for Hillshade {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Gray
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             id: "hillshade",
@@ -122,6 +125,9 @@ impl Tool for Slope {
 pub struct ClipRaster;
 
 impl Tool for ClipRaster {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             id: "clip_raster",

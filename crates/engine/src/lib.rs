@@ -1306,7 +1306,7 @@ impl Engine {
     // ---------- model ----------
 
     pub fn tool_specs(&self) -> Vec<nodes::SpecOut> {
-        self.tools.iter().map(|t| nodes::SpecOut { spec: t.spec(), fields: t.output_fields(), keywords: nodes::keywords::keywords(t.spec().id) }).collect()
+        self.tools.iter().map(|t| nodes::SpecOut { spec: t.spec(), fields: t.output_fields(), keywords: nodes::keywords::keywords(t.spec().id), result_look: t.result_look() }).collect()
     }
 
     pub fn run_graph(&self, graph: &Graph, target: Option<&str>, on_status: &mut dyn FnMut(&NodeResult)) -> Result<Vec<NodeResult>> {

@@ -3,7 +3,7 @@ import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type Edge
 import { create } from "zustand";
 import { temporal } from "zundo";
 import type { Field, NodeResult, PortKind, ToolSpec } from "../ipc/api";
-import { displayInfo, useApp } from "./store";
+import { displayInfo, setResultLookResolver, useApp } from "./store";
 
 export interface ModelNodeData extends Record<string, unknown> {
   tool: string;
@@ -411,3 +411,13 @@ export function sourceLayerFor(nodeId: string, port: string, seen = new Set<stri
   const first = specs()[node.data.tool]?.inputs[0];
   return first ? sourceLayerFor(src, first.id, seen) : undefined;
 }
+
+/** The default look of a layer's raster result: from the tool that feeds the tree's Output (`ToolSpec.resultLook`); a tree that passes the layer straight through keeps its look. */
+export function resultLookFor(tree: Tree | undefined, specMap: Record<string, ToolSpec>): "derived" | "source" | "gray" {
+  const out = tree?.nodes.find((n) => n.data.tool === "layer_output");
+  const feed = out && tree?.edges.find((e) => e.target === out.id);
+  const node = feed && tree?.nodes.find((n) => n.id === feed.source);
+  if (!node || node.data.muted || node.data.tool === "input_layer") return "source";
+  return specMap[node.data.tool]?.resultLook ?? "derived";
+}
+setResultLookResolver((owner) => resultLookFor(useModel.getState().allTrees()[owner], useRun.getState().specs));

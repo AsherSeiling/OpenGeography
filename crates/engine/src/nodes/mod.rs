@@ -412,6 +412,23 @@ pub trait Tool: Sync + Send {
     fn output_fields(&self) -> OutFields {
         OutFields::default()
     }
+    /// How a raster this tool makes should look until the user styles it (see [`ResultLook`]). The one place that knowledge lives; the UI reads it from the specs.
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Derived
+    }
+}
+
+/// What a raster result looks like by default.
+#[derive(Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ResultLook {
+    /// Different values from the input (slope, flow accumulation, streams, reclassify, indices …): a colour ramp over the result's own range, or one class for a mask.
+    #[default]
+    Derived,
+    /// The same kind of values as the input (clip, mosaic, resample, align, select bands, reproject …): keeps the source raster's renderer.
+    Source,
+    /// A shade, not a value (hillshade): grey.
+    Gray,
 }
 
 /// How a tool's output fields follow from its inputs and settings. This is
@@ -485,6 +502,9 @@ pub struct SpecOut {
     pub fields: OutFields,
     /// Plain-language search words (`keywords::keywords`).
     pub keywords: &'static [&'static str],
+    /// How a raster this tool makes looks by default.
+    #[serde(rename = "resultLook")]
+    pub result_look: ResultLook,
 }
 
 impl std::ops::Deref for SpecOut {

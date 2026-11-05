@@ -14,7 +14,7 @@ import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
-import { defaultStyle, displayInfo, setFrameHook, useApp, type LayerStyle, type SelectMode } from "./store/store";
+import { defaultStyle, displayInfo, restoredResultStyles, savedResultStyles, setFrameHook, useApp, type LayerStyle, type RasterStyle, type SelectMode } from "./store/store";
 import { styleFromSymbologyNode } from "./layers/nodeStyle";
 import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
 import { nextProjectEpoch } from "./store/projectEpoch";
@@ -551,6 +551,8 @@ interface UiState {
   maps?: SavedMap[];
   activeMapId?: string;
   styles: Record<string, LayerStyle>;
+  /** Raster styles the user set on node-tree results, by the layer the result belongs to. Absent in older projects and when there are none (TP-11). */
+  resultRasterStyles?: Record<string, RasterStyle>;
   /** Node tree per layer id. */
   trees: Record<string, Tree>;
   /** Last run's snapshot table per layer then node (B5). Absent in older projects, which kept it in each node's data. */
@@ -586,6 +588,7 @@ function uiState(): UiState {
     maps: serializeMaps(maps),
     activeMapId: s.activeMapId,
     styles: s.styles,
+    ...(savedResultStyles(s.resultRasterStyles) ? { resultRasterStyles: s.resultRasterStyles } : {}),
     trees: m.allTrees(),
     lastOutputs: m.lastOutputs,
     dock: dockSerializer?.() ?? null,
@@ -673,7 +676,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | n
     layers: byId,
     results,
     showOriginal: {},
-    resultRasterStyles: {},
+    resultRasterStyles: restoredResultStyles(ui.resultRasterStyles, Object.keys(byId)),
     selectedLayers: [],
     layerAnchor: null,
     maps,

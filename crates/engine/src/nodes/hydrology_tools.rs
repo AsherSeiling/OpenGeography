@@ -58,6 +58,9 @@ fn rout(path: PathBuf, i: &Rel) -> Result<Output> {
 
 pub struct FillDepressions;
 impl Tool for FillDepressions {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "fill_depressions", name: "Fill Depressions (Sinks)", category: "Hydrology", role: Role::Tool,
             description: "Remove pits and sinks from an elevation raster so water can drain off it. Run this before Flow Direction and Flow Accumulation. With 'Fix flat areas' on, filled flats get a tiny slope toward their outlet so flow direction is defined everywhere (WhiteboxTools: FillDepressions).",

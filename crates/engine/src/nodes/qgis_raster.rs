@@ -53,6 +53,9 @@ impl Tool for Ruggedness {
 pub struct Warp;
 /// QGIS: Warp (reproject) (gdal:warpreproject) — gdal/rasterprojections.html#warp-reproject
 impl Tool for Warp {
+    fn result_look(&self) -> ResultLook {
+        ResultLook::Source
+    }
     fn spec(&self) -> ToolSpec {
         ToolSpec { id: "warp", name: "Warp (Reproject Raster)", category: "Raster › Management", role: Role::Tool,
             description: "Reproject a raster to another coordinate system (QGIS: Warp (reproject)).", inputs: rin(), output: Some(PortKind::Raster),
