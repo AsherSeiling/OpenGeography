@@ -50,3 +50,26 @@ export const useLayoutView = create<LayoutViewState>((set, get) => ({
 
 /** The zoom as the percentage shown to the user (100 % = 96 dpi). */
 export const zoomPercent = (pxPerMm: number) => Math.round(((pxPerMm * 25.4) / 96) * 100);
+
+/**
+ * How much one Ctrl/⌘+wheel event, or one pinch event, changes the zoom. A mouse-wheel notch (about 100) is a step of 10 %;
+ * the small deltas of a trackpad pinch give proportionally small steps, so a pinch is smooth.
+ */
+export function wheelZoomFactor(deltaY: number): number {
+  const d = Math.max(-25, Math.min(25, deltaY));
+  return Math.exp(-d * 0.004);
+}
+
+/** The page position (mm) under a screen point, given the page's on-screen box (left/top) and the zoom (px per mm). */
+export function pageMmAt(rectLeft: number, rectTop: number, zoom: number, clientX: number, clientY: number): { x: number; y: number } {
+  return { x: (clientX - rectLeft) / zoom, y: (clientY - rectTop) / zoom };
+}
+
+/**
+ * How far to scroll so the page position `mm` is under `client` again after the zoom changed to `zoom`, with the page's box now at
+ * `rectLeft`/`rectTop`: positive = scroll right/down. (The page cannot move further than its scroll area allows, so near the page's
+ * edge at a low zoom the point can only get as close as the scroll range lets it.)
+ */
+export function scrollToKeep(mm: { x: number; y: number }, rectLeft: number, rectTop: number, zoom: number, clientX: number, clientY: number): { dx: number; dy: number } {
+  return { dx: rectLeft + mm.x * zoom - clientX, dy: rectTop + mm.y * zoom - clientY };
+}

@@ -20,7 +20,7 @@ import { Rail, MAP_DRAG } from "./Rail";
 import { StartGallery } from "./StartGallery";
 import { copySelected, cutSelected, duplicateSelected, pasteHeld } from "./clipboard";
 import { insertMapFrame, setFrameFromMapView } from "./actions";
-import { useLayoutView, zoomPercent } from "./view";
+import { clampZoom, pageMmAt, scrollToKeep, useLayoutView, wheelZoomFactor, zoomPercent } from "./view";
 import { useSeriesView } from "./series";
 import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
@@ -110,18 +110,63 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     return () => c?.removeEventListener("scroll", measureOrigin);
   }, []);
 
-  // Ctrl/⌘ + wheel zooms the page; plain wheel scrolls.
+  // Ctrl/⌘ + wheel and a trackpad pinch zoom the page around the pointer: the page position under it stays under it (UR-7).
+  // Plain wheel scrolls. Chromium sends a pinch as a Ctrl+wheel; WebKit (the Mac app) sends gesture events instead.
+  const anchor = useRef<{ mm: { x: number; y: number }; cx: number; cy: number } | null>(null);
+  const zoomAround = (target: number, cx: number, cy: number) => {
+    const p = pageEl.current;
+    if (!p) return;
+    const r = p.getBoundingClientRect();
+    const next = clampZoom(target);
+    const v = useLayoutView.getState();
+    if (Math.abs(next - (v.fit ? v.shown : v.zoom)) < 1e-6) return; // at the limit: nothing will redraw to use the anchor
+    anchor.current = { mm: pageMmAt(r.left, r.top, r.width / page.width, cx, cy), cx, cy };
+    useLayoutView.getState().setZoom(next);
+  };
+  const zoomAroundRef = useRef(zoomAround);
+  zoomAroundRef.current = zoomAround;
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      useLayoutView.getState().setZoom((fit ? fitZoom : useLayoutView.getState().zoom) * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+      const v = useLayoutView.getState();
+      zoomAroundRef.current((v.fit ? v.shown : v.zoom) * wheelZoomFactor(e.deltaY), e.clientX, e.clientY);
+    };
+    let start = 1;
+    const gesture = (e: Event) => e as Event & { scale: number; clientX: number; clientY: number };
+    const onStart = (e: Event) => {
+      e.preventDefault();
+      start = useLayoutView.getState().shown;
+    };
+    const onChange = (e: Event) => {
+      e.preventDefault();
+      const g = gesture(e);
+      zoomAroundRef.current(start * g.scale, g.clientX, g.clientY);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [fit, fitZoom]);
+    el.addEventListener("gesturestart", onStart);
+    el.addEventListener("gesturechange", onChange);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("gesturestart", onStart);
+      el.removeEventListener("gesturechange", onChange);
+    };
+  }, []);
+  // After the page is redrawn at its new size, scroll so the anchored point is back under the pointer.
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    const c = wrap.current;
+    const p = pageEl.current;
+    if (!a || !c || !p) return;
+    anchor.current = null;
+    const r = p.getBoundingClientRect();
+    const { dx, dy } = scrollToKeep(a.mm, r.left, r.top, z, a.cx, a.cy);
+    c.scrollLeft += dx;
+    c.scrollTop += dy;
+    measureOrigin();
+  }, [z]);
 
   // Preview: the engine renders the page (debounced), the newest request wins.
   const styles = useApp((s) => s.styles);
