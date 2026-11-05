@@ -77,6 +77,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | F. Planetary GIS | Full plan rewritten 2026-11-04, not built. **The last feature before the first release (user, 2026-11-04).** | Build P0–P7 in `PLANETARY_PLAN.md` after the UI redesign merges, the open bugs are fixed and the Mac app is rebuilt and tested |
 | G. Python SDK + CLI | Not built; moved to after the first release | Nothing before release |
 | H. Advanced analysis | ✅ Complete | Hydrology is untested in the packaged app (M-32) and on Windows and Linux (R7). Supervised classification not built. |
+| Server connections (REST, WMS, WMTS) | Plan written 2026-11-04, not built | S1–S3 in `SERVER_CONNECTIONS_PLAN.md`, after the bug fixes and Mac test and before planetary |
 | UI redesign | WP1–WP8b and WP10–WP13 merged on `ui-redesign`; not pushed | WP9 final verification, then merge into `main` |
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
@@ -233,6 +234,7 @@ H  Advanced analysis     complete
 UI UI redesign           ← now: WP9 final verification on branch ui-redesign
 -- Bug fixes             the open bugs worth fixing (docs/BUGS.md)
 -- Mac app               rebuild and test the redesign in the packaged app
+S  Server connections    REST and WMS (docs/SERVER_CONNECTIONS_PLAN.md)
 F  Planetary GIS         last feature before the first release (docs/PLANETARY_PLAN.md)
 R7 One full CI push      at the very end (your skip-CI rule); fix what it finds
 -- First release, fine tuning

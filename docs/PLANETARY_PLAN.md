@@ -75,7 +75,7 @@ Everything here was run against the current `ui-redesign` engine, PROJ 9.8.1 and
 ### The finding that changes the old plan
 **The USGS global mosaics are not cloud-optimized.** MOLA has one-row strips and no overviews, and there's no `.ovr` file. Drawing it at 512×256 took **2 minutes 13 seconds**. They can't be used as live basemaps, though clipping a small area remains practical. So:
 - Each main body gets a **small bundled basemap**, the way Natural Earth works today. It draws offline, in any CRS, and prints in layouts.
-- Detail while zoomed in comes from the **USGS WMS** on screen, which already serves Mars in its IAU CRS. NASA Trek is the backup, and bundled basemaps plus downloaded clips are the fallback.
+- Detail while zoomed in comes from the **USGS WMS**, which already serves Mars in its IAU CRS, through the server layer in `docs/SERVER_CONNECTIONS_PLAN.md`. NASA Trek is the backup, and bundled basemaps plus downloaded clips are the fallback.
 
 ---
 
@@ -226,7 +226,7 @@ Existing tools become correct once §8 lands. The new tools below are built from
 
 Same way of working as the redesign: Opus reviews and merges, Sonnet writes code, one commit per package, `[skip ci]`, and one full test run and one real-app review per batch. **Read closely: pivots, geodesics, project format, licences.**
 
-**Starts after** the UI redesign merges into `main`, because this builds on multiple maps and basemaps, and after the open bugs are fixed and a rebuilt Mac app has been tested (user, 2026-11-04).
+**Starts after** the UI redesign merges into `main`, because this builds on multiple maps and basemaps, and after the open bugs are fixed, a rebuilt Mac app has been tested, and server connections are built (user, 2026-11-04).
 
 | WP | Work | Done when | Sessions |
 |---|---|---|---|

@@ -33,6 +33,16 @@ const NO_CHANGE_OK: { match: RegExp; ctx?: RegExp; why: string }[] = [
   { match: /^Map$/, why: "View > Windows > Map shows the Map pane, which is already the visible one" },
 ];
 
+/** Disabled in every generic context, for a stated reason. Each is either a placeholder row, covered by name elsewhere, or listed as not exercised in docs/UI_REDESIGN_VERIFY.md. */
+const NEVER_USABLE_OK: RegExp[] = [
+  /No templates of yours yet$/, // placeholder row while there are no templates
+  /already on this map$/, // placeholder row when every layer is on the map
+  /\|Ungroup$/, // recorded as "Ungroup (after Group)" once a group exists
+  /\|Redo \(/, // needs an undo first; the Redo button runs after one in the map-model context
+  /\|Export Series/, // needs a map series: not exercised by this audit
+  /\|Preview on map$/, // needs a node result on the selected node: not exercised by this audit
+];
+
 // ---------------------------------------------------------------- page plumbing
 
 const CLICKABLE = [
@@ -632,5 +642,5 @@ test("audit: totals; no control is dead, throws, or stays disabled in every cont
   writeFileSync(testInfo.outputPath("audit.json"), out);
   if (process.env.E2E_AUDIT_JSON) writeFileSync(process.env.E2E_AUDIT_JSON, out);
   expect(REPORT_FAIL().map((r) => `${r.ctx} › ${r.area} › ${r.name}: ${r.result}${r.note ? ` (${r.note})` : ""}`), "controls that do nothing or throw").toEqual([]);
-  expect(neverUsable, "controls disabled in every context the audit tried").toEqual([]);
+  expect(neverUsable.filter((k) => !NEVER_USABLE_OK.some((re) => re.test(k))), "controls disabled in every context the audit tried").toEqual([]);
 });

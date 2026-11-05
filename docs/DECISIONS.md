@@ -275,7 +275,7 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 
 ### D6 — JSON APIs and soils
 - Built: USGS earthquakes (FDSN GeoJSON; Oklahoma-size queries stay under the 20 000-event limit, larger ones are told to narrow) and NRCS SSURGO map units through Soil Data Access (polygon intersection query; area limited to 0.25° because the polygons are large). Both verified against the live services.
-- Not built, on purpose: **WMS/WMTS display** (a new map layer type in the OpenLayers view with its own CRS and legend handling: its own task, and the layout renderer would need to print it) and **NASA POWER** (a time series for a point, a table rather than a map layer; it belongs with the future table/chart tools). The ribbon has no placeholder for either.
+- (WMS/WMTS display is now planned: user, 2026-11-04, `docs/SERVER_CONNECTIONS_PLAN.md`.) Not built, on purpose: **WMS/WMTS display** (a new map layer type in the OpenLayers view with its own CRS and legend handling: its own task, and the layout renderer would need to print it) and **NASA POWER** (a time series for a point, a table rather than a map layer; it belongs with the future table/chart tools). The ribbon has no placeholder for either.
 
 ### E — Raster foundation (E1–E3)
 - Reuse over reimplementation (user's usage concern, 2026-10-29): GDAL does translate, warp, mosaic, fill-nodata, rasterize and gdaldem; the calculator evaluates expressions with the MIT `fasteval` crate instead of a hand-written parser, and adds the functions raster people expect (`sqrt exp ln pow atan2 if`) through its namespace hook. QGIS algorithm ids are cited, no QGIS code is used.

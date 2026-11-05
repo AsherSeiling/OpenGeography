@@ -23,7 +23,8 @@ Last audit: 2026-10-23 (code inspection + test runs on macOS arm64); status mark
 | Public data toolkit (Living Atlas–style) | ✅ | Phase D complete: tiled 3DEP, ArcGIS catalog, STAC/COG, Overture GeoParquet, OGC API, earthquakes, SSURGO; `docs/PUBLIC_DATA_CATALOG.md` |
 | Sources & citations (annotated bibliography, BibTeX) | ✅ | model results cite every upstream input |
 | Census data join (ACS / 2020) + keychain key | 🟡 | D2 built; keychain not yet tried on a real OS (M-31) |
-| Imagery: Sentinel-2, Copernicus DEM; NAIP; NASA POWER; WMS/WMTS | 🟠 | Sentinel-2 and Copernicus DEM offered through STAC. Landsat and NAIP on AWS need an AWS account, so NAIP needs a later connector. WMS/WMTS and NASA POWER not built, on purpose (`docs/DECISIONS.md`) |
+| Imagery: Sentinel-2, Copernicus DEM; NAIP; NASA POWER | 🟠 | Sentinel-2 and Copernicus DEM offered through STAC. Landsat and NAIP on AWS need an AWS account, so NAIP needs a later connector. NASA POWER not built, on purpose (`docs/DECISIONS.md`) |
+| Server connections: live WMS, WMTS and ArcGIS REST layers, browse a server, print, save a copy | ⬜ | Planned before planetary (user, 2026-11-04); `docs/SERVER_CONNECTIONS_PLAN.md`. ArcGIS vector download already built. |
 
 ### Node editor (Model)
 | Requirement | Status | Notes |

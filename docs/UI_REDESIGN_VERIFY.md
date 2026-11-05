@@ -45,3 +45,12 @@ Text contrast is computed from the browser's colours (text against the first opa
 - e2e on my own devserver, the specs this work touches or could affect (layout*, map, multi-map, shift-a, model, table, misc, series, templates, topo, split, dock-overflow, ribbon-width, crs-ui, catalog, basemaps, appearance, choose-layer, plus the new a11y and walk-through specs): 141 passed, 0 failed after one test change below. The whole `scripts/e2e.sh` was **not** run by me; the lead runs it on the merge.
 - Test edits for changed behaviour (targets, not dropped checks): `layout-items.spec.ts` "Model canvas stays tall" now asserts the Node Editor is gone under a layout; `catalog.spec.ts` CAT-3 goes Back to Map before looking at Map Layers, which a layout now replaces with Items.
 - Seen flaky once and passing on re-run: `layout-editor.spec.ts` "keyboard: the rail, the tabs of Properties and the menus work without a mouse" (timed out in one batch).
+
+## After the merge (lead, 2026-11-04)
+Full `scripts/e2e.sh` on the merge with the green highlight: 188 passed, 3 failed, 1 skipped (46.7 min, of which the audit is 38). `cargo test -p engine`: 540 passed, 0 failed, 28 ignored.
+- World view framing failed because MM-1's framing also fired under World View: fixed, rerun passes.
+- The search test failed on a 120 ms close timer that survived coming back to the box: fixed, rerun passes.
+- The audit totals test had never run on the whole file. It failed on two controls marked dead, which were clean when their sections were rerun (BUGS E2E-4), and on controls disabled in every context, now listed with reasons in `NEVER_USABLE_OK`.
+Rerun after the fixes: 33 of 33 on the shortcut, world, map, layout editor, choose-layer and model specs; 11 of 12 on AA, walk-through and the layout, pane and more-state audit sections (0 dead, 0 threw; the one failure was the disabled list); 10 of 10 after that list was added. The whole suite was not run again after the last fixes.
+Not exercised by the audit: Export Series and Preview on map.
+
