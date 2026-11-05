@@ -116,7 +116,7 @@ export function syncMapPanels() {
   }
 }
 
-/** Default layout: Map Layers over Catalog on the left, the map in the middle, Properties over Sources on the right. No bottom panel. */
+/** Default layout: Map Layers over Catalog on the left, the map in the middle, Properties on the right. No bottom panel; Sources is left out and opens from View. */
 export function defaultLayout() {
   if (!dock) return;
   rebuilding++;
@@ -126,7 +126,6 @@ export function defaultLayout() {
     add("contents", { direction: "left" }); // whole-height column on the far left
     add("catalog", { referencePanel: "contents", direction: "below" });
     add("properties", { direction: "right" }); // whole-height column on the far right
-    add("sources", { referencePanel: "properties", direction: "below" });
     anchorMapPanel()?.api.setActive();
   } finally {
     rebuilding--;

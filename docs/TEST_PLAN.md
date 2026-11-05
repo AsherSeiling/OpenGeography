@@ -1058,6 +1058,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SH-2 | Bottom panel appears when Node Editor or Attribute Table opens, goes when the last tab closes | `e2e/map.spec.ts` |
 | SH-3 | Picking a tool opens the Node Editor; Add Tool and Run are on the Analysis tab | `e2e/map.spec.ts` |
 | UR-2 | The pane, ribbon button, tooltips and hints say "Processing nodes" (internal id `model` unchanged); a project saved with the old tab title "Node Editor" opens with the new one | `e2e/map.spec.ts` (UR-2) |
+| UR-3 | The default layout has no Sources pane (Properties takes the whole right column); View › Sources opens it under Properties; a layout the user saved is restored as saved | `e2e/map.spec.ts` (WP6 default layout, M-8, old project) , `e2e/misc.spec.ts` M-22 |
 | SH-4 | Search finds a command, a tool and a layer; a tool is placed like the menu | `e2e/map.spec.ts` |
 | SH-5 | Public Data opens the Catalog and focuses its row | `e2e/map.spec.ts` |
 | SH-6 | A saved dock layout of this version comes back; an old one falls back, project data untouched | `e2e/map.spec.ts` |
