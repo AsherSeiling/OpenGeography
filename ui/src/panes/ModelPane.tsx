@@ -448,7 +448,7 @@ function ModelCanvas() {
           {treeName ? <>Node tree: <b>{treeName}</b></> : "No layer selected"}
         </span>
         <ToolbarDivider />
-        <Button appearance="primary" size="small" icon={<Play20Filled />} disabled={running || !treeLayer} onClick={() => runModel()}>
+        <Button className="model-run" appearance="outline" size="small" icon={<Play20Filled />} disabled={running || !treeLayer} onClick={() => runModel()}>
           {running ? "Running…" : "Run"}
         </Button>
         {running && (

@@ -22,6 +22,7 @@ import {
 } from "@fluentui/react-icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { projectLayerIds } from "../store/maps";
 import { exportLayer, runModel, useDialog, zoomToSelection } from "../actions";
 import { api, errorText, type LayerInfo } from "../ipc/api";
 import { useModel } from "../store/model";
@@ -53,7 +54,8 @@ export function AttributeTable() {
   const order = useApp((s) => s.order);
   const layers = useApp((s) => s.layers);
   const active = useApp((s) => s.activeLayer);
-  const owner = active && layers[active] ? active : order[0];
+  const all = useMemo(() => projectLayerIds(order, layers), [order, layers]);
+  const owner = active && layers[active] ? active : all[0];
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
   // Rows come from what the layer currently shows (node-tree result or original).
@@ -358,7 +360,7 @@ export function AttributeTable() {
     <div className="attr">
       <div className="attr-bar">
         <Dropdown size="small" value={info.name + (readOnly ? " (node result)" : "")} onOptionSelect={(_, d) => useApp.getState().setActiveLayer(d.optionValue!)} style={{ minWidth: 140 }}>
-          {order.map((lid) => (
+          {all.map((lid) => (
             <Option key={lid} value={lid}>{layers[lid]?.name ?? lid}</Option>
           ))}
         </Dropdown>

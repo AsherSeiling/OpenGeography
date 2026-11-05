@@ -6,6 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { searchTools, type Searchable } from "../nodes/toolSearch";
 import { useToolMenu } from "../nodes/toolMenuStore";
 import { useRun } from "../store/model";
+import { projectLayerIds } from "../store/maps";
 import { useApp } from "../store/store";
 import { addToolFromUi } from "./addTool";
 import { commands, CATALOG_COMMANDS, type Command } from "./commands";
@@ -34,7 +35,7 @@ export function TopSearch() {
   const box = useRef<HTMLInputElement>(null);
   const uid = useId();
   const specs = useRun((s) => s.specs);
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
+  const layers = useApp(useShallow((s) => projectLayerIds(s.order, s.layers).map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
   const fav = useToolMenu((s) => s.fav);
 
   const cmdItems = useMemo(() => {

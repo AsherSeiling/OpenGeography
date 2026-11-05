@@ -5,7 +5,7 @@ import { reportError } from "../errors/store";
 import { api, errorText, IN_TAURI, type TopoBuild, type TopoSpec } from "../ipc/api";
 import { todayIso } from "./topoArea";
 import { getCenterInMapCrs, getGroundPerPixel, getMap } from "../map/mapController";
-import { anchorMapPanel, getDock, showPane } from "../panes/panes";
+import { anchorMapPanel, dockIsRebuilding, getDock, PANE_TITLES, showPane, type PaneId } from "../panes/panes";
 import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
@@ -75,41 +75,97 @@ export function openLayout(id: string) {
  * a click into the Properties pane drop the selection and every later edit (bug U-5).
  */
 export function followActivePanel(layoutId: string | undefined) {
+  if (dockIsRebuilding()) return; // the dock is being rebuilt (Reset Panes, open project): activations on the way mean nothing
   if (layoutId) {
     useLayouts.getState().open(layoutId);
     enterWorkspace();
-  } else if (workspace && isMapPanelId(getDock()?.activePanel?.id ?? "")) leaveWorkspace();
+  } else if (!rearranging && workspace && isMapPanelId(getDock()?.activePanel?.id ?? "")) leaveWorkspace();
 }
 
-/** The bottom group (Model, Attribute Table) is made smaller while a layout is open; its height is kept to put back. It stays tall enough to use (right-click and Shift+A need a canvas to act on). */
-let workspace: { bottomHeight: number | null } | null = null;
-const SHRUNK_PX = 170;
+/**
+ * Option B of docs/LAYOUT_UI_OPTIONS.md: while a layout is open the left column is Items (the page's own list; the Maps are on the Insert
+ * rail) with Catalog stacked under it, instead of Map Layers, and the bottom panel (Node Editor, Attribute Table) is closed so the page gets the width and the
+ * height. Items used to be a tab in the narrow Map Layers column, which cut its name off. What was there is remembered and put back on
+ * Back to Map. Shift+A and a right-click still work: Shift+A on the page inserts an element, a tool picked elsewhere re-opens the Node Editor.
+ */
+interface Saved {
+  bottom: { ids: PaneId[]; active: PaneId | null; height: number | null };
+  /** Map Layers / Catalog were open (and Items was a tab beside them). */
+  /** Width of the Properties column, put back after the columns beside it change (the dock would otherwise hand it the freed width). */
+  propsWidth: number | null;
+  left: { contents: boolean; catalog: boolean; items: boolean; width: number | null; contentsHeight: number | null };
+}
+let workspace: Saved | null = null;
+const ITEMS_WIDTH = 240;
+const BOTTOM_IDS: PaneId[] = ["table", "model"];
+/** True while enterWorkspace closes and moves panels: the dock then activates some other group's panel, which must not read as "left the layout". */
+let rearranging = false;
 
-/** LW1: a layout tab is active, so the window becomes a layout workspace: Items beside the page, Properties on the right, node/table dock out of the way. */
+/** LW1: a layout tab is active, so the window becomes a layout workspace: Items beside the page, Properties on the right, no bottom panel. */
 export function enterWorkspace() {
   const dock = getDock();
   useLayoutView.getState().setWorkspace(true);
   if (!dock || workspace) return;
-  const bottom = dock.getPanel("model")?.group ?? dock.getPanel("table")?.group;
-  workspace = { bottomHeight: null };
-  if (bottom && bottom.api.height > SHRUNK_PX + 40) {
-    workspace.bottomHeight = bottom.api.height;
-    bottom.api.setSize({ height: SHRUNK_PX });
+  const group = (dock.getPanel("model") ?? dock.getPanel("table"))?.group ?? null;
+  const ordered = group ? (group.panels.map((p) => p.id).filter((id) => BOTTOM_IDS.includes(id as PaneId)) as PaneId[]) : [];
+  const active = group?.activePanel?.id as PaneId | undefined;
+  const contents = dock.getPanel("contents");
+  workspace = {
+    bottom: { ids: ordered, active: active && ordered.includes(active) ? active : null, height: group ? group.api.height : null },
+    propsWidth: dock.getPanel("properties")?.group.api.width ?? null,
+    left: {
+      contents: !!contents,
+      catalog: !!dock.getPanel("catalog"),
+      items: !!dock.getPanel("items"),
+      width: contents ? contents.group.api.width : null,
+      contentsHeight: contents ? contents.group.api.height : null,
+    },
+  };
+  const layoutPanel = dock.panels.find((p) => p.id === panelId(useLayouts.getState().id ?? ""));
+  rearranging = true;
+  try {
+    for (const id of [...ordered, "contents", "catalog", "items"]) dock.getPanel(id)?.api.close();
+    // Items in a column of its own, whole height, at the far left.
+    dock.addPanel({ id: "items", component: "items", title: PANE_TITLES.items, position: { direction: "left" } }).group.api.setSize({ width: ITEMS_WIDTH });
+    // Catalog stays (layouts are renamed, copied and deleted there), stacked under Items rather than tabbed with it.
+    if (workspace.left.catalog) {
+      const p = dock.addPanel({ id: "catalog", component: "catalog", title: PANE_TITLES.catalog, position: { referencePanel: "items", direction: "below" } });
+      p.group.api.setSize({ height: Math.round(dock.height * 0.34) });
+    }
+    showPane("properties");
+    if (workspace.propsWidth) dock.getPanel("properties")?.group.api.setSize({ width: workspace.propsWidth });
+    layoutPanel?.api.setActive();
+  } finally {
+    rearranging = false;
   }
-  showPane("items");
-  showPane("properties");
 }
 
-/** Back to the Map: restore the bottom group and the Contents tab. */
+/** Back to the Map: restore the bottom group and the left column (Map Layers over Catalog, Items where it was) as they were. */
 export function leaveWorkspace() {
   const dock = getDock();
   useLayoutView.getState().setWorkspace(false);
   const w = workspace;
   workspace = null;
-  if (!dock || !w) return;
-  const bottom = dock.getPanel("model")?.group ?? dock.getPanel("table")?.group;
-  if (bottom && w.bottomHeight) bottom.api.setSize({ height: w.bottomHeight });
-  dock.getPanel("contents")?.api.setActive();
+  // Reset Panes (and opening a project) rebuild the whole dock, closing the layout tab on the way: nothing to put back then.
+  if (!dock || !w || dockIsRebuilding()) return;
+  rearranging = true;
+  try {
+    dock.getPanel("items")?.api.close();
+    dock.getPanel("catalog")?.api.close();
+    if (w.left.contents) showPane("contents");
+    if (w.left.catalog) showPane("catalog");
+    if (w.left.items) showPane("items");
+    const left = dock.getPanel("contents")?.group;
+    if (left && w.left.width) left.api.setSize({ width: w.left.width, ...(w.left.catalog && w.left.contentsHeight ? { height: w.left.contentsHeight } : {}) });
+    if (w.propsWidth) dock.getPanel("properties")?.group.api.setSize({ width: w.propsWidth });
+    for (const id of w.bottom.ids) if (!dock.getPanel(id)) showPane(id);
+    const bottom = w.bottom.ids.length ? dock.getPanel(w.bottom.ids[0])?.group : null;
+    if (bottom && w.bottom.height) bottom.api.setSize({ height: w.bottom.height });
+    if (w.bottom.active) dock.getPanel(w.bottom.active)?.api.setActive();
+    dock.getPanel("contents")?.api.setActive();
+  } finally {
+    rearranging = false;
+  }
 }
 
 /** A dock panel was closed: if it was the open layout's tab, no layout is open any more. */

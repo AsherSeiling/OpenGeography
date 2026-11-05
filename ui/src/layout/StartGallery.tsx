@@ -63,12 +63,12 @@ function inset() {
   end();
 }
 
-const topo = () => useDialog.getState().show({ kind: "topoMap" });
+const topo = (preset: string) => () => useDialog.getState().show({ kind: "topoMap", preset });
 
 export const STARTS: Start[] = [
   { id: "thematic", name: "Thematic map", what: "Title, map, legend, scale bar, north arrow, sources", maps: [[6, 18, 62, 74]], lines: [[6, 8, 50], [72, 20, 20], [72, 30, 16], [72, 40, 18]], run: thematic },
-  { id: "landnav", name: "Land navigation", what: "Opens the Topo Map builder: UTM and MGRS grid, declination, coordinate scales", maps: [[5, 6, 90, 70]], lines: [[10, 82, 24], [40, 82, 24], [70, 82, 20]], run: topo },
-  { id: "quad", name: "USGS quadrangle", what: "Opens the Topo Map builder: 1:24,000 collar, choose the USGS preset", maps: [[10, 8, 80, 72]], lines: [[10, 86, 30], [50, 86, 40]], run: topo },
+  { id: "landnav", name: "Land navigation", what: "Opens the Topo Map builder: UTM and MGRS grid, declination, coordinate scales", maps: [[5, 6, 90, 70]], lines: [[10, 82, 24], [40, 82, 24], [70, 82, 20]], run: topo("land24") },
+  { id: "quad", name: "USGS quadrangle", what: "Opens the Topo Map builder: 1:24,000 collar, choose the USGS preset", maps: [[10, 8, 80, 72]], lines: [[10, 86, 30], [50, 86, 40]], run: topo("usgs24") },
   { id: "two", name: "Two maps side by side", what: "Compare two of the project's maps", maps: [[5, 18, 43, 72], [52, 18, 43, 72]], lines: [[5, 8, 60]], run: twoMaps },
   { id: "inset", name: "Map with inset", what: "Main map plus a small locator map", maps: [[5, 6, 90, 88]], lines: [], inset: [68, 60, 24, 30], run: inset },
   { id: "blank", name: "Blank page", what: "Start empty. Shift+A adds an element", maps: [], lines: [[40, 50, 20]], run: () => {} },

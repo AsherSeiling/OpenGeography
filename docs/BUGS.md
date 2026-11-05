@@ -6,20 +6,16 @@ Known performance and platform issues that are not bugs in the code live in `PRO
 
 ## Open bugs
 
-Updated 2026-11-04. Bugs on the `claude/wp9-verify-1963d8` branch aren't in `ui-redesign` yet; when it merges, move UI-1, MM-1 and MM-2 to Closed bugs.
+Updated 2026-11-04, after the WP9 merge.
 
 | ID | Sev. | Summary | Next step |
 |---|---|---|---|
 | LE-1 | Medium | Named text styles aren't saved in the project, so they're lost on another computer or browser profile. Element looks are saved; only the style's name and link are lost. Found 2026-11-04. | Needs an engine field: a style list on the layout and a style reference on text elements. |
 | U-6 | Medium | After New Project (or opening another project) a layer that gets the same id and version as one in the previous project (`L1`, version 2) is treated as already projected in a non-Mercator map CRS, so its tiles fail with "hasn't been projected for display in this coordinate system yet" and the map stays blank for that layer. Cause: `MapView.tsx` `displayReady` (key `id\|version\|crsKey`) is never cleared when the project changes. Found 2026-10-28; the set is still never cleared. | Clear it (and `building`) on new or open project, or add a project counter to the key. Add an e2e: New Project, then add a layer in UTM. |
-| UI-1 | Not rated | Link text on a hovered `--surface-0` is 4.05:1, below AA. Fixed in dialogs by WP8. Found 2026-11-03. | Fix for the other controls and recheck are on the WP9 branch. |
 | TP-11 | Not rated | Partly fixed 2026-10-30: warnings added for Extract Streams with an unsuitable threshold and for Flow Accumulation given a flow-direction raster. Result rasters still inherit the DEM renderer, so they are invisible until restyled. (T6-3, T6-4, T6-6) | Give result rasters their own default renderer. |
 | C-1b | Low | **Accepted.** DuckDB's embedded PROJ and libproj (cs2cs) pick equivalent datum operations that differ by up to ~12 cm for NAD83/ETRS89 ↔ WGS 84 and up to ~3.3 m for NAD27 away from the NADCON anchor. The anchor itself agrees to 1.3 cm. Test: `crs_reference.rs` datum_tol. | A full match needs transforms through GDAL's libproj instead of DuckDB (a large change across ~49 call sites): decide with F1. |
 | E2E-3 | Low | `misc.spec.ts` M-25 (progress UI, cancel) failed once in a full run on 2026-10-28 (waiting for the "cancelled" status, 60 s) and passed on the next two runs with no change to that code. | Flaky; watch it. |
-| MM-1 | Low | A new map opens on the default view, and adding a layer with + in Map Layers doesn't move to it, so the layer can be off screen. Zoom To Layer or Full Extent works around it. Found 2026-11-04. | Fix is on the WP9 branch. |
-| MM-2 | Low | The Series coverage picker, the Topo Map dialog's DEM pick and the Attribute Table's layer list read the active map's `order`, so they miss project layers not on that map. Add the layer to the map as a workaround. Found 2026-11-04. | Fix is on the WP9 branch. |
 | MM-4 | Low | The same fault as MM-2 remains in the tool menu's and node cards' "Choose a layer" lists, the Properties pane's layer picker, the layout frame and element layer lists, and the area-of-interest pickers of the Overture, ArcGIS, STAC, National Map, Elevation, OGC and Hazards dialogs. Found by WP9, 2026-11-04. | Each list needs its own check of what "the map's layers" should mean there, then the MM-2 fix (`projectLayerIds`). |
-| CRS-1 | Low | Typing `26914` in the Coordinate System dialog's search logs React's "two children with the same key" for `EPSG:32628`, because the same CRS appears twice in the results. This fails e2e M-4. Found by WP9, 2026-11-04. | Remove the duplicate from the result list. WP9 didn't touch `crs/*`; not yet checked against `main`. |
 
 ## Closed bugs
 
@@ -184,6 +180,10 @@ Cause: `ModelPane.tsx` ignored every shortcut while any text box outside the edi
 
 - **UI-2 (fixed, 2026-11-03):** the map scale bar drew each bar wider than its true distance because its border and padding added to the width. Now `box-sizing: border-box`.
 - **MM-3 (fixed by WP12's CRS rule, 2026-11-04):** USGS Imagery in UTM 11N, centred far outside the zone, is now refused with a message. Whether the original blank was the reprojection or slow tiles wasn't established.
+- **UI-1 (fixed, rechecked by WP9, 2026-11-04):** link text on a hovered `--surface-0` is 4.05:1 in the light theme (plain `--surface-0` 4.72:1; dark 5.78:1 hovered), below AA. Custom colours are only derived to 4.5:1 on the plain surface, so they have the same gap. Link-coloured controls that take a hover fill on `--surface-0` (`.sb-crs`, `.nav-pick`, dialog field actions) now switch to body text while hovered (`theme/base.css`). No token change needed. Link text on `--surface-1`/`--surface-2` hovered is 4.52/4.97:1 (light), above AA.
+- **MM-1 (fixed by WP9, 2026-11-04):** a new map opened on the default view, so the first layer added to it could be off screen. `addLayers` now frames a map with no layers and no saved view on the first layer added (any route: Add Data, dialogs, + in Map Layers). A map with layers or a saved view keeps its view.
+- **MM-2 (fixed by WP9, 2026-11-04):** the Series coverage picker, the Topo Map dialog's DEM pick, the Attribute Table's layer list and the top search's layer hits read the active map's `order`, so they missed project layers not on that map. They now read `projectLayerIds` (the active map's order first, then the other project layers).
+- **CRS-1 (fixed by WP9, 2026-11-04, found by e2e M-4):** the Coordinate System dialog's quick picks listed the UTM zone at the map centre twice (WGS 84 and NAD83 give the same code outside North America), so React logged a duplicate key for `EPSG:32628` and the same button showed twice. It was latent: M-4 passes at `d26d9d1` and failed on the WP9 branch because MM-1 now frames the map on a world-wide first layer, which puts the centre in Africa. Now listed once (`Dialogs.tsx`).
 
 ## Notes (not bugs)
 

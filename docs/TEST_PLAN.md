@@ -1081,3 +1081,8 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LE-3 | Properties tabs follow the selection; right-click menus; Shift+A inserts at the pointer | `e2e/layout-editor.spec.ts` |
 | LE-4 | Rail: drag a map onto the page makes a frame that draws it; Which Map changes it | `e2e/layout-editor.spec.ts` |
 | LE-5 | Check Page, Lock, zoom, Cut and Paste, named text style; page white in dark; keyboard-only rail, tabs and menus | `e2e/layout-editor.spec.ts` |
+| WP9-1 | Control audit: every ribbon tab and control, menu and submenu item, the top-left cell, quick access, search, Insert rail, each pane's controls, right-click menus; a control that does nothing or throws fails | `e2e/redesign.spec.ts` (run per test; results in `docs/UI_REDESIGN_VERIFY.md`) |
+| WP9-2 | Bottom panel closes under a layout and returns with the same tabs, active tab and height; Items has a column of its own with Catalog under it; Map Layers returns on Back to Map | `e2e/layout-leftovers.spec.ts` |
+| WP9-3 | New map frames on its first layer, a map with layers keeps its view; Series picker, Topo DEM pick and Attribute Table read project layers; Run is outlined; gallery tiles pre-select their Topo preset | `e2e/layout-leftovers.spec.ts` |
+| WP9-4 | AA text contrast, labels on every control, visible focus: map and layout workspace, light and dark | `e2e/redesign-a11y.spec.ts` |
+| WP9-5 | Walk-through: Shift+A, search, three tools, wired, run, layout exported to PDF; light, dark, 1024 px, keyboard only | `e2e/redesign-walkthrough.spec.ts` |

@@ -1,7 +1,8 @@
 // Insert → Topo Map: the Topo Map Builder (LW9). Pick the area, scale and paper; the engine builds a land-navigation sheet as a new layout
 // and lists what it checked. Contours, hillshade and the rest of the data come from the Data tab and Analysis tools.
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, MessageBar, MessageBarBody, Option } from "@fluentui/react-components";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { projectLayerIds } from "../store/maps";
 import { api, errorText, type ElevationPlan, type TopoBuild, type TopoSpec } from "../ipc/api";
 import { isCancelled } from "../progress/progress";
 import { contourStyle, hillshadeStyle, pickDem, sheetLabel } from "../layout/topoData";
@@ -25,7 +26,8 @@ export function dataChecks(layers: { name: string; geomType: string }[]): { leve
   ];
 }
 
-export function TopoMapDialog({ onClose }: { onClose: () => void }) {
+/** `preset`: id of a TOPO_PRESETS entry to start from (the start gallery's Land navigation and USGS quadrangle tiles). */
+export function TopoMapDialog({ onClose, preset: startPreset }: { onClose: () => void; preset?: string }) {
   const [where, setWhere] = useState<"view" | "position">("view");
   const [position, setPosition] = useState("");
   const [quad, setQuad] = useState(false);
@@ -47,6 +49,11 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
     setLandscape(p.landscape);
     setUnits(p.units);
   };
+  useEffect(() => {
+    const p = TOPO_PRESETS.find((x) => x.id === startPreset);
+    if (p) applyPreset(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(todayIso());
   const [err, setErr] = useState<string | null>(null);
@@ -55,7 +62,7 @@ export function TopoMapDialog({ onClose }: { onClose: () => void }) {
   const layers = useApp((s) => s.layers);
   const order = useApp((s) => s.order);
   const extra = useMemo(() => dataChecks(Object.values(layers)), [layers]);
-  const dem = useMemo(() => pickDem(order, layers), [order, layers]);
+  const dem = useMemo(() => pickDem(projectLayerIds(order, layers), layers), [order, layers]);
   const [dataBusy, setDataBusy] = useState(false);
   const [dataMsg, setDataMsg] = useState<string | null>(null);
   const [plan, setPlan] = useState<ElevationPlan | null>(null);

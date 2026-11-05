@@ -22,3 +22,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .tree-layer.active, .cat-row.sel, .grid-row.sel, .cell.fid.sel, .rbtn.checked, .rtab.file, .sel-count, .mp-tabs button.on {
   color: var(--sel-text); --text-2: var(--sel-text); --link: var(--sel-text);
 }
+
+/* BUGS UI-1: --link is AA on --surface-0 (4.72:1 light) but not on a hovered --surface-0 (4.05:1; custom colours are only derived to 4.5 on the plain surface),
+   so link-coloured controls that darken or lighten on hover switch to body text while hovered. */
+.sb-crs:hover, .nav-pick:hover:not(:disabled), .lp-field-actions button:hover { color: var(--text); }
