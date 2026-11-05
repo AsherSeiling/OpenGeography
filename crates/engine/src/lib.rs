@@ -120,8 +120,16 @@ fn check_project_format(ui_state: &str) -> Result<()> {
     }
 }
 
+/// Write `project.json` through a rename, so it is the earlier file or the new one, never half of either.
+fn write_ui_state(dir: &Path, ui_state: &str) -> Result<()> {
+    let tmp = dir.join(format!("{PROJECT_JSON}.saving"));
+    std::fs::write(&tmp, ui_state)?;
+    std::fs::rename(&tmp, dir.join(PROJECT_JSON))?;
+    Ok(())
+}
+
 fn save_busy(wait: std::time::Duration) -> anyhow::Error {
-    anyhow!("The project couldn't be saved yet: other work on it (an import, a map being prepared or a tool still running) hasn't finished after {} seconds. Nothing was lost and the earlier saved copy is untouched. Try Save again when it is done.", wait.as_secs().max(1))
+    anyhow!("The project couldn't be saved yet: other work on it (an import, a map being prepared or a tool still running) hasn't finished after {} seconds. The project wasn't saved yet and nothing was lost. Try Save again when that work is done.", wait.as_secs().max(1))
 }
 
 impl Engine {
@@ -1479,7 +1487,7 @@ impl Engine {
     ///
     /// Nothing is cancelled or dropped to make room: a checkpoint cannot run while another connection has a write open, so Save waits for those
     /// to finish (reported as a task, cancellable). The files are replaced only once the new copy is complete, and `project.json` is written
-    /// last, so a save that fails leaves the previous saved copy as it was.
+    /// last, so a Save As that fails before the swap leaves the target as it was, and after it the target is a matching pair.
     #[doc(hidden)]
     pub fn save_project_within(&self, dir: &Path, ui_state: &str, wait: std::time::Duration) -> Result<()> {
         std::fs::create_dir_all(dir)?;
@@ -1491,37 +1499,53 @@ impl Engine {
             let db_path = dir.join(PROJECT_DB);
             // Save As replaces the target, so let work in flight finish first: nothing of the target is touched if that takes too long.
             self.wait_until_quiet(wait)?;
-            // Build the copy beside the project database and swap it in when it is whole: Save As onto an existing project never leaves it half-written.
             let tmp = dir.join(format!("{PROJECT_DB}.saving"));
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(dir.join(format!("{PROJECT_DB}.saving.wal")));
-            let copied: Result<()> = (|| {
-                let pool = self.pool.read();
-                let conn = pool.get()?;
-                let cur: String = conn.query_row("SELECT current_database()", [], |r| r.get(0))?;
-                conn.execute_batch(&format!(
-                    "ATTACH {} AS __dst; COPY FROM DATABASE {} TO __dst; DETACH __dst;",
-                    lit(tmp.to_str().ok_or_else(|| anyhow!("Bad path"))?),
-                    ident(&cur)
-                ))?;
-                Ok(())
-            })();
-            if let Err(e) = copied {
-                let _ = std::fs::remove_file(&tmp);
+            // From here until the new pool is in place nothing else may write: a write after the copy would go to the old database and be lost.
+            // New work waits on this lock for the few moments it takes; work already running finished above (or is waited for by the lock).
+            {
+                let mut pool = self.pool.write();
+                // Build the copy beside the target and swap it in when it is whole: Save As onto an existing project is never left half-written.
+                let copied: Result<()> = (|| {
+                    let conn = pool.get()?;
+                    let cur: String = conn.query_row("SELECT current_database()", [], |r| r.get(0))?;
+                    conn.execute_batch(&format!(
+                        "ATTACH {} AS __dst; COPY FROM DATABASE {} TO __dst; DETACH __dst;",
+                        lit(tmp.to_str().ok_or_else(|| anyhow!("Bad path"))?),
+                        ident(&cur)
+                    ))?;
+                    Ok(())
+                })();
+                if let Err(e) = copied {
+                    let _ = std::fs::remove_file(&tmp);
+                    return Err(e);
+                }
+                let _ = std::fs::remove_file(dir.join(format!("{PROJECT_DB}.wal")));
+                std::fs::rename(&tmp, &db_path)?;
+                // The target is a matching pair from here: the new database and its project.json, before anything else can fail.
+                write_ui_state(dir, ui_state)?;
+                *pool = Pool::open(Some(&db_path), self.gate.clone())?;
+            }
+            // Loading layers resolves rasters relative to the project folder, so it is set first (as in open_project) and put back if loading fails.
+            let previous = self.project_dir.write().replace(dir.to_path_buf());
+            *self.graph_cache.lock() = Cache::default();
+            self.tile_cache.lock().clear();
+            if let Err(e) = self.init_schema() {
+                *self.project_dir.write() = previous;
                 return Err(e);
             }
-            let _ = std::fs::remove_file(dir.join(format!("{PROJECT_DB}.wal")));
-            std::fs::rename(&tmp, &db_path)?;
-            *self.project_dir.write() = Some(dir.to_path_buf());
-            self.open_db(&db_path)?;
             self.bring_rasters_into(dir)?;
-            self.checkpoint_when_quiet(wait)?;
+            // One plain attempt. Committed work is already durable in the write-ahead log beside the database, so a writer that holds the
+            // checkpoint off is not a failed save.
+            if let Err(e) = self.pool.read().get()?.execute_batch("CHECKPOINT") {
+                if !e.to_string().contains("other write transactions") {
+                    return Err(e.into());
+                }
+            }
+            return Ok(());
         }
-        let json = dir.join(PROJECT_JSON);
-        let json_tmp = dir.join(format!("{PROJECT_JSON}.saving"));
-        std::fs::write(&json_tmp, ui_state)?;
-        std::fs::rename(&json_tmp, &json)?;
-        Ok(())
+        write_ui_state(dir, ui_state)
     }
 
     /// Wait until no connection is in use, for at most `wait` (a task shows it and can cancel it).

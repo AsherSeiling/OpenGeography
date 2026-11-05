@@ -61,7 +61,7 @@ fn a_first_save_and_a_save_as_wait_too() {
 }
 
 #[test]
-fn a_save_that_cannot_finish_says_so_and_leaves_the_earlier_copy_untouched() {
+fn a_save_that_cannot_finish_says_so_and_leaves_the_save_as_target_untouched() {
     let dir = tempfile::tempdir().unwrap();
     let proj = dir.path().join("p.gproj");
     let other = dir.path().join("other.gproj");
@@ -70,7 +70,7 @@ fn a_save_that_cannot_finish_says_so_and_leaves_the_earlier_copy_untouched() {
     let w = writer(&e, "inflight", Duration::from_millis(1500));
     // Same folder: CHECKPOINT path.
     let err = e.save_project_within(&proj, "{\"v\":2}", Duration::from_millis(200)).unwrap_err().to_string();
-    assert!(err.starts_with("The project couldn't be saved yet") && err.contains("earlier saved copy is untouched"), "{err}");
+    assert!(err.starts_with("The project couldn't be saved yet") && err.contains("wasn't saved yet and nothing was lost"), "{err}");
     assert_eq!(std::fs::read_to_string(proj.join("project.json")).unwrap(), "{\"v\":1}", "project.json still the earlier one");
     assert!(!proj.join("project.json.saving").exists());
     w.join().unwrap();
@@ -90,4 +90,37 @@ fn a_save_that_cannot_finish_says_so_and_leaves_the_earlier_copy_untouched() {
     e.save_project(&proj, "{\"v\":3}").unwrap();
     let e2 = Engine::new().unwrap();
     assert_eq!(e2.open_project(&proj).unwrap(), "{\"v\":3}");
+}
+
+/// A writer that starts on the new pool right after the Save As swap holds the checkpoint off. That is not a failed save: the target is the new
+/// database with the new project.json, and the writer's data is in it.
+#[test]
+fn a_writer_starting_right_after_the_swap_does_not_fail_save_as() {
+    let dir = tempfile::tempdir().unwrap();
+    let proj = dir.path().join("p.gproj");
+    let e = std::sync::Arc::new(Engine::new().unwrap());
+    e.with_conn_for_tests(|c| Ok(c.execute_batch("CREATE TABLE before_swap(a INTEGER); INSERT INTO before_swap VALUES (7);")?)).unwrap();
+    let db = proj.join("project.duckdb");
+    let e2 = e.clone();
+    let w = std::thread::spawn(move || {
+        while !db.exists() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        // The database file is in place: write on the engine's connection (the new pool, once Save As has opened it) and hold it.
+        e2.with_conn_for_tests(|c| {
+            c.execute_batch("BEGIN; CREATE TABLE after_swap(a INTEGER); INSERT INTO after_swap VALUES (9);")?;
+            std::thread::sleep(Duration::from_millis(800));
+            c.execute_batch("COMMIT")?;
+            Ok(())
+        })
+        .unwrap();
+    });
+    e.save_project(&proj, "{\"ui\":\"new\"}").unwrap();
+    w.join().unwrap();
+    assert_eq!(std::fs::read_to_string(proj.join("project.json")).unwrap(), "{\"ui\":\"new\"}");
+    drop(e);
+    let e3 = Engine::new().unwrap();
+    assert_eq!(e3.open_project(&proj).unwrap(), "{\"ui\":\"new\"}");
+    assert_eq!(count(&e3, "before_swap"), 1);
+    assert_eq!(count(&e3, "after_swap"), 1, "the writer's committed data is in the project");
 }
