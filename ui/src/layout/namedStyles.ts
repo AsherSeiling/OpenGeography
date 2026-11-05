@@ -41,7 +41,7 @@ export function textMatches(el: TextElement, s: NamedStyle): boolean {
 
 /** The element fields that give a Text element this style. */
 export function textPatch(s: NamedStyle): Record<string, unknown> {
-  return { size: s.size, font: s.bold ? "sans-bold" : s.italic ? "sans-italic" : "sans", color: s.color ?? PAPER.black, family: s.family };
+  return { size: s.size, font: s.bold ? "sans-bold" : s.italic ? "sans-italic" : "sans", color: s.color ?? PAPER.black, family: s.family, styleName: s.name };
 }
 
 export function slotMatches(st: TextStyle | undefined, s: NamedStyle): boolean {
@@ -86,11 +86,13 @@ export function parseStyleSize(t: string): number | null {
   return t.trim() !== "" && Number.isFinite(v) && v >= 1 && v <= 400 ? v : null;
 }
 
-// ---- the definitions of one layout, kept in this browser profile
+// ---- the definitions of one layout. They are saved in the layout (`Layout.namedStyles`, LE-1). Before that they lived only in this browser
+// profile (localStorage); a layout without its own list adopts what is stored there, once, and the stored copy is left alone.
 
 const KEY = (layoutId: string) => `gis.textStyles.${layoutId}`;
 
-export function loadStyles(layoutId: string): NamedStyle[] {
+/** Styles this browser profile kept for a layout before they were saved in the project, or null. */
+export function storedStyles(layoutId: string): NamedStyle[] | null {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY(layoutId)) ?? "null");
     if (Array.isArray(raw)) {
@@ -100,7 +102,28 @@ export function loadStyles(layoutId: string): NamedStyle[] {
   } catch {
     /* storage can be unavailable or hold something else */
   }
-  return DEFAULT_STYLES;
+  return null;
+}
+
+export const loadStyles = (layoutId: string): NamedStyle[] => storedStyles(layoutId) ?? DEFAULT_STYLES;
+
+/** Writes a layout's list into the layout itself (registered by the layout store, which owns the saving). */
+let persister: ((layoutId: string, styles: NamedStyle[]) => void) | null = null;
+export const setStylesPersister = (f: typeof persister) => (persister = f);
+
+/**
+ * Called when a layout is read or added. The layout's own list wins; without one, a list kept in this browser profile is adopted (and the layout
+ * returned with it, so the next save puts it in the project); without either, the defaults apply and nothing is written until the user edits a style.
+ */
+export function adoptStyles(layout: Layout): { layout: Layout; migrated: boolean } {
+  if (layout.namedStyles?.length) {
+    useNamedStyles.setState((s) => ({ byLayout: { ...s.byLayout, [layout.id]: layout.namedStyles as NamedStyle[] } }));
+    return { layout, migrated: false };
+  }
+  const old = storedStyles(layout.id);
+  if (!old) return { layout, migrated: false };
+  useNamedStyles.setState((s) => ({ byLayout: { ...s.byLayout, [layout.id]: old } }));
+  return { layout: { ...layout, namedStyles: old }, migrated: true };
 }
 
 interface StylesState {
@@ -113,6 +136,7 @@ export const useNamedStyles = create<StylesState>((set, get) => ({
   byLayout: {},
   get: (id) => get().byLayout[id] ?? loadStyles(id),
   set: (id, styles) => {
+    persister?.(id, styles);
     try {
       localStorage.setItem(KEY(id), JSON.stringify(styles));
     } catch {

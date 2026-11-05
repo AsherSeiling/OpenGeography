@@ -241,6 +241,8 @@ export interface TextElement extends Placement {
   size: number;
   align: "left" | "center" | "right";
   color: string;
+  /** Name of the layout's named style this text was given (LE-1). Only a link: the look above is what is drawn, so a name that is not in the layout's list changes nothing. */
+  styleName?: string;
 }
 
 export interface LegendElement extends Placement {
@@ -389,6 +391,8 @@ export interface Layout {
   guides?: Guide[];
   elements: LayoutElement[];
   series: SeriesSpec | null;
+  /** Named text styles of this layout (LE-1); projects saved before have none. */
+  namedStyles?: { name: string; size: number; bold?: boolean; italic?: boolean; color?: string; family?: string }[];
 }
 
 /** Map series (C3.2): one page per feature of the index layer; a map frame with `followsSeries` moves to each feature. */
@@ -521,10 +525,15 @@ export function normalizeLayout(raw: Layout): Layout {
       }
       return base as LayoutElement;
     });
-  return {
+  const out: Layout = {
     ...raw,
     name: typeof raw.name === "string" && raw.name ? raw.name : raw.id,
     page: { ...def, ...page, width: w > 0 ? w : def.width, height: h > 0 ? h : def.height, margin: Math.max(0, num(page.margin, def.margin)) },
     elements,
   };
+  // Named styles (LE-1): entries that are not a name and a size from 1 to 400 are dropped; none left means none (an old project).
+  const styles = (Array.isArray(raw.namedStyles) ? raw.namedStyles : []).filter((s) => !!s && typeof s.name === "string" && typeof s.size === "number" && s.size >= 1 && s.size <= 400);
+  if (styles.length) out.namedStyles = styles;
+  else delete out.namedStyles;
+  return out;
 }

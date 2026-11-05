@@ -107,8 +107,8 @@ function TextStyles({ doc }: { doc: Layout }) {
     const s = useLayouts.getState();
     const end = beginStep(); // one undo step for everything this changes
     for (const [id, p] of Object.entries(edits)) s.update(id, p);
-    end();
     store.set(doc.id, styles.map((x, j) => (j === i ? to : x)));
+    end();
     setMsg(Object.keys(edits).length ? `Changed ${Object.keys(edits).length} element${Object.keys(edits).length === 1 ? "" : "s"}.` : "");
   };
   return (

@@ -83,6 +83,27 @@ pub struct Layout {
     /// Map series (C3.2): see [`super::series::SeriesSpec`].
     #[serde(default)]
     pub series: Option<serde_json::Value>,
+    /// Named text styles of this layout (LE-1). Absent in projects saved before; an empty list is not written.
+    #[serde(default, rename = "namedStyles", skip_serializing_if = "Vec::is_empty")]
+    pub named_styles: Vec<NamedStyle>,
+}
+
+/// A named text style ("Title", "Body"): a look a Text element can be given and that can be changed once for everything using it (LE-1).
+/// The engine only keeps it; drawing reads each element's own look, so a missing or renamed style never changes a page.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NamedStyle {
+    pub name: String,
+    /// Points.
+    pub size: f64,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub bold: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub italic: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -407,6 +428,9 @@ pub enum Element {
         align: String,
         #[serde(default = "black")]
         color: String,
+        /// Name of the layout's named style this text was given (LE-1). Only a link: the look above is what is drawn, so a name that is not in the layout's list changes nothing.
+        #[serde(default, rename = "styleName", skip_serializing_if = "Option::is_none")]
+        style_name: Option<String>,
     },
     Legend {
         #[serde(flatten)]

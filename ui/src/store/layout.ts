@@ -8,6 +8,7 @@ import { moveInList } from "../layout/items";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
 import { distributePatches, sizePatches, withGroupMates, type DistributeAxis } from "../layout/arrange";
 import { cleanPatch, nextId, normalizeLayout, type Guide, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
+import { adoptStyles, setStylesPersister } from "../layout/namedStyles";
 import { reportError } from "../errors/store";
 import { useApp, type Basemap } from "./store";
 
@@ -51,7 +52,7 @@ interface LayoutState {
   /** Replace the page look and the elements' styling with a themed copy (one undo step). */
   applyLook: (next: Layout) => void;
   /** Layout-wide settings kept beside the page: author and editor guides. One undo step. */
-  setMeta: (patch: { author?: string; guides?: Guide[]; worldFile?: boolean }) => void;
+  setMeta: (patch: { author?: string; guides?: Guide[]; worldFile?: boolean; namedStyles?: Layout["namedStyles"] }) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -106,8 +107,10 @@ export const useLayouts = create<LayoutState>()(
       loadAll: (layouts) => {
         for (const k of Object.keys(histories)) delete histories[k];
         for (const k of Object.keys(timers)) clearTimeout(timers[k]), delete timers[k];
-        set({ docs: Object.fromEntries(layouts.map(normalizeLayout).map((l) => [l.id, l])), id: null, doc: null, selected: [] });
+        const adopted = layouts.map(normalizeLayout).map(adoptStyles);
+        set({ docs: Object.fromEntries(adopted.map((a) => [a.layout.id, a.layout])), id: null, doc: null, selected: [] });
         useLayouts.temporal.getState().clear();
+        for (const a of adopted) if (a.migrated) scheduleSave(a.layout.id); // styles kept in this browser profile now go into the project (LE-1)
       },
       open: (id) => {
         const s = get();
@@ -129,6 +132,7 @@ export const useLayouts = create<LayoutState>()(
         return Object.values(all).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
       },
       add: (layout) => {
+        layout = adoptStyles(layout).layout; // a copy brings its styles along
         set({ docs: { ...get().docs, [layout.id]: layout } });
         scheduleSave(layout.id);
       },
@@ -274,6 +278,7 @@ export const useLayouts = create<LayoutState>()(
 function afterHistory() {
   const s = useLayouts.getState();
   if (s.id) scheduleSave(s.id);
+  if (s.doc?.namedStyles?.length) adoptStyles(s.doc); // the style list is part of the undo history
   // Drop selections of elements an undo removed.
   const ids = new Set(s.doc?.elements.map((e) => e.id));
   const keep = s.selected.filter((x) => ids.has(x));
@@ -487,3 +492,13 @@ export function addText(text = "{layout_name}"): string | null {
   s.addElement(el);
   return el.id;
 }
+
+// The named-styles store writes its list into the layout, so it is saved with the project (LE-1).
+setStylesPersister((id, styles) => {
+  const s = useLayouts.getState();
+  if (s.id === id && s.doc) s.setMeta({ namedStyles: styles });
+  else if (s.docs[id]) {
+    useLayouts.setState({ docs: { ...s.docs, [id]: { ...s.docs[id], namedStyles: styles } } });
+    scheduleSave(id);
+  }
+});

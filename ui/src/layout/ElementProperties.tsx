@@ -147,9 +147,11 @@ function NamedStyleField({ el, set }: { el: TextElement; set: Set }) {
   const layoutId = useLayouts((s) => s.id) ?? "";
   const styles = useNamedStyles((s) => s.byLayout[layoutId]) ?? DEFAULT_STYLES;
   const match = styles.find((s) => textMatches(el, s));
+  // A text given a style and then changed by hand still says which style it came from; a name no longer in the list is just "Custom".
+  const linked = !match && el.styleName && styles.some((s) => s.name === el.styleName) ? `${el.styleName} (changed)` : null;
   return (
     <Field label="Named style" size="small">
-      <Dropdown size="small" aria-label="Named style" value={match?.name ?? "Custom"} selectedOptions={match ? [match.name] : []} onOptionSelect={(_, d) => { const st = styles.find((x) => x.name === d.optionValue); if (st) set(textPatch(st)); }}>
+      <Dropdown size="small" aria-label="Named style" value={match?.name ?? linked ?? "Custom"} selectedOptions={match ? [match.name] : []} onOptionSelect={(_, d) => { const st = styles.find((x) => x.name === d.optionValue); if (st) set(textPatch(st)); }}>
         {styles.map((s) => <Option key={s.name} value={s.name}>{s.name}</Option>)}
       </Dropdown>
     </Field>

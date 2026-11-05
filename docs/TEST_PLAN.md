@@ -1081,6 +1081,10 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | LE-3 | Properties tabs follow the selection; right-click menus; Shift+A inserts at the pointer | `e2e/layout-editor.spec.ts` |
 | LE-4 | Rail: drag a map onto the page makes a frame that draws it; Which Map changes it | `e2e/layout-editor.spec.ts` |
 | LE-5 | Check Page, Lock, zoom, Cut and Paste, named text style; page white in dark; keyboard-only rail, tabs and menus | `e2e/layout-editor.spec.ts` |
+| LS-1 | Named text styles are saved in the layout (`namedStyles`) and a Text element's `styleName` link; both survive save, close, open | `engine/tests/layout_styles.rs`, `store/namedStylesSaved.test.ts` |
+| LS-2 | A layout saved before LS-1 (fixture `layout_before_le1.json`) opens and saves with nothing lost and no new key written | `engine/tests/layout_styles.rs`, `store/namedStylesSaved.test.ts` |
+| LS-3 | A `styleName` that is not in the layout's list keeps the element's look and raises no error (shows "Custom") | `engine/tests/layout_styles.rs`, `store/namedStylesSaved.test.ts` |
+| LS-4 | Styles a browser profile kept before LS-1 are adopted into the layout once (the layout's own list wins; the stored copy is never deleted); a duplicate keeps its styles; editing a style and the elements it restyles is one undo step | `store/namedStylesSaved.test.ts` |
 | WP9-1 | Control audit: every ribbon tab and control, menu and submenu item, the top-left cell, quick access, search, Insert rail, each pane's controls, right-click menus; a control that does nothing or throws fails | `e2e/redesign.spec.ts` (run per test; results in `docs/UI_REDESIGN_VERIFY.md`) |
 | WP9-2 | Bottom panel closes under a layout and returns with the same tabs, active tab and height; Items has a column of its own with Catalog under it; Map Layers returns on Back to Map | `e2e/layout-leftovers.spec.ts` |
 | WP9-3 | New map frames on its first layer, a map with layers keeps its view; Series picker, Topo DEM pick and Attribute Table read project layers; Run is outlined; gallery tiles pre-select their Topo preset | `e2e/layout-leftovers.spec.ts` |

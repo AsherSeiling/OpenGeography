@@ -1,0 +1,10 @@
+{
+  "id": "L1", "name": "Saved before named styles", "version": 1, "body": "earth",
+  "page": { "width": 279.4, "height": 215.9, "units": "mm", "margin": 12.7, "background": "#ffffff" },
+  "guides": [ { "axis": "x", "pos": 20.0 } ],
+  "elements": [
+    { "kind": "text", "id": "t1", "x": 12.7, "y": 10.0, "w": 250.0, "h": 14.0, "text": "Title", "font": "sans-bold", "size": 21, "align": "left", "color": "#000000",
+      "textStyles": { "text.text": { "size": 21.0, "bold": true } } },
+    { "kind": "text", "id": "t2", "x": 12.7, "y": 30.0, "w": 100.0, "h": 8.0, "text": "Body", "font": "sans", "family": "Georgia", "size": 9, "align": "center", "color": "#333333" }
+  ]
+}
