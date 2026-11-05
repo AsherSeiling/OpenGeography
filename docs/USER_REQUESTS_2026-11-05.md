@@ -14,8 +14,8 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 
 | ID | Request | Today | Work |
 |---|---|---|---|
-| UR-1 **done** (commit: see `git log --grep UR-1`) | Export Table fails with `ST_X only supports POINT geometries` (see `docs/BUGS.md`) | `detect_geom_type` (`crates/engine/src/layers.rs:423`) calls MultiPoint a "Point" layer, because it goes by dimension; `export_table.rs:139` then calls `ST_X`, which refuses MultiPoint | Write one row per point, and report the count. Check the other `ST_X` calls that assume a Point layer (`tiles.rs:104`, `usng.rs:331`). |
-| UR-2 | Rename the node editor to "Processing nodes" | "Node Editor" in `ui/src/App.tsx:50`, `panes.ts`, `ShortcutsDialog.tsx` | Rename user-facing text. Note: the user's spelling was "Proccesing"; this assumes a typo. Check e2e selectors. |
+| UR-1 **done** (`502895f`) | Export Table fails with `ST_X only supports POINT geometries` (see `docs/BUGS.md`) | `detect_geom_type` (`crates/engine/src/layers.rs:423`) calls MultiPoint a "Point" layer, because it goes by dimension; `export_table.rs:139` then calls `ST_X`, which refuses MultiPoint | Write one row per point, and report the count. Check the other `ST_X` calls that assume a Point layer (`tiles.rs:104`, `usng.rs:331`). |
+| UR-2 **done** (commit: `git log --grep UR-2`) | Rename the node editor to "Processing nodes" | "Node Editor" in `ui/src/App.tsx:50`, `panes.ts`, `ShortcutsDialog.tsx` | Rename user-facing text. Note: the user's spelling was "Proccesing"; this assumes a typo. Check e2e selectors. |
 | UR-3 | Sources pane closed by default | Default layout adds it, `ui/src/panes/panes.ts:129` | Leave it out of the default layout, keep it in the view menu. |
 | UR-4 | Maps in a layout don't start with an outline frame | Frame is a per-element setting (`frameWidth`, 0 = none) | Find what a new map frame gets, and default it to none. Old layouts keep their frames. |
 | UR-5 | Layout of any size | Allowed 20–5000 mm, `ui/src/dialogs/PageSetupDialog.tsx:12` | Widen the limits as far as export really works, and say what limits remain. Test a very large page's export. |

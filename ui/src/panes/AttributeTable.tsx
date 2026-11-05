@@ -348,7 +348,7 @@ export function AttributeTable() {
   if (info.geomType === "Raster")
     return (
       <div className="empty-hint pad">
-        <b>{info.name}</b> is a raster ({info.raster?.width.toLocaleString()} × {info.raster?.height.toLocaleString()} cells, values {info.raster?.min.toFixed(1)} – {info.raster?.max.toFixed(1)}). Rasters have no attribute table; use Identify on the map to read values, or Contour in the Node Editor to make lines from it.
+        <b>{info.name}</b> is a raster ({info.raster?.width.toLocaleString()} × {info.raster?.height.toLocaleString()} cells, values {info.raster?.min.toFixed(1)} – {info.raster?.max.toFixed(1)}). Rasters have no attribute table; use Identify on the map to read values, or Contour in Processing nodes to make lines from it.
       </div>
     );
 

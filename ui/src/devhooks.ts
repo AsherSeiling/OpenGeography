@@ -8,9 +8,10 @@ import * as layoutActions from "./layout/actions";
 import { startLayoutTrace } from "./layout/trace";
 import { useLayouts } from "./store/layout";
 import { useApp } from "./store/store";
+import * as panes from "./panes/panes";
 
 if (import.meta.env.DEV) {
-  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap: mapController.getMap, mapController, useMapView, useLayouts, layoutActions };
+  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap: mapController.getMap, mapController, useMapView, useLayouts, layoutActions, panes };
   startLayoutTrace();
 }
 

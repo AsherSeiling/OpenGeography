@@ -174,7 +174,7 @@ test("Mod+D marks a favourite, the Start view lists it, Recent lists what was ad
 
 test("Shift+A works with the Node Editor closed, and picking opens it first", async ({ app }) => {
   await addTestLayer(app, "points", 20);
-  await app.locator(".dv-default-tab, .dv-tab", { hasText: /^Node Editor$/ }).first().locator(".dv-default-tab-action").click();
+  await app.locator(".dv-default-tab, .dv-tab", { hasText: /^Processing nodes$/ }).first().locator(".dv-default-tab-action").click();
   await expect(app.locator(".model-canvas")).toBeHidden();
   await app.keyboard.press("Shift+A");
   await expectAddMenuOnScreen(app);

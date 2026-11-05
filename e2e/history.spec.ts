@@ -44,7 +44,7 @@ test("M-18 attribute history UI: node picker, diff chips, node menu, reopen with
   await removed.click();
 
   // Node-card context menu opens the table at that node
-  await app.locator(".dv-default-tab, .dv-tab", { hasText: /^Node Editor$/ }).first().click();
+  await app.locator(".dv-default-tab, .dv-tab", { hasText: /^Processing nodes$/ }).first().click();
   await app.locator(`.react-flow__node[data-id="${buf}"]`).locator(".node-head, .nhead, [class*=head]").first().click({ button: "right" });
   await app.getByRole("menuitem", { name: "View table" }).click();
   await expect(app.locator(".attr-bar")).toContainText(/Buffer/);

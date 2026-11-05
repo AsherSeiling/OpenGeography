@@ -18,7 +18,7 @@ export const PANE_TITLES: Record<PaneId, string> = {
   catalog: "Catalog",
   map: "Map",
   table: "Attribute Table",
-  model: "Node Editor",
+  model: "Processing nodes",
   properties: "Properties",
   sources: "Sources",
   items: "Items",
@@ -212,6 +212,11 @@ export function restoreDock(saved: unknown) {
   rebuilding++;
   try {
     dock.fromJSON(saved.layout as never);
+    // A project saved before a pane was renamed still holds the old tab title.
+    for (const p of dock.panels) {
+      const t = PANE_TITLES[p.id as PaneId];
+      if (t && KNOWN.has(p.id) && p.title !== t) p.api.setTitle(t);
+    }
   } catch {
     defaultLayout();
   } finally {

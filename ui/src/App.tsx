@@ -47,7 +47,7 @@ const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPan
   catalog: () => guard("catalog", "Catalog", <CatalogPane />),
   map: (p) => guard(`map:${p.api.id}`, "Map", <MapView mapId={p.api.id} />),
   table: () => guard("table", "Attribute Table", <AttributeTable />),
-  model: () => guard("model", "Node Editor", <ModelPane />),
+  model: () => guard("model", "Processing nodes", <ModelPane />),
   properties: () => guard("properties", "Properties", <PropertiesPane />),
   sources: () => guard("sources", "Sources", <SourcesPane />),
   items: () => guard("items", "Items", <ItemsPane />),

@@ -197,7 +197,7 @@ const list: Command[] = [
   // Analysis tab
   { id: "addTool", label: "Add Tool", icon: <AddSquareRegular />, run: () => openToolMenu(), keys: "Shift+A", tip: "Find a tool by name or plain words and add it to the active layer's node tree" },
   { id: "runModel", label: "Run", icon: <PlayRegular />, run: () => runModel(), tip: "Run every step of the active layer's node tree" },
-  paneToggle("paneModel", "model", "Node Editor", <FlowchartRegular />, "Show or hide the Node Editor in the bottom panel"),
+  paneToggle("paneModel", "model", "Processing nodes", <FlowchartRegular />, "Show or hide the Processing nodes editor in the bottom panel"),
   paneToggle("paneTable", "table", "Attribute Table", <TableRegular />, "Show or hide the Attribute Table in the bottom panel"),
 
   // Insert tab (later milestones)

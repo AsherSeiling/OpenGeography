@@ -496,11 +496,11 @@ function ModelCanvas() {
             }}
           />
         </Tooltip>
-        <Tooltip content="Node editor keyboard shortcuts — view and change them" relationship="label">
+        <Tooltip content="Processing nodes keyboard shortcuts — view and change them" relationship="label">
           <Button size="small" appearance="subtle" icon={<KeyboardRegular />} onClick={() => useDialog.getState().show({ kind: "nodeShortcuts" })} />
         </Tooltip>
         {active === "on" && (
-          <span className="model-active" title="Node editor shortcuts are active (pointer is over the editor). Change them with the keyboard button.">
+          <span className="model-active" title="Processing nodes shortcuts are active (pointer is over the editor). Change them with the keyboard button.">
             Shortcuts on
           </span>
         )}

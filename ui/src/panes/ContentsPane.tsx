@@ -126,7 +126,7 @@ export function ContentsPane() {
             <button className="linkbtn" onClick={() => useDialog.getState().show({ kind: "tiger" })}>Census sample data</button>.
           </div>
         )}
-        {order.length > 0 && <div className="tree-hint">Drag a layer onto the Node Editor to use it as an input, or onto another layer to reorder.</div>}
+        {order.length > 0 && <div className="tree-hint">Drag a layer onto the Processing nodes editor to use it as an input, or onto another layer to reorder.</div>}
         {order.map((id, i) => {
           const info = layers[id];
           if (!info) return null;
