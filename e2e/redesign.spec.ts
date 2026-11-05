@@ -290,7 +290,9 @@ async function act(page: Page, loc: Locator, kind: string): Promise<void> {
   const isText = await loc.evaluate((e, s) => (e as HTMLElement).matches(s), TEXTY);
   if (isText) {
     const cur = await loc.inputValue().catch(() => "");
-    const num = kind === "number" || kind === "spinbutton";
+    // A number goes up by one. Appending "1" to a numeric text field (a dpi or scale box) makes a value out of range, which a validated field
+    // rightly refuses and puts back on blur, so the audit would read a working control as dead (E2E-4).
+    const num = kind === "number" || kind === "spinbutton" || /^-?\d+(\.\d+)?$/.test(cur);
     await loc.fill(num ? String((Number(cur) || 0) + 1) : `${cur}1`, { timeout: 3000 });
     await page.keyboard.press("Tab");
   } else if (await loc.evaluate((e) => (e as HTMLElement).tagName === "SELECT")) {
