@@ -18,6 +18,7 @@ import VectorTileSource from "ol/source/VectorTile";
 import "ol/ol.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
+import { useProjectEpoch } from "../store/projectEpoch";
 import { api, errorText, naturalEarthTileUrl, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
@@ -394,7 +395,7 @@ export function MapView({ mapId }: { mapId: string }) {
       const style = styles[id];
       const zIndex = order.length - i; // first in Contents is on top
       const raster = info.geomType === "Raster";
-      const dispKey = `${info.id}|${info.version}|${active.info.crsKey}`;
+      const dispKey = `${info.id}|${info.version}|p${useProjectEpoch.getState().epoch}|${active.info.crsKey}`;
       if (!raster && !mercator && !displayReady.current.has(dispKey)) {
         void buildFor(info, active, crsName, dispKey);
         // Keep drawing what is there (if anything) until the new display table is ready.

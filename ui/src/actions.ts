@@ -17,6 +17,7 @@ import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./stor
 import { defaultStyle, displayInfo, setFrameHook, useApp, type LayerStyle, type SelectMode } from "./store/store";
 import { styleFromSymbologyNode } from "./layers/nodeStyle";
 import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
+import { nextProjectEpoch } from "./store/projectEpoch";
 import { flushLayoutSaves, useLayouts } from "./store/layout";
 
 // ---------- dialogs ----------
@@ -662,6 +663,7 @@ export async function openProject(path?: string) {
 const projectLayers = (layers: LayerInfo[]) => Object.fromEntries(layers.filter((l) => !l.temporary && !l.resultOf).map((l) => [l.id, l]));
 
 function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | null, loaded?: Extract<LoadedMaps, { ok: true }>) {
+  nextProjectEpoch(); // a new project's layers may reuse ids and versions (U-6)
   closeLayoutPanels(); // the dock layout below brings back the new project's layout tabs
   const byId = projectLayers(layers);
   const results = Object.fromEntries(layers.filter((l) => l.resultOf && byId[l.resultOf]).map((l) => [l.resultOf!, l]));

@@ -222,3 +222,33 @@ test.describe("shell with the bottom panel closed at start-up", () => {
     expect(await gis(app, (g) => Object.keys(g.useApp.getState().layers).length)).toBe(1); // the data came with it
   });
 });
+
+test("U-6 after opening a project, a layer with the id and version of one drawn before still draws in UTM", async ({ app }) => {
+  const UTM = { id: "EPSG:26914", name: "NAD83 / UTM zone 14N" };
+  const draws = async (id: string) => {
+    // A tile of the layer's own source answers with data (the engine 404s until the display table is built).
+    return gis(app, async (g, lid: string) => {
+      const m = g.getMap();
+      const lay = m.getLayers().getArray().find((l: any) => l.getSource?.()?.getTileUrlFunction && l.getSource().getUrls?.()?.[0]?.includes(`/${lid}/`));
+      if (!lay) return "no layer";
+      const src = lay.getSource();
+      const coord = src.getTileGrid().getTileCoordForCoordAndZ(m.getView().getCenter(), 8);
+      const r = await fetch(src.getTileUrlFunction()(coord, 1, src.getProjection()));
+      return r.ok ? "ok" : `HTTP ${r.status}`;
+    }, id) as Promise<string>;
+  };
+  const layer = await addTestLayer(app, "polygons", 12, [-100, 34, -99.7, 34.3]);
+  await gis(app, (g, u: any) => g.useApp.getState().setMapCrs(u), UTM);
+  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
+  await expect.poll(() => draws(layer.id), { timeout: 30_000 }).toBe("ok");
+  const dir = join(mkdtempSync(join(tmpdir(), "gis-e2e-u6-")), "u6.gproj");
+  await gis(app, (g, d) => g.useApp.setState({ projectDir: d }), dir);
+  await gis(app, (g) => g.actions.saveProject());
+  await expect.poll(() => gis(app, (g) => g.useApp.getState().dirty)).toBe(false);
+  await gis(app, (g) => g.actions.newProject());
+  await gis(app, (g, d) => g.actions.openProject(d), dir); // the same layer comes back with the same id and version, but the engine has dropped its display table
+  const again = await gis(app, (g) => Object.values(g.useApp.getState().layers).map((l: any) => `${l.id}@${l.version}`)) as string[];
+  expect(again).toContain(`${layer.id}@${layer.version}`);
+  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
+  await expect.poll(() => draws(layer.id), { timeout: 30_000 }).toBe("ok");
+});
