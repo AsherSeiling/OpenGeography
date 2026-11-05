@@ -6,12 +6,13 @@ import { api, errorText, type Extent } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress } from "../progress/progress";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 /** Longest side of the area soil map units may cover, in degrees (the engine's limit, `jsonapis::SSURGO_MAX_DEG`). */
 export const SOIL_MAX_DEG = 0.25;
 
 export function HazardsSoilsDialog({ onClose }: { onClose: () => void }) {
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && l.extent && l.geomType !== "Raster")));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [what, setWhat] = useState<"quakes" | "soils">("quakes");
   const [area, setArea] = useState("view");
   const [start, setStart] = useState("");

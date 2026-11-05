@@ -8,12 +8,13 @@ import { crsName } from "../crs/crs";
 import type { ToolParam } from "../ipc/api";
 import { fieldsForPort, useModel } from "../store/model";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 const quote = (f: string) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(f) ? f : `"${f}"`);
 
 export function ParamControl({ nodeId, param: p, value }: { nodeId: string; param: ToolParam; value: unknown; compact?: boolean }) {
   const set = (v: unknown) => useModel.getState().setParam(nodeId, p.id, v);
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary)));
   // Re-render when connections change so field lists stay current.
   useModel((s) => s.edges.length);
   const fields = p.fieldOf ? fieldsForPort(nodeId, p.fieldOf) : [];

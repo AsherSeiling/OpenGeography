@@ -8,6 +8,7 @@ import { addData } from "../actions";
 import { showPane } from "../panes/panes";
 import { specs as specsOf, useModel, useRun } from "../store/model";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 import { addGroup, compareCategories, familyOf, SEP, splitCategory } from "./categories";
 import { ToolIcon } from "./toolIcon";
 import { useToolMenuShortcut } from "./toolMenuKeys";
@@ -52,7 +53,7 @@ function useTools(): Item[] {
 /** Layers that can be added as extra inputs to the open tree. */
 function useLayerItems(): Item[] {
   const owner = useModel((s) => s.layer);
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && !l.temporary && l.id !== owner)));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary && l.id !== owner)));
   return useMemo(
     () => layers.map((l): Item => ({ id: `layer:${l.id}`, name: l.name, category: "Input", description: `${l.geomType} layer · ${l.featureCount.toLocaleString()} ${l.featureCount === 1 ? "feature" : "features"}`, kind: "layer", group: LAYERS, tool: "input_layer", params: { layer: l.id } })),
     [layers, owner],
@@ -72,7 +73,7 @@ function MenuBody() {
   const layerItems = useLayerItems();
   const { fav, recent, pos, toggleFav } = useToolMenu(useShallow((s) => ({ fav: s.fav, recent: s.recent, pos: s.pos, toggleFav: s.toggleFav })));
   const treeLayer = useModel((s) => s.layer);
-  const allLayers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
+  const allLayers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary)));
   const [q, setQ] = useState("");
   const [cat, setCat] = useState(START);
   const [hi, setHi] = useState(0);

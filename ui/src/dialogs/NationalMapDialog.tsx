@@ -8,13 +8,14 @@ import { api, errorText, type Extent, type TnmDataset } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 const DEFAULT_PICK = ["nhd_flowlines", "nhd_waterbodies", "roads_major", "gn_places"];
 /** Datasets that get very large over big areas. */
 const DENSE = new Set(["nhd_flowlines", "roads_local", "nhd_points"]);
 
 export function NationalMapDialog({ onClose }: { onClose: () => void }) {
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && l.extent && l.geomType !== "Raster")));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [datasets, setDatasets] = useState<TnmDataset[]>([]);
   const [area, setArea] = useState("view");
   const [clip, setClip] = useState(true);

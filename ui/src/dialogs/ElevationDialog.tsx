@@ -7,6 +7,7 @@ import { api, errorText, type ElevationPlan, type Extent } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress } from "../progress/progress";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 const RES: [number, string][] = [
   [1, "1 m (lidar areas; small areas only)"],
@@ -16,7 +17,7 @@ const RES: [number, string][] = [
 ];
 
 export function ElevationDialog({ onClose }: { onClose: () => void }) {
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && l.extent && l.geomType !== "Raster")));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [area, setArea] = useState<string>("view");
   const [res, setRes] = useState(10);
   const [busy, setBusy] = useState(false);

@@ -32,6 +32,7 @@ import { RasterSymbology } from "../raster/RasterSymbology";
 import { LabelSettings } from "./LabelSettings";
 import { fieldsForPort, useModel, useRun } from "../store/model";
 import { displayInfo, useApp, type LayerStyle } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 export function PropertiesPane() {
   const target = useApp((s) => s.properties);
@@ -512,7 +513,7 @@ function NodeProperties({ id }: { id: string }) {
 
 function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolParam; value: unknown }) {
   const set = (v: unknown) => useModel.getState().setParam(nodeId, p.id, v);
-  const layers = useApp(useShallow((s) => s.order.map((lid) => s.layers[lid]).filter((l) => l && !l.temporary)));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary)));
   const label = `${p.label}${p.optional ? " (optional)" : ""}`;
   const fields = p.fieldOf ? fieldsForPort(nodeId, p.fieldOf) : [];
   switch (p.kind) {

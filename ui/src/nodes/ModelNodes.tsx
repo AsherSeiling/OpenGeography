@@ -10,6 +10,7 @@ import type { NodeResult } from "../ipc/api";
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
 import { asOneStep, connectProblem, nodeSignature, outputKind, useModel, useRun, type ModelNode } from "../store/model";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 import { splitCategory } from "./categories";
 import { ParamControl } from "./ParamControl";
 
@@ -142,7 +143,7 @@ export function connectLayerTo(nodeId: string, port: string, layer: string): str
  * as one undo step. Layers the input can't take are listed but disabled, with connectProblem's reason.
  */
 function ChooseLayer({ nodeId, port, portLabel }: { nodeId: string; port: string; portLabel: string }) {
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary)));
   const owner = useModel((s) => s.layer);
   const choices = layers.filter((l) => l.id !== owner);
   return (

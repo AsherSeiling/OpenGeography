@@ -6,9 +6,10 @@ import { api, errorText, type Extent, type OvertureTheme } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress } from "../progress/progress";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 export function OvertureDialog({ onClose }: { onClose: () => void }) {
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && l.extent && l.geomType !== "Raster")));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [themes, setThemes] = useState<OvertureTheme[]>([]);
   const [theme, setTheme] = useState("buildings");
   const [area, setArea] = useState("view");

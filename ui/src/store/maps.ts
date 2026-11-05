@@ -3,6 +3,7 @@
 // A map owns its coordinate system, basemap, saved view, world view, and which project layers it shows with their order and visibility.
 // Layer data, sources, node trees, styles and layouts stay project-wide.
 import type { Camera } from "../map/mapController";
+import type { LayerInfo } from "../ipc/api";
 import { readBasemap } from "../map/basemaps";
 import type { Basemap, MapCrs } from "./store";
 
@@ -168,4 +169,9 @@ function pickKnown(v: Record<string, boolean> | undefined, known: Set<string>): 
 export function projectLayerIds(order: string[], layers: Record<string, unknown>): string[] {
   const seen = new Set(order.filter((id) => id in layers));
   return [...seen, ...Object.keys(layers).filter((id) => !seen.has(id))];
+}
+
+/** Every project layer (not just the active map's), the active map's first: the list a layer picker offers (MM-4). Lists tied to one map use that map's `order` instead. */
+export function projectLayerInfos(s: { order: string[]; layers: Record<string, LayerInfo> }): LayerInfo[] {
+  return projectLayerIds(s.order, s.layers).map((id) => s.layers[id]);
 }

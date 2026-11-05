@@ -7,9 +7,10 @@ import { api, errorText, type ArcgisEntry, type ArcgisServiceLayer, type Extent 
 import { getViewBounds, zoomToExtent } from "../map/mapController";
 import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
 import { useApp } from "../store/store";
+import { projectLayerInfos } from "../store/maps";
 
 export function ArcGisDialog({ onClose }: { onClose: () => void }) {
-  const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter((l) => l && l.extent && l.geomType !== "Raster")));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [catalog, setCatalog] = useState<ArcgisEntry[]>([]);
   const [source, setSource] = useState<string>("padus"); // a catalog id, or "custom"
   const [url, setUrl] = useState("");
