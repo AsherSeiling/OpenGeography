@@ -20,7 +20,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 | UR-4 **done** (`438545b`) | Maps in a layout don't start with an outline frame | Frame is a per-element setting (`frameWidth`, 0 = none) | Find what a new map frame gets, and default it to none. Old layouts keep their frames. |
 | UR-5 **done** (`7c6423e`) | Layout of any size | Allowed 20–5000 mm, `ui/src/dialogs/PageSetupDialog.tsx:12` | Widen the limits as far as export really works, and say what limits remain. Test a very large page's export. |
 | UR-6 **done** (`eeb45e5`) | Guides in layouts | **Already exists**: drag from a ruler, or Page Setup. The user didn't find it | Add a visible ribbon control, so it can be found. |
-| UR-7 **done** (commit: `git log --grep UR-7`; plain wheel still scrolls, to ask the user) | Zoom toward the cursor for everything in a layout | Ctrl/⌘+wheel zooms the page, plain wheel scrolls (`LayoutView.tsx:113`) | Anchor zoom at the cursor. Decide with the user whether plain wheel should zoom. |
+| UR-7 **done** (`86444f4`; plain wheel still scrolls, to ask the user) | Zoom toward the cursor for everything in a layout | Ctrl/⌘+wheel zooms the page, plain wheel scrolls (`LayoutView.tsx:113`) | Anchor zoom at the cursor. Decide with the user whether plain wheel should zoom. |
 
 ### Batch B: map and data working
 
