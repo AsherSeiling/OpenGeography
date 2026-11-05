@@ -374,7 +374,7 @@ export function addMapFrame(over: Partial<MapFrame> & { sources?: boolean } = {}
     basemap: printBasemap(useApp.getState().basemap),
     graticule: null,
     grid: null,
-    border: { width: 0.35, color: "#000000" },
+    border: null, // UR-4: a new map frame starts with no outline; Border width in Properties adds one
     ...fields,
   };
   s.addElement(frame);
