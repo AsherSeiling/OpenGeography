@@ -185,6 +185,8 @@ interface AppState {
   results: Record<string, LayerInfo>;
   /** Layers whose original data is shown instead of their node-tree result. */
   showOriginal: Record<string, boolean>;
+  /** Raster styles the user set on a layer's node-tree result (keyed by the layer the result belongs to). Not saved: a result without one draws with `resultRasterStyle`, so it never takes the source raster's look (TP-11). */
+  resultRasterStyles: Record<string, RasterStyle>;
   /** Every map of the project (always at least one) and the one Map Layers, the status bar and the tools act on. */
   maps: MapDoc[];
   activeMapId: string;
@@ -234,6 +236,8 @@ interface AppState {
   setShowOriginal: (id: string, v: boolean) => void;
   moveLayer: (id: string, toIndex: number) => void;
   setStyle: (id: string, style: LayerStyle) => void;
+  /** Style a raster that is the node-tree result of `id` (the source raster's style is left alone). */
+  setResultRasterStyle: (id: string, style: RasterStyle) => void;
   /** new / add / toggle; remove = take these out; subset = keep only these from the current selection. */
   setSelection: (id: string, fids: number[], mode?: SelectMode) => void;
   clearSelection: () => void;
@@ -302,6 +306,7 @@ export const useApp = create<AppState>()((rawSet, get) => {
   layers: {},
   results: {},
   showOriginal: {},
+  resultRasterStyles: {},
   order: [],
   visible: {},
   styles: {},
@@ -448,6 +453,7 @@ export const useApp = create<AppState>()((rawSet, get) => {
     }),
 
   setStyle: (id, style) => set((s) => ({ styles: { ...s.styles, [id]: style }, dirty: true })),
+  setResultRasterStyle: (id, style) => set((s) => ({ resultRasterStyles: { ...s.resultRasterStyles, [id]: style }, dirty: true })),
 
   setSelection: (id, fids, mode = "new") =>
     set((s) => {
@@ -495,6 +501,26 @@ export function layerList(): LayerInfo[] {
 type Displayable = Pick<AppState, "layers" | "results" | "showOriginal">;
 
 /** What a layer currently shows: its node-tree result, or its original data. */
+/**
+ * What a raster that came out of a node tree looks like until the user styles it. The source's renderer (an elevation ramp with hillshade) would
+ * hide it: a stream raster holds the value 1, a slope raster has no relief. So: a plain colour ramp over the result's own value range, no shading;
+ * one value only (a mask) is a single class. Never the source raster's style (TP-11).
+ */
+export function resultRasterStyle(info: LayerInfo): RasterStyle {
+  const r = info.raster;
+  if (!r || r.kind === "rgb" || r.empty) return { renderer: "default" };
+  if (r.min === r.max) return { renderer: "paletted", entries: [{ value: r.min, color: "#1f78b4", label: String(r.min) }] };
+  return { renderer: "pseudocolor", ramp: "viridis", stretch: { mode: "minmax" } };
+}
+
+/** The style a layer is drawn with: its own, or for a raster node-tree result the user's result style or the result default. */
+export function effectiveStyle(s: Pick<AppState, "styles" | "results" | "showOriginal" | "resultRasterStyles">, id: string): LayerStyle | undefined {
+  const own = s.styles[id];
+  const r = s.results[id];
+  if (!own || !r || s.showOriginal[id] || r.geomType !== "Raster") return own;
+  return { ...own, raster: s.resultRasterStyles[id] ?? resultRasterStyle(r) };
+}
+
 export function displayInfo(s: Displayable, id: string): LayerInfo | undefined {
   const r = s.results[id];
   return r && !s.showOriginal[id] ? r : s.layers[id];

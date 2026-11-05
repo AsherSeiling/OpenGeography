@@ -673,6 +673,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | n
     layers: byId,
     results,
     showOriginal: {},
+    resultRasterStyles: {},
     selectedLayers: [],
     layerAnchor: null,
     maps,

@@ -4,7 +4,7 @@ import { Button, Checkbox, Dropdown, Field, Input, MessageBar, MessageBarBody, O
 import { open, save } from "../ipc/dialogs";
 import { useEffect, useRef, useState } from "react";
 import { api, errorText, type RampInfo, type RasterHistogram, type RasterUniqueValues } from "../ipc/api";
-import { displayInfo, useApp, type LayerStyle, type RasterStyle } from "../store/store";
+import { displayInfo, effectiveStyle, useApp, type LayerStyle, type RasterStyle } from "../store/store";
 import { barHeights, dragHandle, fmtValue, rampCss, valueToX } from "./histogram";
 
 const RENDERERS = { default: "Default (elevation + hillshade / RGB)", gray: "Singleband gray", pseudocolor: "Singleband pseudocolor", paletted: "Paletted / Unique values", multiband: "Multiband colour" } as const;
@@ -65,9 +65,10 @@ function Histogram({ hist, lo, hi, onChange }: { hist: RasterHistogram; lo: numb
 
 export function RasterSymbology({ id }: { id: string }) {
   const info = useApp((s) => displayInfo(s, id))!;
-  const style = useApp((s) => s.styles[id])!;
+  const isResult = useApp((s) => !!s.results[id] && !s.showOriginal[id] && s.results[id].geomType === "Raster");
+  const style = useApp((s) => effectiveStyle(s, id))!;
   const r: RasterStyle = style.raster ?? { renderer: "default" };
-  const set = (p: Partial<RasterStyle>) => useApp.getState().setStyle(id, { ...style, raster: { ...r, ...p } } as LayerStyle);
+  const set = (p: Partial<RasterStyle>) => (isResult ? useApp.getState().setResultRasterStyle(id, { ...r, ...p }) : useApp.getState().setStyle(id, { ...style, raster: { ...r, ...p } } as LayerStyle));
   const bands = info.raster?.bands ?? 1;
   const band = r.band ?? 1;
   const [ramps, setRamps] = useState<RampInfo[]>([]);

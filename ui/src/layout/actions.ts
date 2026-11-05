@@ -11,7 +11,7 @@ import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
 import { useLayoutView } from "./view";
 import { addMapFrame, addPicture, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
-import { useApp, type LayerStyle } from "../store/store";
+import { effectiveStyle, useApp, type LayerStyle } from "../store/store";
 import { recolour } from "./themes";
 import { followedMap, frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 import { isMapPanelId, mapOf } from "../store/maps";
@@ -32,7 +32,7 @@ export function layoutRequest(layout: Layout): RenderRequest {
     visible[shown] = s.visible[id] ?? true;
   }
   // Style is shared across maps, and a frame can draw any project layer: one on another map, or in a fixed list and on no map at all.
-  for (const id of Object.keys(s.layers)) if (s.styles[id]) styles[shownId(id)] = s.styles[id];
+  for (const id of Object.keys(s.layers)) if (s.styles[id]) styles[shownId(id)] = effectiveStyle(s, id)!;
   // A frame that names a map gets that map's layers, order and visibility as an explicit list; the engine never sees the map id.
   // A frame whose map was deleted draws no layers (and export says so) rather than drawing another map's.
   layout = {

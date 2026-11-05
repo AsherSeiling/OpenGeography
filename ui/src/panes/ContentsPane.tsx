@@ -21,7 +21,7 @@ import { applyStyleToLayers, exportLayer, exportTable, moveLayers, pickedLayers,
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
-import { useApp, type LayerStyle } from "../store/store";
+import { effectiveStyle, useApp, type LayerStyle } from "../store/store";
 import { activeMapOf } from "../store/maps";
 import { nextSelection } from "../layers/multiselect";
 import { showPane } from "./panes";
@@ -75,6 +75,7 @@ export function ContentsPane() {
   const picked = useApp((s) => s.selectedLayers);
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
+  const resultRasterStyles = useApp((s) => s.resultRasterStyles);
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const app = useApp.getState;
   const treeRef = useRef<HTMLDivElement>(null);
@@ -161,7 +162,7 @@ export function ContentsPane() {
                 onChange={(e) => app().setVisible(id, e.target.checked)}
                 aria-label={`Show ${info.name}`}
               />
-              <Swatch info={(results[id] && !showOriginal[id] ? results[id] : info)} style={styles[id]} />
+              <Swatch info={(results[id] && !showOriginal[id] ? results[id] : info)} style={effectiveStyle({ styles, results, showOriginal, resultRasterStyles }, id) ?? styles[id]} />
               <span className="tree-name">{info.name}</span>
               {nsel > 0 && <span className="sel-count" title="Selected features">{nsel.toLocaleString()}</span>}
               {info.definitionQuery && (

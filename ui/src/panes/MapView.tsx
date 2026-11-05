@@ -31,7 +31,7 @@ import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
 import { basemapDef, basemapRefusal } from "../map/basemaps";
 import { labelField, styleFields } from "../map/style";
-import { displayInfo, drawableLayerIds, ownerOf, useApp } from "../store/store";
+import { displayInfo, drawableLayerIds, effectiveStyle, ownerOf, useApp } from "../store/store";
 import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
 import { MeasurePanel } from "../nav/MeasurePanel";
 import { NavPanel } from "../nav/NavPanel";
@@ -327,6 +327,7 @@ export function MapView({ mapId }: { mapId: string }) {
   const styles = useApp((s) => s.styles);
   const results = useApp((s) => s.results);
   const showOriginal = useApp((s) => s.showOriginal);
+  const resultRasterStyles = useApp((s) => s.resultRasterStyles);
   const selection = useApp((s) => s.selection);
   const drawn = useRef<Record<string, Drawn>>({});
   const removeDrawn = (map: OlMap, id: string) => {
@@ -392,7 +393,7 @@ export function MapView({ mapId }: { mapId: string }) {
     order.forEach((id, i) => {
       if (!wanted.has(id)) return;
       const info = shown(id)!;
-      const style = styles[id];
+      const style = effectiveStyle({ styles, results, showOriginal, resultRasterStyles }, id)!;
       const zIndex = order.length - i; // first in Contents is on top
       const raster = info.geomType === "Raster";
       const dispKey = `${info.id}|${info.version}|p${useProjectEpoch.getState().epoch}|${active.info.crsKey}`;
@@ -459,7 +460,7 @@ export function MapView({ mapId }: { mapId: string }) {
       d.labels?.layer.setZIndex(zIndex + 0.5);
       d.labels?.layer.setVisible(!!visible[id]);
     });
-  }, [layers, results, showOriginal, order, visible, styles, active, mapCrs, tick, buildFor]);
+  }, [layers, results, showOriginal, resultRasterStyles, order, visible, styles, active, mapCrs, tick, buildFor]);
 
   // Selection highlight: the style function reads the sets, so a selection change only redraws.
   useEffect(() => {
