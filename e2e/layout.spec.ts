@@ -98,3 +98,50 @@ test("M-19 layout: elements, drag/resize, undo, Set from Map View, Frame CRS, sc
   await app.getByRole("button", { name: /^Delete Site map/ }).first().click();
   await expect(app.locator(".layout-row")).toHaveCount(1);
 });
+
+test("UR-5 a 20 m page: Page Setup accepts it, the preview is drawn coarser, PDF exports, a PNG at 300 dpi is refused with a way out", async ({ app, errors }) => {
+  errors.expected = true; // the refused PNG raises the error pop-up and logs it
+  errors.known.push(/Export of Layout 1\.png failed: A PNG of this 20000/);
+  const dir = mkdtempSync(join(tmpdir(), "gis-e2e-bigpage-"));
+  const layer = await addTestLayer(app, "polygons", 30, [-100, 30, -95, 35]);
+  await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
+  await app.locator(".rtab", { hasText: /^Insert$/ }).click();
+  await app.locator(".rbtn", { hasText: /New Layout/ }).click();
+  await app.getByRole("menuitem", { name: /Letter landscape/ }).click();
+  await ribbon(app, "Layout", /^Map Frame$/);
+  await expect(app.locator(".layout-img")).toBeVisible({ timeout: 20_000 });
+
+  // Through the dialog, so its limits are the ones tested.
+  await app.locator(".rtab", { hasText: /^Page$/ }).click();
+  await app.locator(".rbtn", { hasText: /Page Setup/ }).click();
+  const dlg = app.getByRole("dialog");
+  await dlg.getByLabel("Width (mm)").fill("20001");
+  await expect(dlg).toContainText("20,000 mm");
+  await expect(dlg.getByRole("button", { name: "OK" })).toBeDisabled();
+  await dlg.getByLabel("Width (mm)").fill("20000");
+  await dlg.getByLabel("Height (mm)").fill("14000");
+  await expect(dlg).toContainText("Acrobat");
+  await dlg.getByRole("button", { name: "OK" }).click();
+  await expect.poll(() => gis(app, (g) => g.useLayouts.getState().doc.page.width)).toBe(20000);
+
+  // The preview still draws, at a lower resolution, and says so.
+  await expect(app.locator(".layout-stat")).toContainText("lowered", { timeout: 60_000 });
+  await expect(app.locator(".layout-img")).toBeVisible();
+
+  const exportAs = async (fmt: string, dpi: number, file: string) => {
+    const path = join(dir, file);
+    await gis(app, async (g, a: any) => { window.prompt = () => a.path; await g.layoutActions.exportLayout(a.fmt, a.dpi); }, { path, fmt, dpi });
+    return { path, status: (await gis(app, (g) => g.useApp.getState().status)) as string };
+  };
+  const pdf = await exportAs("pdf", 300, "big.pdf");
+  expect(statSync(pdf.path).size).toBeGreaterThan(500);
+  expect(readFileSync(pdf.path).subarray(0, 5).toString()).toBe("%PDF-");
+  const png = await exportAs("png", 300, "big.png");
+  expect(png.status).toMatch(/million pixels|million/);
+  expect(png.status).toContain("or less for this page");
+  expect(existsSync(png.path)).toBe(false);
+  // The dpi it suggests (37 for this page) works.
+  const ok = await exportAs("png", 30, "ok.png");
+  expect(ok.status).toContain("Exported");
+  expect(statSync(ok.path).size).toBeGreaterThan(500);
+});

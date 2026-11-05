@@ -379,6 +379,8 @@ fn short_citations(conn: &Connection) -> Result<HashMap<String, Vec<String>>> {
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutPreview {
+    /// The resolution actually drawn: the one asked for, or lower on a very large page.
+    pub dpi: f64,
     /// PNG, base64-encoded.
     pub png: String,
     pub png_bytes: usize,
@@ -460,8 +462,8 @@ impl Engine {
         let mut req = req.clone();
         req.raster_dpi.get_or_insert(dpi); // a screen preview needn't carry 300 dpi images
         let out = self.render_layout_svg(&req, &|| Ok(()))?;
-        let png = export::svg_to_png(&out.svg, dpi)?;
-        Ok(LayoutPreview { png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings, labels: out.labels, dropped_label_edits: out.dropped_label_edits, legend_rows: out.legend_rows })
+        let (png, dpi) = export::svg_to_preview_png(&out.svg, dpi)?;
+        Ok(LayoutPreview { dpi, png: base64::engine::general_purpose::STANDARD.encode(&png), png_bytes: png.len(), warnings: out.warnings, labels: out.labels, dropped_label_edits: out.dropped_label_edits, legend_rows: out.legend_rows })
     }
 
     /// Export a layout page to `path` as a cancellable task ("Exporting

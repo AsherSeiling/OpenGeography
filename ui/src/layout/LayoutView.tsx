@@ -70,7 +70,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const preflightOpen = useLayoutView((s) => s.preflightOpen);
   const galleryClosed = useLayoutView((s) => !!s.galleryClosed[layout.id]);
   const [box, setBox] = useState({ w: 800, h: 600 });
-  const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; labels: PlacedLabel[] } | null>(null);
+  const [preview, setPreview] = useState<{ src: string; warnings: string[]; bytes: number; ms: number; dpi: number; labels: PlacedLabel[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
   const [ptr, setPtr] = useState<{ x: number; y: number } | null>(null);
@@ -148,7 +148,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       try {
         const res = await api.renderLayoutPreview(layoutRequest(layout), dpi);
         if (mine !== seq.current) return;
-        setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), labels: res.labels ?? [] });
+        setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), dpi: res.dpi ?? dpi, labels: res.labels ?? [] });
         useLabelHits.getState().set(layout.id, res.labels ?? []);
         useLegendRows.getState().set(layout.id, res.legendRows ?? []);
         // Edits for features that are gone are removed (the engine already ignored them).
@@ -349,7 +349,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         </span>
         {selEl && <span className="layout-pointer muted" data-testid="layout-selsize" title="Selected item: size in mm">{`${Math.round(selEl.w * 10) / 10} × ${Math.round(selEl.h * 10) / 10} mm`}</span>}
         <span className="layout-stat muted" title="Engine-rendered preview: the export uses the same renderer">
-          {rendering ? "Rendering…" : preview ? `Preview ${dpi} dpi · ${Math.round(preview.bytes / 1024)} KB · ${preview.ms} ms` : ""}
+          {rendering ? "Rendering…" : preview ? `Preview ${Math.round(preview.dpi * 10) / 10} dpi${preview.dpi < dpi ? " (lowered: the page is very large)" : ""} · ${Math.round(preview.bytes / 1024)} KB · ${preview.ms} ms` : ""}
         </span>
       </div>
       {error && (
