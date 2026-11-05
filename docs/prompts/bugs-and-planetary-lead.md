@@ -19,19 +19,20 @@ The user's instruction: keep as many tasks as possible in the same sessions, and
 
 ## Work, in order
 
-**Batch 1: open bugs, one Sonnet session, one commit per bug.**
+**Batch 1: open bugs, one Sonnet session, one commit per bug.** Work from `ui-redesign`, which isn't merged into `main` yet.
+- **E2E-5, first:** intermittent failure of the label-drag test, which blocks the merge. Rerun with `scripts/e2e.sh <out-dir> e2e/labels.spec.ts --repeat-each=3`. Once fixed, run the whole suite once (about 47 minutes) and merge `ui-redesign` into local `main` if it passes. Don't push without asking the user.
 - **U-6:** blank layer after New Project; add an e2e test.
 - **MM-4:** layer lists reading the active map's `order`. Decide what each list should mean before fixing: a node input may mean any project layer; a layout frame list means the frame's map.
 - **TP-11:** result rasters inherit the DEM renderer.
 - **LE-1:** named text styles aren't saved in the project; needs an engine field and a project format check.
-- **E2E-3:** flaky test; fix only if it recurs. **C-1b** stays accepted; don't work on it.
+- **E2E-3, E2E-4:** flaky tests; fix only if they recur. **C-1b** stays accepted; don't work on it.
 
 Then stop and report, and tell the user the bug batch is ready for the Mac app rebuild and test. That rebuild is handled outside this session. Don't start Batch 2 until the user says that test is done.
 
 **Batch 2: server connections, `docs/SERVER_CONNECTIONS_PLAN.md` §4.**
-- **S1, S2, S3:** give them to the same Sonnet session, in order, reviewing and merging each before sending the next.
-- Read closely: the project format change, the CRS rule, and how untrusted server text is handled.
-- Public servers only unless the user says otherwise.
+- **S1, S2, S3, S4:** give them to the same Sonnet session, in order, reviewing and merging each before sending the next.
+- Read closely: the project format change, the CRS rule, how untrusted server text is handled, and all of S4, the sign-in work (§3a). Secrets must never reach a project, log, error, citation, URL or file on disk.
+- Secrets are always entered by the user. Tests use fake credentials against a local fake server.
 
 **Batch 3: planetary, `docs/PLANETARY_PLAN.md` §10.**
 - **P0:** you do this spike yourself, and correct the plan if it was wrong.
