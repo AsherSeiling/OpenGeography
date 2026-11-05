@@ -25,7 +25,8 @@ GIS_STUDIO_DATA="$OUT/e2e-data" GIS_STUDIO_CACHE="$OUT/e2e-cache" GIS_DEVSERVER_
 GIS_VITE_PORT=$VITE_PORT VITE_GIS_DEVSERVER="http://127.0.0.1:$API_PORT" npx vite > "$OUT/e2e-vite.log" 2>&1 & PIDS+=($!)
 
 wait_for() { for _ in $(seq 1 120); do curl -s -o /dev/null "$1" && return 0; sleep 0.5; done; return 1; }
-wait_for "http://localhost:$VITE_PORT/" && curl -s -o /dev/null -X POST -d '{}' "http://127.0.0.1:$API_PORT/invoke/list_layers" || {
+wait_api() { for _ in $(seq 1 120); do curl -s -o /dev/null -X POST -d '{}' "http://127.0.0.1:$API_PORT/invoke/list_layers" && return 0; sleep 0.5; done; return 1; }
+wait_for "http://localhost:$VITE_PORT/" && wait_api || {
   echo "servers did not start"; printf '# Browser end-to-end\n\nFAILED: servers did not start, see e2e-*.log\n' > "$OUT/e2e.md"; exit 1; }
 
 export E2E_VITE_PORT=$VITE_PORT E2E_API_PORT=$API_PORT E2E_JSON="$OUT/e2e.json" E2E_ARTIFACTS="$OUT/e2e-artifacts"

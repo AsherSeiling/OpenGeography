@@ -6,7 +6,7 @@ import { actionFor, eventCombo, useKeymap } from "./keymap";
 import { openToolMenu, useToolMenu, type MenuPos } from "./toolMenuStore";
 import { editorHandle, editorVisible } from "./toolPlacement";
 
-const TEXT = "textarea, [contenteditable], input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=range])";
+export const TEXT_FIELD = "textarea, [contenteditable], input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=range])";
 
 /** Pointer position if it is over the visible canvas: where the menu opens and the node goes. */
 export function pointerOnCanvas(p: MenuPos | null): MenuPos | null {
@@ -29,7 +29,7 @@ export function useToolMenuShortcut() {
     };
     /** A text field the keys belong to; inside a node card only while the pointer is still on that card. */
     const typingField = (): HTMLElement | null => {
-      const field = (document.activeElement as HTMLElement | null)?.closest?.(TEXT) as HTMLElement | null;
+      const field = (document.activeElement as HTMLElement | null)?.closest?.(TEXT_FIELD) as HTMLElement | null;
       if (!field) return null;
       if (!field.closest(".model")) return field;
       return !sawMove || pointerOver(field.closest(".react-flow__node") ?? field) ? field : null;

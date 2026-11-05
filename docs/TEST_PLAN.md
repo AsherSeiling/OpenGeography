@@ -1085,4 +1085,5 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | WP9-2 | Bottom panel closes under a layout and returns with the same tabs, active tab and height; Items has a column of its own with Catalog under it; Map Layers returns on Back to Map | `e2e/layout-leftovers.spec.ts` |
 | WP9-3 | New map frames on its first layer, a map with layers keeps its view; Series picker, Topo DEM pick and Attribute Table read project layers; Run is outlined; gallery tiles pre-select their Topo preset | `e2e/layout-leftovers.spec.ts` |
 | WP9-4 | AA text contrast, labels on every control, visible focus: map and layout workspace, light and dark | `e2e/redesign-a11y.spec.ts` |
+| US-1 | Undo and redo shortcuts work with the focus outside the node editor and the layout page; a text box keeps its own undo; a dialog takes no shortcut | `e2e/undo-shortcuts.spec.ts` |
 | WP9-5 | Walk-through: Shift+A, search, three tools, wired, run, layout exported to PDF; light, dark, 1024 px, keyboard only | `e2e/redesign-walkthrough.spec.ts` |

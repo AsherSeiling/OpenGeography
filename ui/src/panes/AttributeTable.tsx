@@ -273,7 +273,7 @@ export function AttributeTable() {
       }
       return;
     }
-    if (mod && e.key.toLowerCase() === "z") {
+    if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
       e.preventDefault();
       undoEdit();
       return;

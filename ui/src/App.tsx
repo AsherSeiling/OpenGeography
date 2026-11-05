@@ -7,6 +7,9 @@ import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
 import { addData, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
+import { actionFor, eventCombo, useKeymap } from "./nodes/keymap";
+import { TEXT_FIELD } from "./nodes/toolMenuKeys";
+import { redoActive, undoActive } from "./ribbon/quickAccess";
 import { LayerPropertiesWindow } from "./dialogs/LayerPropertiesWindow";
 import { reportError } from "./errors/store";
 import { api, IN_TAURI, type NodeResult } from "./ipc/api";
@@ -93,10 +96,20 @@ export function App() {
       } else if (mod && e.key === "o") {
         e.preventDefault();
         openProject();
-        // Node-editor keys (undo, run, …) live in nodes/keymap.ts and apply only there.
+        // The other node-editor keys (run, …) live in nodes/keymap.ts and apply only there; undo and redo work everywhere, below.
       } else if (e.altKey && e.key.toLowerCase() === "q") {
         e.preventDefault();
         (document.querySelector(".tellme input") as HTMLInputElement | null)?.focus();
+      } else if (!e.defaultPrevented) {
+        // Undo and redo from anywhere, like the buttons. The node editor, the layout page and the table handle their own first (defaultPrevented);
+        // a text box keeps its own undo, and a dialog or the tool menu takes no shortcut.
+        const combo = eventCombo(e);
+        const action = combo && actionFor(useKeymap.getState().bindings, combo);
+        if (action !== "undo" && action !== "redo") return;
+        if ((document.activeElement as HTMLElement | null)?.closest?.(TEXT_FIELD) || document.querySelector(".toolmenu, [role=dialog]")) return;
+        e.preventDefault();
+        if (action === "undo") undoActive();
+        else redoActive();
       }
     };
     window.addEventListener("keydown", onKey);

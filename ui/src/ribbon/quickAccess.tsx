@@ -7,6 +7,18 @@ import { flushParamEdit, useModel } from "../store/model";
 import { useLayouts } from "../store/layout";
 import { commands } from "./commands";
 
+/** Undo and Redo on whatever is active: the open layout, else the active node tree. Used by the buttons and the app-wide shortcuts. */
+export function undoActive() {
+  if (useLayouts.getState().id) return useLayouts.getState().undo();
+  flushParamEdit();
+  useModel.temporal.getState().undo();
+}
+export function redoActive() {
+  if (useLayouts.getState().id) return useLayouts.getState().redo();
+  flushParamEdit();
+  useModel.temporal.getState().redo();
+}
+
 /** What Undo and Redo would act on right now, and whether there is anything to do. */
 export function useHistory() {
   const layoutId = useLayouts((s) => s.id);
@@ -19,8 +31,8 @@ export function useHistory() {
     target: inLayout ? "layout" : "node tree",
     canUndo: inLayout ? layoutUndo : treeUndo,
     canRedo: inLayout ? layoutRedo : treeRedo,
-    undo: () => (inLayout ? useLayouts.getState().undo() : (flushParamEdit(), useModel.temporal.getState().undo())),
-    redo: () => (inLayout ? useLayouts.getState().redo() : (flushParamEdit(), useModel.temporal.getState().redo())),
+    undo: undoActive,
+    redo: redoActive,
   };
 }
 

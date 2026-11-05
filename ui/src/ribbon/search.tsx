@@ -33,6 +33,7 @@ export function TopSearch() {
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(0);
   const box = useRef<HTMLInputElement>(null);
+  const blurTimer = useRef<number | undefined>(undefined); // pending close after a click on a hit; coming back to the box cancels it
   const uid = useId();
   const specs = useRun((s) => s.specs);
   const layers = useApp(useShallow((s) => projectLayerIds(s.order, s.layers).map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
@@ -89,8 +90,13 @@ export function TopSearch() {
             setOpen(true);
             setHi(0);
           }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onFocus={() => {
+            window.clearTimeout(blurTimer.current);
+            setOpen(true);
+          }}
+          onBlur={() => {
+            blurTimer.current = window.setTimeout(() => setOpen(false), 120);
+          }}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") setHi(Math.min(hits.length - 1, cur + 1));
             else if (e.key === "ArrowUp") setHi(Math.max(0, cur - 1));

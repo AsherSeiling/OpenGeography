@@ -49,8 +49,8 @@ export const ACTIONS: ActionDef[] = [
   { id: "invertSelection", label: "Invert selection", group: "Select", description: "Select the unselected nodes", defaults: ["Mod+I"] },
   { id: "frameAll", label: "Frame all", group: "View", description: "Fit the whole tree in view", defaults: ["Home"] },
   { id: "frameSelected", label: "Frame selected", group: "View", description: "Fit the selected nodes in view", defaults: ["."] },
-  { id: "undo", label: "Undo", group: "History", description: "Undo the last change to this tree", defaults: ["Mod+Z"] },
-  { id: "redo", label: "Redo", group: "History", description: "Redo", defaults: ["Mod+Shift+Z", "Mod+Y"] },
+  { id: "undo", label: "Undo", group: "History", description: "Undo the last change to the node tree or the open layout. Works anywhere in the app", defaults: ["Mod+Z"] },
+  { id: "redo", label: "Redo", group: "History", description: "Redo the last undone change. Works anywhere in the app", defaults: ["Mod+Shift+Z", "Mod+Y"] },
   { id: "run", label: "Run tree", group: "Run", description: "Run this layer's node tree", defaults: ["Mod+Enter", "F12"] },
 ];
 

@@ -350,9 +350,10 @@ export const useApp = create<AppState>()((rawSet, get) => {
             },
       );
       const activeLayer = s.activeLayer ?? infos[0]?.id ?? null;
-      // A map with no layers and no saved view is framed on the first layer added to it (MM-1); one with layers or a view keeps its view.
+      // A map with no layers and no saved view is framed on the first layer added to it (MM-1); one with layers or a view keeps its view,
+      // and World View keeps its whole-Earth frame.
       const target = activeMapOf(s);
-      const ext = target.order.length === 0 && !target.camera ? added.map((id) => layers[id]).find((i) => i.geomType !== "Table" && i.extent)?.extent : undefined;
+      const ext = target.order.length === 0 && !target.camera && !target.worldView ? added.map((id) => layers[id]).find((i) => i.geomType !== "Table" && i.extent)?.extent : undefined;
       if (ext && frameHook) queueMicrotask(() => frameHook?.(target.id, ext));
       return { layers, results, maps, styles, activeLayer, dirty: true };
     }),
