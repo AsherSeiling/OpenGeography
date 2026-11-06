@@ -115,7 +115,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 47] = [
+const EXCLUDED: [(&str, &str); 48] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("usng_grid", "its squares are the UTM grid, so the result is deliberately in the UTM zone of the input, not in the input's CRS; tested in usng.rs"),
     ("usng_to_points", "reads text references, so its input has no coordinate system to vary; tested against GeoTrans/mgrs values in usng.rs"),
@@ -136,6 +136,7 @@ const EXCLUDED: [(&str, &str); 47] = [
     ("hillshade", "raster tool: R5"),
     ("slope", "raster tool: R5"),
     ("clip_raster", "raster tool: R5"),
+    ("clip_raster_by_layer", "raster tool: moves the shapes into the raster CRS itself; tested in rasters.rs"),
     ("aspect", "raster tool: R5"),
     ("ruggedness", "raster tool: R5"),
     ("warp", "raster tool: R5"),

@@ -425,6 +425,12 @@ pub struct EditResult {
     count: i64,
 }
 
+#[derive(Serialize)]
+pub struct AddRowResult {
+    layer: LayerInfo,
+    fid: i64,
+}
+
 #[tauri::command]
 pub async fn add_field(engine: Eng<'_>, id: String, name: String, ty: String) -> Res<LayerInfo> {
     blocking(&engine, move |e| e.add_field(&id, &name, &ty)).await
@@ -467,6 +473,34 @@ pub async fn calculate_geometry(engine: Eng<'_>, id: String, field: String, prop
 pub async fn delete_rows(engine: Eng<'_>, id: String, fids: Vec<i64>) -> Res<EditResult> {
     blocking(&engine, move |e| {
         let (layer, count) = e.delete_rows(&id, &fids)?;
+        Ok(EditResult { layer, count })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn create_table(engine: Eng<'_>, name: String, fields: Vec<(String, String)>) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.create_table(&name, &fields)).await
+}
+
+#[tauri::command]
+pub async fn add_row(engine: Eng<'_>, id: String) -> Res<AddRowResult> {
+    blocking(&engine, move |e| {
+        let (layer, fid) = e.add_row(&id)?;
+        Ok(AddRowResult { layer, fid })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn rows_by_fid(engine: Eng<'_>, id: String, fids: Vec<i64>) -> Res<Vec<engine::attrs::RowData>> {
+    blocking(&engine, move |e| e.rows_by_fid(&id, &fids)).await
+}
+
+#[tauri::command]
+pub async fn restore_rows(engine: Eng<'_>, id: String, rows: Vec<engine::attrs::RowData>) -> Res<EditResult> {
+    blocking(&engine, move |e| {
+        let (layer, count) = e.restore_rows(&id, &rows)?;
         Ok(EditResult { layer, count })
     })
     .await
@@ -563,6 +597,11 @@ pub async fn sources(engine: Eng<'_>) -> Res<Vec<engine::sources::SourceEntry>> 
 #[tauri::command]
 pub async fn update_source(engine: Eng<'_>, citation: engine::sources::Citation) -> Res<()> {
     blocking(&engine, move |e| e.update_source(&citation)).await
+}
+
+#[tauri::command]
+pub async fn add_layer_source(engine: Eng<'_>, layer: String, citation: engine::sources::Citation, accessed: Option<String>) -> Res<engine::sources::Citation> {
+    blocking(&engine, move |e| e.add_layer_source(&layer, &citation, accessed.as_deref())).await
 }
 
 #[tauri::command]

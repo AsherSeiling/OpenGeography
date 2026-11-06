@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent, type OgcCollection, type OgcEntry } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -17,7 +17,6 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
   const [found, setFound] = useState<OgcCollection[] | null>(null);
   const [coll, setColl] = useState("");
   const [area, setArea] = useState("view");
-  const [busy, setBusy] = useState(false);
   const [finding, setFinding] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -42,31 +41,26 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
     }
     setFinding(false);
   };
-  const go = async () => {
+  const go = () => {
     if (!extent) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const picked = found?.find((c) => c.id === coll);
-      const spec = source === "custom" ? { api: url, collection: coll, label: picked?.title } : { entryId: source };
-      const info = await api.ogcImport(spec, extent, areaLabel);
-      if (!info) {
-        setErr("There are no features of this dataset in this area. Try a larger area.");
-      } else {
+    const picked = found?.find((c) => c.id === coll);
+    const spec = source === "custom" ? { api: url, collection: coll, label: picked?.title } : { entryId: source };
+    startDownload({
+      label: `OGC API download for ${areaLabel}`,
+      match: ["Downloading"],
+      run: () => api.ogcImport(spec, extent, areaLabel),
+      done: (info) => {
+        if (!info) return "There are no features of this OGC API dataset in this area. Try a larger area.";
         useApp.getState().addLayers([info]);
-        useApp.getState().setStatus(`Added ${info.name} · ${info.featureCount.toLocaleString()} features`);
         if (area !== "view") zoomToExtent(info.extent);
-        onClose();
-      }
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("Download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+        return `Added ${info.name} · ${info.featureCount.toLocaleString()} features`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface style={{ maxWidth: 620 }}>
         <DialogBody>
           <DialogTitle>OGC API – Features</DialogTitle>
@@ -106,12 +100,11 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
                 )}
               </>
             )}
-            <TaskProgress active={busy} label="Downloading…" match={["Downloading"]} />
             {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !ready} onClick={go}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!ready} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

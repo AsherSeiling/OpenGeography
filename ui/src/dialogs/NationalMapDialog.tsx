@@ -6,7 +6,9 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent, type TnmDataset } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
+import { WaitBar } from "../progress/progress";
+import { reportError } from "../errors/store";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -20,7 +22,6 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
   const [area, setArea] = useState("view");
   const [clip, setClip] = useState(true);
   const [pick, setPick] = useState<string[]>(DEFAULT_PICK);
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,36 +45,26 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
   const groups = [...new Set(datasets.map((d) => d.group))];
   const toggle = (id: string, on: boolean) => setPick((p) => (on ? [...p, id] : p.filter((x) => x !== id)));
 
-  const download = async () => {
+  const download = () => {
     if (!extent) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const ordered = datasets.filter((d) => pick.includes(d.id)).map((d) => d.id);
-      const { layers: out, empty, failed } = await api.tnmImport(ordered, extent, mode === "shape" ? layerId : null, clip, areaLabel);
-      const app = useApp.getState();
-      app.addLayers(out);
-      app.setStatus(
-        `Added ${out.length} National Map layer(s) for ${areaLabel} · ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features` +
-          (empty.length ? ` · none in this area: ${empty.join(", ")}` : ""),
-      );
-      if (area !== "view") zoomToExtent(extent);
-      if (failed.length) {
-        // Keep the dialog open so the failures are seen; the rest were added.
-        setErr(`Added ${out.length} layer(s), but these failed — try them again later:\n${failed.join("\n")}`);
-        setPick((p) => p.filter((id) => failed.some((f) => f.startsWith(datasets.find((d) => d.id === id)?.label ?? "\0"))));
-      } else {
-        onClose();
-      }
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("National Map download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+    const ordered = datasets.filter((d) => pick.includes(d.id)).map((d) => d.id);
+    startDownload({
+      label: `National Map download for ${areaLabel}`,
+      match: ["Downloading from The National Map"],
+      run: () => api.tnmImport(ordered, extent, mode === "shape" ? layerId : null, clip, areaLabel),
+      done: ({ layers: out, empty, failed }) => {
+        useApp.getState().addLayers(out);
+        if (area !== "view") zoomToExtent(extent);
+        const failedText = failed.length ? ` · these failed, try them again later: ${failed.join("; ")}` : "";
+        if (failed.length) reportError(`Added ${out.length} layer(s), but these failed — try them again later:\n${failed.join("\n")}`, "download:National Map", { title: "Part of the National Map download failed", context: "downloading from The National Map" });
+        return `Added ${out.length} National Map layer(s) for ${areaLabel} · ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features` + (empty.length ? ` · none in this area: ${empty.join(", ")}` : "") + failedText;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface style={{ maxWidth: 620 }}>
         <DialogBody>
           <DialogTitle>The National Map — USGS vector data</DialogTitle>
@@ -111,7 +102,6 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
                 <MessageBarBody>This is a large area for streams, local roads or water points — the download may be slow or exceed the 300,000-feature limit. Zoom in or use a smaller layer.</MessageBarBody>
               </MessageBar>
             )}
-            <TaskProgress active={busy} label={`Downloading ${pick.length} layer(s)…`} match={["Downloading from The National Map"]} />
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody style={{ whiteSpace: "pre-line" }}>{err}</MessageBarBody>
@@ -119,8 +109,8 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
             )}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !extent || pick.length === 0} onClick={download}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!extent || pick.length === 0} onClick={download}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

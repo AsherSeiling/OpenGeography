@@ -19,7 +19,7 @@ export const gridField = (style: GridStyle) => style.toUpperCase();
  * What an Export Features run executes: the layer (its selected features only when `fids`), then, when a grid reference is asked for, the
  * Add USNG / MGRS Field tool, then the export. The datum is WGS 84.
  */
-export function exportGraph(layer: string, fids: number[] | null, path: string, format: string, grid: GridChoice | null): GraphPayload {
+export function exportGraph(layer: string, fids: number[] | null, path: string, format: string, grid: GridChoice | null, extra: Record<string, unknown> = {}): GraphPayload {
   const nodes: GraphPayload["nodes"] = [{ id: "in", tool: "input_layer", params: fids ? { layer, fids } : { layer } }];
   const edges: GraphPayload["edges"] = [];
   let last = "in";
@@ -28,7 +28,7 @@ export function exportGraph(layer: string, fids: number[] | null, path: string, 
     edges.push({ source: last, target: "grid", targetHandle: "in" });
     last = "grid";
   }
-  nodes.push({ id: "out", tool: "export", params: { path, format } });
+  nodes.push({ id: "out", tool: "export", params: { path, format, ...extra } });
   edges.push({ source: last, target: "out", targetHandle: "in" });
   return { nodes, edges };
 }

@@ -8,7 +8,7 @@ import type { Group } from "./tabs";
 export const TABS: Record<string, Group[]> = {
   Map: [
     { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }] },
-    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "catalog" }, { custom: <BasemapGallery /> }] },
+    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "newTable" }, { cmd: "catalog" }, { custom: <BasemapGallery /> }] },
     {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "selectByLocation", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],

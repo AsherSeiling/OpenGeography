@@ -47,7 +47,7 @@ pub mod tiles;
 pub mod tnm;
 pub mod tnm_vector;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{bail, anyhow, Context, Result};
 use db::{ident, lit, Pool};
 use duckdb::Connection;
 use graph::{Cache, Graph, Host, NodeResult};
@@ -463,6 +463,57 @@ impl Engine {
         self.edit(id, |c, i| attrs::calculate_geometry(c, i, field, property, area_units, length_units, fids))
     }
 
+    /// A new, empty table (no shapes) with typed fields. `fields` are (name, type) with types from `attrs::FIELD_TYPES`
+    /// (text, integer, double, date, boolean).
+    pub fn create_table(&self, name: &str, fields: &[(String, String)]) -> Result<LayerInfo> {
+        let name = name.trim();
+        if name.is_empty() {
+            bail!("Give the table a name.");
+        }
+        if fields.is_empty() {
+            bail!("Add at least one field to the table.");
+        }
+        let mut seen: Vec<String> = Vec::new();
+        let mut cols = Vec::new();
+        for (f, ty) in fields {
+            let f = f.trim();
+            if f.is_empty() {
+                bail!("A field has no name.");
+            }
+            if f.eq_ignore_ascii_case("geom") || layers::HIDDEN_COLS.contains(&f) {
+                bail!("'{f}' is reserved. Choose another field name.");
+            }
+            if seen.iter().any(|s| s.eq_ignore_ascii_case(f)) {
+                bail!("Two fields are named '{f}'. Field names must differ.");
+            }
+            seen.push(f.to_string());
+            cols.push(format!("CAST(NULL AS {}) AS {}", attrs::sql_type(ty)?, ident(f)));
+        }
+        let src = ImportSource { name: name.into(), select: format!("SELECT {} WHERE FALSE", cols.join(", ")), crs: None, crs_name: None, warnings: vec![] };
+        self.with_conn(|conn| {
+            let id = self.alloc_id();
+            let info = layers::build_layer(conn, &id, &src)?;
+            self.save_meta(conn, &info)?;
+            Ok(info)
+        })
+    }
+
+    /// A blank row at the end of a table; returns the layer and the new row's id.
+    pub fn add_row(&self, id: &str) -> Result<(LayerInfo, i64)> {
+        self.edit(id, |c, i| attrs::add_row(c, i)).map(|(l, fid)| (l, fid))
+    }
+
+    /// The rows with these ids as text (to put back after a delete).
+    pub fn rows_by_fid(&self, id: &str, fids: &[i64]) -> Result<Vec<attrs::RowData>> {
+        let info = self.layer(id)?;
+        self.with_conn(|c| attrs::rows_by_fid(c, &info, fids))
+    }
+
+    /// Put deleted rows back with their old ids (tables only).
+    pub fn restore_rows(&self, id: &str, rows: &[attrs::RowData]) -> Result<(LayerInfo, i64)> {
+        self.edit(id, |c, i| attrs::restore_rows(c, i, rows))
+    }
+
     pub fn delete_rows(&self, id: &str, fids: &[i64]) -> Result<(LayerInfo, i64)> {
         self.edit(id, |c, i| attrs::delete_rows(c, i, fids))
     }
@@ -759,6 +810,20 @@ impl Engine {
 
     pub fn update_source(&self, citation: &sources::Citation) -> Result<()> {
         self.with_conn(|c| sources::update(c, citation))
+    }
+
+    /// Add a citation the user wrote (form or pasted text) to a layer that has none, or to any layer. Layers that were made from this
+    /// one (its model results) get it too; layers made later inherit it as they inherit every source.
+    pub fn add_layer_source(&self, layer_id: &str, citation: &sources::Citation, accessed: Option<&str>) -> Result<sources::Citation> {
+        let info = self.layer(layer_id)?;
+        let derived: Vec<(String, String)> = self.layers.read().values().filter(|l| l.result_of.as_deref() == Some(layer_id)).map(|l| (l.id.clone(), l.name.clone())).collect();
+        self.with_conn(|c| {
+            let added = sources::add_user(c, citation, accessed, &info.id, &info.name)?;
+            for (id, name) in &derived {
+                sources::inherit(c, &[layer_id], id, name)?;
+            }
+            Ok(added)
+        })
     }
 
     pub fn remove_source(&self, key: &str) -> Result<()> {

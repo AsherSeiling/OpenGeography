@@ -24,6 +24,8 @@ import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, selectByLocation, useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
+import { NewTableDialog } from "./NewTableDialog";
+import { CrsTreeView } from "../crs/CrsTreeView";
 import { STATES } from "./TigerDialog";
 import { api, errorText, type CrsInfo } from "../ipc/api";
 import { ElevationDialog } from "./ElevationDialog";
@@ -96,6 +98,8 @@ function DialogHost() {
       return <SelectByAttributesDialog layer={dialog.layer} onClose={close} />;
     case "selectByLocation":
       return <SelectByLocationDialog layer={dialog.layer} onClose={close} />;
+    case "newTable":
+      return <NewTableDialog onClose={close} />;
     case "testData":
       return <TestDataDialog onClose={close} />;
     case "benchmark":
@@ -180,6 +184,7 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
   const [kind, setKind] = useState<"all" | "projected" | "geographic">("all");
   const [nearby, setNearby] = useState(false);
   const [spState, setSpState] = useState<string>("");
+  const [browse, setBrowse] = useState(false);
   const [custom, setCustom] = useState("");
   const [customErr, setCustomErr] = useState<string | null>(null);
   const [preview, setPreview] = useState<CrsInfo | null>(null);
@@ -225,6 +230,9 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
           <Option value="projected">Projected</Option>
           <Option value="geographic">Geographic</Option>
         </Dropdown>
+        <Button appearance={browse ? "primary" : "secondary"} onClick={() => setBrowse(!browse)} title="Browse by Projected or Geographic, then region, state or province, and datum. Typing a search shows matches instead">
+          Browse
+        </Button>
         <Button icon={<Location20Regular />} appearance={nearby ? "primary" : "secondary"} onClick={() => setNearby(!nearby)} title="Only coordinate systems valid at the map center">
           Current extent
         </Button>
@@ -261,14 +269,15 @@ export function CrsPicker({ value, onChange }: { value: string | null; onChange:
       </div>
       <div className="crs-list" role="listbox">
         {list.length === 0 && <WaitBar label="Loading coordinate systems…" />}
-        {results.map((e) => (
+        {browse && !query.trim() && !spState && !nearby && kind === "all" && list.length > 0 && <CrsTreeView list={list} value={value} onChange={onChange} />}
+        {!(browse && !query.trim() && !spState && !nearby && kind === "all") && results.map((e) => (
           <div key={e.id} role="option" aria-selected={e.id === value} className={`crs-row ${e.id === value ? "sel" : ""}`} onClick={() => onChange(e.id, e.name)} onDoubleClick={() => onChange(e.id, e.name)}>
             <span className="crs-code">{e.id}</span>
             <span className="crs-name">{e.name}</span>
             <span className="crs-area">{e.area}</span>
           </div>
         ))}
-        {list.length > 0 && results.length === 0 && <div className="muted pad">No matches.</div>}
+        {!(browse && !query.trim() && !spState && !nearby && kind === "all") && list.length > 0 && results.length === 0 && <div className="muted pad">No matches.</div>}
       </div>
       <Field
         label="Or enter a custom definition (WKT, PROJ string, or AUTH:CODE)"

@@ -1,3 +1,4 @@
+import { UniqueClasses } from "./UniqueClasses";
 import { defaultClassField } from "./fieldPick";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -25,9 +26,8 @@ import { TopoSymbolPicker } from "../topo/TopoSymbolPicker";
 import { pickPicture } from "../layout/actions";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
-import { CATEGORY_COLORS, RAMPS, rampColors } from "../map/style";
+import { RAMPS, rampColors } from "../map/style";
 import { QueryEditor } from "../query/QueryEditor";
-import { moveClass, reverseClasses } from "../map/categoryOrder";
 import { RasterSymbology } from "../raster/RasterSymbology";
 import { LabelSettings } from "./LabelSettings";
 import { fieldsForPort, useModel, useRun } from "../store/model";
@@ -189,7 +189,6 @@ export function Symbology({ id }: { id: string }) {
   const [ramp, setRamp] = useState("Blues");
   const [classes, setClasses] = useState(5);
   const [err, setErr] = useState<string | null>(null);
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
   if (!style) return null;
   if (info.geomType === "Raster") return <RasterSymbology id={id} />;
   const numericFields = info.fields.filter((f) => /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/i.test(f.type));
@@ -199,8 +198,8 @@ export function Symbology({ id }: { id: string }) {
     setErr(null);
     try {
       if (kind === "categorized") {
-        const vals = await api.uniqueValues(info.id, field, 60);
-        setStyle({ kind, field, classes: vals.map(([v, n], i) => ({ value: v, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length], label: `${v || "<empty>"} (${n})` })) });
+        // Unique values start with no classes (UR-12); "Add all values" and the pickers in the class list fill them in.
+        setStyle({ kind, field, classes: field === style.field && style.kind === "categorized" ? style.classes ?? [] : [] });
       } else if (kind === "graduated") {
         const breaks = await api.quantileBreaks(info.id, field, classes);
         setStyle({ kind, field, breaks, colors: rampColors(RAMPS[ramp], breaks.length + 1) });
@@ -270,40 +269,7 @@ export function Symbology({ id }: { id: string }) {
           )}
         </div>
       )}
-      {style.kind === "categorized" && style.classes && (
-        <>
-          <div className="classes" data-testid="classes">
-            {style.classes.map((c, i) => (
-              <div
-                key={c.value}
-                className={`class-row ${dragFrom === i ? "dragging" : ""}`}
-                draggable
-                onDragStart={(e) => {
-                  setDragFrom(i);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (dragFrom !== null) setStyle({ classes: moveClass(style.classes!, dragFrom, i) });
-                  setDragFrom(null);
-                }}
-                onDragEnd={() => setDragFrom(null)}
-              >
-                <span className="class-grip" title="Drag to change the drawing order" aria-hidden>⠿</span>
-                <input type="color" value={c.color} onChange={(e) => setStyle({ classes: style.classes!.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)) })} />
-                <span className="grow">{c.label}</span>
-                <Button size="small" appearance="subtle" aria-label={`Draw ${c.label} higher`} disabled={i === 0} onClick={() => setStyle({ classes: moveClass(style.classes!, i, i - 1) })}>▲</Button>
-                <Button size="small" appearance="subtle" aria-label={`Draw ${c.label} lower`} disabled={i === style.classes!.length - 1} onClick={() => setStyle({ classes: moveClass(style.classes!, i, i + 1) })}>▼</Button>
-              </div>
-            ))}
-          </div>
-          <div className="btn-row">
-            <Button size="small" onClick={() => setStyle({ classes: reverseClasses(style.classes!) })}>Reverse order</Button>
-            <span className="muted small">The top of the list draws on top, on the map, in layouts and in the legend.</span>
-          </div>
-        </>
-      )}
+      {style.kind === "categorized" && style.field && <UniqueClasses info={info} style={style} setStyle={setStyle} setErr={setErr} />}
       {style.kind === "graduated" && style.breaks && style.colors && (
         <div className="classes">
           {style.colors.map((c, i) => (

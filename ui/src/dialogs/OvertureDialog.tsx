@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent, type OvertureTheme } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -13,7 +13,6 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
   const [themes, setThemes] = useState<OvertureTheme[]>([]);
   const [theme, setTheme] = useState("buildings");
   const [area, setArea] = useState("view");
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     api.overtureThemes().then(setThemes).catch((e) => setErr(errorText(e)));
@@ -23,25 +22,23 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
   const areaLabel = area === "view" ? "map view" : lyr?.name ?? "";
   const km2 = extent ? (extent[2] - extent[0]) * 111.32 * Math.cos((((extent[1] + extent[3]) / 2) * Math.PI) / 180) * ((extent[3] - extent[1]) * 110.95) : 0;
 
-  const go = async () => {
+  const go = () => {
     if (!extent) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const info = await api.overtureImport(theme, extent, areaLabel);
-      useApp.getState().addLayers([info]);
-      useApp.getState().setStatus(`Added ${info.name} · ${info.featureCount.toLocaleString()} features`);
-      if (area !== "view") zoomToExtent(info.extent);
-      onClose();
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("Overture download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+    startDownload({
+      label: `Overture ${theme} download for ${areaLabel}`,
+      match: ["Downloading Overture"],
+      run: () => api.overtureImport(theme, extent, areaLabel),
+      done: (info) => {
+        useApp.getState().addLayers([info]);
+        if (area !== "view") zoomToExtent(info.extent);
+        return `Added ${info.name} · ${info.featureCount.toLocaleString()} features`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface style={{ maxWidth: 600 }}>
         <DialogBody>
           <DialogTitle>Overture Maps</DialogTitle>
@@ -61,12 +58,11 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
               ))}
             </RadioGroup>
             {km2 > 400 && theme === "buildings" && <MessageBar intent="warning"><MessageBarBody>Buildings over a large area are many features and slow to read. A city district is a good size.</MessageBarBody></MessageBar>}
-            <TaskProgress active={busy} label="Downloading from Overture…" match={["Downloading Overture"]} />
             {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !extent} onClick={go}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!extent} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

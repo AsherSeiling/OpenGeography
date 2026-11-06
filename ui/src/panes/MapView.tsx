@@ -108,6 +108,9 @@ export function MapView({ mapId }: { mapId: string }) {
       if (payload.kind === "file") {
         useApp.getState().setActiveMap(mapId);
         void addData([payload.id]);
+      } else if (payload.kind === "layer") {
+        // A layer dragged from the Catalog's Project layers (or Map Layers) joins this map; nothing happens if it is already there.
+        useApp.getState().addToMap([payload.id], mapId);
       }
     };
     w.addEventListener("gis-drop", onDrop);

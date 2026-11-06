@@ -652,6 +652,53 @@ pub fn clip_to_extent(src_path: &Path, bbox: [f64; 4]) -> Result<PathBuf> {
     Ok(out)
 }
 
+/// Cut a raster to polygons (gdalwarp -cutline). `cutline` is a vector file already in the raster's own coordinate system, whose
+/// shapes cover `shapes_bbox` = [xmin, ymin, xmax, ymax] (raster CRS). Cells inside keep their value and grid exactly (the output grid is
+/// the source grid, nearest neighbour, no resampling); cells outside become no-data. With `crop` the output is the shapes' extent
+/// rounded out to whole cells; otherwise the whole raster. A raster with no no-data value gets one: -9999 for floating point, an
+/// alpha band for integer types (so no real value is lost).
+pub fn clip_to_cutline(src_path: &Path, cutline: &Path, shapes_bbox: [f64; 4], crop: bool) -> Result<PathBuf> {
+    let ds = Dataset::open(src_path)?;
+    let gt = ds.geo_transform()?;
+    if gt[2] != 0.0 || gt[4] != 0.0 {
+        return Err(anyhow!("This raster is rotated, so it can't be cut cell-for-cell to shapes. Warp it to an unrotated grid first."));
+    }
+    let (w, h) = ds.raster_size();
+    let (px, py) = (gt[1], -gt[5]);
+    let (rx0, ry1) = (gt[0], gt[3]);
+    let (rx1, ry0) = (rx0 + px * w as f64, ry1 - py * h as f64);
+    // The window, on the source grid.
+    let (x0, y0, x1, y1) = if crop {
+        let (bx0, by0, bx1, by1) = (shapes_bbox[0].max(rx0), shapes_bbox[1].max(ry0), shapes_bbox[2].min(rx1), shapes_bbox[3].min(ry1));
+        if bx0 >= bx1 || by0 >= by1 {
+            return Err(anyhow!("The shapes don't overlap the raster, so there is nothing to keep."));
+        }
+        let snap = |v: f64, o: f64, step: f64, up: bool| {
+            let k = (v - o) / step;
+            o + (if up { k.ceil() } else { k.floor() }) * step
+        };
+        (snap(bx0, rx0, px, false), snap(by0, ry0, py, false), snap(bx1, rx0, px, true), snap(by1, ry0, py, true))
+    } else {
+        (rx0, ry0, rx1, ry1)
+    };
+    let band = ds.rasterband(1)?;
+    let mut args: Vec<String> = vec![
+        "-of".into(), "GTiff".into(), "-co".into(), "COMPRESS=DEFLATE".into(), "-co".into(), "TILED=YES".into(),
+        "-cutline".into(), cutline.to_str().ok_or_else(|| anyhow!("bad path"))?.into(),
+        "-te".into(), x0.to_string(), y0.to_string(), x1.to_string(), y1.to_string(),
+        "-tr".into(), px.to_string(), py.to_string(), "-r".into(), "near".into(),
+    ];
+    match band.no_data_value() {
+        Some(_) => {} // gdalwarp carries the source's no-data value
+        None if matches!(band.band_type(), gdal::raster::GdalDataType::Float32 | gdal::raster::GdalDataType::Float64) => args.extend(["-dstnodata".into(), "-9999".into()]),
+        None => args.push("-dstalpha".into()),
+    }
+    let out = new_store_path("clip_shapes", "tif");
+    warp(&ds, out.to_str().unwrap(), &args)?;
+    build_overviews(&out)?;
+    Ok(out)
+}
+
 fn geographic(ds: &Dataset) -> bool {
     ds.spatial_ref().map(|s| s.is_geographic()).unwrap_or(false)
 }

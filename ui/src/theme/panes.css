@@ -65,3 +65,6 @@
 .props :focus-visible, .sources-pane :focus-visible, .items-pane :focus-visible, .attr :focus-visible, .statusbar :focus-visible,
 .identify :focus-visible, .measure-panel :focus-visible, .nav-panel :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .items-pane .row.on :focus-visible { outline-color: var(--sel-text); }
+.src-warn { flex-wrap: wrap; }
+.src-uncited { display: inline-flex; align-items: center; gap: 2px; }
+.tree-uncited { color: var(--warn); flex: none; margin-left: 4px; cursor: pointer; }

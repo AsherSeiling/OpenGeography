@@ -6,6 +6,9 @@ import type { Citation, SourceEntry } from "../ipc/api";
 
 export type Style = "apa" | "mla" | "chicago";
 
+/** The kind of a citation pasted as free text (the engine's `sources::PASTED_KIND`): the text is in `title`. */
+export const PASTED_KIND = "Pasted citation";
+
 export const STYLES: { id: Style; label: string; file: string }[] = [
   { id: "apa", label: "APA 7th edition", file: "APA" },
   { id: "mla", label: "MLA 9th edition", file: "MLA" },
@@ -48,6 +51,8 @@ export interface Ref {
 
 /** Format one citation in a style. `accessed` is an ISO date. */
 export function reference(c: Citation, accessed: string, style: Style = "apa"): Ref {
+  // A citation the user pasted as text is printed exactly as pasted, in every style.
+  if (c.kind === PASTED_KIND) return { before: "", title: "", after: c.title.trim() };
   const author = c.author.trim();
   const title = c.title.trim() || "[Untitled]";
   const version = c.version.trim();

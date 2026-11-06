@@ -6,7 +6,7 @@ use engine::Engine;
 fn raster_tools_say_how_their_results_look() {
     let specs = Engine::new().unwrap().tool_specs();
     let look = |id: &str| specs.iter().find(|s| s.spec.id == id).unwrap_or_else(|| panic!("tool {id}")).result_look;
-    for id in ["clip_raster", "mosaic_rasters", "resample_raster", "align_raster", "select_bands", "warp", "fill_depressions"] {
+    for id in ["clip_raster", "clip_raster_by_layer", "mosaic_rasters", "resample_raster", "align_raster", "select_bands", "warp", "fill_depressions"] {
         assert_eq!(look(id), ResultLook::Source, "{id} keeps the source's renderer");
     }
     assert_eq!(look("hillshade"), ResultLook::Gray);

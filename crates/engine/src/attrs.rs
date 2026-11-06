@@ -19,7 +19,7 @@ pub const FIELD_TYPES: &[(&str, &str)] = &[
     ("boolean", "BOOLEAN"),
 ];
 
-fn sql_type(ty: &str) -> Result<&'static str> {
+pub fn sql_type(ty: &str) -> Result<&'static str> {
     FIELD_TYPES
         .iter()
         .find(|(k, v)| k.eq_ignore_ascii_case(ty) || v.eq_ignore_ascii_case(ty))
@@ -204,6 +204,81 @@ pub fn calculate_geometry(conn: &Connection, info: &mut LayerInfo, column: &str,
     let crs = info.crs.clone().ok_or_else(|| anyhow!("The layer has no coordinate system. Use Define Projection first."))?;
     let expr = measure::geometry_expr(&crs, property, area_units, length_units)?;
     calculate(conn, info, column, &expr, Some("double"), fids)
+}
+
+fn table_only(info: &LayerInfo, what: &str) -> Result<()> {
+    if info.has_geometry() || info.raster.is_some() {
+        bail!("{what} works on tables. A map layer's features have shapes, which a blank row doesn't; add features by drawing, importing or copying them.");
+    }
+    editable(info)
+}
+
+/// One row of a table as text, for undoing a delete.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
+pub struct RowData {
+    pub fid: i64,
+    pub values: Vec<Option<String>>,
+}
+
+/// A new blank row at the end of a table (every field empty). Returns its row id.
+pub fn add_row(conn: &Connection, info: &mut LayerInfo) -> Result<i64> {
+    table_only(info, "Adding a row")?;
+    let fid: i64 = conn.query_row(&format!("SELECT coalesce(max(__fid), 0) + 1 FROM {}", ident(&info.table)), [], |r| r.get(0))?;
+    conn.execute_batch(&format!("INSERT INTO {} (__fid) VALUES ({fid})", ident(&info.table)))?;
+    touch(conn, info)?;
+    Ok(fid)
+}
+
+/// The rows with these ids, every field as text in the order of `info.fields` (NULL stays None).
+pub fn rows_by_fid(conn: &Connection, info: &LayerInfo, fids: &[i64]) -> Result<Vec<RowData>> {
+    if fids.is_empty() {
+        return Ok(vec![]);
+    }
+    let cols = info.fields.iter().map(|f| format!("CAST({} AS VARCHAR)", ident(&f.name))).collect::<Vec<_>>();
+    let list = fids.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+    let sql = format!("SELECT __fid{}{} FROM {} WHERE __fid IN ({list}) ORDER BY __fid", if cols.is_empty() { "" } else { ", " }, cols.join(", "), ident(&info.table));
+    let mut stmt = conn.prepare(&sql)?;
+    let n = info.fields.len();
+    let rows = stmt.query_map([], |r| {
+        let mut values = Vec::with_capacity(n);
+        for i in 0..n {
+            values.push(r.get::<_, Option<String>>(i + 1)?);
+        }
+        Ok(RowData { fid: r.get(0)?, values })
+    })?;
+    Ok(rows.collect::<Result<_, _>>()?)
+}
+
+/// Put rows back (undoing a delete) with their old ids. A row id that is in use is refused.
+pub fn restore_rows(conn: &Connection, info: &mut LayerInfo, rows: &[RowData]) -> Result<i64> {
+    table_only(info, "Restoring rows")?;
+    for r in rows {
+        if r.values.len() != info.fields.len() {
+            bail!("The saved rows no longer match the table's fields.");
+        }
+        let taken: i64 = conn.query_row(&format!("SELECT count(*) FROM {} WHERE __fid = {}", ident(&info.table), r.fid), [], |x| x.get(0))?;
+        if taken > 0 {
+            bail!("Row {} is already in use, so the deleted row can't be put back.", r.fid);
+        }
+    }
+    for r in rows {
+        let vals = info.fields.iter().zip(&r.values).map(|(f, v)| match v {
+            None => "NULL".to_string(),
+            Some(s) => format!("CAST({} AS {})", lit(s), f.ty),
+        });
+        let names = info.fields.iter().map(|f| ident(&f.name)).collect::<Vec<_>>();
+        conn.execute_batch(&format!(
+            "INSERT INTO {} (__fid{}{}) VALUES ({}{}{})",
+            ident(&info.table),
+            if names.is_empty() { "" } else { ", " },
+            names.join(", "),
+            r.fid,
+            if names.is_empty() { "" } else { ", " },
+            vals.collect::<Vec<_>>().join(", ")
+        ))?;
+    }
+    touch(conn, info)?;
+    Ok(rows.len() as i64)
 }
 
 pub fn delete_rows(conn: &Connection, info: &mut LayerInfo, fids: &[i64]) -> Result<i64> {

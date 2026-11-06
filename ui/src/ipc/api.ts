@@ -607,6 +607,8 @@ export const api = {
   fsStat: (paths: string[]) => invoke<{ path: string; entry: FsEntry | null }[]>("fs_stat", { paths }),
   sources: () => invoke<SourceEntry[]>("sources"),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
+  /** Give a layer a citation the user wrote (a form, or pasted text with kind "Pasted citation"); `accessed` is YYYY-MM-DD (default today). */
+  addLayerSource: (layer: string, citation: Citation, accessed?: string) => invoke<Citation>("add_layer_source", { layer, citation, accessed: accessed ?? null }),
   removeSource: (key: string) => invoke<void>("remove_source", { key }),
   recordBasemap: (id: string) => invoke<void>("record_basemap", { id }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),
@@ -680,6 +682,11 @@ export const api = {
     invoke<{ layer: LayerInfo; count: number }>("calculate_field", { id, field, expr, ty, fids }),
   calculateGeometry: (id: string, field: string, property: string, areaUnits: string, lengthUnits: string, fids: number[] | null) =>
     invoke<{ layer: LayerInfo; count: number }>("calculate_geometry", { id, field, property, areaUnits, lengthUnits, fids }),
+  createTable: (name: string, fields: [string, string][]) => invoke<LayerInfo>("create_table", { name, fields }),
+  addRow: (id: string) => invoke<{ layer: LayerInfo; fid: number }>("add_row", { id }),
+  /** The rows with these ids as text, fields in the layer's order (to put back after a delete). */
+  rowsByFid: (id: string, fids: number[]) => invoke<{ fid: number; values: (string | null)[] }[]>("rows_by_fid", { id, fids }),
+  restoreRows: (id: string, rows: { fid: number; values: (string | null)[] }[]) => invoke<{ layer: LayerInfo; count: number }>("restore_rows", { id, rows }),
   deleteRows: (id: string, fids: number[]) => invoke<{ layer: LayerInfo; count: number }>("delete_rows", { id, fids }),
   defineProjection: (id: string, crs: string, crsName: string | null) =>
     invoke<LayerInfo>("define_projection", { id, crs, crsName }),

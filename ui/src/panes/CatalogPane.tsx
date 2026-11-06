@@ -34,11 +34,16 @@ import { addData, openProject, useDialog, type DialogState } from "../actions";
 import { startDrag } from "../dnd";
 import { api, errorText, type FsEntry } from "../ipc/api";
 import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } from "../layout/actions";
+import { useShallow } from "zustand/react/shallow";
 import { useLayouts } from "../store/layout";
 import { useModel } from "../store/model";
 import { useApp } from "../store/store";
 import { deleteMap, duplicateMap, newMap, openMap, renameMap } from "../maps/mapActions";
 import { addToolToModel } from "./ModelPane";
+import { zoomToLayer } from "../actions";
+import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
+import { showPane } from "./panes";
+import { projectLayerInfos } from "../store/maps";
 
 const ADDABLE = new Set(["vector", "raster", "table", "archive", "gdb"]);
 
@@ -150,7 +155,7 @@ function useProjectFiles() {
 }
 
 /** Branches that start expanded. */
-const DEFAULT_OPEN: Record<string, boolean> = { project: true, maps: true, layouts: true, files: false, public: true };
+const DEFAULT_OPEN: Record<string, boolean> = { project: true, maps: true, layouts: true, layers: true, files: false, public: true };
 
 interface RowProps {
   id: string;
@@ -213,6 +218,20 @@ export function CatalogPane() {
   const layouts = useLayouts.getState().list();
   const maps = useApp((s) => s.maps);
   const activeMapId = useApp((s) => s.activeMapId);
+  // Every layer of the project, whichever map shows it (imported ones included): the active map's first, then the rest in the project's order.
+  const projectLayers = useApp(useShallow((s) => projectLayerInfos(s).filter(Boolean)));
+  const inActiveMap = useApp((s) => s.maps.find((m) => m.id === s.activeMapId)?.order ?? []);
+  const shownIn = (id: string) => maps.filter((m) => m.order.includes(id)).map((m) => m.name);
+  /** Put the layer on the active map if it isn't there, then show it (a table opens the Attribute Table instead). */
+  const openLayer = (id: string) => {
+    const s = useApp.getState();
+    const info = s.layers[id];
+    if (!info) return;
+    if (!inActiveMap.includes(id)) s.addToMap([id]);
+    s.set({ activeLayer: id });
+    if (info.geomType === "Table") showPane("table");
+    else void zoomToLayer(id);
+  };
 
   const isOpen = (k: string) => open[k] ?? DEFAULT_OPEN[k] ?? true;
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !isOpen(k) }));
@@ -426,6 +445,57 @@ export function CatalogPane() {
                   }
                 />
               ))}
+
+            <Row
+              id="layers"
+              level={2}
+              icon={<ShapesRegular />}
+              label="Project layers"
+              open={isOpen("layers")}
+              onToggle={() => toggle("layers")}
+              trailing={<span className="cat-meta">{projectLayers.length || ""}</span>}
+            />
+            {isOpen("layers") && projectLayers.length === 0 && <div className="empty-hint cat-empty">No layers yet. Add Data, or download some from Public Data below.</div>}
+            {isOpen("layers") &&
+              projectLayers.map((l) => {
+                const id = `player:${l.id}`;
+                const maps_ = shownIn(l.id);
+                return (
+                  <Row
+                    key={id}
+                    id={id}
+                    level={3}
+                    icon={l.geomType === "Table" ? <TableRegular className="cat-ico table" /> : l.geomType === "Raster" ? <ImageRegular className="cat-ico raster" /> : <ShapesRegular className="cat-ico vector" />}
+                    className={`player ${l.geomType === "Table" ? "table" : ""}`}
+                    label={
+                      <>
+                        {l.name}
+                        <span className="cat-used">{maps_.length ? `on ${maps_.join(", ")}` : "on no map"}</span>
+                      </>
+                    }
+                    title={`${l.name}: ${l.geomType === "Table" ? `table, ${l.featureCount.toLocaleString()} rows` : l.geomType === "Raster" ? "raster" : `${l.geomType.toLowerCase()}, ${l.featureCount.toLocaleString()} features`}. Double-click to open; drag onto a map to add it.`}
+                    selected={selected === id}
+                    onSelect={() => setSelected(id)}
+                    onActivate={() => openLayer(l.id)}
+                    onPointerDown={(ev) => startDrag(ev, { kind: "layer", id: l.id, label: l.name })}
+                    trailing={
+                      <span className="row-actions">
+                        {!inActiveMap.includes(l.id) && (
+                          <button title="Add to the active map" aria-label={`Add ${l.name} to the active map`} onClick={(e) => (e.stopPropagation(), useApp.getState().addToMap([l.id]))}>
+                            <AddRegular />
+                          </button>
+                        )}
+                        <button title={l.geomType === "Table" ? "Open the table" : "Open: show and zoom to it"} aria-label={`Open ${l.name}`} onClick={(e) => (e.stopPropagation(), openLayer(l.id))}>
+                          <MapRegular />
+                        </button>
+                        <button title="Properties" aria-label={`Properties of ${l.name}`} onClick={(e) => (e.stopPropagation(), openLayerProperties(l.id))}>
+                          <EditRegular />
+                        </button>
+                      </span>
+                    }
+                  />
+                );
+              })}
 
             <Row
               id="files"

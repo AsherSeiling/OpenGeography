@@ -93,3 +93,29 @@ test("CAT-4 Project files lists the files layers came from and flags a missing o
   await expect(app.getByRole("menuitem", { name: "Add to map" })).toBeVisible();
   await expect(app.getByRole("menuitem", { name: "Copy path" })).toBeVisible();
 });
+
+test("UR-10 Project layers lists every layer of the project, imported ones included, whichever map shows it; double-click opens it on the active map", async ({ app }) => {
+  const dir = mkdtempSync(join(tmpdir(), "gis-e2e-ur10-"));
+  const file = join(dir, "parcels.geojson");
+  writeFileSync(file, JSON.stringify({ type: "FeatureCollection", crs: { type: "name", properties: { name: "EPSG:4326" } }, features: [{ type: "Feature", properties: { a: 1 }, geometry: { type: "Point", coordinates: [-97, 35] } }] }));
+  await gis(app, (g, f) => g.actions.addData([f]), file); // an imported file: on the first map
+  await expect.poll(() => gis(app, (g) => g.useApp.getState().order.length)).toBe(1);
+  await gis(app, async (g) => { const info = await g.api.generateTestLayer("points", 5, [-100, 30, -90, 40]); g.useApp.getState().addLayers([info]); });
+  // A second map that shows neither layer.
+  await app.evaluate(async () => { await (await import("/src/maps/mapActions.ts")).newMap(); });
+  await expect.poll(() => gis(app, (g) => g.useApp.getState().maps.length)).toBe(2);
+  expect(await gis(app, (g) => g.useApp.getState().order.length)).toBe(0); // the active map is the empty one
+
+  await app.getByRole("tab", { name: "Catalog" }).click();
+  const rows = app.locator('[role="treeitem"][data-node^="player:"]');
+  await expect(rows).toHaveCount(2); // both layers, though the active map shows none
+  const names = (await gis(app, (g) => g.useApp.getState().maps.map((m: any) => m.name))) as string[];
+  await expect(rows.first()).toContainText(`on ${names[0]}`);
+  const parcels = rows.filter({ hasText: "parcels" });
+  await expect(parcels).toHaveCount(1);
+  await parcels.dblclick();
+  await expect.poll(() => gis(app, (g) => g.useApp.getState().order.length)).toBe(1); // now on the active map
+  await expect(parcels).toContainText(`on ${names[0]}, ${names[1]}`);
+  // The row's Add button is gone once it is on the active map.
+  await expect(parcels.getByRole("button", { name: /to the active map/ })).toHaveCount(0);
+});

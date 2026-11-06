@@ -16,6 +16,8 @@ const ALL_KEYS: Record<keyof LayerStyle, true> = {
   radius: true,
   field: true,
   classes: true,
+  otherLabel: true,
+  otherHidden: true,
   breaks: true,
   colors: true,
   label: true,

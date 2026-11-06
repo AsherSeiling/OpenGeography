@@ -307,7 +307,7 @@ fn draw_layer(conn: &Connection, info: &LayerInfo, style: &LayerStyle, frame_crs
     let classes = Classes {
         n,
         by_value: match (style.kind, &style.classes) {
-            (StyleKind::Categorized, Some(c)) if field_ok => c.iter().enumerate().rev().map(|(i, c)| (c.value.clone(), i)).collect(),
+            (StyleKind::Categorized, Some(c)) if field_ok => c.iter().enumerate().rev().flat_map(|(i, c)| std::iter::once(&c.value).chain(c.values.iter()).map(move |v| (v.clone(), i))).collect(),
             _ => HashMap::new(),
         },
     };
@@ -321,7 +321,11 @@ fn draw_layer(conn: &Connection, info: &LayerInfo, style: &LayerStyle, frame_crs
             0
         } else if style.kind == StyleKind::Categorized {
             let v: Option<String> = r.get(1)?;
-            v.and_then(|v| classes.by_value.get(&v).copied()).unwrap_or(classes.n - 1)
+            match v.and_then(|v| classes.by_value.get(&v).copied()) {
+                Some(i) => i,
+                None if style.other_hidden => continue, // "all other values" switched off
+                None => classes.n - 1,
+            }
         } else {
             let v: Option<f64> = r.get(1)?;
             let v = v.unwrap_or(0.0); // MapLibre: to-number with fallback 0

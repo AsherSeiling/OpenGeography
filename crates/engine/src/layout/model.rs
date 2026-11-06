@@ -789,6 +789,9 @@ pub enum StyleKind {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct StyleClass {
     pub value: String,
+    /// More values drawn as this class (UR-12): `value` and these share one colour and one legend row.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub values: Vec<String>,
     pub color: String,
     pub label: String,
     /// Line/outline strokes of this class (a symbol stack); unset = the layer's own.
@@ -838,6 +841,11 @@ pub struct LayerStyle {
     pub field: Option<String>,
     #[serde(default)]
     pub classes: Option<Vec<StyleClass>>,
+    /// Unique values: the legend text of "all other values" (default "Other"), and whether they are left undrawn (UR-12). Their colour is `fill`.
+    #[serde(default, rename = "otherLabel", skip_serializing_if = "Option::is_none")]
+    pub other_label: Option<String>,
+    #[serde(default, rename = "otherHidden", skip_serializing_if = "std::ops::Not::not")]
+    pub other_hidden: bool,
     #[serde(default)]
     pub breaks: Option<Vec<f64>>,
     #[serde(default)]
@@ -1132,6 +1140,8 @@ impl Default for LayerStyle {
             radius: 3.5,
             field: None,
             classes: None,
+            other_label: None,
+            other_hidden: false,
             breaks: None,
             colors: None,
             label: None,
