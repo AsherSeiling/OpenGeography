@@ -29,6 +29,7 @@ async function saveTextFile(text: string, name: string, ext: string, label: stri
     a.download = name;
     a.click();
     URL.revokeObjectURL(a.href);
+    useApp.getState().setStatus(`Downloaded ${name}`); // in a browser there is no save box, so say where it went
   }
 }
 

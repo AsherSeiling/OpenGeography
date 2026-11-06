@@ -610,7 +610,18 @@ test("audit: controls that need more state (several items selected, a finished r
   const run = await mk(app, "map-run", true);
   const tab = (name: string) => async () => { await settle(app); await app.locator(".ribbon-tabs [role=tab]", { hasText: new RegExp(`^${name}$`) }).first().click(); await app.waitForTimeout(120); };
   await sweep(run, "ribbon ▸ Feature Layer", ".ribbon-body", tab("Feature Layer"), undefined, /^Export Table$/);
-  const pane = (id: string) => async () => { await app.evaluate(async (pid) => { const p = (await import("/src/panes/panes.ts")).getDock()!.getPanel(pid); p?.api.setActive(); (p?.view as any)?.content?.element?.setAttribute("data-audit-pane", pid); }, id); await app.waitForTimeout(150); };
+  // Sources is not in the default layout (UR-3), so it is opened first; this context imported a file, so the pane has a citation and its Copy / Export buttons are live.
+  const pane = (id: string) => async () => {
+    await app.evaluate(async (pid) => {
+      const panes = await import("/src/panes/panes.ts");
+      if (!panes.getDock()!.getPanel(pid)) panes.showPane(pid as never);
+      const p = panes.getDock()!.getPanel(pid);
+      p?.api.setActive();
+      (p?.view as any)?.content?.element?.setAttribute("data-audit-pane", pid);
+    }, id);
+    if (id === "sources") await app.locator('[data-audit-pane="sources"] .src-entry').first().waitFor({ timeout: 8000 });
+    await app.waitForTimeout(150);
+  };
   await sweep(run, "pane ▸ model", `[data-audit-pane="model"]`, pane("model"), undefined, /Preview on map|Save as new layer|Redo/);
   await sweep(run, "pane ▸ properties", `[data-audit-pane="properties"]`, pane("properties"), undefined, /Preview on map/);
   await sweep(run, "pane ▸ sources", `[data-audit-pane="sources"]`, pane("sources"), undefined, /^(Export|Copy all citations)/);
