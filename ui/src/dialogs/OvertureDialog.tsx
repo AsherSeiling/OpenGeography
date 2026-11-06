@@ -13,6 +13,7 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
   const [themes, setThemes] = useState<OvertureTheme[]>([]);
   const [theme, setTheme] = useState("buildings");
   const [area, setArea] = useState("view");
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     api.overtureThemes().then(setThemes).catch((e) => setErr(errorText(e)));
@@ -22,9 +23,11 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
   const areaLabel = area === "view" ? "map view" : lyr?.name ?? "";
   const km2 = extent ? (extent[2] - extent[0]) * 111.32 * Math.cos((((extent[1] + extent[3]) / 2) * Math.PI) / 180) * ((extent[3] - extent[1]) * 110.95) : 0;
 
-  const go = () => {
+  const go = async () => {
     if (!extent) return;
-    startDownload({
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: `Overture ${theme} download for ${areaLabel}`,
       match: ["Downloading Overture"],
       run: () => api.overtureImport(theme, extent, areaLabel),
@@ -34,7 +37,10 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
         return `Added ${info.name} · ${info.featureCount.toLocaleString()} features`;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -62,7 +68,7 @@ export function OvertureDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!extent} onClick={go}>Download</Button>
+            <Button appearance="primary" disabled={busy || !extent} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

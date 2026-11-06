@@ -21,19 +21,51 @@ let next = 1;
 export const downloadsRunning = () => useDownloads.getState().jobs.length > 0;
 export const downloadLabels = () => useDownloads.getState().jobs.map((j) => j.label).join(", ");
 
+/** How long a dialog waits for the request to be refused (a bad date, an area that is too large, no network) before it goes to the background. */
+export const EARLY_MS = 800;
+
 /**
  * Start `run` in the background. `done` gets the result and returns the message to show (it adds the layers); a rejection is
  * shown as "<label> failed" with the error pop-up, and a cancel as "<label> cancelled".
+ *
+ * The returned promise settles after at most {@link EARLY_MS}: with the error text if the request was refused that quickly (checks that
+ * need no network happen at once), so the dialog can stay open and show it; otherwise with null, and the dialog closes while the
+ * download carries on.
  */
-export function startDownload<T>(opts: { label: string; match: string[]; run: () => Promise<T>; done: (r: T) => string | void }): void {
+export function startDownload<T>(opts: { label: string; match: string[]; run: () => Promise<T>; done: (r: T) => string | void }): Promise<string | null> {
   const set = useApp.getState().setStatus;
   const id = next++;
+  let decided = false;
+  let decide!: (v: string | null) => void;
+  const early = new Promise<string | null>((r) => (decide = r));
+  const timer = setTimeout(() => {
+    if (decided) return;
+    decided = true;
+    set(`${opts.label} started — it runs in the background; progress and Cancel are in the status bar`);
+    decide(null);
+  }, EARLY_MS);
   const settled = (async () => {
     try {
       const r = await opts.run();
       const msg = opts.done(r);
       if (msg) set(msg);
+      if (!decided) {
+        decided = true;
+        clearTimeout(timer);
+        decide(null);
+      }
     } catch (e) {
+      if (!decided && !isCancelled(e)) {
+        decided = true;
+        clearTimeout(timer);
+        decide(errorText(e)); // refused at once: the dialog shows why
+        return;
+      }
+      if (!decided) {
+        decided = true;
+        clearTimeout(timer);
+        decide(null);
+      }
       if (isCancelled(e)) set(`${opts.label} cancelled`);
       else {
         set(`${opts.label} failed: ${errorText(e)}`);
@@ -44,7 +76,7 @@ export function startDownload<T>(opts: { label: string; match: string[]; run: ()
     }
   })();
   useDownloads.setState((s) => ({ jobs: [...s.jobs, { id, label: opts.label, match: opts.match, settled }] }));
-  set(`${opts.label} started — it runs in the background; progress and Cancel are in the status bar`);
+  return early;
 }
 
 /** Cancel every running download and wait until each has ended. */

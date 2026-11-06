@@ -35,6 +35,7 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
   const [counties, setCounties] = useState<[string, string][]>([]);
   const [county, setCounty] = useState<string>("");
   const [pick, setPick] = useState<string[]>(DEFAULT_PICK);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,8 +67,10 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
   const chosen = pick.filter((id) => !unavailable(id));
   const blocked = chosen.filter((id) => datasets.find((d) => d.id === id)?.needsCounty && !county);
 
-  const download = () => {
-    startDownload({
+  const download = async () => {
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: `TIGER download for ${label}`,
       match: ["Downloading Census"],
       run: () => api.tigerImport(chosen, vintage, state, county || null, label),
@@ -78,7 +81,10 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
         return `Added ${layers.length} TIGER layer(s) for ${label} · ${layers.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features`;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -151,7 +157,7 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!chosen.length || blocked.length > 0} onClick={download}>
+            <Button appearance="primary" disabled={busy || !chosen.length || blocked.length > 0} onClick={download}>
               {`Add ${chosen.length} layer(s)`}
             </Button>
           </DialogActions>

@@ -18,6 +18,7 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
   const [coll, setColl] = useState("");
   const [area, setArea] = useState("view");
   const [finding, setFinding] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     api.ogcCatalog().then((c) => { setCatalog(c); setSource((s) => s || c[0]?.id || "custom"); }).catch((e) => setErr(errorText(e)));
@@ -41,11 +42,13 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
     }
     setFinding(false);
   };
-  const go = () => {
+  const go = async () => {
     if (!extent) return;
     const picked = found?.find((c) => c.id === coll);
     const spec = source === "custom" ? { api: url, collection: coll, label: picked?.title } : { entryId: source };
-    startDownload({
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: `OGC API download for ${areaLabel}`,
       match: ["Downloading"],
       run: () => api.ogcImport(spec, extent, areaLabel),
@@ -56,7 +59,10 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
         return `Added ${info.name} · ${info.featureCount.toLocaleString()} features`;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -104,7 +110,7 @@ export function OgcDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!ready} onClick={go}>Download</Button>
+            <Button appearance="primary" disabled={busy || !ready} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

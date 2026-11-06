@@ -22,6 +22,7 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
   const [area, setArea] = useState("view");
   const [clip, setClip] = useState(true);
   const [pick, setPick] = useState<string[]>(DEFAULT_PICK);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,10 +46,12 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
   const groups = [...new Set(datasets.map((d) => d.group))];
   const toggle = (id: string, on: boolean) => setPick((p) => (on ? [...p, id] : p.filter((x) => x !== id)));
 
-  const download = () => {
+  const download = async () => {
     if (!extent) return;
     const ordered = datasets.filter((d) => pick.includes(d.id)).map((d) => d.id);
-    startDownload({
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: `National Map download for ${areaLabel}`,
       match: ["Downloading from The National Map"],
       run: () => api.tnmImport(ordered, extent, mode === "shape" ? layerId : null, clip, areaLabel),
@@ -60,7 +63,10 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
         return `Added ${out.length} National Map layer(s) for ${areaLabel} · ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features` + (empty.length ? ` · none in this area: ${empty.join(", ")}` : "") + failedText;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -110,7 +116,7 @@ export function NationalMapDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!extent || pick.length === 0} onClick={download}>Download</Button>
+            <Button appearance="primary" disabled={busy || !extent || pick.length === 0} onClick={download}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

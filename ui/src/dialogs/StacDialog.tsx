@@ -20,6 +20,7 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
   const [item, setItem] = useState<string>("");
   const [asset, setAsset] = useState<string>("");
   const [searching, setSearching] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,12 +50,14 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
     setSearching(false);
   };
 
-  const go = () => {
+  const go = async () => {
     if (!extent || !picked) return;
     const a = picked.assets.find((x) => x.key === asset);
     if (!a) return;
     const label = `${c?.label.split(" (")[0] ?? coll} — ${picked.id} (${assets.find(([k]) => k === asset)?.[1] ?? asset})`;
-    startDownload({
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: `Download of ${label}`,
       match: ["Downloading"],
       run: () => api.stacImport({ href: a.href, bbox: extent, label, collection: coll, itemId: picked.id, asset, areaLabel }),
@@ -64,7 +67,10 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
         return `Added ${info.name}`;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -122,7 +128,7 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!picked || !asset} onClick={go}>Download</Button>
+            <Button appearance="primary" disabled={busy || !picked || !asset} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

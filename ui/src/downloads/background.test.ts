@@ -26,8 +26,9 @@ describe("UR-9 background downloads", () => {
   it("returns at once, counts as running until it ends, then hands the result over and reports it", async () => {
     const g = gate();
     const done = vi.fn(() => "Added 3 layers");
-    startDownload({ label: "Test download", match: ["Downloading"], run: async () => (await g.p, 3), done });
+    const early = startDownload({ label: "Test download", match: ["Downloading"], run: async () => (await g.p, 3), done });
     expect(downloadsRunning()).toBe(true);
+    await expect(early).resolves.toBeNull(); // not refused within the window: the dialog may close
     expect(useApp.getState().status).toContain("runs in the background");
     g.open();
     await vi.waitFor(() => expect(downloadsRunning()).toBe(false));
@@ -36,9 +37,17 @@ describe("UR-9 background downloads", () => {
   });
 
   it("a failure is shown, not thrown, and a cancel is just a status", async () => {
-    startDownload({ label: "Bad one", match: [], run: async () => { throw new Error("server said no"); }, done: () => {} });
+    // Refused at once (no network needed to know): the dialog gets the reason and nothing is reported in the background.
+    await expect(startDownload({ label: "Bad one", match: [], run: async () => { throw new Error("Dates look like 2024-06-01"); }, done: () => {} })).resolves.toBe("Dates look like 2024-06-01");
     await vi.waitFor(() => expect(downloadsRunning()).toBe(false));
-    expect(useApp.getState().status).toBe("Bad one failed: server said no");
+    expect(reported).toHaveLength(0);
+    // Fails later: shown as a failure in the status bar and pop-up.
+    const g = gate();
+    const late = startDownload({ label: "Late one", match: [], run: async () => { await g.p; throw new Error("server said no"); }, done: () => {} });
+    await expect(late).resolves.toBeNull();
+    g.open();
+    await vi.waitFor(() => expect(downloadsRunning()).toBe(false));
+    expect(useApp.getState().status).toBe("Late one failed: server said no");
     expect(reported).toHaveLength(1);
     startDownload({ label: "Stopped one", match: [], run: async () => { throw new Error("Cancelled"); }, done: () => {} });
     await vi.waitFor(() => expect(downloadsRunning()).toBe(false));

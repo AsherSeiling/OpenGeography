@@ -20,6 +20,8 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
   const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [area, setArea] = useState<string>("view");
   const [res, setRes] = useState(10);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const extent = (): [Extent, string] | null => {
     if (area === "view") {
@@ -44,9 +46,11 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
   }, [box, res]);
   const mb = plan ? plan.bytes / 1e6 : 0;
 
-  const go = () => {
+  const go = async () => {
     if (!e) return;
-    startDownload({
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: "Elevation download",
       match: ["Downloading elevation"],
       run: () => api.downloadElevation(e[0], res, e[1], confirm),
@@ -56,7 +60,10 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
         return `Added ${info.name} · ${info.raster?.min.toFixed(0)}–${info.raster?.max.toFixed(0)} m`;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -90,10 +97,11 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
             {plan?.needsConfirm && (
               <Checkbox checked={confirm} onChange={(_, d) => setConfirm(!!d.checked)} label={`This is a large download (${mb.toFixed(0)} MB). I want to continue.`} />
             )}
+            {err && <MessageBar intent="error"><MessageBarBody style={{ whiteSpace: "pre-line" }}>{err}</MessageBarBody></MessageBar>}
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!e || !plan || (plan.needsConfirm && !confirm)} onClick={go}>Download</Button>
+            <Button appearance="primary" disabled={busy || !e || !plan || (plan.needsConfirm && !confirm)} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

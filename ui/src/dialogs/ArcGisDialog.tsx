@@ -19,6 +19,7 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
   const [layer, setLayer] = useState<number | null>(null);
   const [finding, setFinding] = useState(false);
   const [area, setArea] = useState("view");
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,11 +48,13 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
   };
 
   const ready = !!extent && (source === "custom" ? layer !== null : !!entry);
-  const go = () => {
+  const go = async () => {
     if (!extent) return;
     const picked = found?.find((l) => l.id === layer);
     const spec = source === "custom" ? { url, layer: String(layer), label: picked ? picked.name : undefined } : { entryId: source };
-    startDownload({
+    setBusy(true);
+    setErr(null);
+    const early = await startDownload({
       label: `ArcGIS download for ${areaLabel}`,
       match: ["Downloading"],
       run: () => api.arcgisImport(spec, extent, areaLabel),
@@ -62,7 +65,10 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
         return `Added ${out[0].name} · ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features for ${areaLabel}`;
       },
     });
-    onClose();
+    if (early) {
+      setErr(early);
+      setBusy(false);
+    } else onClose();
   };
 
   return (
@@ -121,7 +127,7 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
           </DialogContent>
           <DialogActions>
             <Button appearance="secondary" onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={!ready} onClick={go}>Download</Button>
+            <Button appearance="primary" disabled={busy || !ready} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

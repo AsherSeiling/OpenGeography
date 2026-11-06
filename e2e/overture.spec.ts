@@ -24,7 +24,7 @@ test("UR-9 a public-data download runs in the background: the dialog closes at o
   const dlg = app.getByRole("dialog");
   await expect(dlg.getByRole("radio", { name: "Buildings" })).toBeChecked({ timeout: 10_000 });
   await dlg.getByRole("button", { name: "Download" }).click();
-  await expect(app.getByRole("dialog")).toHaveCount(0, { timeout: 1500 }); // not held open by the download
+  await expect(app.getByRole("dialog")).toHaveCount(0, { timeout: 4000 }); // not held open by the download (it waits a moment in case the request is refused at once)
   await expect(app.locator(".statusbar")).toContainText("runs in the background");
 
   // The rest of the app works meanwhile.
@@ -52,4 +52,17 @@ test("UR-9 a public-data download runs in the background: the dialog closes at o
   await app.evaluate(() => void (window as any).__gis.actions.saveProject());
   await expect.poll(() => asked2).toContain("Save now?");
   await expect.poll(() => app.evaluate(() => Object.keys((window as any).__gis.useApp.getState().layers).length), { timeout: 15_000 }).toBe(2);
+});
+
+test("UR-9 a request refused at once keeps the dialog open with the reason (every download dialog uses the same start)", async ({ app }) => {
+  await app.evaluate(() => {
+    (window as any).__gis.api.overtureImport = async () => { throw new Error("This area is too large for this theme. Choose a smaller area."); };
+  });
+  await publicData(app, "overture");
+  const dlg = app.getByRole("dialog");
+  await expect(dlg.getByRole("radio", { name: "Buildings" })).toBeChecked({ timeout: 10_000 });
+  await dlg.getByRole("button", { name: "Download" }).click();
+  await expect(dlg).toContainText("This area is too large for this theme");
+  await expect(dlg.getByRole("button", { name: "Download" })).toBeEnabled(); // can be corrected and tried again
+  await dlg.getByRole("button", { name: "Cancel" }).click();
 });
