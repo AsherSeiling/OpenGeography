@@ -22,7 +22,7 @@ export const reverseClasses = (classes: StyleClass[]): StyleClass[] => classes.s
 export function classRanks(classes: StyleClass[] | undefined): Map<string, number> {
   const out = new Map<string, number>();
   classes?.forEach((c, i) => {
-    if (!out.has(c.value)) out.set(c.value, classes.length - i);
+    for (const v of [c.value, ...(c.values ?? [])]) if (!out.has(v)) out.set(v, classes.length - i);
   });
   return out;
 }

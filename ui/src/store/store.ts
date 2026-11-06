@@ -18,6 +18,8 @@ export interface StrokeSpec {
 
 export interface StyleClass {
   value: string;
+  /** More values drawn as this class (UR-12): `value` and these share one colour and one legend row. */
+  values?: string[];
   color: string;
   label: string;
   /** Line/outline symbol stack of this class; unset = the layer's own. */
@@ -128,8 +130,11 @@ export interface LayerStyle {
   opacity: number;
   radius: number;
   field?: string;
-  /** categorized: one class per value */
+  /** categorized: one class per value (or per group of values) */
   classes?: StyleClass[];
+  /** categorized: the legend text of "all other values" (their colour is `fill`), and whether they are left undrawn (UR-12). */
+  otherLabel?: string;
+  otherHidden?: boolean;
   /** graduated: upper bounds of each class except the last; colors.length = breaks.length + 1 */
   breaks?: number[];
   colors?: string[];

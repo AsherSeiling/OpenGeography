@@ -503,7 +503,9 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
         StyleKind::Categorized if field_ok && style.classes.as_ref().is_some_and(|c| !c.is_empty()) => {
             let cs = style.classes.as_ref().unwrap();
             let mut v: Vec<(String, String)> = cs.iter().enumerate().map(|(i, c)| (c.label.clone(), class_color(style, i))).collect();
-            v.push(("Other".into(), class_color(style, cs.len())));
+            if !style.other_hidden {
+                v.push((style.other_label.clone().filter(|l| !l.trim().is_empty()).unwrap_or_else(|| "Other".into()), class_color(style, cs.len())));
+            }
             v
         }
         StyleKind::Graduated if field_ok && style.breaks.as_ref().is_some_and(|b| !b.is_empty()) => {

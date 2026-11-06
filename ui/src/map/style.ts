@@ -47,7 +47,7 @@ export function validColor(c: unknown): c is string {
 function colorExpr(style: LayerStyle, base: string): ExpressionSpecification | string {
   if (style.kind === "categorized" && style.field && style.classes?.length) {
     const seen = new Set<string>();
-    const pairs = style.classes.filter((c) => validColor(c.color) && !seen.has(String(c.value)) && seen.add(String(c.value))).flatMap((c) => [c.value, c.color]);
+    const pairs = style.classes.filter((c) => validColor(c.color)).flatMap((c) => [c.value, ...(c.values ?? [])].filter((v) => !seen.has(String(v)) && seen.add(String(v))).map((v) => [v, c.color])).flat();
     if (!pairs.length) return base;
     return ["match", ["to-string", ["get", style.field]], ...pairs, base] ;
   }
@@ -123,11 +123,11 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl
     const op = geom === "Line" ? style.opacity : 1;
     const own = style.strokes?.length ? style.strokes : [{ color: geom === "Line" ? style.fill : style.stroke, width: style.strokeWidth }];
     if (classStrokes.length) {
-      const values = classStrokes.map((x) => x.c.value);
+      const values = classStrokes.flatMap((x) => [x.c.value, ...(x.c.values ?? [])]);
       const rest: ExpressionSpecification = ["all", geomFilter, ["!", ["in", ["to-string", ["get", style.field]], ["literal", values]]]];
       out.push(...strokeLayers(`${id}-line`, own, rest, common, op));
       for (const { c, i } of classStrokes) {
-        const f: ExpressionSpecification = ["all", geomFilter, ["==", ["to-string", ["get", style.field]], c.value]];
+        const f: ExpressionSpecification = ["all", geomFilter, ["in", ["to-string", ["get", style.field]], ["literal", [c.value, ...(c.values ?? [])]]]];
         out.push(...strokeLayers(`${id}-line-c${i}`, c.strokes!, f, common, op));
       }
     } else {
@@ -162,6 +162,11 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl
         "circle-stroke-width": style.radius > 2 ? 0.6 : 0,
       },
     });
+  }
+  // "All other values" switched off: only the listed values are drawn.
+  if (style.kind === "categorized" && style.field && style.otherHidden && style.classes?.length) {
+    const listed: ExpressionSpecification = ["in", ["to-string", ["get", style.field]], ["literal", style.classes.flatMap((c) => [c.value, ...(c.values ?? [])])]];
+    return out.map((l) => ({ ...l, filter: "filter" in l && l.filter ? ["all", l.filter, listed] : listed }) as LayerSpecification);
   }
   return out;
 }

@@ -1982,3 +1982,36 @@ fn topo_legend_entries_can_be_drawn_with_catalogue_symbols_and_the_layers_can_be
     assert_eq!(back["auto"], false);
     assert!(serde_json::to_value(with_surround_topo(&ids).layout.elements[2].clone()).unwrap().get("auto").is_none());
 }
+
+// UR-12: several values in one class, "all other values" with its own legend text, and switched off.
+#[test]
+fn ur12_grouped_values_share_one_class_and_other_values_can_be_relabelled_or_hidden() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let style = |extra: serde_json::Value| {
+        let mut s = json!({ "kind": "categorized", "fill": "#999999", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 1, "radius": 3.5, "field": "cls",
+            "classes": [ { "value": "a", "values": ["b"], "color": "#112233", "label": "A and B" } ] });
+        s.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+        s
+    };
+    let svg = |extra: serde_json::Value| render(&e, &request(&ids, style(extra))).svg;
+    // a and b are both drawn in the class colour; c ("everything else") in the layer's fill.
+    let both = svg(json!({}));
+    assert!(both.contains("#112233") && both.contains("#999999"), "class colour and the other colour");
+    // Hidden: c is not drawn, and the legend row for the others goes.
+    let hidden = svg(json!({ "otherHidden": true }));
+    assert!(hidden.contains("#112233") && !hidden.contains("#999999"), "other values left undrawn");
+    // The legend text of the others can be changed.
+    let relabelled = render(&e, &request(&ids, style(json!({ "otherLabel": "Everything else" })))).svg;
+    assert!(relabelled.contains("#112233"));
+    // Round trip: the new fields survive JSON.
+    let st: LayerStyle = serde_json::from_value(style(json!({ "otherLabel": "x", "otherHidden": true }))).unwrap();
+    let back = serde_json::to_value(&st).unwrap();
+    assert_eq!(back["otherLabel"], "x");
+    assert_eq!(back["otherHidden"], true);
+    assert_eq!(back["classes"][0]["values"], json!(["b"]));
+    // Old styles (no new fields) serialise without them.
+    let old: LayerStyle = serde_json::from_value(categorized()).unwrap();
+    let o = serde_json::to_value(&old).unwrap();
+    assert!(o.get("otherHidden").is_none() && o.get("otherLabel").is_none() && o["classes"][0].get("values").is_none());
+}
