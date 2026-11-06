@@ -75,6 +75,7 @@ impl Tool for Export {
         let mut geom = "geom".to_string();
         let mut target: Option<String> = i.crs.clone();
         let mut clipped = false;
+        let mut clip_parts: Option<(String, i32)> = None; // the mask SQL and ST_CollectionExtract kind, to count what the clip removes
         if i.has_geom {
             let from = i.crs.clone();
             // Clip first, in the layer's own coordinate system.
@@ -108,6 +109,7 @@ impl Tool for Export {
                 };
                 let kind = ctx.dimension(i)? + 1; // ST_CollectionExtract: 1 points, 2 lines, 3 polygons
                 geom = format!("ST_CollectionExtract(ST_Intersection(geom, {mask}), {kind})");
+                clip_parts = Some((mask.clone(), kind));
                 clipped = true;
             }
             // Then the output coordinate system.
@@ -147,6 +149,29 @@ impl Tool for Export {
             format!("SELECT {cols}{comma}{geom} AS geom FROM {t}")
         };
         let src = format!("SELECT * FROM ({base})");
+        // Report what the clip took out: features wholly outside, features with no shape, and features whose part inside was a different kind of shape.
+        if let Some((mask, kind)) = &clip_parts {
+            let (outside, wrong, noshape): (i64, i64, i64) = ctx.conn.query_row(
+                &format!(
+                    "SELECT count(*) FILTER (WHERE geom IS NOT NULL AND (x IS NULL OR ST_IsEmpty(x))),
+                            count(*) FILTER (WHERE x IS NOT NULL AND NOT ST_IsEmpty(x) AND (e IS NULL OR ST_IsEmpty(e))),
+                            count(*) FILTER (WHERE geom IS NULL)
+                     FROM (SELECT geom, x, ST_CollectionExtract(x, {kind}) AS e FROM (SELECT geom, ST_Intersection(geom, {mask}) AS x FROM {t}))"
+                ),
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?;
+            let s = |n: i64| if n == 1 { "" } else { "s" };
+            if outside > 0 {
+                notes.push(format!("{outside} feature{} lay outside the clip area and {} not written", s(outside), if outside == 1 { "was" } else { "were" }));
+            }
+            if wrong > 0 {
+                notes.push(format!("{wrong} feature{} had only a different kind of shape (a point or line, not the layer's own kind) inside the clip area and {} not written", s(wrong), if wrong == 1 { "was" } else { "were" }));
+            }
+            if noshape > 0 {
+                notes.push(format!("{noshape} feature{} had no shape to clip and {} not written", s(noshape), if noshape == 1 { "was" } else { "were" }));
+            }
+        }
 
         let sql = match fmt.as_str() {
             // Tables as plain files: shapes (if the layer has any) are dropped, except in CSV/TSV/JSON where they are written as WKT text.

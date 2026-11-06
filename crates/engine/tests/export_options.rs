@@ -169,6 +169,20 @@ fn clip_to_an_area_or_to_a_layers_shapes_cuts_the_features() {
     let (r, path) = export(&fx, &fx.pts, "cp.gpkg", "GPKG", json!({"clip_layer": fx.polys}));
     done(&r);
     assert_eq!(fx.e.import(&path).unwrap().remove(0).feature_count, 3); // x = 0, 1000 and 2000 km-steps: the west polygon covers 0..2000 m, and a point on its edge is kept; 3000+ is outside
+    // What the clip removed is reported (5 points, 3 inside: 2 lay outside), and nothing is said when nothing was removed.
+    let msg = fx.e.run_graph(&serde_json::from_value(json!({
+        "nodes": [{"id": "in", "tool": "input_layer", "params": {"layer": fx.pts}}, {"id": "out", "tool": "export", "params": {"path": fx.dir.path().join("rep.gpkg").to_str().unwrap(), "format": "GPKG", "clip_layer": fx.polys}}],
+        "edges": [{"source": "in", "target": "out", "targetHandle": "in"}]})).unwrap(), Some("out"), &mut |_| {}).unwrap().into_iter().find(|r| r.id == "out").unwrap().message.unwrap();
+    assert!(msg.contains("2 features lay outside the clip area and were not written"), "{msg}");
+    let (r, _) = export(&fx, &fx.lines, "cl2.gpkg", "GPKG", json!({"clip_layer": fx.polys}));
+    assert!(!done(&r).contains("outside the clip area"), "the road touches the polygon, so nothing was dropped");
+    // A road that only touches the polygon at one point: what is inside is a point, not a line, so it is dropped and reported.
+    let touch = fx.dir.path().join("touch.gpkg");
+    write(&touch, &format!("SELECT 1 AS id, ST_MakeEnvelope({}, {}, {X}, {Y}) AS geom", X - 1000.0, Y - 1000.0), "EPSG:26915");
+    let tl = fx.e.import(&touch).unwrap().remove(0).id;
+    let (r, _) = export(&fx, &fx.lines, "cw.gpkg", "GPKG", json!({"clip_layer": tl}));
+    let msg = done(&r);
+    assert!(msg.contains("1 feature had only a different kind of shape") && msg.contains("was not written"), "{msg}");
     // Clipping to a layer that isn't polygons is refused.
     let (r, _) = export(&fx, &fx.pts, "cx.gpkg", "GPKG", json!({"clip_layer": fx.lines}));
     assert!(r.error.unwrap().contains("needs polygons"));
