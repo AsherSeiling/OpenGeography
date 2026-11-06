@@ -38,6 +38,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 - `docs/PYTHON_SDK_PLAN.md` — phase G.
 - `docs/USER_REQUESTS_2026-11-05.md` — the user's list after the Mac app test; comes before server connections and planetary (user, 2026-11-05).
 - `docs/CENSUS_TABLES_PLAN.md` — Census tables importer and custom table generator (user, 2026-11-06); after the user-requests list, before server connections and planetary (user, 2026-11-06). Lead prompt `docs/prompts/census-tables-lead.md`.
+- `docs/PUBLIC_DATA_NODE_PLAN.md` — Public Data node: public datasets as cached model inputs (user, 2026-11-06); built with the Census importer, after its fetch engine (C3).
 
 ---
 

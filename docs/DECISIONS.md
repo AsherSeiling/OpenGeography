@@ -255,6 +255,7 @@ Accepted as written: RD-1 (reference hierarchy; never the engine's own output), 
 
 ### D2 — Census join and keychain
 - The join is a command with a dialog, not a model node: a node would put a network request inside every model run (not reproducible offline, slow re-runs). A node that reads an already-joined layer needs nothing new.
+- Amended by the user, 2026-11-06: a **Public Data node** (`docs/PUBLIC_DATA_NODE_PLAN.md`) may bring downloads into models, because it keeps these reasons: it downloads once into a snapshot stored in the project, identified by the request, so runs make no network request, work offline and repeat exactly; new data comes only when the request changes (after a confirmation) or on Refresh, which reports what changed.
 - The key lives in the OS keychain (`keyring` crate, only in the Tauri shell; Linux uses the Secret Service with the vendored dbus build). The UI can save, check for and delete it; nothing returns it. The shell reads it for one request and passes it to the engine, which never stores it and redacts it from messages. The browser test build has no keychain and says so (key from `GIS_CENSUS_KEY` for dev).
 - Level and states come from the GEOIDs (length after restoring leading zeros), so one request per state; the Bureau's "no value" markers become NULL and are counted.
 - `THIRD_PARTY_NOTICES.md` was NOT regenerated: the script reads the local Homebrew bundle, which links GPL-only poppler, x265 and librttopo (the CI conda/Windows builds do not). Regenerate it from a CI build at the final push, adding `keyring`.

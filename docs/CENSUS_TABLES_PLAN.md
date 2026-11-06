@@ -164,6 +164,8 @@ Each is one more dataset in the same index, search and fetch path. Non-Census so
 | C7 | Sonnet | Other datasets (decennial 2010, PEP, CBP/ZBP, ACS supplemental) | Each searchable, fetchable and joinable |
 | C8 | Opus + user | Real-key check by the user on the Mac app; Opus reviews correctness (GEOID, years, margins of error, key handling) | User signs off |
 
+The Public Data node (`docs/PUBLIC_DATA_NODE_PLAN.md`, N1 and N2) goes after C3 and before C5, in the same Sonnet session, so the Census UI ships with "Add as a node".
+
 Close review by Opus: C1 grouping, C3 key handling, C4 GEOID and boundary years, C4 project format, C6 margin-of-error formulas.
 
 ## Decisions for the user

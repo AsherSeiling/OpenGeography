@@ -2,7 +2,7 @@
 
 You are the Opus lead for the Census tables importer and custom table generator. Use `claude-opus-5-5`. Run `graphify query "<question>"` before searching code, and put that rule in every worker prompt.
 
-Read only: `CLAUDE.md`, `PROJECT_STATUS.md`, `docs/CENSUS_TABLES_PLAN.md`, and DECISIONS D2. Read other docs only for the area you touch.
+Read only: `CLAUDE.md`, `PROJECT_STATUS.md`, `docs/CENSUS_TABLES_PLAN.md`, `docs/PUBLIC_DATA_NODE_PLAN.md` (N1 and N2 are yours too, after C3), and DECISIONS D2. Read other docs only for the area you touch.
 
 **First:** check the "Decisions for the user" in the plan; ask the ones still open in one message. Then do C0 yourself (a spike: fetching the Census Bureau's public metadata files is allowed; it needs no key and contacts no one). Write its findings into the plan, and change the work packages if C0 shows they're wrong.
 
