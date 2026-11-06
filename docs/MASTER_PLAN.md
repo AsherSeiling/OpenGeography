@@ -83,7 +83,12 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | G. Python SDK + CLI | Not built; moved to after the first release | Nothing before release |
 | H. Advanced analysis | ✅ Complete | Hydrology is untested in the packaged app (M-32) and on Windows and Linux (R7). Supervised classification not built. |
 | Server connections (REST, WMS, WMTS) | Plan written 2026-11-04, not built | S1–S4 in `SERVER_CONNECTIONS_PLAN.md`, after the bug fixes and Mac test and before planetary |
-| UI redesign | WP1–WP8b and WP10–WP13 merged on `ui-redesign`; not pushed | WP9 final verification, then merge into `main` |
+| UI redesign | ✅ Built and pushed to `main` 2026-11-05 | Nothing |
+| User requests (Mac test, 2026-11-05) | Batches A and B built and merged on `ui-redesign`, not pushed | Batches C and D in `USER_REQUESTS_2026-11-05.md` |
+| Shape editing | Planned 2026-11-06, not built | E0–E3 in `SHAPE_EDITING_PLAN.md` |
+| Census tables + Public Data node | Planned 2026-11-06, not built | C0–C8 in `CENSUS_TABLES_PLAN.md`, N1–N2 in `PUBLIC_DATA_NODE_PLAN.md` |
+| Every USGS service | Planned 2026-11-06, not built | U0–U2 in `SERVER_CONNECTIONS_PLAN.md` §4a, after S2–S3 |
+| T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; placement to confirm with the user |
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
 
@@ -222,11 +227,28 @@ Moved to after the first release (user, 2026-11-04).
 
 **Total:** 8–12 sessions.
 
+### Phase T — More tools from open-source code (user, 2026-11-06)
+
+Sources, licences and packaging cost: `docs/TOOL_SOURCES.md`. GPL tools may ship as separate programs when not much slower (DECISIONS "GPL tools as separate programs"); nothing GPL is linked or copied in. Each package starts with a short Opus check of licence, method and speed, then Sonnet adds ToolSpecs with tests and `OPEN_SOURCE.md` rows.
+
+| Task | Effort | Model | What |
+|---|---|---|---|
+| T1 | 1–1.5 | Sonnet | **WhiteboxTools tools already shipped:** viewshed, cost distance and path, distance and allocation, curvature, TPI, wetness, HAND, stream order, focal statistics, LiDAR to DEM (about 30–40 tools) |
+| T2 | 0.5 + 1 | Opus check, Sonnet | **SAGA `saga_cmd` as a separate GPL program:** packaging on all three platforms and speed first; then terrain, landform and grid tools |
+| T3 | 0.5 | Sonnet | **GDAL utilities:** proximity, sieve, TRI/TPI, viewshed if WhiteboxTools' doesn't fit |
+| T4 | 1 | Sonnet | **Textbook tools:** kernel density, mean centre, standard distance, directional ellipse, average nearest neighbour, Ripley's K, tabulate area, profile, cut and fill |
+| T5 | 1.5 | Sonnet | **Network analysis** (`petgraph`, `fast_paths`): routes, service areas, closest facility, OD matrix on TIGER, National Map or Overture roads |
+| T6 | 1 | Sonnet | **`h3o` hex binning, `spade` natural neighbour and constrained TIN, `linfa` supervised classification and DBSCAN** |
+| T7 | 1.5 | Sonnet (Opus checks the statistics) | **PySAL rewrites in Rust:** LISA, GWR / MGWR, spatial lag and error regression |
+| T8 | 1 | Sonnet | **Point clouds:** `las` / `laz` reading plus WhiteboxTools LiDAR tools (3DEP lidar) |
+
+**Total:** about 9–11 sessions. T1, T3 and T4 are the cheapest per tool.
+
 ---
 
 ## 4. Recommended sequence
 
-Status 2026-11-04. Phases were not finished in the original order: D, E and H were built before F and G.
+Status 2026-11-06. Phases were not finished in the original order: D, E and H were built before F and G.
 
 ```
 A  Stabilize + v0.1      code done; A3 and the tag are yours
@@ -236,10 +258,13 @@ R  CRS hardening         built except R7 (CI on all platforms)
 D  Public data           complete
 E  Raster foundation     complete
 H  Advanced analysis     complete
-UI UI redesign           ← now: WP9 final verification on branch ui-redesign
--- Bug fixes             the open bugs worth fixing (docs/BUGS.md)
--- Mac app               rebuild and test the redesign in the packaged app
-S  Server connections    REST and WMS (docs/SERVER_CONNECTIONS_PLAN.md)
+UI UI redesign           done, pushed 2026-11-05
+-- Bug fixes             done (docs/BUGS.md)
+-- User requests         <- now: Batches A, B built; C, D next (docs/USER_REQUESTS_2026-11-05.md)
+E* Shape editing         edit mode and New Layer (docs/SHAPE_EDITING_PLAN.md)
+T  More tools            open-source tools (docs/TOOL_SOURCES.md); placement to confirm
+C* Census tables         importer, custom tables, with the Public Data node (CENSUS_TABLES_PLAN, PUBLIC_DATA_NODE_PLAN)
+S  Server connections    REST and WMS, then every USGS service (SERVER_CONNECTIONS_PLAN §4, §4a)
 F  Planetary GIS         last feature before the first release (docs/PLANETARY_PLAN.md)
 R7 One full CI push      at the very end (your skip-CI rule); fix what it finds
 -- First release, fine tuning

@@ -8,6 +8,7 @@ Phases A (code), B, D, E and H are done. C's main work is built. R is built exce
 Before a release: finish and merge the UI redesign, fix the open bugs and test a rebuilt Mac app, build F, do the one full CI push (R7) and fix what it finds, rebuild the Mac app, run the open manual checks (Windows and Linux installers, M-31, M-32), then you push the tag.
 
 ## Exact next action
+- **Phase T, more tools (2026-11-06):** T1–T8 added to `docs/MASTER_PLAN.md` from `docs/TOOL_SOURCES.md` (WhiteboxTools, SAGA as a separate GPL program, GDAL, textbook tools, networks, hex bins and classification, PySAL rewrites, point clouds). Placement to confirm.
 - **Shape editing (2026-11-06):** planned in `docs/SHAPE_EDITING_PLAN.md`: a separate edit mode for a layer's shapes, and New Layer to draw points, lines and polygons, with snapping, exact coordinates and Save/Discard. Nothing built. Order (user): request list → shape editing → Census importer (with the Public Data node) → server connections (with every USGS service) → planetary.
 - **Every USGS REST service (2026-11-06, user's rule):** planned as U0–U2 in `docs/SERVER_CONNECTIONS_PLAN.md` §4a: a USGS directory crawled from USGS's own servers, with a download path for every service type; built after S2–S3 and the Public Data node. Nothing built.
 - **Public Data node (2026-11-06):** planned in `docs/PUBLIC_DATA_NODE_PLAN.md`: public datasets as model inputs, downloaded once into a project snapshot (D2 amended); built with the Census importer. Nothing built.
