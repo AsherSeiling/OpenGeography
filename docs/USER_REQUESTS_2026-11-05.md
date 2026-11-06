@@ -5,8 +5,8 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 ## Decisions to confirm with the user before building
 
 1. **Order. Decided by the user, 2026-11-05:** this list comes first, then server connections, then planetary, which stays the last feature before the first release.
-2. **What runs Python.** Today's "Python" mode is only a translator to SQL (`ui/src/query/pyToSql.ts`); it can't run a function, and Calculate Field takes SQL. A function whose return value fills a field needs a real interpreter. Recommended: ship CPython with the app (python-build-standalone, PSF licence), running in its own process, exchanging rows through Arrow. It adds about 30–60 MB, and it pulls part of Phase G (Python SDK, `docs/MASTER_PLAN.md`) ahead of the release. Rejected: RustPython (MIT, but no NumPy, and Python users would expect NumPy); keeping the translator (can't do what was asked).
-3. **Scripts inside projects run code.** A shared project holding Python could do anything on the machine that opens it. Recommended: ask before running scripts from a project this computer didn't create, and don't sandbox beyond that. Say so plainly in the prompt.
+2. **What runs Python. Decided by the user, 2026-11-06:** ship standard CPython with the app (python-build-standalone, PSF licence), in its own process, exchanging rows through Arrow. Today's SQL translator stays only as a fallback for old saved queries.
+3. **Scripts inside projects run code.** Not answered by the user; the recommended default applies until they say otherwise: ask before running scripts from a project this computer didn't create; no sandbox beyond that. Say so in the Batch D report.
 
 ## Work, in the recommended order
 

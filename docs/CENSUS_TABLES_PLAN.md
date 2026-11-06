@@ -171,8 +171,8 @@ Close review by Opus: C1 grouping, C3 key handling, C4 GEOID and boundary years,
 ## Decisions for the user
 
 1. **Order: decided by the user, 2026-11-06:** after the user-requests list, before server connections and planetary.
-2. **Column names:** plain names with the codes in metadata (recommended), or Census codes.
-3. **Years shipped in the index:** recommended, the last 5 ACS 5-year releases plus DHC 2020, about a few MB (C0 measures it), with older years fetched on demand.
+2. **Column names:** not answered; the recommended default applies: plain names with the Census codes in metadata, codes as an option.
+3. **Years: decided by the user, 2026-11-06:** every measure is sortable and filterable by year. The index covers every year a dataset offers (ACS 5-year from 2009, 1-year from 2005, decennial 2010 and 2020), so search results, browse and the basket can sort by year and show which years have each measure. C0 measures the size: if every year is too large to ship, the recent years ship and older years are fetched on demand (no key needed) and cached, still sortable the same way.
 
 ## Not decided yet / to check in C0
 
