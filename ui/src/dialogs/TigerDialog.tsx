@@ -4,7 +4,8 @@ import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, Dia
 import { useEffect, useState } from "react";
 import { api, errorText, type TigerDataset, type TigerVintage } from "../ipc/api";
 import { zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
+import { WaitBar } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 
 export const STATES: [string, string, string][] = [
@@ -34,7 +35,6 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
   const [counties, setCounties] = useState<[string, string][]>([]);
   const [county, setCounty] = useState<string>("");
   const [pick, setPick] = useState<string[]>(DEFAULT_PICK);
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,26 +66,23 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
   const chosen = pick.filter((id) => !unavailable(id));
   const blocked = chosen.filter((id) => datasets.find((d) => d.id === id)?.needsCounty && !county);
 
-  const download = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      const layers = await api.tigerImport(chosen, vintage, state, county || null, label);
-      const app = useApp.getState();
-      app.addLayers(layers);
-      app.setStatus(`Added ${layers.length} TIGER layer(s) for ${label} · ${layers.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features`);
-      const ext = layers.map((l) => l.extent).filter(Boolean) as [number, number, number, number][];
-      if (ext.length) zoomToExtent([Math.min(...ext.map((e) => e[0])), Math.min(...ext.map((e) => e[1])), Math.max(...ext.map((e) => e[2])), Math.max(...ext.map((e) => e[3]))]);
-      onClose();
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("TIGER download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+  const download = () => {
+    startDownload({
+      label: `TIGER download for ${label}`,
+      match: ["Downloading Census"],
+      run: () => api.tigerImport(chosen, vintage, state, county || null, label),
+      done: (layers) => {
+        useApp.getState().addLayers(layers);
+        const ext = layers.map((l) => l.extent).filter(Boolean) as [number, number, number, number][];
+        if (ext.length) zoomToExtent([Math.min(...ext.map((e) => e[0])), Math.min(...ext.map((e) => e[1])), Math.max(...ext.map((e) => e[2])), Math.max(...ext.map((e) => e[3]))]);
+        return `Added ${layers.length} TIGER layer(s) for ${label} · ${layers.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface>
         <DialogBody>
           <DialogTitle>Sample Data — Census TIGER</DialogTitle>
@@ -146,7 +143,6 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
                 ))}
               </div>
             </Field>
-            <TaskProgress active={busy} label={`Downloading ${chosen.length} layer(s) for ${label}…`} match={["Downloading Census"]} />
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody>{err}</MessageBarBody>
@@ -154,9 +150,9 @@ export function TigerDialog({ onClose }: { onClose: () => void }) {
             )}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !chosen.length || blocked.length > 0} onClick={download}>
-              {busy ? "Downloading…" : `Add ${chosen.length} layer(s)`}
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!chosen.length || blocked.length > 0} onClick={download}>
+              {`Add ${chosen.length} layer(s)`}
             </Button>
           </DialogActions>
         </DialogBody>

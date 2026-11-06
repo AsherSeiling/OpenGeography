@@ -2,9 +2,9 @@
 import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, Radio, RadioGroup } from "@fluentui/react-components";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { api, errorText, type Extent } from "../ipc/api";
+import { api, type Extent } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -18,36 +18,29 @@ export function HazardsSoilsDialog({ onClose }: { onClose: () => void }) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [mag, setMag] = useState("3");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const lyr = layers.find((l) => l.id === area);
   const extent: Extent | null = area === "view" ? getViewBounds() : lyr?.extent ?? null;
   const areaLabel = area === "view" ? "map view" : lyr?.name ?? "";
   const tooBigForSoils = !!extent && what === "soils" && (extent[2] - extent[0] > SOIL_MAX_DEG || extent[3] - extent[1] > SOIL_MAX_DEG);
 
-  const go = async () => {
+  const go = () => {
     if (!extent) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const info = what === "quakes" ? await api.earthquakesImport(extent, start.trim() || null, end.trim() || null, Number(mag), areaLabel) : await api.ssurgoImport(extent, areaLabel);
-      if (!info) {
-        setErr(what === "quakes" ? "No earthquakes match. Try a longer period, a smaller smallest magnitude or a larger area." : "There are no soil map units here (SSURGO covers most of the United States, not every area).");
-      } else {
+    startDownload({
+      label: what === "quakes" ? `Earthquake download for ${areaLabel}` : `Soil download for ${areaLabel}`,
+      match: ["Downloading"],
+      run: () => (what === "quakes" ? api.earthquakesImport(extent, start.trim() || null, end.trim() || null, Number(mag), areaLabel) : api.ssurgoImport(extent, areaLabel)),
+      done: (info) => {
+        if (!info) return what === "quakes" ? "No earthquakes match. Try a longer period, a smaller smallest magnitude or a larger area." : "There are no soil map units here (SSURGO covers most of the United States; try a smaller area on land).";
         useApp.getState().addLayers([info]);
-        useApp.getState().setStatus(`Added ${info.name} · ${info.featureCount.toLocaleString()} features`);
         if (area !== "view") zoomToExtent(info.extent);
-        onClose();
-      }
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("Download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+        return `Added ${info.name} · ${info.featureCount.toLocaleString()} features`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface style={{ maxWidth: 560 }}>
         <DialogBody>
           <DialogTitle>Earthquakes and soils</DialogTitle>
@@ -74,12 +67,10 @@ export function HazardsSoilsDialog({ onClose }: { onClose: () => void }) {
               <div className="muted">Soil map units are very detailed, so the area can be at most {SOIL_MAX_DEG}° (about 25 km) on a side. Public domain; use for planning, not for a single lot.</div>
             )}
             {tooBigForSoils && <MessageBar intent="warning"><MessageBarBody>This area is too large for soil map units. Zoom in, or choose a smaller layer.</MessageBarBody></MessageBar>}
-            <TaskProgress active={busy} label="Downloading…" match={["Downloading"]} />
-            {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !extent || tooBigForSoils} onClick={go}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!extent || tooBigForSoils} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

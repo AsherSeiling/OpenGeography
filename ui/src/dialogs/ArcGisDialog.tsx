@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type ArcgisEntry, type ArcgisServiceLayer, type Extent } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress, WaitBar } from "../progress/progress";
+import { WaitBar } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -18,7 +19,6 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
   const [layer, setLayer] = useState<number | null>(null);
   const [finding, setFinding] = useState(false);
   const [area, setArea] = useState("view");
-  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,31 +47,26 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
   };
 
   const ready = !!extent && (source === "custom" ? layer !== null : !!entry);
-  const go = async () => {
+  const go = () => {
     if (!extent) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const picked = found?.find((l) => l.id === layer);
-      const spec = source === "custom" ? { url, layer: String(layer), label: picked ? picked.name : undefined } : { entryId: source };
-      const out = await api.arcgisImport(spec, extent, areaLabel);
-      if (out.length === 0) {
-        setErr("There are no features of this dataset in this area. Try a larger area.");
-      } else {
+    const picked = found?.find((l) => l.id === layer);
+    const spec = source === "custom" ? { url, layer: String(layer), label: picked ? picked.name : undefined } : { entryId: source };
+    startDownload({
+      label: `ArcGIS download for ${areaLabel}`,
+      match: ["Downloading"],
+      run: () => api.arcgisImport(spec, extent, areaLabel),
+      done: (out) => {
+        if (out.length === 0) return "There are no features of this ArcGIS dataset in this area. Try a larger area.";
         useApp.getState().addLayers(out);
-        useApp.getState().setStatus(`Added ${out[0].name} · ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features for ${areaLabel}`);
         if (area !== "view") zoomToExtent(extent);
-        onClose();
-      }
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("Download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+        return `Added ${out[0].name} · ${out.reduce((n, l) => n + l.featureCount, 0).toLocaleString()} features for ${areaLabel}`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface style={{ maxWidth: 640 }}>
         <DialogBody>
           <DialogTitle>ArcGIS services</DialogTitle>
@@ -118,7 +113,6 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
                 )}
               </>
             )}
-            <TaskProgress active={busy} label="Downloading…" match={["Downloading"]} />
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody style={{ whiteSpace: "pre-line" }}>{err}</MessageBarBody>
@@ -126,8 +120,8 @@ export function ArcGisDialog({ onClose }: { onClose: () => void }) {
             )}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !ready} onClick={go}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!ready} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

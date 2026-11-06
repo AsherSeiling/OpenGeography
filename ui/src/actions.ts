@@ -4,6 +4,7 @@ import { gridLabel, gridSizeFor, groundWidthM, usngGridStyle } from "./map/usngG
 import { bibliographyFiles } from "./sources/cite";
 import { useBibPrefs } from "./sources/prefs";
 import { track } from "./progress/progress";
+import { confirmDownloads } from "./downloads/background";
 import { open, save } from "./ipc/dialogs";
 import { create } from "zustand";
 import { reportError } from "./errors/store";
@@ -604,6 +605,7 @@ export async function pruneSnapshots() {
 }
 
 export async function saveProject(saveAs = false) {
+  if (!(await confirmDownloads("save"))) return;
   let dir = useApp.getState().projectDir;
   if (!dir || saveAs) {
     const picked = await save({ title: "Save Project", defaultPath: "Untitled.gproj", filters: [{ name: "GIS Studio project", extensions: ["gproj"] }] });
@@ -639,6 +641,7 @@ export async function exportBibliography(folder: string): Promise<number> {
 }
 
 export async function openProject(path?: string) {
+  if (!(await confirmDownloads("leave"))) return;
   // Only a real path counts: a click event passed in by mistake must not reach the engine.
   const picked = typeof path === "string" && path ? path : await open({ title: "Open Project", directory: true });
   if (!picked || Array.isArray(picked)) return;
@@ -717,6 +720,7 @@ async function loadLayouts() {
 }
 
 export async function newProject() {
+  if (!(await confirmDownloads("leave"))) return;
   if (useApp.getState().dirty && !confirm("Discard unsaved changes?")) return;
   const ok = await busy("Creating project", () => api.newProject());
   if (ok === undefined) return;

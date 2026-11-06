@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type Extent, type StacCollection, type StacItem } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -19,7 +19,6 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<StacItem[] | null>(null);
   const [item, setItem] = useState<string>("");
   const [asset, setAsset] = useState<string>("");
-  const [busy, setBusy] = useState(false);
   const [searching, setSearching] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -50,28 +49,26 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
     setSearching(false);
   };
 
-  const go = async () => {
+  const go = () => {
     if (!extent || !picked) return;
     const a = picked.assets.find((x) => x.key === asset);
     if (!a) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const label = `${c?.label.split(" (")[0] ?? coll} — ${picked.id} (${assets.find(([k]) => k === asset)?.[1] ?? asset})`;
-      const info = await api.stacImport({ href: a.href, bbox: extent, label, collection: coll, itemId: picked.id, asset, areaLabel });
-      useApp.getState().addLayers([info]);
-      useApp.getState().setStatus(`Added ${info.name}`);
-      if (area !== "view") zoomToExtent(info.extent);
-      onClose();
-    } catch (e) {
-      if (isCancelled(e)) useApp.getState().setStatus("Download cancelled");
-      else setErr(errorText(e));
-    }
-    setBusy(false);
+    const label = `${c?.label.split(" (")[0] ?? coll} — ${picked.id} (${assets.find(([k]) => k === asset)?.[1] ?? asset})`;
+    startDownload({
+      label: `Download of ${label}`,
+      match: ["Downloading"],
+      run: () => api.stacImport({ href: a.href, bbox: extent, label, collection: coll, itemId: picked.id, asset, areaLabel }),
+      done: (info) => {
+        useApp.getState().addLayers([info]);
+        if (area !== "view") zoomToExtent(info.extent);
+        return `Added ${info.name}`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface style={{ maxWidth: 660 }}>
         <DialogBody>
           <DialogTitle>Imagery and elevation (STAC)</DialogTitle>
@@ -102,7 +99,7 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
                 </Field>
               )}
             </div>
-            <Button onClick={search} disabled={!extent || searching || busy}>{searching ? "Searching…" : "Search"}</Button>
+            <Button onClick={search} disabled={!extent || searching}>{searching ? "Searching…" : "Search"}</Button>
             {items && items.length > 0 && (
               <>
                 <Field label="Scene (newest first)">
@@ -121,12 +118,11 @@ export function StacDialog({ onClose }: { onClose: () => void }) {
                 </Field>
               </>
             )}
-            <TaskProgress active={busy} label="Downloading…" match={["Downloading"]} />
             {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !picked || !asset} onClick={go}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!picked || !asset} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>

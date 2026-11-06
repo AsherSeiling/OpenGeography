@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type ElevationPlan, type Extent } from "../ipc/api";
 import { getViewBounds, zoomToExtent } from "../map/mapController";
-import { isCancelled, TaskProgress } from "../progress/progress";
+import { startDownload } from "../downloads/background";
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 
@@ -20,8 +20,6 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
   const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && l.extent && l.geomType !== "Raster")));
   const [area, setArea] = useState<string>("view");
   const [res, setRes] = useState(10);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
 
   const extent = (): [Extent, string] | null => {
     if (area === "view") {
@@ -46,25 +44,23 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
   }, [box, res]);
   const mb = plan ? plan.bytes / 1e6 : 0;
 
-  const go = async () => {
+  const go = () => {
     if (!e) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const info = await api.downloadElevation(e[0], res, e[1], confirm);
-      useApp.getState().addLayers([info]);
-      useApp.getState().setStatus(`Added ${info.name} · ${info.raster?.min.toFixed(0)}–${info.raster?.max.toFixed(0)} m`);
-      zoomToExtent(info.extent);
-      onClose();
-    } catch (x) {
-      if (isCancelled(x)) useApp.getState().setStatus("Elevation download cancelled");
-      else setErr(errorText(x));
-    }
-    setBusy(false);
+    startDownload({
+      label: "Elevation download",
+      match: ["Downloading elevation"],
+      run: () => api.downloadElevation(e[0], res, e[1], confirm),
+      done: (info) => {
+        useApp.getState().addLayers([info]);
+        zoomToExtent(info.extent);
+        return `Added ${info.name} · ${info.raster?.min.toFixed(0)}–${info.raster?.max.toFixed(0)} m`;
+      },
+    });
+    onClose();
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && onClose()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
       <DialogSurface>
         <DialogBody>
           <DialogTitle>Elevation — USGS 3DEP</DialogTitle>
@@ -94,16 +90,10 @@ export function ElevationDialog({ onClose }: { onClose: () => void }) {
             {plan?.needsConfirm && (
               <Checkbox checked={confirm} onChange={(_, d) => setConfirm(!!d.checked)} label={`This is a large download (${mb.toFixed(0)} MB). I want to continue.`} />
             )}
-            <TaskProgress active={busy} label="Downloading elevation…" match={["Downloading elevation"]} />
-            {err && (
-              <MessageBar intent="error">
-                <MessageBarBody>{err}</MessageBarBody>
-              </MessageBar>
-            )}
           </DialogContent>
           <DialogActions>
-            <Button appearance="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
-            <Button appearance="primary" disabled={busy || !e || !plan || (plan.needsConfirm && !confirm)} onClick={go}>{busy ? "Downloading…" : "Download"}</Button>
+            <Button appearance="secondary" onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!e || !plan || (plan.needsConfirm && !confirm)} onClick={go}>Download</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>
