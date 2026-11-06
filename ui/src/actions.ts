@@ -1,5 +1,6 @@
 // User-level actions shared by the ribbon, context menus and shortcuts.
 import { exportGraph, gridField, type GridChoice } from "./dialogs/gridRef";
+import { exportParams, formatById, formatsFor, type ExportChoices } from "./dialogs/exportFormats";
 import { gridLabel, gridSizeFor, groundWidthM, usngGridStyle } from "./map/usngGrid";
 import { bibliographyFiles } from "./sources/cite";
 import { useBibPrefs } from "./sources/prefs";
@@ -364,47 +365,46 @@ export function exportLayer(owner: string) {
   useDialog.getState().show({ kind: "export", owner });
 }
 
-const EXPORT_FORMATS: Record<string, string> = { gpkg: "GPKG", shp: "ESRI Shapefile", geojson: "GeoJSON", json: "GeoJSON", parquet: "PARQUET", csv: "CSV", fgb: "FlatGeobuf", tsv: "TSV", xlsx: "XLSX", ods: "ODS", dbf: "DBF" };
+const EXPORT_FORMATS: Record<string, string> = { gpkg: "GPKG", shp: "ESRI Shapefile", geojson: "GeoJSON", json: "GeoJSON", parquet: "PARQUET", csv: "CSV", fgb: "FlatGeobuf", tsv: "TSV", xlsx: "XLSX", ods: "ODS", dbf: "DBF", kml: "KML", gpx: "GPX", dxf: "DXF" };
 /** A table has no shapes: .json is a list of records, not GeoJSON. */
-const TABLE_FORMATS: Record<string, string> = { ...EXPORT_FORMATS, json: "JSON" };
+const TABLE_EXTENSIONS: Record<string, string> = { ...EXPORT_FORMATS, json: "JSON" };
 
 /** Write what a layer shows (its node result if any, after its definition
- * query) to a file; `selectedOnly` writes just the selected features. */
-export async function runExport(owner: string, selectedOnly: boolean, grid: GridChoice | null = null) {
+ * query) to a file; `selectedOnly` writes just the selected features. `format` is
+ * the dialog's choice (else the file name's extension decides); `choices` are its
+ * coordinate system, field and clip choices. */
+export async function runExport(owner: string, selectedOnly: boolean, grid: GridChoice | null = null, format?: string, choices: ExportChoices = {}) {
   const info = shown(owner);
   if (!info) return;
   const fids = selectedOnly ? (useApp.getState().selection[owner] ?? []) : null;
+  const raster = info.geomType === "Raster";
+  const chosen = format ? formatById(info.geomType, format) : null;
   const path = await save({
     title: `Export ${selectedOnly ? `${fids!.length.toLocaleString()} selected features of ` : ""}${info.name}`,
-    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.${info.geomType === "Raster" ? "tif" : info.geomType === "Table" ? "csv" : "gpkg"}`,
-    filters: info.geomType === "Raster" ? [{ name: "GeoTIFF", extensions: ["tif"] }] : info.geomType === "Table" ? [
-      { name: "CSV", extensions: ["csv"] },
-      { name: "Tab-separated text", extensions: ["tsv"] },
-      { name: "Excel workbook", extensions: ["xlsx"] },
-      { name: "OpenDocument spreadsheet", extensions: ["ods"] },
-      { name: "Parquet", extensions: ["parquet"] },
-      { name: "JSON records", extensions: ["json"] },
-      { name: "dBASE table", extensions: ["dbf"] },
-      { name: "GeoPackage", extensions: ["gpkg"] },
-    ] : [
-      { name: "GeoPackage", extensions: ["gpkg"] },
-      { name: "Shapefile", extensions: ["shp"] },
-      { name: "GeoJSON", extensions: ["geojson"] },
-      { name: "FlatGeobuf", extensions: ["fgb"] },
-      { name: "GeoParquet", extensions: ["parquet"] },
-      { name: "CSV", extensions: ["csv"] },
-    ],
+    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.${raster ? "tif" : chosen?.ext ?? (info.geomType === "Table" ? "csv" : "gpkg")}`,
+    filters: raster ? [{ name: "GeoTIFF", extensions: ["tif"] }] : chosen ? [{ name: chosen.label.replace(/ \(.*$/, ""), extensions: [chosen.ext] }] : formatsFor(info.geomType).map((f) => ({ name: f.label.replace(/ \(.*$/, ""), extensions: [f.ext] })),
   });
   if (!path) return;
-  const format = (info.geomType === "Table" ? TABLE_FORMATS : EXPORT_FORMATS)[path.split(".").pop()?.toLowerCase() ?? ""] ?? (info.geomType === "Table" ? "CSV" : "GPKG");
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  const resolved = chosen?.id ?? (info.geomType === "Table" ? TABLE_EXTENSIONS : EXPORT_FORMATS)[ext] ?? (info.geomType === "Table" ? "CSV" : "GPKG");
   const res = await busy(`Exporting ${info.name}`, () =>
-    api.runGraph(exportGraph(info.id, fids, path, format, info.geomType === "Raster" ? null : grid)),
+    api.runGraph(exportGraph(info.id, fids, path, resolved, raster ? null : grid, raster ? {} : exportParams(choices))),
   );
   const out = res?.find((r) => r.id === "out");
   const n = res?.find((r) => r.id === "in")?.rows;
   const gridRes = res?.find((r) => r.id === "grid");
   if (gridRes?.error) return status(`Export failed: ${gridRes.error}`);
-  if (out) status(out.error ? `Export failed: ${out.error}` : `Exported ${n?.toLocaleString() ?? ""} feature(s) to ${path}${grid ? ` with a ${gridField(grid.style)} column` : ""}`);
+  if (out) {
+    if (out.error) {
+      status(`Export failed: ${out.error}`);
+      reportError(out.error, "action:Export", { title: `Export of ${info.name} failed`, context: "exporting features" });
+    } else {
+      // The engine's own text says what was written and what a format could not keep (renamed fields, dropped shapes, …).
+      const wrote = `Wrote ${path}`;
+      const note = out.message?.startsWith(wrote) ? out.message.slice(wrote.length).replace(/^\.\s*/, "") : (out.message ?? "");
+      status(`Exported ${n?.toLocaleString() ?? ""} feature(s) to ${path}${grid ? ` with a ${gridField(grid.style)} column` : ""}. ${note}`.trim());
+    }
+  }
 }
 
 /** Copy the selected features into a new layer. */

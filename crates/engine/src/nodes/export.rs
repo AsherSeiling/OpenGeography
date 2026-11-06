@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::Value;
 
 pub struct Export;
 
@@ -26,7 +27,14 @@ impl Tool for Export {
                     ("ODS", "OpenDocument spreadsheet (.ods)"),
                     ("JSON", "JSON records (.json)"),
                     ("DBF", "dBASE table (.dbf)"),
+                    ("KML", "Google Earth KML (.kml)"),
+                    ("GPX", "GPS exchange GPX (.gpx, points and lines only)"),
+                    ("DXF", "AutoCAD DXF (.dxf)"),
                 ]),
+                Param::new("crs", "Output coordinate system", ParamKind::Crs).optional().help("Blank = the layer's own. KML and GPX are always WGS 84; standard GeoJSON is too (see below)."),
+                Param::new("fields", "Fields to write", ParamKind::Text).optional().help("Blank = every field. Otherwise names separated by commas."),
+                Param::new("clip_layer", "Clip to the shapes of", ParamKind::Layer).optional().help("Keep only the parts of the features inside this polygon layer."),
+                Param::new("clip_extent", "Clip to an area", ParamKind::Text).optional().help("west,south,east,north in degrees; the map view fills this in from the Export dialog."),
                 Param::new("geojson_crs", "GeoJSON coordinates", ParamKind::Enum).default("wgs84").options(&[
                     ("wgs84", "WGS 84 longitude/latitude (standard GeoJSON)"),
                     ("layer", "Keep the layer's coordinate system (older style, with a crs member)"),
@@ -45,83 +53,254 @@ impl Tool for Export {
             return Ok(Output::Done(format!("Wrote {path} (GeoTIFF)")));
         }
         let fmt = p.str("format").unwrap_or_else(|| "GPKG".into());
-        let src = format!("SELECT * FROM {}", ident(&i.table));
+        let mut notes: Vec<String> = Vec::new();
+
+        // ---- which fields, which shapes, in which coordinate system ----
+        let all_cols = ctx.columns(i)?;
+        let keep: Vec<String> = match field_list(p) {
+            Some(want) => {
+                for w in &want {
+                    if !all_cols.iter().any(|c| c == w) {
+                        bail!("Field '{w}' isn't in this layer, so it can't be exported. Fields: {}.", all_cols.join(", "));
+                    }
+                }
+                want
+            }
+            None => all_cols.clone(),
+        };
+        let kept_note = (keep.len() != all_cols.len()).then(|| format!("{} of {} fields written", keep.len(), all_cols.len()));
+        let cols = keep.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
+        let comma = if cols.is_empty() { "" } else { ", " };
+        let spatial_fmt = !matches!(fmt.as_str(), "XLSX" | "ODS" | "DBF" | "TSV" | "JSON");
+        let mut geom = "geom".to_string();
+        let mut target: Option<String> = i.crs.clone();
+        let mut clipped = false;
+        if i.has_geom {
+            let from = i.crs.clone();
+            // Clip first, in the layer's own coordinate system.
+            let extent = p.str("clip_extent").filter(|e| !e.trim().is_empty());
+            let clip_layer = p.str("clip_layer").filter(|l| !l.trim().is_empty());
+            if extent.is_some() || clip_layer.is_some() {
+                let src = from.as_deref().ok_or_else(|| anyhow!("This layer has no coordinate system, so it can't be clipped. Use Define Projection first."))?;
+                let mask = match (&extent, &clip_layer) {
+                    (Some(e), _) => {
+                        let v: Vec<f64> = e.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+                        if v.len() != 4 || v[0] >= v[2] || v[1] >= v[3] {
+                            bail!("The clip area should be west,south,east,north in degrees, for example -98,35,-97,36.");
+                        }
+                        format!("ST_Transform(ST_MakeEnvelope({}, {}, {}, {}), {}, {}, true)", v[0], v[1], v[2], v[3], lit(crate::crs::WGS84), lit(&crate::crs::resolve(src)))
+                    }
+                    (None, Some(l)) => {
+                        let cl = ctx.layers.get(l).ok_or_else(|| anyhow!("The layer to clip to isn't in the project any more."))?;
+                        let ccrs = cl.crs.as_deref().ok_or_else(|| anyhow!("'{}' has no coordinate system, so its shapes can't be used to clip. Use Define Projection on it first.", cl.name))?;
+                        if cl.geom_type != "Polygon" && cl.geom_type != "Mixed" {
+                            bail!("Clip to a layer needs polygons; '{}' holds {} features.", cl.name, cl.geom_type.to_lowercase());
+                        }
+                        format!(
+                            "(SELECT ST_Union_Agg(ST_Transform(geom, {}, {}, true)) FROM {} WHERE geom IS NOT NULL{})",
+                            lit(&crate::crs::resolve(ccrs)),
+                            lit(&crate::crs::resolve(src)),
+                            ident(&cl.table),
+                            cl.def_and()
+                        )
+                    }
+                    _ => unreachable!(),
+                };
+                let kind = ctx.dimension(i)? + 1; // ST_CollectionExtract: 1 points, 2 lines, 3 polygons
+                geom = format!("ST_CollectionExtract(ST_Intersection(geom, {mask}), {kind})");
+                clipped = true;
+            }
+            // Then the output coordinate system.
+            let chosen = p.str("crs").filter(|c| !c.trim().is_empty());
+            if let Some(c) = &chosen {
+                crate::crs::validate(ctx.conn, c).map_err(|e| anyhow!("Can't use the coordinate system '{c}': {e}"))?;
+                if from.is_none() {
+                    bail!("This layer has no coordinate system, so it can't be moved into another. Use Define Projection first.");
+                }
+                target = Some(c.clone());
+            }
+            // KML and GPX are always longitude/latitude on WGS 84 (their standards say so).
+            if matches!(fmt.as_str(), "KML" | "GPX") && target.as_deref().is_some_and(|t| !crate::crs::same(t, crate::crs::WGS84)) {
+                notes.push(format!("{fmt} is always WGS 84 longitude/latitude, so the shapes were moved into it."));
+                target = Some(crate::crs::WGS84.to_string());
+            }
+            if let (Some(f), Some(t)) = (&from, &target) {
+                if !crate::crs::same(f, t) {
+                    geom = format!("ST_Transform({geom}, {}, {}, true)", lit(&crate::crs::resolve(f)), lit(&crate::crs::resolve(t)));
+                    if spatial_fmt && chosen.is_some() && !matches!(fmt.as_str(), "KML" | "GPX") {
+                        notes.push(format!("Shapes written in {t}."));
+                    }
+                }
+            }
+            if fmt == "GPX" && ctx.dimension(i)? == 2 {
+                bail!("GPX holds points (waypoints) and lines (routes and tracks) only; this layer has polygons. Choose KML or GeoPackage, or turn the polygons into lines first (Polygons to Lines).");
+            }
+        }
+        let t = ident(&i.table);
+        let base = if !i.has_geom {
+            format!("SELECT {} FROM {t}", if cols.is_empty() { "*".to_string() } else { cols.clone() })
+        } else if clipped {
+            format!("SELECT {cols}{comma}g AS geom FROM (SELECT {cols}{comma}{geom} AS g FROM {t}) WHERE g IS NOT NULL AND NOT ST_IsEmpty(g)")
+        } else if geom == "geom" {
+            format!("SELECT {cols}{comma}geom FROM {t}")
+        } else {
+            format!("SELECT {cols}{comma}{geom} AS geom FROM {t}")
+        };
+        let src = format!("SELECT * FROM ({base})");
+
         let sql = match fmt.as_str() {
+            // Tables as plain files: shapes (if the layer has any) are dropped, except in CSV/TSV/JSON where they are written as WKT text.
+            "XLSX" | "ODS" | "DBF" => {
+                let driver = if fmt == "DBF" { "ESRI Shapefile" } else { fmt.as_str() };
+                let drop_geom = if i.has_geom { "SELECT * EXCLUDE (geom) FROM" } else { "SELECT * FROM" };
+                let renamed = rename_reserved(&keep, &format!("{drop_geom} ({base})"));
+                ctx.conn.execute_batch(&format!("COPY ({renamed}) TO {} (FORMAT GDAL, DRIVER {}, USE_TMP_FILE false)", lit(&path), lit(driver)))?;
+                let dropped = if i.has_geom { " The shapes were not written (this format holds a table only); use CSV for them as WKT, or a spatial format." } else { "" };
+                return Ok(Output::Done(done_text(&path, dropped, &notes, &kept_note)));
+            }
+            "TSV" | "JSON" | "CSV" => {
+                let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM ({base})") } else { src };
+                match fmt.as_str() {
+                    "TSV" => format!("COPY ({src}) TO {} (FORMAT CSV, HEADER, DELIMITER {})", lit(&path), lit("\t")),
+                    "JSON" => format!("COPY ({src}) TO {} (FORMAT JSON, ARRAY true)", lit(&path)),
+                    _ => format!("COPY ({src}) TO {} (FORMAT CSV, HEADER)", lit(&path)),
+                }
+            }
             "PARQUET" => {
-                let src = match &i.crs {
-                    Some(c) if i.has_geom => format!("SELECT * REPLACE (ST_SetCRS(geom, {}) AS geom) FROM {}", lit(c), ident(&i.table)),
+                let src = match &target {
+                    Some(c) if i.has_geom => format!("SELECT * REPLACE (ST_SetCRS(geom, {}) AS geom) FROM ({base})", lit(c)),
                     _ => src,
                 };
                 format!("COPY ({src}) TO {} (FORMAT PARQUET)", lit(&path))
             }
-            // Tables as plain files: shapes (if the layer has any) are dropped, except in CSV/TSV/JSON where they are written as WKT text.
-            "XLSX" | "ODS" | "DBF" => {
-                let (driver, note) = match fmt.as_str() {
-                    "XLSX" => ("XLSX", ""),
-                    "ODS" => ("ODS", ""),
-                    _ => ("ESRI Shapefile", ""),
-                };
-                let reserved: Vec<String> = ctx.columns(i)?.into_iter().filter(|c| c.eq_ignore_ascii_case("fid") || c.eq_ignore_ascii_case("ogc_fid")).collect();
-                let mut cols = vec![format!("SELECT * FROM {}", ident(&i.table))];
-                if i.has_geom {
-                    cols[0] = format!("SELECT * EXCLUDE (geom) FROM {}", ident(&i.table));
-                }
-                let mut src = cols.remove(0);
-                if !reserved.is_empty() {
-                    let renames = reserved.iter().map(|c| format!("{} AS {}", ident(c), ident(&format!("{c}_src")))).collect::<Vec<_>>();
-                    let excl = reserved.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
-                    src = format!("SELECT * EXCLUDE ({excl}{}), {} FROM {}", if i.has_geom { ", geom" } else { "" }, renames.join(", "), ident(&i.table));
-                }
-                ctx.conn.execute_batch(&format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}, USE_TMP_FILE false)", lit(&path), lit(driver)))?;
-                let dropped = if i.has_geom { " The shapes were not written (this format holds a table only); use CSV for them as WKT, or a spatial format." } else { "" };
-                return Ok(Output::Done(format!("Wrote {path}.{dropped}{note}")));
-            }
-            "TSV" => {
-                let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };
-                format!("COPY ({src}) TO {} (FORMAT CSV, HEADER, DELIMITER {})", lit(&path), lit("\t"))
-            }
-            "JSON" => {
-                let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };
-                format!("COPY ({src}) TO {} (FORMAT JSON, ARRAY true)", lit(&path))
-            }
-            "CSV" => {
-                let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };
-                format!("COPY ({src}) TO {} (FORMAT CSV, HEADER)", lit(&path))
-            }
-            "GeoJSON" if i.has_geom && i.crs.as_deref().is_some_and(|c| !crate::crs::same(c, crate::crs::WGS84)) && p.str("geojson_crs").as_deref() != Some("layer") => {
+            "GeoJSON" if i.has_geom && target.as_deref().is_some_and(|c| !crate::crs::same(c, crate::crs::WGS84)) && p.str("geojson_crs").as_deref() != Some("layer") => {
                 // RFC 7946: GeoJSON is longitude/latitude on WGS 84. Say so rather than write UTM numbers a reader will take as degrees (RD-7).
-                let from = i.crs.as_deref().unwrap_or("");
-                let reprojected = format!("SELECT * REPLACE (ST_Transform(geom, {}, {}, true) AS geom) FROM {}", lit(&crate::crs::resolve(from)), lit(crate::crs::WGS84), ident(&i.table));
+                let from = target.as_deref().unwrap_or("");
+                let reprojected = format!("SELECT * REPLACE (ST_Transform(geom, {}, {}, true) AS geom) FROM ({base})", lit(&crate::crs::resolve(from)), lit(crate::crs::WGS84));
                 ctx.conn.execute_batch(&format!("COPY ({reprojected}) TO {} (FORMAT GDAL, DRIVER 'GeoJSON', SRS {}, USE_TMP_FILE false)", lit(&path), lit(crate::crs::WGS84)))?;
-                return Ok(Output::Done(format!("Wrote {path}. Reprojected to WGS 84 longitude/latitude: standard GeoJSON can't hold another coordinate system. Choose \"Keep the layer's coordinate system\" for the older style.")));
+                return Ok(Output::Done(format!("Wrote {path}. Reprojected to WGS 84 longitude/latitude: standard GeoJSON can't hold another coordinate system. Choose \"Keep the layer's coordinate system\" to write {from} instead.{}", tail(&notes, &kept_note))));
             }
             driver => {
-                let srs = match &i.crs {
+                let srs = match &target {
                     Some(c) if i.has_geom => format!(", SRS {}", lit(c)),
                     _ => String::new(),
                 };
-                // GDAL reserves "fid"/"OGC_FID" for its own feature ids; keep
-                // the values under a new name instead of failing.
-                let reserved: Vec<String> = ctx
-                    .columns(i)?
-                    .into_iter()
-                    .filter(|c| c.eq_ignore_ascii_case("fid") || c.eq_ignore_ascii_case("ogc_fid"))
-                    .collect();
-                let src = if reserved.is_empty() {
-                    src
+                let driver_name = match driver {
+                    "KML" | "GPX" | "DXF" | "ESRI Shapefile" | "GPKG" | "GeoJSON" | "FlatGeobuf" => driver,
+                    other => bail!("Unknown export format '{other}'."),
+                };
+                // GDAL reserves "fid"/"OGC_FID" for its own feature ids; keep the values under a new name instead of failing.
+                let mut src = rename_reserved(&keep, &if i.has_geom { format!("SELECT * FROM ({base})") } else { src });
+                if driver_name == "DXF" {
+                    // A DXF drawing has layers and entities, not attribute tables: only the shapes are written.
+                    src = format!("SELECT geom FROM ({base})");
+                    if !keep.is_empty() {
+                        notes.push("DXF holds shapes only, so no attributes were written".to_string());
+                    }
+                }
+                if driver_name == "GPX" {
+                    // GPX defines fields of its own (name, ele, desc …) that GDAL will not create again: a column of that name is written as "name_".
+                    let clash: Vec<&String> = keep.iter().filter(|c| GPX_FIELDS.contains(&c.to_lowercase().as_str())).collect();
+                    if !clash.is_empty() {
+                        let renames = clash.iter().map(|c| format!("{} AS {}", ident(c), ident(&format!("{c}_")))).collect::<Vec<_>>().join(", ");
+                        let excl = clash.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
+                        src = format!("SELECT * EXCLUDE ({excl}), {renames} FROM ({src})");
+                        notes.push(format!("GPX already defines the fields {}, so {} written with a trailing underscore (other programs will not read them as the standard GPX fields)", clash.iter().map(|c| format!("'{c}'")).collect::<Vec<_>>().join(", "), if clash.len() == 1 { "yours was" } else { "yours were" }));
+                    }
+                }
+                // GPX: keep every attribute as an extension (GPX itself has name, ele, time, desc and a few more).
+                let options = if driver_name == "GPX" {
+                    // A points layer becomes waypoints, a lines layer routes; GPX needs the one geometry type named.
+                    let kind = if ctx.dimension(i)? == 0 { "POINT" } else { "LINESTRING" };
+                    format!(", GEOMETRY_TYPE '{kind}', DATASET_CREATION_OPTIONS ('GPX_USE_EXTENSIONS=YES')")
                 } else {
-                    let renames = reserved.iter().map(|c| format!("{} AS {}", ident(c), ident(&format!("{c}_src")))).collect::<Vec<_>>();
-                    let excl = reserved.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
-                    format!("SELECT * EXCLUDE ({excl}), {} FROM {}", renames.join(", "), ident(&i.table))
+                    String::new()
                 };
                 // USE_TMP_FILE false: write in place. DuckDB otherwise writes a temp
                 // file and renames it, which Windows refuses while GDAL holds it open.
-                format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}{srs}, USE_TMP_FILE false)", lit(&path), lit(driver))
+                format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}{srs}{options}, USE_TMP_FILE false)", lit(&path), lit(driver_name))
             }
         };
-        ctx.conn.execute_batch(&sql)?;
-        Ok(Output::Done(format!("Wrote {path}")))
+        ctx.conn.execute_batch(&sql).map_err(|e| {
+            let m = e.to_string();
+            if m.contains("header.dxf") {
+                anyhow!("DXF files need GDAL's template file header.dxf, which this installation doesn't have (GDAL_DATA is not set to a full GDAL data folder). Reinstall the app, or choose another format.")
+            } else {
+                anyhow::Error::from(e)
+            }
+        })?;
+        if fmt == "ESRI Shapefile" {
+            notes.extend(shapefile_report(ctx, &path, &keep, &base));
+        }
+        Ok(Output::Done(done_text(&path, "", &notes, &kept_note)))
     }
+}
+
+/// Field names GPX's waypoint, route and track layers already have.
+const GPX_FIELDS: &[&str] = &["ele", "time", "magvar", "geoidheight", "name", "cmt", "desc", "src", "link1_href", "link1_text", "link1_type", "link2_href", "link2_text", "link2_type", "sym", "type", "fix", "sat", "hdop", "vdop", "pdop", "ageofdgpsdata", "dgpsid", "number", "route_fid", "route_point_id", "track_fid", "track_seg_id", "track_seg_point_id"];
+
+fn done_text(path: &str, first: &str, notes: &[String], kept: &Option<String>) -> String {
+    format!("Wrote {path}.{first}{}", tail(notes, kept))
+}
+
+fn tail(notes: &[String], kept: &Option<String>) -> String {
+    let all: Vec<&str> = kept.iter().map(String::as_str).chain(notes.iter().map(String::as_str)).collect();
+    if all.is_empty() { String::new() } else { format!(" {}", all.join(". ")) }
+}
+
+/// The fields to write: a JSON list or comma-separated names; None = all.
+fn field_list(p: &Params) -> Option<Vec<String>> {
+    match p.0.get("fields") {
+        Some(Value::Array(a)) => {
+            let v: Vec<String> = a.iter().filter_map(|x| x.as_str().map(String::from)).collect();
+            (!a.is_empty()).then_some(v)
+        }
+        Some(Value::String(s)) if !s.trim().is_empty() => Some(s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect()),
+        _ => None,
+    }
+}
+
+/// GDAL keeps "fid"/"OGC_FID" for itself: carry such columns under another name.
+fn rename_reserved(keep: &[String], select: &str) -> String {
+    let reserved: Vec<&String> = keep.iter().filter(|c| c.eq_ignore_ascii_case("fid") || c.eq_ignore_ascii_case("ogc_fid")).collect();
+    if reserved.is_empty() {
+        return select.to_string();
+    }
+    let excl = reserved.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
+    let renames = reserved.iter().map(|c| format!("{} AS {}", ident(c), ident(&format!("{c}_src")))).collect::<Vec<_>>().join(", ");
+    format!("SELECT * EXCLUDE ({excl}), {renames} FROM ({select})")
+}
+
+/// What a Shapefile could not keep: field names cut to 10 characters, text cut at 254, and the like. Read from the file written.
+fn shapefile_report(ctx: &Ctx, path: &str, keep: &[String], base: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Ok(ds) = gdal::Dataset::open(path) {
+        if let Ok(layer) = ds.layer(0) {
+            use gdal::vector::LayerAccess;
+            let written: Vec<String> = layer.defn().fields().map(|f| f.name()).collect();
+            // Fields called fid / ogc_fid go last under a new name (see rename_reserved).
+            let is_reserved = |c: &String| c.eq_ignore_ascii_case("fid") || c.eq_ignore_ascii_case("ogc_fid");
+            let expected: Vec<String> = keep.iter().filter(|c| !is_reserved(c)).cloned().chain(keep.iter().filter(|c| is_reserved(c)).map(|c| format!("{c}_src"))).collect();
+            let expected_orig: Vec<String> = keep.iter().filter(|c| !is_reserved(c)).cloned().chain(keep.iter().filter(|c| is_reserved(c)).cloned()).collect();
+            let renamed: Vec<String> = expected.iter().zip(expected_orig.iter()).zip(written.iter()).filter(|((exp, _), got)| exp != got).map(|((_, orig), got)| format!("'{orig}' became '{got}'")).collect();
+            if !renamed.is_empty() {
+                out.push(format!("Shapefile field names are limited to 10 characters, so {}", renamed.join(", ")));
+            }
+            if written.len() < keep.len() {
+                out.push(format!("{} field(s) were not written", keep.len() - written.len()));
+            }
+        }
+    }
+    // Text longer than a dBASE field holds (254 characters) is cut.
+    for c in keep {
+        let q = format!("SELECT max(length(CAST({} AS VARCHAR))) FROM ({base})", ident(c));
+        if let Ok(Some(n)) = ctx.conn.query_row(&q, [], |r| r.get::<_, Option<i64>>(0)) {
+            if n > 254 {
+                out.push(format!("Text in '{c}' is up to {n} characters; a Shapefile keeps 254, so longer values are cut"));
+            }
+        }
+    }
+    out
 }
 
 /// Canonical form of a path that may not exist yet: the parent is resolved, the file name kept.

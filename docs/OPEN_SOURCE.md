@@ -79,6 +79,7 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | Ordinary kriging and variogram models | Matheron 1963; Isaaks & Srivastava 1989 | `kriging.rs` |
 | K-means with k-means++ seeding | Lloyd 1982; Arthur & Vassilvitskii 2007 | `remote_sensing.rs` |
 | NDVI, NDWI, MNDWI, NBR, NDBI, SAVI | Rouse et al. 1974; McFeeters 1996; Xu 2006; Key & Benson 2006; Zha et al. 2003; Huete 1988 | `remote_sensing.rs` |
+| KML, GPX and DXF export; Shapefile field report; clipping on export (`ST_Intersection` / `ST_CollectionExtract` with the union of a polygon layer) | GDAL KML / GPX / DXF drivers inside DuckDB Spatial's GDAL (MIT); DuckDB Spatial (MIT) | `nodes/export.rs` |
 | Spreadsheet and table files: XLSX, ODS, DBF, TSV, JSON records, Parquet read and written with GDAL's XLSX / ODS / Shapefile (dBASE) drivers inside DuckDB Spatial's GDAL, and DuckDB's own CSV / JSON / Parquet writers (no new crate; `rust_xlsxwriter` and `calamine` were not needed) | GDAL and DuckDB (MIT) | `nodes/export.rs`, `layers.rs::sources_for_path` |
 | Clip raster by a polygon layer (`gdalwarp -cutline`, nearest neighbour on the source grid) | GDAL warp (MIT); QGIS `gdal:cliprasterbymasklayer` named for familiarity | `raster.rs::clip_to_cutline`, `nodes/raster_tools.rs` |
 | IDW, linear (TIN), nearest, moving average | GDAL grid algorithms (MIT); QGIS `qgis:idwinterpolation`, `qgis:tininterpolation` named for familiarity | `raster_ops.rs` |
