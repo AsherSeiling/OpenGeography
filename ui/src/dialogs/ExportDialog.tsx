@@ -83,7 +83,7 @@ export function ExportDialog({ owner, onClose }: { owner: string; onClose: () =>
               </div>
             )}
             {shaped && (
-              <Field label="Clip to" size="small" hint="Cut the shapes to an area; features entirely outside are left out.">
+              <Field label="Clip to" size="small" hint="Cut the shapes to an area; features entirely outside are left out, and the export says how many. The map view is its extent in longitude/latitude (a box in degrees), so on a projected map it can be slightly larger than the visible rectangle.">
                 <Dropdown size="small" aria-label="Clip to" value={clip === "none" ? "Don't clip" : clip === "view" ? "The current map view" : `Shapes of ${polygons.find((l) => l.id === clip)?.name ?? ""}`} selectedOptions={[clip]} onOptionSelect={(_, d) => setClip(d.optionValue!)}>
                   <Option value="none">Don't clip</Option>
                   <Option value="view">The current map view</Option>
