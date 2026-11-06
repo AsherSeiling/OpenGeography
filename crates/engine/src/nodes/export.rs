@@ -21,6 +21,11 @@ impl Tool for Export {
                     ("FlatGeobuf", "FlatGeobuf (.fgb)"),
                     ("PARQUET", "GeoParquet (.parquet)"),
                     ("CSV", "CSV (attributes + WKT)"),
+                    ("TSV", "Tab-separated text (.tsv)"),
+                    ("XLSX", "Excel workbook (.xlsx)"),
+                    ("ODS", "OpenDocument spreadsheet (.ods)"),
+                    ("JSON", "JSON records (.json)"),
+                    ("DBF", "dBASE table (.dbf)"),
                 ]),
                 Param::new("geojson_crs", "GeoJSON coordinates", ParamKind::Enum).default("wgs84").options(&[
                     ("wgs84", "WGS 84 longitude/latitude (standard GeoJSON)"),
@@ -48,6 +53,36 @@ impl Tool for Export {
                     _ => src,
                 };
                 format!("COPY ({src}) TO {} (FORMAT PARQUET)", lit(&path))
+            }
+            // Tables as plain files: shapes (if the layer has any) are dropped, except in CSV/TSV/JSON where they are written as WKT text.
+            "XLSX" | "ODS" | "DBF" => {
+                let (driver, note) = match fmt.as_str() {
+                    "XLSX" => ("XLSX", ""),
+                    "ODS" => ("ODS", ""),
+                    _ => ("ESRI Shapefile", ""),
+                };
+                let reserved: Vec<String> = ctx.columns(i)?.into_iter().filter(|c| c.eq_ignore_ascii_case("fid") || c.eq_ignore_ascii_case("ogc_fid")).collect();
+                let mut cols = vec![format!("SELECT * FROM {}", ident(&i.table))];
+                if i.has_geom {
+                    cols[0] = format!("SELECT * EXCLUDE (geom) FROM {}", ident(&i.table));
+                }
+                let mut src = cols.remove(0);
+                if !reserved.is_empty() {
+                    let renames = reserved.iter().map(|c| format!("{} AS {}", ident(c), ident(&format!("{c}_src")))).collect::<Vec<_>>();
+                    let excl = reserved.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
+                    src = format!("SELECT * EXCLUDE ({excl}{}), {} FROM {}", if i.has_geom { ", geom" } else { "" }, renames.join(", "), ident(&i.table));
+                }
+                ctx.conn.execute_batch(&format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}, USE_TMP_FILE false)", lit(&path), lit(driver)))?;
+                let dropped = if i.has_geom { " The shapes were not written (this format holds a table only); use CSV for them as WKT, or a spatial format." } else { "" };
+                return Ok(Output::Done(format!("Wrote {path}.{dropped}{note}")));
+            }
+            "TSV" => {
+                let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };
+                format!("COPY ({src}) TO {} (FORMAT CSV, HEADER, DELIMITER {})", lit(&path), lit("\t"))
+            }
+            "JSON" => {
+                let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };
+                format!("COPY ({src}) TO {} (FORMAT JSON, ARRAY true)", lit(&path))
             }
             "CSV" => {
                 let src = if i.has_geom { format!("SELECT * REPLACE (ST_AsText(geom) AS geom) FROM {}", ident(&i.table)) } else { src };

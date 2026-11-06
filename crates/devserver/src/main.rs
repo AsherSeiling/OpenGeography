@@ -131,6 +131,16 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let (layer, count) = e.delete_rows(&s(a, "id")?, &fids)?;
             json!({ "layer": layer, "count": count })
         }
+        "create_table" => json!(e.create_table(&s(a, "name")?, &de::<Vec<(String, String)>>(a, "fields")?)?),
+        "add_row" => {
+            let (layer, fid) = e.add_row(&s(a, "id")?)?;
+            json!({ "layer": layer, "fid": fid })
+        }
+        "rows_by_fid" => json!(e.rows_by_fid(&s(a, "id")?, &de::<Vec<i64>>(a, "fids")?)?),
+        "restore_rows" => {
+            let (layer, count) = e.restore_rows(&s(a, "id")?, &de::<Vec<engine::attrs::RowData>>(a, "rows")?)?;
+            json!({ "layer": layer, "count": count })
+        }
         "tiger_datasets" => json!(engine::tiger::DATASETS),
         "tiger_vintages" => json!(engine::tiger::vintages()?),
         "tiger_availability" => json!(engine::tiger::availability(&s(a, "vintage")?)?),

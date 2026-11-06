@@ -122,9 +122,16 @@ pub fn sources_for_path(conn: &Connection, path: &Path) -> Result<Vec<ImportSour
         return Ok(vec![parquet_source(conn, p, &stem)?]);
     }
 
-    let meta: String = conn
-        .query_row("SELECT to_json(layers)::VARCHAR FROM ST_Read_Meta(?)", [p], |r| r.get(0))
-        .with_context(|| format!("Could not read {p}"))?;
+    let meta: String = match conn.query_row("SELECT to_json(layers)::VARCHAR FROM ST_Read_Meta(?)", [p], |r| r.get(0)) {
+        Ok(m) => m,
+        // A .json file that isn't GeoJSON is a table of records: [{...}, {...}] or one record per line.
+        Err(_) if matches!(ext.as_str(), "json" | "ndjson" | "jsonl") => {
+            let read = format!("read_json_auto({})", lit(p));
+            columns_of(conn, &format!("SELECT * FROM {read}")).with_context(|| format!("Could not read {p} as GeoJSON or as a table of JSON records"))?;
+            return Ok(vec![ImportSource { name: stem, select: format!("SELECT * FROM {read}"), crs: None, crs_name: None, warnings: vec![] }]);
+        }
+        Err(e) => return Err(anyhow::Error::from(e).context(format!("Could not read {p}"))),
+    };
     let layers: Vec<serde_json::Value> = serde_json::from_str(&meta)?;
     let mut out = Vec::new();
     for l in &layers {
@@ -132,8 +139,19 @@ pub fn sources_for_path(conn: &Connection, path: &Path) -> Result<Vec<ImportSour
         let gfields = l["geometry_fields"].as_array().cloned().unwrap_or_default();
         let read = format!("ST_Read({}, layer := {})", lit(p), lit(&lname));
         let display_name = if layers.len() == 1 { stem.clone() } else { lname.clone() };
-        if gfields.is_empty() {
-            out.push(ImportSource { name: display_name, select: format!("SELECT * FROM {read}"), crs: None, crs_name: None, warnings: vec![] });
+        // A .dbf is a table: the Shapefile driver gives it an empty shape column that must not make it a point layer.
+        let dbf_shape = if ext == "dbf" { geometry_column(conn, &format!("SELECT * FROM {read}"))? } else { None };
+        if gfields.is_empty() || ext == "dbf" {
+            // GDAL numbers spreadsheet and dBASE rows itself (OGC_FID); that is not one of the user's columns.
+            let mut exclude: Vec<String> = Vec::new();
+            if matches!(ext.as_str(), "xlsx" | "xlsm" | "ods" | "dbf") && columns_of(conn, &format!("SELECT * FROM {read}"))?.iter().any(|c| c.name == "OGC_FID") {
+                exclude.push("OGC_FID".into());
+            }
+            if let Some(g) = &dbf_shape {
+                exclude.push(g.clone());
+            }
+            let select = if exclude.is_empty() { format!("SELECT * FROM {read}") } else { format!("SELECT * EXCLUDE ({}) FROM {read}", exclude.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ")) };
+            out.push(ImportSource { name: display_name, select, crs: None, crs_name: None, warnings: vec![] });
             continue;
         }
         let (crs, crs_name) = crs_from_meta(conn, &gfields[0]["crs"]);

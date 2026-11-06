@@ -25,7 +25,7 @@ export function ExportDialog({ owner, onClose }: { owner: string; onClose: () =>
               <Radio value="all" label={`All features (${total.toLocaleString()}${base.definitionQuery ? ", after the definition query" : ""})`} />
               <Radio value="selected" disabled={nsel === 0} label={`Selected features only (${nsel.toLocaleString()})`} />
             </RadioGroup>
-            {base.geomType !== "Raster" && (
+            {base.geomType !== "Raster" && base.geomType !== "Table" && (
               <Checkbox label="Add a USNG / MGRS reference column (a point on lines and polygons)" checked={withGrid} onChange={(_, d) => setWithGrid(!!d.checked)} />
             )}
             {withGrid && (
@@ -45,7 +45,7 @@ export function ExportDialog({ owner, onClose }: { owner: string; onClose: () =>
               </div>
             )}
             <div className="muted small">
-              Next you'll choose the file. The format follows the extension: GeoPackage, Shapefile, GeoJSON, FlatGeobuf, GeoParquet or CSV. The coordinate system is written with the data.
+              {base.geomType === "Table" ? "Next you'll choose the file. The format follows the extension: CSV, TSV, Excel (.xlsx), OpenDocument (.ods), Parquet, JSON records, dBASE (.dbf) or GeoPackage." : "Next you'll choose the file. The format follows the extension: GeoPackage, Shapefile, GeoJSON, FlatGeobuf, GeoParquet or CSV. The coordinate system is written with the data."}
               {info.resultOf ? " This layer shows its node-tree result, so that is what gets exported." : ""}
             </div>
           </DialogContent>

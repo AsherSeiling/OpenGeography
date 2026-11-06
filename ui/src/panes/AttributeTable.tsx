@@ -43,12 +43,16 @@ interface Cell {
 }
 
 interface CellEdit {
+  kind?: "cell";
   layer: string;
   fid: number;
   field: string;
   before: string | null;
   after: string | null;
 }
+
+/** Table rows added or deleted (UR-14): undone by deleting the new row, or putting the saved rows back with their ids. */
+type RowEdit = { kind: "add"; layer: string; fid: number } | { kind: "delete"; layer: string; rows: { fid: number; values: (string | null)[] }[] };
 
 export function AttributeTable() {
   const order = useApp((s) => s.order);
@@ -88,7 +92,7 @@ export function AttributeTable() {
   };
   const [widths, setWidths] = useState<Record<string, number>>({});
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number; field: string } | null>(null);
-  const undo = useRef<CellEdit[]>([]);
+  const undo = useRef<(CellEdit | RowEdit)[]>([]);
   const pages = useRef(new Map<number, NodePage>());
   const loading = useRef(new Set<number>());
   const [, force] = useState(0);
@@ -228,8 +232,16 @@ export function AttributeTable() {
       return;
     }
     try {
-      applied(await api.updateCell(last.layer, last.fid, last.field, last.before));
-      status(`Undid edit to ${last.field}`);
+      if (last.kind === "add") {
+        applied((await api.deleteRows(last.layer, [last.fid])).layer);
+        status("Undid adding the row");
+      } else if (last.kind === "delete") {
+        applied((await api.restoreRows(last.layer, last.rows)).layer);
+        status(`Put back ${last.rows.length.toLocaleString()} row(s)`);
+      } else {
+        applied(await api.updateCell(last.layer, last.fid, last.field, last.before));
+        status(`Undid edit to ${last.field}`);
+      }
     } catch (e) {
       status(errorText(e));
     }
@@ -375,25 +387,50 @@ export function AttributeTable() {
         <Tooltip content={roTip("Calculate Geometry (area, length, coordinates)")} relationship="label">
           <Button size="small" icon={<RulerRegular />} disabled={readOnly || info.geomType === "Table"} onClick={() => dlg({ kind: "calcGeometry", layer: id!, owner })} />
         </Tooltip>
+        {info.geomType === "Table" && (
+          <Tooltip content={roTip("Add a blank row at the end")} relationship="label">
+            <Button
+              size="small"
+              icon={<AddRegular />}
+              disabled={readOnly}
+              onClick={async () => {
+                try {
+                  const r = await api.addRow(id!);
+                  applied(r.layer);
+                  undo.current.push({ kind: "add", layer: id!, fid: r.fid });
+                  status(`Added row ${r.layer.featureCount.toLocaleString()}; click a cell to fill it in`);
+                  requestAnimationFrame(() => virt.scrollToIndex(r.layer.featureCount - 1, { align: "end" }));
+                } catch (e) {
+                  status(errorText(e));
+                }
+              }}
+            >
+              Row
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip content={roTip(`Delete ${nsel} selected row(s)`)} relationship="label">
           <Button
             size="small"
             icon={<DeleteRegular />}
             disabled={readOnly || !nsel}
             onClick={async () => {
-              if (!confirm(`Delete ${nsel.toLocaleString()} selected row(s) from ${info.name}? This can't be undone.`)) return;
+              const isTable = info.geomType === "Table";
+              if (!isTable && !confirm(`Delete ${nsel.toLocaleString()} selected row(s) from ${info.name}? This can't be undone.`)) return;
               try {
+                const saved = isTable ? await api.rowsByFid(id!, selected!) : [];
                 const r = await api.deleteRows(id!, selected!);
+                if (isTable) undo.current.push({ kind: "delete", layer: id!, rows: saved });
                 applied(r.layer);
                 useApp.getState().setSelection(owner, []);
-                status(`Deleted ${r.count.toLocaleString()} row(s)`);
+                status(`Deleted ${r.count.toLocaleString()} row(s)${info.geomType === "Table" ? ". Ctrl+Z puts them back." : ""}`);
               } catch (e) {
                 status(errorText(e));
               }
             }}
           />
         </Tooltip>
-        <Tooltip content={roTip("Undo last cell edit (Ctrl+Z)")} relationship="label">
+        <Tooltip content={roTip("Undo the last edit, added row or deleted rows (Ctrl+Z)")} relationship="label">
           <Button size="small" icon={<ArrowUndoRegular />} disabled={readOnly} onClick={undoEdit} />
         </Tooltip>
         <div className="attr-sep" />

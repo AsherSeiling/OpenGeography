@@ -189,6 +189,7 @@ const list: Command[] = [
   { id: "addField", label: "Add Field", icon: <TableAddRegular />, run: () => active() && useDialog.getState().show({ kind: "addField", layer: active()!.id }), enabled: canEditActive },
   { id: "calcField", label: "Calculate Field", icon: <CalculatorRegular />, run: () => active() && useDialog.getState().show({ kind: "calcField", layer: active()!.id, owner: active()!.id }), enabled: canEditActive },
   { id: "calcGeometry", label: "Calculate Geometry", icon: <RulerRegular />, run: () => active() && useDialog.getState().show({ kind: "calcGeometry", layer: active()!.id, owner: active()!.id }), enabled: () => canEditActive() && active()!.geomType !== "Table" },
+  { id: "newTable", label: "New Table", icon: <TableRegular />, run: () => useDialog.getState().show({ kind: "newTable" }), tip: "Make an empty table with typed fields (text, numbers, dates, yes/no) and fill it in the Attribute Table. Tables have rows but no shapes" },
   { id: "testData", label: "Generate Test Data", icon: <DataUsageRegular />, run: () => useDialog.getState().show({ kind: "testData" }), tip: "Random points or polygons, to try tools and check speed" },
 
   // Analysis tab

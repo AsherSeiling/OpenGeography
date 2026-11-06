@@ -30,6 +30,7 @@ export type DialogState =
   | { kind: "selectByAttributes"; layer: string }
   | { kind: "selectByLocation"; layer: string }
   | { kind: "testData" }
+  | { kind: "newTable" }
   | { kind: "benchmark" }
   | { kind: "rename"; layer: string }
   | { kind: "addField"; layer: string }
@@ -83,7 +84,7 @@ async function busy<T>(label: string, f: () => Promise<T>): Promise<T | undefine
 // ---------- data ----------
 
 const DATA_FILTERS = [
-  { name: "GIS data", extensions: ["shp", "gpkg", "geojson", "json", "kml", "kmz", "fgb", "gml", "gpx", "csv", "tsv", "txt", "parquet", "zip", "tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2"] },
+  { name: "GIS data", extensions: ["shp", "gpkg", "geojson", "json", "kml", "kmz", "fgb", "gml", "gpx", "csv", "tsv", "txt", "parquet", "xlsx", "ods", "dbf", "ndjson", "jsonl", "zip", "tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2"] },
   { name: "All files", extensions: ["*"] },
 ];
 
@@ -363,7 +364,9 @@ export function exportLayer(owner: string) {
   useDialog.getState().show({ kind: "export", owner });
 }
 
-const EXPORT_FORMATS: Record<string, string> = { gpkg: "GPKG", shp: "ESRI Shapefile", geojson: "GeoJSON", json: "GeoJSON", parquet: "PARQUET", csv: "CSV", fgb: "FlatGeobuf" };
+const EXPORT_FORMATS: Record<string, string> = { gpkg: "GPKG", shp: "ESRI Shapefile", geojson: "GeoJSON", json: "GeoJSON", parquet: "PARQUET", csv: "CSV", fgb: "FlatGeobuf", tsv: "TSV", xlsx: "XLSX", ods: "ODS", dbf: "DBF" };
+/** A table has no shapes: .json is a list of records, not GeoJSON. */
+const TABLE_FORMATS: Record<string, string> = { ...EXPORT_FORMATS, json: "JSON" };
 
 /** Write what a layer shows (its node result if any, after its definition
  * query) to a file; `selectedOnly` writes just the selected features. */
@@ -373,8 +376,17 @@ export async function runExport(owner: string, selectedOnly: boolean, grid: Grid
   const fids = selectedOnly ? (useApp.getState().selection[owner] ?? []) : null;
   const path = await save({
     title: `Export ${selectedOnly ? `${fids!.length.toLocaleString()} selected features of ` : ""}${info.name}`,
-    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.${info.geomType === "Raster" ? "tif" : "gpkg"}`,
-    filters: info.geomType === "Raster" ? [{ name: "GeoTIFF", extensions: ["tif"] }] : [
+    defaultPath: `${info.name}${selectedOnly ? " selection" : ""}.${info.geomType === "Raster" ? "tif" : info.geomType === "Table" ? "csv" : "gpkg"}`,
+    filters: info.geomType === "Raster" ? [{ name: "GeoTIFF", extensions: ["tif"] }] : info.geomType === "Table" ? [
+      { name: "CSV", extensions: ["csv"] },
+      { name: "Tab-separated text", extensions: ["tsv"] },
+      { name: "Excel workbook", extensions: ["xlsx"] },
+      { name: "OpenDocument spreadsheet", extensions: ["ods"] },
+      { name: "Parquet", extensions: ["parquet"] },
+      { name: "JSON records", extensions: ["json"] },
+      { name: "dBASE table", extensions: ["dbf"] },
+      { name: "GeoPackage", extensions: ["gpkg"] },
+    ] : [
       { name: "GeoPackage", extensions: ["gpkg"] },
       { name: "Shapefile", extensions: ["shp"] },
       { name: "GeoJSON", extensions: ["geojson"] },
@@ -384,7 +396,7 @@ export async function runExport(owner: string, selectedOnly: boolean, grid: Grid
     ],
   });
   if (!path) return;
-  const format = EXPORT_FORMATS[path.split(".").pop()?.toLowerCase() ?? ""] ?? "GPKG";
+  const format = (info.geomType === "Table" ? TABLE_FORMATS : EXPORT_FORMATS)[path.split(".").pop()?.toLowerCase() ?? ""] ?? (info.geomType === "Table" ? "CSV" : "GPKG");
   const res = await busy(`Exporting ${info.name}`, () =>
     api.runGraph(exportGraph(info.id, fids, path, format, info.geomType === "Raster" ? null : grid)),
   );

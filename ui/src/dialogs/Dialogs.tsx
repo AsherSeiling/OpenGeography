@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 import { defineProjection, generateTestData, selectByAttributes, selectByLocation, useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
+import { NewTableDialog } from "./NewTableDialog";
 import { CrsTreeView } from "../crs/CrsTreeView";
 import { STATES } from "./TigerDialog";
 import { api, errorText, type CrsInfo } from "../ipc/api";
@@ -97,6 +98,8 @@ function DialogHost() {
       return <SelectByAttributesDialog layer={dialog.layer} onClose={close} />;
     case "selectByLocation":
       return <SelectByLocationDialog layer={dialog.layer} onClose={close} />;
+    case "newTable":
+      return <NewTableDialog onClose={close} />;
     case "testData":
       return <TestDataDialog onClose={close} />;
     case "benchmark":
