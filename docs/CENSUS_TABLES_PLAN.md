@@ -1,6 +1,6 @@
 # Census tables: plan
 
-Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Its place in the order of work isn't decided yet (see "Decisions for the user").
+Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list (`docs/USER_REQUESTS_2026-11-05.md`), before server connections and planetary.
 
 ## What the user asked for
 
@@ -168,7 +168,7 @@ Close review by Opus: C1 grouping, C3 key handling, C4 GEOID and boundary years,
 
 ## Decisions for the user
 
-1. **Order:** where does this go? It is large, about 7 Sonnet packages. Recommended: after the current user-requests list (Batches C and D) and before server connections and planetary, since it builds on the same data and table work.
+1. **Order: decided by the user, 2026-11-06:** after the user-requests list, before server connections and planetary.
 2. **Column names:** plain names with the codes in metadata (recommended), or Census codes.
 3. **Years shipped in the index:** recommended, the last 5 ACS 5-year releases plus DHC 2020, about a few MB (C0 measures it), with older years fetched on demand.
 

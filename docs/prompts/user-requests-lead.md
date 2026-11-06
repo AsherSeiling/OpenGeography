@@ -21,7 +21,7 @@ Follow the batches in `docs/USER_REQUESTS_2026-11-05.md`: A, B, C, D, one commit
 
 Requests that say to confirm or decide with the user (UR-7 wheel behaviour, UR-15 format list) are asked when you reach them, batched together.
 
-After this list, return to `docs/prompts/bugs-and-planetary-lead.md` Batch 2 (server connections) and Batch 3 (planetary), unless the user orders it differently.
+After this list, the Census tables importer (`docs/prompts/census-tables-lead.md`), then return to `docs/prompts/bugs-and-planetary-lead.md` Batch 2 (server connections) and Batch 3 (planetary), unless the user orders it differently.
 
 ## Rules
 
