@@ -118,6 +118,7 @@ fn main() {
             commands::export_layout,
             commands::sources,
             commands::update_source,
+            commands::add_layer_source,
             commands::remove_source,
             commands::record_basemap,
             commands::save_text,

@@ -7,10 +7,12 @@ import { ArrowClockwiseRegular, ArrowDownloadRegular, CopyRegular, DeleteRegular
 import { open, save } from "../ipc/dialogs";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { api, errorText, IN_TAURI, type Citation, type SourceEntry } from "../ipc/api";
+import { api, errorText, IN_TAURI, type Citation } from "../ipc/api";
 import { exportBibliography } from "../actions";
 import { annotation, reference, referenceText, sorted, STYLES, toBibtex, toHtml, toMarkdown, toRis, type Style } from "../sources/cite";
 import { useBibPrefs } from "../sources/prefs";
+import { uncitedLayers, useSourceLog } from "../sources/log";
+import { PASTED_KIND } from "../sources/cite";
 import { useApp } from "../store/store";
 
 const projectName = () => useApp.getState().projectDir?.split(/[\\/]/).pop()?.replace(/\.gproj$/, "") ?? "Untitled project";
@@ -31,16 +33,30 @@ async function saveTextFile(text: string, name: string, ext: string, label: stri
 }
 
 export function SourcesPane() {
-  const [entries, setEntries] = useState<SourceEntry[]>([]);
+  const entries = useSourceLog((s) => s.entries);
+  const logErr = useSourceLog((s) => s.error);
   const [editing, setEditing] = useState<Citation | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Layers with no citation, and the one whose Add citation dialog is open (also opened from the Map Layers marker).
+  const [adding, setAdding] = useState<string | null>(null);
+  const request = useSourceLog((s) => s.request);
+  const layers = useApp((s) => s.layers);
+  const layerIds = useApp(useShallow((s) => Object.keys(s.layers)));
+  const loaded = useSourceLog((s) => s.loaded);
+  const uncited = loaded ? uncitedLayers(layers, layerIds, entries) : [];
+  useEffect(() => {
+    if (request) {
+      setAdding(request);
+      useSourceLog.getState().ask(null);
+    }
+  }, [request]);
   // Refresh when layers come and go or are renamed.
   const layerKey = useApp(useShallow((s) => Object.values(s.layers).map((l) => `${l.id}:${l.name}`).join("|")));
   const basemap = useApp((s) => s.basemap);
   const present = useApp(useShallow((s) => Object.keys(s.layers)));
 
   const refresh = useCallback(() => {
-    api.sources().then(setEntries).catch((e) => setErr(errorText(e)));
+    void useSourceLog.getState().refresh();
   }, []);
   useEffect(() => {
     // Give a just-started import a moment to log its sources.
@@ -128,7 +144,21 @@ export function SourcesPane() {
           <WarningRegular /> {incomplete} local file{incomplete === 1 ? " needs" : "s need"} a citation — click Edit to add the author, year and origin.
         </div>
       )}
-      {err && <div className="src-warn">{err}</div>}
+      {uncited.length > 0 && (
+        <div className="src-warn" data-testid="uncited">
+          <WarningRegular /> {uncited.length} layer{uncited.length === 1 ? " has" : "s have"} no citation:
+          {uncited.map((l) => (
+            <span key={l.id} className="src-uncited">
+              {" "}
+              <b>{l.name}</b>{" "}
+              <Button size="small" appearance="subtle" aria-label={`Add citation for ${l.name}`} onClick={() => setAdding(l.id)}>
+                Add citation
+              </Button>
+            </span>
+          ))}
+        </div>
+      )}
+      {(err || logErr) && <div className="src-warn">{err ?? logErr}</div>}
       {entries.length === 0 && <div className="muted pane-empty">Data you add — files, TIGER, National Map, elevation, basemaps — is listed here with a citation, ready to export as an annotated bibliography.</div>}
       <div className="src-list">
         {shown.map((e) => {
@@ -175,6 +205,18 @@ export function SourcesPane() {
           );
         })}
       </div>
+      {adding && layers[adding] && (
+        <AddCitationDialog
+          layerName={layers[adding].name}
+          onClose={() => setAdding(null)}
+          onAdd={async (c, accessed) => {
+            await api.addLayerSource(adding, c, accessed);
+            setAdding(null);
+            refresh();
+            useApp.getState().setStatus(`Added a citation to ${layers[adding]?.name ?? "the layer"}`);
+          }}
+        />
+      )}
       {editing && (
         <CitationDialog
           citation={editing}
@@ -187,6 +229,62 @@ export function SourcesPane() {
         />
       )}
     </div>
+  );
+}
+
+/** A citation for a layer that has none: fill in a form, or paste the citation as text (kept exactly as pasted). */
+function AddCitationDialog({ layerName, onClose, onAdd }: { layerName: string; onClose: () => void; onAdd: (c: Citation, accessed: string) => Promise<void> }) {
+  const empty: Citation = { key: "", author: "", year: "", title: "", version: "", publisher: "", url: "", kind: "Dataset", license: "", annotation: "", complete: true };
+  const [mode, setMode] = useState<"form" | "paste">("form");
+  const [c, setC] = useState<Citation>(empty);
+  const [text, setText] = useState("");
+  const [accessed, setAccessed] = useState(new Date().toISOString().slice(0, 10));
+  const [err, setErr] = useState<string | null>(null);
+  const field = (k: keyof Citation, label: string, hint?: string) => (
+    <Field label={label} hint={hint}>
+      <Input aria-label={label} value={String(c[k])} onChange={(_, d) => setC({ ...c, [k]: d.value })} />
+    </Field>
+  );
+  const ready = mode === "paste" ? text.trim() !== "" : c.title.trim() !== "" || c.author.trim() !== "";
+  const add = () => onAdd(mode === "paste" ? { ...empty, kind: PASTED_KIND, title: text } : c, accessed).catch((e) => setErr(errorText(e)));
+  return (
+    <Dialog open onOpenChange={(_, d) => !d.open && onClose()}>
+      <DialogSurface style={{ maxWidth: 560 }}>
+        <DialogBody>
+          <DialogTitle>Add a citation — {layerName}</DialogTitle>
+          <DialogContent className="stack">
+            <div className="btn-row">
+              <Button size="small" appearance={mode === "form" ? "primary" : "secondary"} onClick={() => setMode("form")}>Fill in a form</Button>
+              <Button size="small" appearance={mode === "paste" ? "primary" : "secondary"} onClick={() => setMode("paste")}>Paste a citation</Button>
+            </div>
+            {mode === "form" ? (
+              <>
+                {field("title", "Title", "Name of the dataset")}
+                {field("author", "Author or organisation")}
+                <div className="row2">
+                  {field("year", "Year", "n.d. if none")}
+                  {field("publisher", "Publisher")}
+                </div>
+                {field("url", "Web address (URL)")}
+                {field("license", "Licence or terms of use")}
+              </>
+            ) : (
+              <Field label="Citation text" hint="Paste the citation in any style. It is listed exactly as you paste it.">
+                <Textarea aria-label="Citation text" rows={5} value={text} onChange={(_, d) => setText(d.value)} />
+              </Field>
+            )}
+            <Field label="Accessed date" hint="The day you got the data (year-month-day)">
+              <Input aria-label="Accessed date" value={accessed} onChange={(_, d) => setAccessed(d.value)} />
+            </Field>
+            {err && <div className="src-warn">{err}</div>}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button appearance="primary" disabled={!ready} onClick={add}>Add citation</Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
   );
 }
 

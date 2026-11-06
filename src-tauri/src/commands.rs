@@ -566,6 +566,11 @@ pub async fn update_source(engine: Eng<'_>, citation: engine::sources::Citation)
 }
 
 #[tauri::command]
+pub async fn add_layer_source(engine: Eng<'_>, layer: String, citation: engine::sources::Citation, accessed: Option<String>) -> Res<engine::sources::Citation> {
+    blocking(&engine, move |e| e.add_layer_source(&layer, &citation, accessed.as_deref())).await
+}
+
+#[tauri::command]
 pub async fn remove_source(engine: Eng<'_>, key: String) -> Res<()> {
     blocking(&engine, move |e| e.remove_source(&key)).await
 }

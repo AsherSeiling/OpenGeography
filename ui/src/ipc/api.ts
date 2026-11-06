@@ -607,6 +607,8 @@ export const api = {
   fsStat: (paths: string[]) => invoke<{ path: string; entry: FsEntry | null }[]>("fs_stat", { paths }),
   sources: () => invoke<SourceEntry[]>("sources"),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
+  /** Give a layer a citation the user wrote (a form, or pasted text with kind "Pasted citation"); `accessed` is YYYY-MM-DD (default today). */
+  addLayerSource: (layer: string, citation: Citation, accessed?: string) => invoke<Citation>("add_layer_source", { layer, citation, accessed: accessed ?? null }),
   removeSource: (key: string) => invoke<void>("remove_source", { key }),
   recordBasemap: (id: string) => invoke<void>("record_basemap", { id }),
   saveText: (path: string, text: string) => invoke<void>("save_text", { path, text }),

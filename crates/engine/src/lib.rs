@@ -761,6 +761,20 @@ impl Engine {
         self.with_conn(|c| sources::update(c, citation))
     }
 
+    /// Add a citation the user wrote (form or pasted text) to a layer that has none, or to any layer. Layers that were made from this
+    /// one (its model results) get it too; layers made later inherit it as they inherit every source.
+    pub fn add_layer_source(&self, layer_id: &str, citation: &sources::Citation, accessed: Option<&str>) -> Result<sources::Citation> {
+        let info = self.layer(layer_id)?;
+        let derived: Vec<(String, String)> = self.layers.read().values().filter(|l| l.result_of.as_deref() == Some(layer_id)).map(|l| (l.id.clone(), l.name.clone())).collect();
+        self.with_conn(|c| {
+            let added = sources::add_user(c, citation, accessed, &info.id, &info.name)?;
+            for (id, name) in &derived {
+                sources::inherit(c, &[layer_id], id, name)?;
+            }
+            Ok(added)
+        })
+    }
+
     pub fn remove_source(&self, key: &str) -> Result<()> {
         self.with_conn(|c| sources::remove(c, key))
     }

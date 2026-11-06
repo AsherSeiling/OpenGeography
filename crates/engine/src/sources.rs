@@ -250,6 +250,39 @@ pub fn rename_layer(conn: &Connection, layer_id: &str, name: &str) -> Result<()>
     Ok(())
 }
 
+/// The kind of a citation the user pasted as free text: the text is kept whole in `title` and printed as it is.
+pub const PASTED_KIND: &str = "Pasted citation";
+
+/// Give `layer_id` a citation the user wrote (a form or pasted text). The key is new each time (`user:`…), the accessed date is the one
+/// given (YYYY-MM-DD) or today. Layers made from this one later inherit it like any other source.
+pub fn add_user(conn: &Connection, citation: &Citation, accessed: Option<&str>, layer_id: &str, layer_name: &str) -> Result<Citation> {
+    let day = today(conn)?;
+    let accessed = match accessed.map(str::trim).filter(|a| !a.is_empty()) {
+        Some(a) if a.len() == 10 && a.as_bytes()[4] == b'-' && a.as_bytes()[7] == b'-' && a.chars().filter(|c| c.is_ascii_digit()).count() == 8 => a.to_string(),
+        Some(a) => anyhow::bail!("The accessed date '{a}' isn't a date. Write it as year-month-day, for example 2026-11-05."),
+        None => day.clone(),
+    };
+    let mut c = citation.clone();
+    c.title = c.title.trim().to_string();
+    c.author = c.author.trim().to_string();
+    if c.kind == PASTED_KIND {
+        if c.title.is_empty() {
+            anyhow::bail!("Paste the citation text first.");
+        }
+    } else if c.title.is_empty() && c.author.is_empty() {
+        anyhow::bail!("Give the citation a title or an author (or paste its text).");
+    }
+    if c.kind.is_empty() {
+        c.kind = "Dataset".into();
+    }
+    c.complete = true;
+    let n: i64 = conn.query_row("SELECT count(*) FROM __sources WHERE key LIKE 'user:%'", [], |r| r.get(0))?;
+    c.key = format!("user:{}-{}", layer_id, n + 1);
+    conn.execute("INSERT INTO __sources VALUES (?, ?, ?)", [&c.key, &serde_json::to_string(&c)?, &accessed])?;
+    conn.execute("INSERT INTO __source_uses VALUES (?, ?, ?, ?)", [&c.key, layer_id, layer_name, &day])?;
+    Ok(c)
+}
+
 /// Replace a citation (user edits). The key can't change.
 pub fn update(conn: &Connection, citation: &Citation) -> Result<()> {
     let mut c = citation.clone();

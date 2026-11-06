@@ -174,6 +174,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             e.update_source(&de(a, "citation")?)?;
             json!(null)
         }
+        "add_layer_source" => json!(e.add_layer_source(&s(a, "layer")?, &de(a, "citation")?, a.get("accessed").and_then(|v| v.as_str()))?),
         "remove_source" => {
             e.remove_source(&s(a, "key")?)?;
             json!(null)

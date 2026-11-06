@@ -5,6 +5,7 @@ import {
   ArrowExportRegular,
   SettingsRegular,
   FilterRegular,
+  WarningRegular,
   LayerDiagonalAddRegular,
   FlowchartRegular,
   DeleteRegular,
@@ -19,12 +20,13 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { applyStyleToLayers, exportLayer, exportTable, moveLayers, pickedLayers, removeLayers, setLayersVisible, zoomToLayers, layerFromSelection, splitByAttribute, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
+import { uncitedLayers, useSourceLog } from "../sources/log";
+import { showPane } from "./panes";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
 import type { LayerInfo } from "../ipc/api";
 import { effectiveStyle, useApp, type LayerStyle } from "../store/store";
 import { activeMapOf } from "../store/maps";
 import { nextSelection } from "../layers/multiselect";
-import { showPane } from "./panes";
 
 export function Swatch({ info, style }: { info: LayerInfo; style?: LayerStyle }) {
   if (info.geomType === "Table") return <TableRegular className="swatch-icon" />;
@@ -65,6 +67,15 @@ export function Swatch({ info, style }: { info: LayerInfo; style?: LayerStyle })
 export function ContentsPane() {
   const order = useApp((s) => s.order);
   const layers = useApp((s) => s.layers);
+  // Layers that no source entry lists get a marker (UR-13); the log is read again whenever the set of layers changes.
+  const sourceEntries = useSourceLog((s) => s.entries);
+  const sourcesLoaded = useSourceLog((s) => s.loaded);
+  const layerKey = Object.keys(layers).join("|");
+  useEffect(() => {
+    const t = setTimeout(() => void useSourceLog.getState().refresh(), 400);
+    return () => clearTimeout(t);
+  }, [layerKey]);
+  const uncited = new Set(sourcesLoaded ? uncitedLayers(layers, Object.keys(layers), sourceEntries).map((l) => l.id) : []);
   const visible = useApp((s) => s.visible);
   const styles = useApp((s) => s.styles);
   const active = useApp((s) => s.activeLayer);
@@ -164,6 +175,19 @@ export function ContentsPane() {
               />
               <Swatch info={(results[id] && !showOriginal[id] ? results[id] : info)} style={effectiveStyle({ styles, results, showOriginal, resultRasterStyles }, id) ?? styles[id]} />
               <span className="tree-name">{info.name}</span>
+              {uncited.has(id) && (
+                <WarningRegular
+                  className="tree-uncited"
+                  data-testid="uncited-mark"
+                  aria-label={`${info.name} has no citation`}
+                  title="No citation for this layer. Click to add one in Sources."
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    useSourceLog.getState().ask(id);
+                    showPane("sources");
+                  }}
+                />
+              )}
               {nsel > 0 && <span className="sel-count" title="Selected features">{nsel.toLocaleString()}</span>}
               {info.definitionQuery && (
                 <FilterRegular
