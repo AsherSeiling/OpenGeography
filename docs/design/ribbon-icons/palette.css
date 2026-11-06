@@ -1,22 +1,19 @@
-/* Ribbon icon palette (UR-23 sample). One outline colour, six hues each with a strong and a light tone, and "paper" for white details.
-   Light theme values are the defaults; the dark set is applied under [data-theme="dark"] (the app's theme switch). */
+/* Ribbon icon palette (UR-23). Same values as ui/src/theme/tokens.css. Light is the default; dark under [data-theme="dark"]. */
 :root, [data-theme="light"] {
   --ic-line: #1B2A38;
-  --ic-blue: #3F8AD9;  --ic-blue-l: #CFE3F8;   /* data, layers, tables */
-  --ic-green: #3E9B58; --ic-green-l: #CBEBD1;  /* land, terrain, add, export */
-  --ic-amber: #E7A21B; --ic-amber-l: #FBE6B0;  /* selection, measure */
-  --ic-red: #D84C4C;   --ic-red-l: #F7CACA;    /* remove, clear */
-  --ic-grey: #8793A0;  --ic-grey-l: #E4E8EC;   /* inactive parts */
-  --ic-amber-d: #A56200; --ic-grey-d: #5B6773;  /* dashed selection outlines: 4:1 or better on the light backgrounds */
+  --ic-blue: #3F8AD9;  --ic-blue-l: #CFE3F8;
+  --ic-green: #3E9B58; --ic-green-l: #CBEBD1;
+  --ic-amber: #E7A21B; --ic-amber-l: #FBE6B0; --ic-amber-d: #A56200;
+  --ic-red: #D84C4C;   --ic-red-l: #F7CACA;
+  --ic-grey: #8793A0;  --ic-grey-l: #E4E8EC;   --ic-grey-d: #5B6773;
   --ic-paper: #FFFFFF;
 }
 [data-theme="dark"] {
   --ic-line: #D6DEE6;
   --ic-blue: #5AA2EA;  --ic-blue-l: #284A6E;
   --ic-green: #55B870; --ic-green-l: #285438;
-  --ic-amber: #F2B642; --ic-amber-l: #67501A;
+  --ic-amber: #F2B642; --ic-amber-l: #67501A; --ic-amber-d: #F2B642;
   --ic-red: #EE6A6A;   --ic-red-l: #6B2B2B;
-  --ic-grey: #9AA6B2;  --ic-grey-l: #3E4750;
-  --ic-amber-d: #F2B642; --ic-grey-d: #9AA6B2;
+  --ic-grey: #9AA6B2;  --ic-grey-l: #3E4750;   --ic-grey-d: #9AA6B2;
   --ic-paper: #1C2126;
 }
