@@ -6,7 +6,7 @@ Written 2026-11-06 at the user's request. A list, not a plan: nothing here is ch
 
 **The project's rules still apply:**
 - Use permissive code (MIT, Apache, BSD, ISC, Boost) directly.
-- Never copy GPL code. GPL tools are only a reference: their algorithms are reimplemented from published descriptions, and their tool ids are cited.
+- GPL tools may ship unmodified as separate programs when that isn't much slower (user, 2026-11-06). They are never linked or copied in; otherwise their algorithms are reimplemented and their ids cited.
 - Each addition goes in `docs/OPEN_SOURCE.md` in the same commit.
 
 The licences below are as I know them. **Check each licence again before adding it**: some projects split an MIT core from paid or GPL parts.
@@ -73,25 +73,32 @@ Easy tools with no library needed, from textbook methods:
 - profile along a line;
 - cut and fill / volume between surfaces.
 
-## GPL: reference only, reimplement from published descriptions
+## GPL: as separate programs, or reference only (rule changed 2026-11-06)
 
-| Source | Licence | Worth studying for |
-|---|---|---|
-| GRASS GIS | GPL-2 | `r.sun` (solar radiation), `r.cost` / `r.walk` (cost surfaces), `v.net.*` (networks), `r.watershed` |
-| SAGA GIS | GPL-2 (some parts LGPL) | Terrain morphometry, channel networks, landform classification |
-| QGIS Processing | GPL-2 | Tool behaviour and naming users know (already cited by id) |
-| TauDEM, RichDEM | GPL-3 | D-infinity flow, priority-flood depression filling |
-| gstat, GeoDa | GPL | Geostatistics and spatial statistics behaviour |
-| pgRouting | GPL-2 | Routing tool behaviour |
+**The user's rule since 2026-11-06:** a GPL tool may ship unmodified as a separate program the app runs, like WhiteboxTools, when that isn't much slower than a rewrite. It is never linked or copied in. Its licence and source ship with it (`docs/DECISIONS.md`, "GPL tools as separate programs").
+
+| Source | Licence | As a separate program? | Gives |
+|---|---|---|---|
+| **SAGA GIS** (`saga_cmd`) | GPL-2 (some parts LGPL) | **Good fit.** A command-line program with hundreds of tool libraries, in C++; reads and writes GeoTIFF and shapefiles. Build the command line without the GUI. | Terrain morphometry, landform classification, channel networks, solar radiation, many grid and vector tools |
+| **RichDEM** | GPL-3 | **Good fit.** Small C++ command-line tools | Priority-flood depression filling, flow metrics, terrain attributes |
+| **GeoDa** (`libgeoda`) | GPL-3 | **Possible.** Needs a small command-line wrapper, which is itself GPL and shipped with its source | LISA, spatial regression, regionalisation (SKATER, REDCAP) |
+| **GRASS GIS** | GPL-2 | **Doubtful.** Its tools need a GRASS database and session, many are Python scripts, and it's hundreds of MB. Check packaging on all three platforms before relying on it. | `r.sun`, `r.cost` / `r.walk`, `v.net.*`, `r.watershed` |
+| **TauDEM** | GPL-3 | **Doubtful.** Needs MPI at run time | D-infinity flow, terrain stability |
+| QGIS Processing | GPL-2 | **No.** It needs QGIS (standalone rule) | Tool behaviour and naming users know (already cited by id) |
+| gstat | GPL | **No.** An R package | Geostatistics behaviour, for reference |
+| pgRouting | GPL-2 | **No.** Needs PostgreSQL | Routing behaviour, for reference |
+
+A GPL program adds its licence, a pinned source and build script, and a `THIRD_PARTY_NOTICES.md` entry. Once one ships, the installers are no longer "GPL-free", though GIS Studio's own code stays MIT OR Apache-2.0.
 
 ## Recommended order (most useful per unit of work)
 
 1. **WhiteboxTools tools already shipped:** viewshed, cost distance and path, distance and allocation, curvature, TPI, wetness, HAND, stream order, LiDAR to DEM, focal statistics. About 30–40 useful tools, mostly ToolSpec wiring.
-2. **GDAL utilities:** viewshed, if WhiteboxTools' doesn't fit, plus proximity, sieve and TRI/TPI.
-3. **Textbook tools with no dependency:** kernel density, mean centre, standard distance, directional ellipse, average nearest neighbour, Ripley's K, tabulate area, profile, cut and fill.
-4. **`petgraph` + `fast_paths` network analysis:** routes, service areas and closest facility. ArcGIS Pro sells this as an extension, so it's a strong selling point.
-5. **`h3o` hex binning, `spade` natural neighbour, `linfa` supervised classification and DBSCAN.**
-6. **PySAL rewrites:** LISA, GWR, spatial regression.
-7. **Point clouds:** `las` / `laz` with WhiteboxTools LiDAR.
+2. **SAGA's command-line program, as a separate GPL program:** hundreds of terrain and grid tools in one bundled program, checked for speed and packaging first.
+3. **GDAL utilities:** viewshed, if WhiteboxTools' doesn't fit, plus proximity, sieve and TRI/TPI.
+4. **Textbook tools with no dependency:** kernel density, mean centre, standard distance, directional ellipse, average nearest neighbour, Ripley's K, tabulate area, profile, cut and fill.
+5. **`petgraph` + `fast_paths` network analysis:** routes, service areas and closest facility. ArcGIS Pro sells this as an extension, so it's a strong selling point.
+6. **`h3o` hex binning, `spade` natural neighbour, `linfa` supervised classification and DBSCAN.**
+7. **PySAL rewrites:** LISA, GWR, spatial regression.
+8. **Point clouds:** `las` / `laz` with WhiteboxTools LiDAR.
 
 Each would be a short Opus check of licence and method, then Sonnet packages adding ToolSpecs with tests. None of it is in the order of work yet.

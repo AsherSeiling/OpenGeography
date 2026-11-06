@@ -1,7 +1,7 @@
 # Open-source software, data and sources used or referenced
 
 Hand-kept register (started 2026-10-29). `THIRD_PARTY_NOTICES.md` is the generated licence list of everything compiled into or shipped with a build (it must be regenerated from a CI build, see `docs/DECISIONS.md` D2); this file says **why** each thing is here and **how** it is used or referenced.
-GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC, public domain; LGPL libraries only as shared libraries that can be replaced) is linked or bundled. GPL code is never bundled, linked or copied.
+GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC, public domain; LGPL libraries only as shared libraries that can be replaced) is linked or bundled. GPL code is never linked or copied into GIS Studio. Since 2026-11-06 (user), unmodified GPL tools may ship as separate programs the app runs, with their licence and source (`docs/DECISIONS.md`, "GPL tools as separate programs").
 
 **Standing rule (user, 2026-10-29):** every change that adds, removes or newly references open-source software, data or a published method updates this file in the same commit, and `THIRD_PARTY_NOTICES.md` when the shipped set changes (`scripts/third_party_notices.py`, plus its static list for non-crate items). Algorithms taken from a paper, a standard or another program are listed under "Referenced methods" with the citation.
 
@@ -99,7 +99,7 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 
 | Name | Licence | Why not |
 |---|---|---|
-| QGIS, GRASS GIS, SAGA GIS, RichDEM | GPL | bundling or copying would make the installers GPL; algorithms are reimplemented from their published descriptions |
+| QGIS, GRASS GIS, SAGA GIS, RichDEM | GPL | not linked or copied. Since 2026-11-06 they may ship as separate programs (decision "GPL tools as separate programs"); none does yet. Otherwise algorithms are reimplemented from their published descriptions |
 | Orfeo ToolBox | Apache-2.0 | candidate for heavy remote sensing (supervised classification, segmentation); too large for now |
 | PDAL | BSD | candidate for LiDAR (LAS/LAZ to DEM); not needed yet |
 | `smartcore`, `linfa` | Apache-2.0 / MIT | candidates for supervised classification (waits for the training-area design) |
