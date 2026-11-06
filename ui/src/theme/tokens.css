@@ -5,6 +5,15 @@
 
 /* ---------- Not theme-specific ---------- */
 :root {
+  /* ---- ribbon icon palette (UR-23): docs/DECISIONS.md "Ribbon icons" ---- */
+  --ic-line: #1B2A38;
+  --ic-blue: #3F8AD9;  --ic-blue-l: #CFE3F8;
+  --ic-green: #3E9B58; --ic-green-l: #CBEBD1;
+  --ic-amber: #E7A21B; --ic-amber-l: #FBE6B0; --ic-amber-d: #A56200;
+  --ic-red: #D84C4C;   --ic-red-l: #F7CACA;
+  --ic-grey: #8793A0;  --ic-grey-l: #E4E8EC;   --ic-grey-d: #5B6773;
+  --ic-paper: #FFFFFF;
+
   /* Type: Inter (bundled, UI only). Layout and map fonts are not set here. */
   --font-ui: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -111,6 +120,14 @@
 
 /* ---------- Dark ---------- */
 :root[data-theme="dark"] {
+  --ic-line: #D6DEE6;
+  --ic-blue: #5AA2EA;  --ic-blue-l: #284A6E;
+  --ic-green: #55B870; --ic-green-l: #285438;
+  --ic-amber: #F2B642; --ic-amber-l: #67501A; --ic-amber-d: #F2B642;
+  --ic-red: #EE6A6A;   --ic-red-l: #6B2B2B;
+  --ic-grey: #9AA6B2;  --ic-grey-l: #3E4750;   --ic-grey-d: #9AA6B2;
+  --ic-paper: #1C2126;
+
   color-scheme: dark;
   --surface-0: #262C32;
   --surface-1: #1C2126;

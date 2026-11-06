@@ -1,6 +1,6 @@
 // The ribbon's custom controls: galleries, menus and boxes that sit in a group beside plain command buttons.
 import { Menu, MenuDivider, MenuItem, MenuItemRadio, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
-import { AlignLeftRegular, ResizeRegular, MapRegular, ShapesRegular, ColorRegular, DeleteRegular, DocumentOnePageMultipleRegular, DocumentPdfRegular, DocumentRegular, DocumentSaveRegular, LayerRegular, PaintBrushRegular, TextAlignLeftRegular, ImageMultipleRegular } from "@fluentui/react-icons";
+import { RIcon } from "./icons/RIcon";
 import { useEffect, useState, type ReactElement } from "react";
 import { api, errorText, type LayoutTemplate } from "../ipc/api";
 import { pageCaption, useSeriesView } from "../layout/series";
@@ -19,7 +19,7 @@ export function NewLayoutGallery() {
     <Menu>
       <MenuTrigger>
         <button className="rbtn large" title="Create a print layout">
-          <span className="rbtn-icon"><DocumentPdfRegular /></span>
+          <span className="rbtn-icon"><RIcon name="new-layout" /></span>
           <span className="rbtn-label">New Layout ▾</span>
         </button>
       </MenuTrigger>
@@ -27,7 +27,7 @@ export function NewLayoutGallery() {
         <MenuList>
           {Object.keys(PAGE_SIZES).flatMap((size) =>
             (["landscape", "portrait"] as Orientation[]).map((o) => (
-              <MenuItem key={`${size}${o}`} icon={<DocumentRegular />} onClick={() => newLayout(size, o)}>
+              <MenuItem key={`${size}${o}`} icon={<RIcon name="page" />} onClick={() => newLayout(size, o)}>
                 {size} {o}
               </MenuItem>
             )),
@@ -49,18 +49,18 @@ export function TemplateSubmenu() {
   return (
     <Menu onOpenChange={(_, d) => d.open && void load()}>
       <MenuTrigger disableButtonEnhancement>
-        <MenuItem icon={<DocumentRegular />}>From template</MenuItem>
+        <MenuItem icon={<RIcon name="page" />}>From template</MenuItem>
       </MenuTrigger>
       <MenuPopover>
         <MenuList>
           {err && <MenuItem disabled>{err}</MenuItem>}
           {!list && !err && <MenuItem disabled>Loading…</MenuItem>}
           {list?.templates.filter((t) => t.builtin).map((t) => (
-            <MenuItem key={t.id} icon={<DocumentRegular />} onClick={() => void newLayoutFromTemplate(t.id)}>{t.name}</MenuItem>
+            <MenuItem key={t.id} icon={<RIcon name="page" />} onClick={() => void newLayoutFromTemplate(t.id)}>{t.name}</MenuItem>
           ))}
           {mine.length > 0 && <MenuDivider />}
           {mine.map((t) => (
-            <MenuItem key={t.id} icon={<DocumentRegular />} onClick={() => void newLayoutFromTemplate(t.id)}>{t.name}</MenuItem>
+            <MenuItem key={t.id} icon={<RIcon name="page" />} onClick={() => void newLayoutFromTemplate(t.id)}>{t.name}</MenuItem>
           ))}
           {list && list.skipped.length > 0 && <MenuItem disabled>{list.skipped.length} template file{list.skipped.length === 1 ? "" : "s"} could not be read</MenuItem>}
         </MenuList>
@@ -78,7 +78,7 @@ export function ThemeMenu() {
       <Menu onOpenChange={(_, d) => d.open && void api.layoutThemes().then(setThemes, () => setThemes([]))}>
         <MenuTrigger>
           <button className="rbtn small" disabled={!open} title="Topographic, thematic or minimalist: page colours, frame, legend box, scale bar and north arrow style">
-            <span className="rbtn-icon"><PaintBrushRegular /></span>
+            <span className="rbtn-icon"><RIcon name="symbology" /></span>
             <span className="rbtn-label">Page look ▾</span>
           </button>
         </MenuTrigger>
@@ -93,7 +93,7 @@ export function ThemeMenu() {
       <Menu onOpenChange={(_, d) => d.open && void api.layoutThemes().then(setThemes, () => setThemes([]))}>
         <MenuTrigger>
           <button className="rbtn small" disabled={!open} title="The page look plus the theme's colours on single-symbol layers (changes the map too)">
-            <span className="rbtn-icon"><ColorRegular /></span>
+            <span className="rbtn-icon"><RIcon name="palette" /></span>
             <span className="rbtn-label">Look + layer colours ▾</span>
           </button>
         </MenuTrigger>
@@ -117,13 +117,13 @@ export function TemplateGroup() {
   return (
     <div className="rcol">
       <button className="rbtn small" disabled={!open} title="Keep this page as a template for new layouts" onClick={() => void saveLayoutAsTemplate()}>
-        <span className="rbtn-icon"><DocumentSaveRegular /></span>
+        <span className="rbtn-icon"><RIcon name="save" /></span>
         <span className="rbtn-label">Save as Template</span>
       </button>
       <Menu onOpenChange={(_, d) => d.open && void load()}>
         <MenuTrigger>
           <button className="rbtn small" title="Delete one of your templates">
-            <span className="rbtn-icon"><DeleteRegular /></span>
+            <span className="rbtn-icon"><RIcon name="remove" /></span>
             <span className="rbtn-label">Delete Template ▾</span>
           </button>
         </MenuTrigger>
@@ -149,7 +149,7 @@ export function SeriesGroup() {
   return (
     <div className="rcol">
       <button className="rbtn small" disabled={!open} title="One page per feature of an index layer" onClick={() => useDialog.getState().show({ kind: "layoutSeries" })}>
-        <span className="rbtn-icon"><DocumentOnePageMultipleRegular /></span>
+        <span className="rbtn-icon"><RIcon name="series" /></span>
         <span className="rbtn-label">{series ? "Map Series…" : "Set Up Map Series…"}</span>
       </button>
       {series && (
@@ -190,13 +190,13 @@ function ArrangeDrop({ label, icon, tip, items, run, need = 1 }: { label: string
 }
 
 /** Arrange › Order: which selected elements are in front. */
-export const OrderMenu = () => <ArrangeDrop label="Order" icon={<LayerRegular />} tip="Change which selected elements are in front" items={ORDER_OPS} run={(op) => useLayouts.getState().arrange(op as OrderOp)} />;
+export const OrderMenu = () => <ArrangeDrop label="Order" icon={<RIcon name="order" />} tip="Change which selected elements are in front" items={ORDER_OPS} run={(op) => useLayouts.getState().arrange(op as OrderOp)} />;
 /** Arrange › Line Up › Align (one element aligns to the page margins). */
-export const AlignMenu = () => <ArrangeDrop label="Align" icon={<AlignLeftRegular />} tip="Line up the selected elements (one element aligns to the page margins)" items={ALIGN_OPS} run={(op) => useLayouts.getState().align(op as AlignOp)} />;
+export const AlignMenu = () => <ArrangeDrop label="Align" icon={<RIcon name="align" />} tip="Line up the selected elements (one element aligns to the page margins)" items={ALIGN_OPS} run={(op) => useLayouts.getState().align(op as AlignOp)} />;
 /** Arrange › Line Up › Distribute: equal gaps, three or more elements. */
-export const DistributeMenu = () => <ArrangeDrop label="Distribute" icon={<TextAlignLeftRegular />} tip="Equal gaps between three or more selected elements" need={3} items={[["h", "Distribute Horizontally"], ["v", "Distribute Vertically"]]} run={(op) => useLayouts.getState().distribute(op === "h" ? "horizontal" : "vertical")} />;
+export const DistributeMenu = () => <ArrangeDrop label="Distribute" icon={<RIcon name="distribute" />} tip="Equal gaps between three or more selected elements" need={3} items={[["h", "Distribute Horizontally"], ["v", "Distribute Vertically"]]} run={(op) => useLayouts.getState().distribute(op === "h" ? "horizontal" : "vertical")} />;
 /** Arrange › Line Up › Same Size, matched to the first selected element. */
-export const SameSizeMenu = () => <ArrangeDrop label="Same Size" icon={<ResizeRegular />} tip="Give the selected elements the width or height of the first one" need={2} items={[["w", "Same Width as First"], ["h", "Same Height as First"]]} run={(op) => useLayouts.getState().matchSize(op as "w" | "h")} />;
+export const SameSizeMenu = () => <ArrangeDrop label="Same Size" icon={<RIcon name="same-size" />} tip="Give the selected elements the width or height of the first one" need={2} items={[["w", "Same Width as First"], ["h", "Same Height as First"]]} run={(op) => useLayouts.getState().matchSize(op as "w" | "h")} />;
 
 /** Export › Map Series: every page of the series as one PDF or one PNG each (C3.2). */
 export function SeriesExport() {
@@ -206,7 +206,7 @@ export function SeriesExport() {
     <Menu>
       <MenuTrigger>
         <button className="rbtn large" disabled={!series || !pages.length} title={series ? "Export every page of the series" : "Set up a map series first (Page › Map Series)"}>
-          <span className="rbtn-icon"><DocumentPdfRegular /></span>
+          <span className="rbtn-icon"><RIcon name="new-layout" /></span>
           <span className="rbtn-label">Export Series ▾</span>
         </button>
       </MenuTrigger>
@@ -237,7 +237,7 @@ export function WhichMapMenu() {
     }}>
       <MenuTrigger>
         <button className="rbtn large" disabled={!frame} title="Choose which map's layers this frame draws">
-          <span className="rbtn-icon"><MapRegular /></span>
+          <span className="rbtn-icon"><RIcon name="map" /></span>
           <span className="rbtn-label">Which Map ▾</span>
         </button>
       </MenuTrigger>
@@ -288,7 +288,7 @@ export function ShapeMenu() {
     <Menu>
       <MenuTrigger>
         <button className="rbtn rail-btn" disabled={!inLayout} title="Insert a rectangle, ellipse, triangle, line or arrow">
-          <span className="rbtn-icon"><ShapesRegular /></span>
+          <span className="rbtn-icon"><RIcon name="shapes" /></span>
           <span className="rbtn-label">Shape ▾</span>
         </button>
       </MenuTrigger>
@@ -363,7 +363,7 @@ export function BasemapGallery() {
     <Menu checkedValues={{ basemap: [basemap] }} onCheckedValueChange={(_, d) => useApp.getState().setBasemap(d.checkedItems[0] as never)}>
       <MenuTrigger>
         <button className="rbtn large">
-          <span className="rbtn-icon"><ImageMultipleRegular /></span>
+          <span className="rbtn-icon"><RIcon name="basemap" /></span>
           <span className="rbtn-label">Basemap ▾</span>
         </button>
       </MenuTrigger>

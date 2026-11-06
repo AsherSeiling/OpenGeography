@@ -1,6 +1,6 @@
 // Save, Undo and Redo, in line with the ribbon tabs. Undo and Redo act on whatever is active: the open layout, else the active node tree.
 import { Tooltip } from "@fluentui/react-components";
-import { ArrowRedoRegular, ArrowUndoRegular } from "@fluentui/react-icons";
+import { RIcon } from "./icons/RIcon";
 import type { ReactNode } from "react";
 import { useStore } from "zustand";
 import { flushParamEdit, useModel } from "../store/model";
@@ -50,8 +50,8 @@ export function QuickAccess() {
   return (
     <div className="qa" role="toolbar" aria-label="Quick access">
       {btn("save", save.icon, "Save", `Save the project (${save.keys})`, false, () => save.run())}
-      {btn("undo", <ArrowUndoRegular />, "Undo", `Undo the last change to the ${h.target}`, !h.canUndo, h.undo)}
-      {btn("redo", <ArrowRedoRegular />, "Redo", `Redo the last undone change to the ${h.target}`, !h.canRedo, h.redo)}
+      {btn("undo", <RIcon name="undo" />, "Undo", `Undo the last change to the ${h.target}`, !h.canUndo, h.undo)}
+      {btn("redo", <RIcon name="redo" />, "Redo", `Redo the last undone change to the ${h.target}`, !h.canRedo, h.redo)}
     </div>
   );
 }
