@@ -118,3 +118,10 @@
   .proj-box { flex-basis: 110px; min-width: 70px; margin: 0 4px 4px 4px; }
   .tellme { min-width: 100px; margin-right: 4px; }
 }
+
+/* ---- full-colour ribbon icons (UR-23): RIcon draws at the font size of its place; small places drop fine detail and use a heavier line ---- */
+.ric { display: block; flex: none; --ic-sw: 1.6; }
+.rbtn.small .ric, .rmenu-item .ric, .qa-btn .ric, .add-row .ric, .rbtn.iconly .ric, .rail-btn .ric { --ic-sw: 2.3; }
+.rbtn.small .ric .d, .rmenu-item .ric .d, .qa-btn .ric .d, .add-row .ric .d, .rbtn.iconly .ric .d, .rail-btn .ric .d { display: none; }
+.rbtn:disabled .ric, .qa-btn:disabled .ric, .rmenu-item:disabled .ric, .rail-btn:disabled .ric, .rbtn[aria-disabled="true"] .ric { opacity: 0.4; filter: saturate(0.4); }
+.qa-btn .ric { font-size: 15px; }

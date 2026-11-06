@@ -1,7 +1,7 @@
 // Office / ArcGIS Pro style ribbon: a project cell at the top left, a tab row (tabs, Save / Undo / Redo, search) and a band of labelled
 // groups of large and small buttons. The open tab and its band are outlined as one shape. Contextual tabs appear for a layer and a layout.
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
-import { ArrowLeftRegular, ArrowRotateClockwiseRegular, DocumentSettingsRegular, PageFitRegular } from "@fluentui/react-icons";
+import { RIcon } from "./icons/RIcon";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useDialog } from "../actions";
@@ -204,7 +204,7 @@ export function Ribbon() {
         <ProjectBox />
         {inLayout && (
           <button className="rtab-back" title="Go back to the map" onClick={() => commands.paneMap.run()}>
-            <ArrowLeftRegular />
+            <RIcon name="back" />
             <span>Back to Map</span>
           </button>
         )}
@@ -369,7 +369,7 @@ export function PageMenu() {
       <Menu>
         <MenuTrigger>
           <button className="rbtn small" disabled={!page}>
-            <span className="rbtn-icon"><PageFitRegular /></span>
+            <span className="rbtn-icon"><RIcon name="fit-page" /></span>
             <span className="rbtn-label">Size: {cur?.size ?? "Custom"} ▾</span>
           </button>
         </MenuTrigger>
@@ -384,7 +384,7 @@ export function PageMenu() {
       <Menu>
         <MenuTrigger>
           <button className="rbtn small" disabled={!page}>
-            <span className="rbtn-icon"><ArrowRotateClockwiseRegular /></span>
+            <span className="rbtn-icon"><RIcon name="orientation" /></span>
             <span className="rbtn-label">Orientation: {cur?.orientation ?? (page && page.width > page.height ? "landscape" : "portrait")} ▾</span>
           </button>
         </MenuTrigger>
@@ -397,7 +397,7 @@ export function PageMenu() {
         </MenuPopover>
       </Menu>
       <button className="rbtn small" disabled={!page} title="Size, margin, bleed and crop marks, background, author and guides" onClick={setup}>
-        <span className="rbtn-icon"><DocumentSettingsRegular /></span>
+        <span className="rbtn-icon"><RIcon name="page-setup" /></span>
         <span className="rbtn-label">Page Setup…</span>
       </button>
     </div>

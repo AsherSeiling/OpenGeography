@@ -449,3 +449,18 @@ The user allowed GPL tools to be added without rewriting them when that isn't mu
 - **"Not much slower":** measured per tool on a typical input. Starting the program and writing its input and output files should cost little next to the work itself (as for WhiteboxTools). If a tool is called many times on small inputs, or the overhead dominates, reimplement it instead.
 - **Packaging still has to work** on macOS, Windows and Linux with no separate install (2026-11-04 rule). Tools that need a framework at run time (GRASS's database and Python scripts, TauDEM's MPI) count against this and may not qualify.
 
+
+## Ribbon icons: full colour, our own set (UR-23, 2026-11-06)
+
+The user asked for full-colour icons like ArcGIS Pro's and approved the style on `docs/design/ribbon-icons-sample.html`. ArcGIS Pro's icons are proprietary: they were a style reference only, nothing was traced or copied. Fluent's colour icons (MIT) were checked and none fit the single style, so all 108 icons are our own drawings (MIT, with the project).
+
+- **Where**: the ribbon (large and small buttons, collapsed group menus, the More menu), the quick access toolbar and the layout Insert rail. One component, `<RIcon name="add-data" />` (`ui/src/ribbon/icons/RIcon.tsx`); a command names its icon once, in `commands.tsx`. Node-card (tool) icons stay one-colour Fluent (`nodes/toolIcon.tsx`); chevrons and similar chrome stay Fluent.
+- **Source of truth**: `scripts/ribbon_icons_lib.py` (every drawing), `scripts/ribbon_icons_map.py` (which command used which Fluent icon before). `python3 scripts/build_ribbon_icons.py` writes `ui/src/ribbon/icons/generated.ts` (do not edit), `docs/design/ribbon-icons/<name>-32.svg` and `-16.svg`, and the sample sheet.
+- **Grid**: 32 × 32, drawn within 3–29. 32 px for large buttons and the rail, 16 px for small buttons, menus and quick access; the app scales one drawing, and small places hide the fine detail (`<g class="d">`, `.d` in `ribbon.css`) and raise the line from 1.6 to 2.3 (`--ic-sw`).
+- **Outline**: every shape has a 1.6 unit outline in `--ic-line`, round joins and caps. White details (plus, cross, "i") use `--ic-paper` and sit on a strong fill.
+- **Fills**: two or three per icon from six hues, each with a strong and a light tone: blue (data, layers, tables), green (land, terrain, add, export), amber (selection, measure, tools), red (remove, clear, location pins), grey (inactive parts, gears), plus `--ic-paper`. Strong tone for the thing the icon is about, light tone for its body or background. Badges (add, remove, clear) are a coloured circle with a white sign at the lower right.
+- **Selection rectangles** are dashed and have no solid outline, so they use the darker `--ic-amber-d` / `--ic-grey-d`.
+- **Dark theme**: the same names under `:root[data-theme="dark"]` in `tokens.css`; the outline becomes light, strong tones brighter, light tones deep tints, paper the surface colour. Palette values and contrast ratios are on the sample sheet (outline 11:1 or better on both themes; strong fills 3:1 or better except amber and grey on light, which always sit inside the outline).
+- **States**: a disabled button dims its icon (opacity 0.4, less saturation) as well as its text; an "on" command keeps the blue semibold label and the icon is unchanged.
+- **Adding an icon**: add a drawing with `@icon("name")` in the library using only these helpers and fill keys, run the build script, use `<RIcon name="name" />`. Do not use a raw colour; the hex test covers it.
+- **Esri**: do not trace or copy any ArcGIS Pro (or other proprietary) icon. Ideas such as "a magnifier with a plus" are common to all GIS software; the drawing must be ours.
