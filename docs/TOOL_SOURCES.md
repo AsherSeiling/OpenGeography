@@ -101,4 +101,4 @@ A GPL program adds its licence, a pinned source and build script, and a `THIRD_P
 7. **PySAL rewrites:** LISA, GWR, spatial regression.
 8. **Point clouds:** `las` / `laz` with WhiteboxTools LiDAR.
 
-Each would be a short Opus check of licence and method, then Sonnet packages adding ToolSpecs with tests. None of it is in the order of work yet.
+Each would be a short Opus check of licence and method, then Sonnet packages adding ToolSpecs with tests. Placed in the order as Phase T in `docs/MASTER_PLAN.md`: after shape editing, before the Census importer (user, 2026-11-06).

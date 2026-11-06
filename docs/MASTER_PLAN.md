@@ -88,7 +88,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | Shape editing | Planned 2026-11-06, not built | E0–E3 in `SHAPE_EDITING_PLAN.md` |
 | Census tables + Public Data node | Planned 2026-11-06, not built | C0–C8 in `CENSUS_TABLES_PLAN.md`, N1–N2 in `PUBLIC_DATA_NODE_PLAN.md` |
 | Every USGS service | Planned 2026-11-06, not built | U0–U2 in `SERVER_CONNECTIONS_PLAN.md` §4a, after S2–S3 |
-| T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; placement to confirm with the user |
+| T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; after shape editing, before Census (user, 2026-11-06) |
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
 
@@ -229,6 +229,8 @@ Moved to after the first release (user, 2026-11-04).
 
 ### Phase T — More tools from open-source code (user, 2026-11-06)
 
+**Order (user, 2026-11-06):** after shape editing, before the Census importer.
+
 Sources, licences and packaging cost: `docs/TOOL_SOURCES.md`. GPL tools may ship as separate programs when not much slower (DECISIONS "GPL tools as separate programs"); nothing GPL is linked or copied in. Each package starts with a short Opus check of licence, method and speed, then Sonnet adds ToolSpecs with tests and `OPEN_SOURCE.md` rows.
 
 | Task | Effort | Model | What |
@@ -262,7 +264,7 @@ UI UI redesign           done, pushed 2026-11-05
 -- Bug fixes             done (docs/BUGS.md)
 -- User requests         <- now: Batches A, B built; C, D next (docs/USER_REQUESTS_2026-11-05.md)
 E* Shape editing         edit mode and New Layer (docs/SHAPE_EDITING_PLAN.md)
-T  More tools            open-source tools (docs/TOOL_SOURCES.md); placement to confirm
+T  More tools            open-source tools (docs/TOOL_SOURCES.md)
 C* Census tables         importer, custom tables, with the Public Data node (CENSUS_TABLES_PLAN, PUBLIC_DATA_NODE_PLAN)
 S  Server connections    REST and WMS, then every USGS service (SERVER_CONNECTIONS_PLAN §4, §4a)
 F  Planetary GIS         last feature before the first release (docs/PLANETARY_PLAN.md)
