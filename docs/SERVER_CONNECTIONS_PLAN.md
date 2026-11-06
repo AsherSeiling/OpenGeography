@@ -106,12 +106,61 @@ Browser sign-in with OAuth or company single sign-on is left for after release, 
 
 ---
 
+## 4a. Every USGS service, with a way to download it (user, 2026-11-06)
+
+**The user's rule:** if the USGS has a REST server, GIS Studio has it, and has a way to download data from it.
+
+S1–S4 give the general machinery: browse any ArcGIS server, draw it, clip an ImageServer, save the view as a raster, and WFS (§5). This section makes it complete for the USGS: a directory of every USGS service, and a download path for every kind of service in it.
+
+**The USGS directory.** A new Catalog › Public Data › **USGS** section lists every USGS REST service, grouped by theme:
+- elevation, hydrography, boundaries, transportation and structures, names, land cover;
+- geology and minerals, hazards, water data, imagery, biology and habitat;
+- topographic maps, and planetary (the Astrogeology servers that Batch 3 needs).
+
+It has the same kind of offline search as the Census importer (`docs/CENSUS_TABLES_PLAN.md` §2), sharing its search code, plus keywords. Each entry shows its publisher, a description, the link to the USGS page and what you can do with it: draw, download features, download a raster clip, or download files.
+
+- **Built by a crawler script** (`scripts/usgs_directory.py`). It walks each USGS ArcGIS server's `?f=json` service directory (folders, services, layers) and the known non-ArcGIS APIs. It ships the result as a bundled resource with the crawl date, and the app can refresh it.
+- **The list of USGS hosts to crawl is decided in U0.** It is checked against USGS's own listings, not guessed. It includes the National Map servers already used (`index.nationalmap.gov`, `basemap.nationalmap.gov`, 3DEP elevation) and every other USGS ArcGIS server U0 confirms.
+- **Health check:** a script, also run in CI later, reports services that moved or stopped answering, so the directory doesn't silently rot. A dead service shows as unavailable with its reason, never as an empty download.
+
+**A download path for every service type:**
+
+| Service type | Download | Where built |
+|---|---|---|
+| FeatureServer / queryable MapServer layer | Features for an area, paged, with all fields | Built (`arcgis.rs`); moves into the S2 browser |
+| ImageServer (elevation, imagery, land cover) | Raster clip at a chosen resolution, with size shown first | S2 (general clip; 3DEP-only today) |
+| MapServer drawn as images only, or cached tiles | Save view as raster (a picture, not data; says so) | S3 |
+| WMS / WFS (for example USGS mineral resources) | WMS draw and save view; WFS features | S1, and WFS per §5 (now included) |
+| OGC API – Features (USGS Water Data) | Features, plus a USGS water preset: sites, then daily or continuous values for a date range as a table joined to sites | Built generically (`ogcapi.rs`); preset in U2 |
+| Earthquakes (FDSN event API) | Built (`jsonapis.rs`) | Built |
+| TNM Access products API | File products for an area: staged NHD, WBD and boundaries as GeoPackage, topo map GeoPDFs, 3DEP DEM tiles. Shows sizes first, downloads in the background, adds what it can open. | U2 |
+| ScienceBase catalog | Search items, list attached files and services, download files, open what's readable (GeoTIFF, shapefile, GeoPackage, CSV) | U2 |
+| Other USGS REST APIs that U0 finds | One small connector each, or a stated reason why not | U2 or later |
+
+**Stated limits rather than gaps:** a download that needs something the app can't open yet says so plainly. For example 3DEP lidar point clouds (LAZ / EPT): the app can list them and save the files, but has no point-cloud support to open them (`docs/PUBLIC_DATA_CATALOG.md` P2).
+
+**Every download goes through the same machinery:**
+- the background downloads of UR-9, with cancel;
+- citations with the service, layer and access date;
+- the Public Data node (`docs/PUBLIC_DATA_NODE_PLAN.md`), so any USGS service can also be a model input;
+- the CRS rule: a service's CRS is read from its metadata, and a service without one is refused, never guessed.
+
+| WP | Work | Done when | Sessions |
+|---|---|---|---|
+| **U0** | Opus spike: inventory the USGS ArcGIS servers and other USGS REST APIs from USGS's own listings; check each answers, its CRS and query support; decide the crawl list and which APIs need a connector | A list in this section with each host, its service count and the download path, signed off by the lead | 0.5 |
+| **U1** | Crawler and health-check scripts; bundled directory; Catalog USGS section with themes and search (shared with the Census search code) | Every crawled service appears with the right actions; the search query list passes; a dead service shows as unavailable | 1 |
+| **U2** | Connectors: TNM Access products, ScienceBase, the Water Data preset, plus any U0 adds | Each works against a local fake server, and once against the real service in an ignored network test | 1–1.5 |
+
+**Order:** U0–U2 come after S2 and S3 (they use the browser, ImageServer clip and save view) and after the Public Data node, so every USGS entry can be "Add as a node" from the start. They come before planetary, which uses the Astrogeology entries.
+
+---
+
 ## 5. Decisions
 
 **Defaults, unless the user changes them:**
 | Topic | Default | Why |
 |---|---|---|
-| WFS | Include if it's cheap once the dialog exists, since GDAL's WFS driver reads it | Same dialog, but downloads rather than draws |
+| WFS | **Included** (user's USGS rule, 2026-11-06: some USGS services, such as mineral resources, are WFS) | Same dialog, but downloads rather than draws; GDAL's WFS driver reads it |
 | WCS | Leave out | Rarely needed; ImageServer and STAC cover most raster downloads |
 | OGC API – Maps and Tiles | Leave out for now | Not widely deployed yet |
 

@@ -27,7 +27,7 @@ The user's instruction: keep as many tasks as possible in the same sessions, and
 - **LE-1:** named text styles aren't saved in the project; needs an engine field and a project format check.
 - **E2E-3, E2E-4:** flaky tests; fix only if they recur. **C-1b** stays accepted; don't work on it.
 
-Then stop and report, and tell the user the bug batch is ready for the Mac app rebuild and test. That rebuild is handled outside this session. Don't start Batch 2 until the user says that test is done.
+Then stop and report, and tell the user the bug batch is ready for the Mac app rebuild and test. That rebuild is handled outside this session. Don't start Batch 2 (now S1–S4, then U0–U2 from `docs/SERVER_CONNECTIONS_PLAN.md` §4a: every USGS service with a download path) until the user says that test is done.
 
 **Batch 2: server connections, `docs/SERVER_CONNECTIONS_PLAN.md` §4.**
 - **S1, S2, S3, S4:** give them to the same Sonnet session, in order, reviewing and merging each before sending the next.
