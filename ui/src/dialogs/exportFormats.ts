@@ -22,7 +22,7 @@ export const VECTOR_FORMATS: ExportFormat[] = [
   { id: "PARQUET", label: "GeoParquet (.parquet)", ext: "parquet" },
   { id: "CSV", label: "CSV with the shape as WKT text (.csv)", ext: "csv" },
   { id: "KML", label: "Google Earth KML (.kml)", ext: "kml", note: "Always WGS 84 longitude/latitude." },
-  { id: "GPX", label: "GPX for GPS devices (.gpx)", ext: "gpx", note: "Points and lines only; always WGS 84. Standard GPX fields such as name are kept under another name." },
+  { id: "GPX", label: "GPX for GPS devices (.gpx)", ext: "gpx", note: "Points (waypoints) and lines (routes) only; always WGS 84. Columns called name, desc, ele, time … become GPX's own elements; the rest are extensions." },
   { id: "DXF", label: "AutoCAD DXF (.dxf)", ext: "dxf", note: "Shapes only: DXF has no attribute table." },
 ];
 

@@ -173,6 +173,15 @@ impl Tool for Export {
             }
         }
 
+        if fmt == "GPX" {
+            if !i.has_geom {
+                bail!("GPX holds points and lines; this table has no shapes.");
+            }
+            // GPX goes through GDAL directly so a column called name, desc, ele … fills GPX's own <name>, <desc>, <ele>.
+            let extra = write_gpx(ctx, &path, &keep, &base, ctx.dimension(i)?)?;
+            notes.extend(extra);
+            return Ok(Output::Done(done_text(&path, "", &notes, &kept_note)));
+        }
         let sql = match fmt.as_str() {
             // Tables as plain files: shapes (if the layer has any) are dropped, except in CSV/TSV/JSON where they are written as WKT text.
             "XLSX" | "ODS" | "DBF" => {
@@ -223,27 +232,9 @@ impl Tool for Export {
                         notes.push("DXF holds shapes only, so no attributes were written".to_string());
                     }
                 }
-                if driver_name == "GPX" {
-                    // GPX defines fields of its own (name, ele, desc …) that GDAL will not create again: a column of that name is written as "name_".
-                    let clash: Vec<&String> = keep.iter().filter(|c| GPX_FIELDS.contains(&c.to_lowercase().as_str())).collect();
-                    if !clash.is_empty() {
-                        let renames = clash.iter().map(|c| format!("{} AS {}", ident(c), ident(&format!("{c}_")))).collect::<Vec<_>>().join(", ");
-                        let excl = clash.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", ");
-                        src = format!("SELECT * EXCLUDE ({excl}), {renames} FROM ({src})");
-                        notes.push(format!("GPX already defines the fields {}, so {} written with a trailing underscore (other programs will not read them as the standard GPX fields)", clash.iter().map(|c| format!("'{c}'")).collect::<Vec<_>>().join(", "), if clash.len() == 1 { "yours was" } else { "yours were" }));
-                    }
-                }
-                // GPX: keep every attribute as an extension (GPX itself has name, ele, time, desc and a few more).
-                let options = if driver_name == "GPX" {
-                    // A points layer becomes waypoints, a lines layer routes; GPX needs the one geometry type named.
-                    let kind = if ctx.dimension(i)? == 0 { "POINT" } else { "LINESTRING" };
-                    format!(", GEOMETRY_TYPE '{kind}', DATASET_CREATION_OPTIONS ('GPX_USE_EXTENSIONS=YES')")
-                } else {
-                    String::new()
-                };
                 // USE_TMP_FILE false: write in place. DuckDB otherwise writes a temp
                 // file and renames it, which Windows refuses while GDAL holds it open.
-                format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}{srs}{options}, USE_TMP_FILE false)", lit(&path), lit(driver_name))
+                format!("COPY ({src}) TO {} (FORMAT GDAL, DRIVER {}{srs}, USE_TMP_FILE false)", lit(&path), lit(driver_name))
             }
         };
         ctx.conn.execute_batch(&sql).map_err(|e| {
@@ -261,15 +252,121 @@ impl Tool for Export {
     }
 }
 
-/// Field names GPX's waypoint, route and track layers already have.
-const GPX_FIELDS: &[&str] = &["ele", "time", "magvar", "geoidheight", "name", "cmt", "desc", "src", "link1_href", "link1_text", "link1_type", "link2_href", "link2_text", "link2_type", "sym", "type", "fix", "sat", "hdop", "vdop", "pdop", "ageofdgpsdata", "dgpsid", "number", "route_fid", "route_point_id", "track_fid", "track_seg_id", "track_seg_point_id"];
+/// Write a points or lines layer as GPX: points as waypoints, lines as routes. A column whose name matches (any case) one of the
+/// layer's predefined GPX fields (name, desc, ele, time, …) fills that field, so it comes out as the standard element; the other
+/// columns are written as extensions. If two columns match one field the one spelled exactly like it wins, else the first, and the
+/// others are written as extensions (and listed in the result).
+fn write_gpx(ctx: &Ctx, path: &str, keep: &[String], base: &str, dimension: i32) -> Result<Vec<String>> {
+    use gdal::spatial_ref::SpatialRef;
+    use gdal::vector::{Feature, FieldDefn, Geometry, LayerAccess, LayerOptions};
+    use gdal_sys::OGRFieldType::{OFTInteger, OFTInteger64, OFTReal, OFTString};
+    let mut notes = Vec::new();
+    let reserved = |c: &str| c.eq_ignore_ascii_case("fid") || c.eq_ignore_ascii_case("ogc_fid");
+    // Column types, to type the extension fields.
+    let types: std::collections::HashMap<String, String> = {
+        let mut st = ctx.conn.prepare(&format!("DESCRIBE SELECT * FROM ({base})"))?;
+        let rows = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        rows.collect::<Result<_, _>>()?
+    };
+    let (layer_name, geom_type) = if dimension == 0 { ("waypoints", gdal_sys::OGRwkbGeometryType::wkbPoint) } else { ("routes", gdal_sys::OGRwkbGeometryType::wkbLineString) };
+    let _ = std::fs::remove_file(path);
+    // Asking the driver manager registers GDAL's drivers (once); calling GDAL directly first would find none.
+    let gpx = gdal::DriverManager::get_driver_by_name("GPX").map_err(|_| anyhow!("This GDAL has no GPX writer."))?;
+    let ds = unsafe {
+        let opts = crate::raster::argv_pub(&["GPX_USE_EXTENSIONS=YES".to_string()])?;
+        let driver = gpx.c_driver();
+        let p = std::ffi::CString::new(path)?;
+        let h = gdal_sys::GDALCreate(driver, p.as_ptr(), 0, 0, 0, gdal_sys::GDALDataType::GDT_Unknown, opts.as_ptr());
+        if h.is_null() {
+            bail!("Could not create the GPX file {path}.");
+        }
+        gdal::Dataset::from_c_dataset(h)
+    };
+    let mut ds = ds;
+    let mut srs = SpatialRef::from_epsg(4326)?;
+    srs.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+    let layer = ds.create_layer(LayerOptions { name: layer_name, srs: Some(&srs), ty: geom_type, options: None })?;
+    let predefined: Vec<String> = layer.defn().fields().map(|f| f.name()).collect();
+    // Which column fills which predefined field.
+    let mut fills: Vec<(String, String)> = Vec::new(); // (column, GPX field)
+    for field in &predefined {
+        let matches: Vec<&String> = keep.iter().filter(|c| !reserved(c) && c.eq_ignore_ascii_case(field)).collect();
+        if let Some(win) = matches.iter().find(|c| c.as_str() == field).or(matches.first()) {
+            fills.push(((*win).clone(), field.clone()));
+            for other in matches.iter().filter(|c| *c != win) {
+                notes.push(format!("'{win}' and '{other}' both match GPX's {field} field: '{win}' was written there and '{other}' as an extension"));
+            }
+        }
+    }
+    // Extension fields: every other column (fid-like names are renamed, GDAL keeps them for itself).
+    let ext_name = |c: &str| if reserved(c) { format!("{c}_src") } else { c.to_string() };
+    let ext: Vec<&String> = keep.iter().filter(|c| !fills.iter().any(|(col, _)| col == *c)).collect();
+    for c in &ext {
+        let ty = match types.get(c.as_str()).map(|t| t.to_uppercase()) {
+            Some(t) if t.contains("INT") => OFTInteger64,
+            Some(t) if t.contains("DOUBLE") || t.contains("FLOAT") || t.contains("DECIMAL") || t == "REAL" => OFTReal,
+            _ => OFTString,
+        };
+        FieldDefn::new(&ext_name(c), ty)?.add_to_layer(&layer)?;
+    }
+    // One waypoint or route per point or line (a multi-part shape becomes several), attributes repeated.
+    let cols = keep.iter().map(|c| format!("CAST({} AS VARCHAR)", ident(c))).collect::<Vec<_>>();
+    let sql = format!(
+        "SELECT ST_AsWKB(__g){}{} FROM (SELECT *, UNNEST(list_transform(ST_Dump(geom), __d -> __d.geom)) AS __g FROM ({base}) WHERE geom IS NOT NULL)",
+        if cols.is_empty() { "" } else { ", " },
+        cols.join(", ")
+    );
+    let mut st = ctx.conn.prepare(&sql)?;
+    let mut rows = st.query([])?;
+    let defn_fields: Vec<(String, u32)> = layer.defn().fields().map(|f| (f.name(), f.field_type())).collect();
+    let ftype = |n: &str| defn_fields.iter().find(|(x, _)| x == n).map(|(_, t)| *t);
+    let mut written = 0;
+    while let Some(r) = rows.next()? {
+        let wkb: Vec<u8> = r.get(0)?;
+        let mut f = Feature::new(layer.defn())?;
+        f.set_geometry(Geometry::from_wkb(&wkb)?)?;
+        for (k, c) in keep.iter().enumerate() {
+            let Some(v) = r.get::<_, Option<String>>(k + 1)? else { continue };
+            let target = fills.iter().find(|(col, _)| col == c).map(|(_, field)| field.clone()).unwrap_or_else(|| ext_name(c));
+            let idx = f.field_index(&target)?;
+            match ftype(&target) {
+                Some(t) if t == OFTReal => {
+                    if let Ok(x) = v.trim().parse::<f64>() {
+                        f.set_field_double(idx, x)?;
+                    }
+                }
+                Some(t) if t == OFTInteger64 || t == OFTInteger => {
+                    if let Ok(x) = v.trim().parse::<i64>() {
+                        f.set_field_integer64(idx, x)?;
+                    }
+                }
+                _ => f.set_field_string(idx, &v)?,
+            }
+        }
+        f.create(&layer)?;
+        written += 1;
+    }
+    drop(rows);
+    drop(st);
+    drop(ds);
+    if written == 0 {
+        notes.push("No points or lines were written".to_string());
+    }
+    if !fills.is_empty() {
+        notes.push(format!("Written as standard GPX elements: {}", fills.iter().map(|(c, f)| if c.as_str() == f.as_str() { f.clone() } else { format!("{c} → {f}") }).collect::<Vec<_>>().join(", ")));
+    }
+    if !ext.is_empty() {
+        notes.push(format!("{} other field(s) written as extensions", ext.len()));
+    }
+    Ok(notes)
+}
 
 fn done_text(path: &str, first: &str, notes: &[String], kept: &Option<String>) -> String {
     format!("Wrote {path}.{first}{}", tail(notes, kept))
 }
 
 fn tail(notes: &[String], kept: &Option<String>) -> String {
-    let all: Vec<&str> = kept.iter().map(String::as_str).chain(notes.iter().map(String::as_str)).collect();
+    let all: Vec<&str> = kept.iter().map(String::as_str).chain(notes.iter().map(String::as_str)).map(|n| n.trim_end_matches('.')).collect();
     if all.is_empty() { String::new() } else { format!(" {}", all.join(". ")) }
 }
 

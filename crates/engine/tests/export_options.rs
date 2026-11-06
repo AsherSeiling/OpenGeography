@@ -200,3 +200,37 @@ fn a_shapefile_reports_what_it_could_not_keep() {
     let msg = done(&r);
     assert!(!msg.contains("became"), "{msg}");
 }
+
+// GPX: a column called name / ELE / desc fills GPX's own elements (any letter case); the rest are extensions; lines become routes.
+#[test]
+fn gpx_puts_matching_columns_on_the_standard_elements_and_the_rest_in_extensions() {
+    let fx = fx();
+    let p = fx.dir.path().join("wpts.gpkg");
+    write(&p, &format!("SELECT 'Summit ' || x AS name, CAST(x AS DOUBLE) * 100.5 AS \"ELE\", 'a note' AS desc, x * 10 AS population, ST_Point({X} + x * 1000, {Y}) AS geom FROM range(3) t(x)"), "EPSG:26915");
+    let w = fx.e.import(&p).unwrap().remove(0).id;
+    let (r, path) = export(&fx, &w, "w.gpx", "GPX", json!({}));
+    let msg = done(&r);
+    assert!(msg.contains("Written as standard GPX elements") && msg.contains("ELE → ele") && msg.contains("2 other field(s) written as extensions") && !msg.contains(".."), "{msg}");
+    let xml = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(xml.matches("<wpt ").count(), 3, "{xml}");
+    assert!(xml.contains("<name>Summit 1</name>") && xml.contains("<ele>100.5</ele>") && xml.contains("<desc>a note</desc>"), "{xml}");
+    assert!(xml.contains("<ogr:population>10</ogr:population>") && xml.contains("<ogr:fid_src>"), "extension fields (the layer's own fid column too, renamed): {xml}");
+    assert!(!xml.contains("name_"), "nothing was renamed");
+    // Positions are WGS 84 lon/lat.
+    let lon: f64 = xml.split("lon=\"").nth(1).unwrap().split('"').next().unwrap().parse().unwrap();
+    assert!(lon < -92.0 && lon > -94.0, "{lon}");
+    // It reads back with the same names.
+    let back = fx.e.import(&path).unwrap().into_iter().find(|b| b.geom_type == "Point").unwrap();
+    assert_eq!(back.feature_count, 3);
+
+    // A line layer becomes a route, with its name.
+    let (r, path) = export(&fx, &fx.lines, "r.gpx", "GPX", json!({}));
+    done(&r);
+    let xml = std::fs::read_to_string(&path).unwrap();
+    assert!(xml.contains("<rte>") && xml.matches("<rtept ").count() == 3 && xml.contains("<name>road</name>"), "{xml}");
+    // The field choice still applies: without the name column there is no <name>.
+    let (r, path) = export(&fx, &fx.lines, "r2.gpx", "GPX", json!({"fields": ["id"]}));
+    done(&r);
+    let xml = std::fs::read_to_string(&path).unwrap();
+    assert!(!xml.contains("<name>") && xml.contains("<ogr:id>1</ogr:id>"), "{xml}");
+}
