@@ -1,6 +1,6 @@
 # Shape editing: plan
 
-Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Its place in the order of work isn't decided yet (see "Decisions for the user").
+Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list, before the Census importer.
 
 ## What the user asked for
 
@@ -94,5 +94,5 @@ Close review by Opus: E1 (transactions, version bump, project format) and every 
 
 ## Decisions for the user
 
-1. **Order:** where does this go? It's about 3 Sonnet packages. Recommended: right after the current request list and before the Census importer, because a GIS without shape editing is the biggest gap for everyday use.
+1. **Order: decided by the user, 2026-11-06:** after the request list, before the Census importer.
 2. **Separate mode** (recommended, as asked) versus editing any time: the mode makes it clear what's being changed, and gives one Save or Discard point.

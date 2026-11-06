@@ -1,6 +1,6 @@
 # Census tables: plan
 
-Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list (`docs/USER_REQUESTS_2026-11-05.md`), before server connections and planetary.
+Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list and shape editing, before server connections and planetary.
 
 ## What the user asked for
 
