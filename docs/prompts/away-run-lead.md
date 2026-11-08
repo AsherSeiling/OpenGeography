@@ -14,7 +14,8 @@ Read only: `CLAUDE.md`, `PROJECT_STATUS.md`, and this file. Read each plan only 
 
 ## Keep usage low
 
-- **One Sonnet session, reused.** Reuse `local_0f54b03b-7c96-4d5e-932e-042949534b24` (branch `claude/elastic-noether-8e980b`) with `SendMessage`. If it's near its limit or stalled, start one new one (`claude-sonnet-5-5`, `use_worktree: true`) and give it only the current package.
+- **One Sonnet session of your own, reused.** Only a session you started wakes you when it finishes, and the app only starts sessions on a turn begun by the user's own message. So **in your very first turn, start one new Sonnet session** (`claude-sonnet-5-5`, `use_worktree: true`) and reuse it with `SendMessage`.
+- **The previous worker** is `local_0f54b03b-7c96-4d5e-932e-042949534b24` (branch `claude/elastic-noether-8e980b`). It was given Batch C and won't report to you. Check it with `mcp__ccd_session_mgmt__get_session`. If it has finished, merge its branch into `ui-redesign` and give your new session whatever is left. If it's still working, have your new session start on Batch D (leaving the Settings dialog until Batch C is merged) and check the old worker again on each wake-up.
 - **Hand the worker several packages at once,** and tell it to build, test, commit and go straight to the next without waiting. It stops only at a review point below.
 - **Opus only decides, reviews risky code and debugs hard problems.** Read closely only the review points; grep the rest. Check each report against its diff.
 - **Workers** run `tsc`, vitest, the engine tests they affect (`--no-fail-fast`) and only the e2e specs they touched, on their own ports.
@@ -45,6 +46,12 @@ After each batch: merge the worker's branch into `ui-redesign`, run the full tes
 
 - After each batch, add a Change log row to the "GIS Studio — Project Status" doc (https://claude.ai/artifact/5Pvx6sQMhUVcsJeijMbrAj): what changed, what passed, what wasn't checked. The user reads this on their phone.
 - Keep `docs/AWAY_REPORT.md` for when the user returns: what was finished, what wasn't and why, tests passed, anything skipped, questions for the user, and icons or tools worth their eye. Plain and short.
+
+## Set up in your first turn
+
+1. Start your Sonnet session (above).
+2. Keep the Mac awake: `mcp__ccd_host__request_keep_awake` with `until: "session_idle"`.
+3. Set a recurring wake-up about every 4 hours (`CronCreate` or a scheduled task, whichever this session has) that opens this file's section below. If neither tool exists, say so in `docs/AWAY_REPORT.md`, because stalls then wait for the next finished worker.
 
 ## If you are woken by the timer
 
