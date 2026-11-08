@@ -91,13 +91,20 @@ fn tile_xml(svc: &str, cache: Option<&std::path::Path>) -> String {
 
 /// GDAL definition of a Web Mercator tile service read for the screen: four bands, so a tile the server doesn't have (404 or 204) is
 /// transparent and the warp leaves that place blank; no disk cache; a polite user agent and a few parallel connections.
-fn screen_xml(url: &str, level: u32) -> String {
+/// GDAL's own tile cache for the on-screen basemaps, on its in-memory file system: nothing reaches the disk and it is gone when the program ends.
+const SCREEN_CACHE: &str = "/vsimem/gis_studio_screen_tiles";
+/// After this many map tiles the cached source tiles are dropped, so memory stays bounded (about 9 source tiles of ~30 kB per map tile).
+const CLEAR_AFTER_MAP_TILES: u32 = 400;
+static MAP_TILES_SINCE_CLEAR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn screen_xml(url: &str, level: u32, max_connections: u32) -> String {
     let w = 20037508.342789244;
     format!(
         "<GDAL_WMS><Service name=\"TMS\"><ServerUrl>{}</ServerUrl></Service>\
          <DataWindow><UpperLeftX>-{w}</UpperLeftX><UpperLeftY>{w}</UpperLeftY><LowerRightX>{w}</LowerRightX><LowerRightY>-{w}</LowerRightY><TileLevel>{level}</TileLevel><TileCountX>1</TileCountX><TileCountY>1</TileCountY><YOrigin>top</YOrigin></DataWindow>\
          <Projection>EPSG:3857</Projection><BlockSizeX>256</BlockSizeX><BlockSizeY>256</BlockSizeY><BandsCount>4</BandsCount>\
-         <ZeroBlockHttpCodes>204,404</ZeroBlockHttpCodes><ZeroBlockOnServerException>true</ZeroBlockOnServerException><MaxConnections>8</MaxConnections>\
+         <ZeroBlockHttpCodes>204,404</ZeroBlockHttpCodes><ZeroBlockOnServerException>true</ZeroBlockOnServerException><MaxConnections>{max_connections}</MaxConnections>\
+         <Cache><Path>{SCREEN_CACHE}</Path><Depth>2</Depth><Expires>{CACHE_EXPIRES_S}</Expires></Cache>\
          <UserAgent>GIS Studio (open-source desktop GIS; map view)</UserAgent><Timeout>20</Timeout></GDAL_WMS>",
         xml_escape(url)
     )
@@ -108,14 +115,49 @@ fn screen_xml(url: &str, level: u32) -> String {
 /// something is drawn; everywhere else (past the poles of Web Mercator, where the CRS is undefined, where the server has no tile) the
 /// pixels are transparent.
 pub fn screen_tile(url: &str, level: u32, crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
-    let ds = Dataset::open(screen_xml(url, level)).map_err(|e| anyhow!("Could not open the basemap tile service: {e}"))?;
-    render_rgba(&ds, crs, bounds, size, size)
+    screen_tile_with(url, level, 2, crs, bounds, size)
+}
+
+/// An opened tile service kept for the next map tile. Only ever used while `SCREEN_DATASETS` is locked, so one thread at a time touches it.
+struct Kept(Dataset);
+// SAFETY: a `Kept` lives only inside the `SCREEN_DATASETS` mutex and is used by whichever thread holds the lock, never by two at once.
+unsafe impl Send for Kept {}
+
+/// The tile services opened so far, one per (URL, finest level). GDAL keeps the tiles it fetched in its block cache for as long as the
+/// dataset stays open, so neighbouring map tiles, which need many of the same source tiles, read them from memory instead of asking
+/// the provider again (OpenStreetMap and OpenTopoMap are volunteer-run and ask clients to cache). Memory only: nothing is written to disk.
+static SCREEN_DATASETS: std::sync::LazyLock<parking_lot::Mutex<std::collections::HashMap<(String, u32), Kept>>> = std::sync::LazyLock::new(Default::default);
+/// How many services are kept (there are only a handful of providers); past this the oldest are dropped.
+const KEPT_SERVICES: usize = 8;
+
+fn screen_tile_with(url: &str, level: u32, max_connections: u32, crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
+    let mut kept = SCREEN_DATASETS.lock();
+    let key = (url.to_string(), level);
+    if !kept.contains_key(&key) {
+        if kept.len() >= KEPT_SERVICES {
+            kept.clear();
+        }
+        let ds = Dataset::open(screen_xml(url, level, max_connections)).map_err(|e| anyhow!("Could not open the basemap tile service: {e}"))?;
+        kept.insert(key.clone(), Kept(ds));
+    }
+    let png = render_rgba(&kept[&key].0, crs, bounds, size, size);
+    if MAP_TILES_SINCE_CLEAR.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1 >= CLEAR_AFTER_MAP_TILES {
+        MAP_TILES_SINCE_CLEAR.store(0, std::sync::atomic::Ordering::Relaxed);
+        kept.clear();
+        if let Ok(c) = std::ffi::CString::new(SCREEN_CACHE) {
+            // SAFETY: a valid NUL-terminated path; the datasets that used the cache were just dropped, and the lock is still held.
+            unsafe { gdal_sys::VSIRmdirRecursive(c.as_ptr()) };
+        }
+    }
+    png
 }
 
 /// An on-screen basemap tile by provider id (see [`SCREEN_RASTERS`]).
 pub fn screen_raster_tile(id: &str, crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
     let (_, url, level) = SCREEN_RASTERS.iter().find(|(k, _, _)| *k == id).ok_or_else(|| anyhow!("'{id}' is not an on-screen raster basemap"))?;
-    screen_tile(url, *level, crs, bounds, size)
+    // The volunteer-run services get two connections; the USGS ones, which are a government service built for map clients, more.
+    let connections = if id.starts_with("usgs") { 8 } else { 2 };
+    screen_tile_with(url, *level, connections, crs, bounds, size)
 }
 
 /// Warp an RGBA picture drawn in Web Mercator (`rgba`, `w` × `h` px covering `merc` = `[xmin, ymin, xmax, ymax]` in EPSG:3857) to the

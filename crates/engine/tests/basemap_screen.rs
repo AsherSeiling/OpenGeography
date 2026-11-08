@@ -40,16 +40,25 @@ fn tile_png(z: u32, x: u32, y: u32, at: (f64, f64), radius: f64) -> Vec<u8> {
 
 /// Serve `/{z}/{x}/{y}.png`; tiles whose centre lies west of the Web Mercator x `missing_west_of` answer 404 (the provider has no tile there).
 fn serve(at: (f64, f64), radius: f64, missing_west_of: f64) -> String {
+    serve_counted(at, radius, missing_west_of).0
+}
+
+/// As [`serve`], also returning how many times each tile path was asked for.
+fn serve_counted(at: (f64, f64), radius: f64, missing_west_of: f64) -> (String, std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, u32>>>) {
+    let counts: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, u32>>> = Default::default();
+    let seen = counts.clone();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     std::thread::spawn(move || {
         for stream in listener.incoming().flatten() {
+            let counts_in = seen.clone();
             std::thread::spawn(move || {
                 let mut stream = stream;
                 let mut buf = [0u8; 2048];
                 let n = stream.read(&mut buf).unwrap_or(0);
                 let req = String::from_utf8_lossy(&buf[..n]).to_string();
                 let path = req.split_whitespace().nth(1).unwrap_or("").trim_start_matches('/').trim_end_matches(".png").to_string();
+                *counts_in.lock().unwrap().entry(path.clone()).or_insert(0) += 1;
                 let p: Vec<u32> = path.split('/').filter_map(|s| s.parse().ok()).collect();
                 let centre_x = if p.len() == 3 { -WORLD + (p[1] as f64 + 0.5) * (2.0 * WORLD / 2f64.powi(p[0] as i32)) } else { 0.0 };
                 if p.len() == 3 && centre_x >= missing_west_of {
@@ -62,7 +71,7 @@ fn serve(at: (f64, f64), radius: f64, missing_west_of: f64) -> String {
             });
         }
     });
-    format!("http://127.0.0.1:{port}/${{z}}/${{x}}/${{y}}.png")
+    (format!("http://127.0.0.1:{port}/${{z}}/${{x}}/${{y}}.png"), counts)
 }
 
 fn decode(bytes: &[u8]) -> (u32, u32, Vec<u8>) {
@@ -263,4 +272,28 @@ fn the_mercator_rectangle_for_a_map_view_is_none_where_nothing_can_be_placed_and
     };
     assert!(e.warp_basemap_picture(&gray, [0.0, 0.0, 1.0, 1.0], &w, [0.0, 0.0, 1.0, 1.0], 2, 2).unwrap_err().to_string().contains("RGBA"));
     assert!(e.warp_basemap_picture(b"not a png", [0.0, 0.0, 1.0, 1.0], &w, [0.0, 0.0, 1.0, 1.0], 2, 2).unwrap_err().to_string().contains("PNG"));
+}
+
+/// Panning across neighbouring map tiles must not ask the provider for a source tile it already gave: the opened service is kept, so GDAL's
+/// block cache answers the repeats (the volunteer-run providers ask clients to cache).
+#[test]
+fn neighbouring_map_tiles_do_not_fetch_a_source_tile_twice() {
+    let e = Engine::new().unwrap();
+    let (mx, my) = mercator(-97.5, 35.5);
+    let (url, counts) = serve_counted((mx, my), 3000.0, f64::NEG_INFINITY);
+    // Three map tiles side by side in UTM 15N, 256 px each; their source tiles overlap at the edges.
+    let (px, py) = e.transform_point(-97.5, 35.5, "EPSG:4326", "EPSG:26914").unwrap();
+    let w = 30_000.0;
+    let tiles: Vec<[f64; 4]> = (-1..=1).map(|i| [px + i as f64 * w - w / 2.0, py - w / 2.0, px + i as f64 * w + w / 2.0, py + w / 2.0]).collect();
+    for t in &tiles {
+        screen_tile(&url, 16, "EPSG:26914", *t, 256).unwrap();
+    }
+    let after_first_pass: std::collections::HashMap<String, u32> = counts.lock().unwrap().clone();
+    assert!(!after_first_pass.is_empty());
+    assert!(after_first_pass.values().all(|n| *n == 1), "a source tile was fetched more than once while panning: {after_first_pass:?}");
+    // Going back over the same tiles, in any order, asks for nothing new.
+    for t in tiles.iter().rev() {
+        screen_tile(&url, 16, "EPSG:26914", *t, 256).unwrap();
+    }
+    assert_eq!(*counts.lock().unwrap(), after_first_pass, "a second look at the same map tiles asked the provider again");
 }
