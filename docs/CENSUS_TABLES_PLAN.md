@@ -112,7 +112,8 @@ The existing `fetch_level` is generalised:
 - **The result is one new layer:** boundaries, plus one column per measure, plus a margin-of-error column per estimate.
   - Unmatched rows on either side are counted and listed, never dropped silently.
   - Water-only and zero-population areas stay, with empty values.
-- **Column names:** short plain names by default (`total_population`, `median_hh_income`), with the Census code kept in the field's metadata. An option uses the codes as column names instead.
+- **Column names (user, 2026-11-08):** a Census table keeps both names for every column: the Census code (`B01001_001E`) and the plain name (`Total population`). They belong to the same column, and the table header shows one at a time, with a switch between them. Sorting, filtering and joins work the same whichever is showing.
+  - **Export:** formats with free header rows (CSV, Excel) write two header rows, one with the codes and one with the plain names. Formats that allow one name per field (GeoPackage, Shapefile and so on) use the name showing at export; the export dialog says so.
   - Each field's metadata holds: code, Bureau label, universe, statistic, unit, year, margin-of-error partner and documentation link. This needs optional field metadata in the project format, with old projects still loading; check `layers.rs` in C0.
 - **Citations** go through `sources.rs`: dataset, year, table IDs and the API URL without the key. Derived layers inherit as now.
 
@@ -171,7 +172,7 @@ Close review by Opus: C1 grouping, C3 key handling, C4 GEOID and boundary years,
 ## Decisions for the user
 
 1. **Order: decided by the user, 2026-11-06:** after the user-requests list, before server connections and planetary.
-2. **Column names:** not answered; the recommended default applies: plain names with the Census codes in metadata, codes as an option.
+2. **Column names: decided by the user, 2026-11-08:** every column holds both the code and the plain name, one shown at a time, and CSV and Excel exports write them as two header rows (see "Column names" above). The one-name-per-field rule for GeoPackage and Shapefile is the lead's reading, since those formats can't hold two header rows.
 3. **Years: decided by the user, 2026-11-06:** every measure is sortable and filterable by year. The index covers every year a dataset offers (ACS 5-year from 2009, 1-year from 2005, decennial 2010 and 2020), so search results, browse and the basket can sort by year and show which years have each measure. C0 measures the size: if every year is too large to ship, the recent years ship and older years are fetched on demand (no key needed) and cached, still sortable the same way.
 
 ## Not decided yet / to check in C0

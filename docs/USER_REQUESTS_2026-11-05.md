@@ -6,7 +6,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 
 1. **Order. Decided by the user, 2026-11-05:** this list comes first, then server connections, then planetary, which stays the last feature before the first release.
 2. **What runs Python. Decided by the user, 2026-11-06:** ship standard CPython with the app (python-build-standalone, PSF licence), in its own process, exchanging rows through Arrow. Today's SQL translator stays only as a fallback for old saved queries.
-3. **Scripts inside projects run code.** Not answered by the user; the recommended default applies until they say otherwise: ask before running scripts from a project this computer didn't create; no sandbox beyond that. Say so in the Batch D report.
+3. **Scripts inside projects run code. Decided by the user, 2026-11-08:** ask before running scripts from a project this computer didn't create; no sandbox beyond that.
 
 ## Work, in the recommended order
 
@@ -20,7 +20,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 | UR-4 **done** (`438545b`) | Maps in a layout don't start with an outline frame | Frame is a per-element setting (`frameWidth`, 0 = none) | Find what a new map frame gets, and default it to none. Old layouts keep their frames. |
 | UR-5 **done** (`7c6423e`) | Layout of any size | Allowed 20–5000 mm, `ui/src/dialogs/PageSetupDialog.tsx:12` | Widen the limits as far as export really works, and say what limits remain. Test a very large page's export. |
 | UR-6 **done** (`eeb45e5`) | Guides in layouts | **Already exists**: drag from a ruler, or Page Setup. The user didn't find it | Add a visible ribbon control, so it can be found. |
-| UR-7 **done** (`86444f4`; plain wheel still scrolls, to ask the user) | Zoom toward the cursor for everything in a layout | Ctrl/⌘+wheel zooms the page, plain wheel scrolls (`LayoutView.tsx:113`) | Anchor zoom at the cursor. Decide with the user whether plain wheel should zoom. |
+| UR-7 **done** (`86444f4`; plain wheel keeps scrolling, user 2026-11-08) | Zoom toward the cursor for everything in a layout | Ctrl/⌘+wheel zooms the page, plain wheel scrolls (`LayoutView.tsx:113`) | Anchor zoom at the cursor. Decide with the user whether plain wheel should zoom. |
 
 ### Batch B: map and data working
 

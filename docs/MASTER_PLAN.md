@@ -84,8 +84,10 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | H. Advanced analysis | ✅ Complete | Hydrology is untested in the packaged app (M-32) and on Windows and Linux (R7). Supervised classification not built. |
 | Server connections (REST, WMS, WMTS) | Plan written 2026-11-04, not built | S1–S4 in `SERVER_CONNECTIONS_PLAN.md`, after the bug fixes and Mac test and before planetary |
 | UI redesign | ✅ Built and pushed to `main` 2026-11-05 | Nothing |
-| User requests (Mac test, 2026-11-05) | Batches A and B built and merged on `ui-redesign`, not pushed | Batches C and D in `USER_REQUESTS_2026-11-05.md` |
+| User requests (Mac test, 2026-11-05) | Batches A, B and C built and merged on `ui-redesign`, not pushed | Batch D in `USER_REQUESTS_2026-11-05.md` |
 | Shape editing | Planned 2026-11-06, not built | E0–E3 in `SHAPE_EDITING_PLAN.md` |
+| GR. Georeferencing and spatial adjustment | Listed 2026-11-08, not built | GR1–GR4 below; right after shape editing |
+| UX. Everyday usability | Listed 2026-11-08, not built | UX0–UX15 below; after georeferencing, before Phase T |
 | Census tables + Public Data node | Planned 2026-11-06, not built | C0–C8 in `CENSUS_TABLES_PLAN.md`, N1–N2 in `PUBLIC_DATA_NODE_PLAN.md` |
 | Every USGS service | Planned 2026-11-06, not built | U0–U2 in `SERVER_CONNECTIONS_PLAN.md` §4a, after S2–S3 |
 | T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; after shape editing, before Census (user, 2026-11-06) |
@@ -227,6 +229,50 @@ Moved to after the first release (user, 2026-11-04).
 
 **Total:** 8–12 sessions.
 
+### Phase GR — Georeferencing and spatial adjustment (user, 2026-11-08)
+
+**Order (user, 2026-11-08):** right after shape editing, since it reuses the same click-on-map tools.
+
+Nothing here exists yet. GDAL, already shipped, does the raster math (GCPs, polynomial and thin plate spline warps), so no new library is expected; methods are cited in `docs/OPEN_SOURCE.md` when built.
+
+Rules for the phase: the CRS of the control points is chosen by the user and never guessed. Output is always new data, and the source is never changed. Vector adjustment reports any feature it drops. Long work reports through `progress::Task` and can be cancelled. Outputs record a citation that includes the control points and method. Project format changes keep old projects opening, and new commands also go in the devserver. Opus reviews every transform and the error numbers.
+
+| Task | Effort | Model | What |
+|---|---|---|---|
+| GR1 | 1 | Sonnet | **Control points:** a georeferencing mode with the image beside a reference map; click a point on each, or type coordinates; points saved with the project, loaded from and exported to a file |
+| GR2 | 1–1.5 | Sonnet (Opus reviews) | **Raster warp:** 1st-order (affine), 2nd and 3rd-order polynomial and thin plate spline; per-point error and overall RMS, updated as points change; bad points can be turned off; live preview; writes a new GeoTIFF. The UI warns that a thin plate spline shows zero error at its control points, so that figure says nothing about accuracy there |
+| GR3 | 1 | Sonnet (Opus reviews) | **Vector spatial adjustment:** the same control points move a vector layer's shapes (affine, similarity and rubber sheet) with the same error table; writes a new layer |
+| GR4 | 0.5 | Sonnet | **Processing nodes:** nodes that reuse a saved set of control points in a node tree, from one `ToolSpec` each. The Reproject tool loses its misleading "georeference" search keyword |
+
+**Total:** about 3.5–4 sessions.
+
+### Phase UX — Everyday usability (user, 2026-11-08)
+
+**Order:** after georeferencing, before Phase T. This is the lead's placement; the user asked for all 15 to be added and can move it. The table is in order of value within the phase. UX1, UX2, UX6, UX7 and UX10 matter most.
+
+Rules for the phase: Output never modifies source data, so autosave and batch runs never write over a user's files. Long work reports through `progress::Task` and can be cancelled. Every new Tauri command also goes in the devserver. Each task adds its cases to `docs/TEST_PLAN.md`.
+
+| Task | Effort | Model | What |
+|---|---|---|---|
+| UX0 | 0.25 | Sonnet | **Check what exists:** the list came from a keyword search and a list of ideas. Report which of UX1–UX15 are already partly there, so each task only builds what's missing |
+| UX1 | 1 | Sonnet (Opus reviews the project format) | **Autosave and crash recovery:** a separate recovery copy on a timer, never over the project file; after a crash the app offers to restore it; never holds secrets |
+| UX2 | 0.5 | Sonnet | **Start page:** recent projects, new from template, open sample data |
+| UX3 | 0.5 | Sonnet | **Map bookmarks:** save a place and zoom by name, saved in the project, usable in layouts |
+| UX4 | 0.5 | Sonnet | **Swipe compare:** drag a divider across the map to compare layers |
+| UX5 | 1.5 | Sonnet | **Batch run:** a node tree or tool over a folder or list of layers, with a per-input report of what succeeded and failed |
+| UX6 | 1.5 | Sonnet | **Preview at any node:** see a node's result on the map, with row counts, before running the whole tree |
+| UX7 | 1 | Sonnet (Opus reviews the CRS checks) | **Check before running:** problems marked on the node, such as mismatched CRS or a missing field, with a one-click fix where the fix is safe. CRS is never guessed |
+| UX8 | 1.5 | Sonnet | **Reusable node groups:** save part of a tree as your own tool and share it between projects |
+| UX9 | 0.5 | Sonnet | **Copy and paste symbology:** styles and labels between layers, plus a personal style library |
+| UX10 | 0.5 | Sonnet | **Linked map and table:** selection follows both ways, show selected only, zoom to selection |
+| UX11 | 0.5 | Sonnet | **Search everywhere:** extend ribbon search to tools, layers, fields and coordinate systems |
+| UX12 | 1 | Sonnet | **Tool help in the app:** short explanation, before-and-after picture and citation, from `ToolSpec` with no second catalog |
+| UX13 | 0.5 | Sonnet | **Favourites and recent tools:** pin to the Shift+A menu and the ribbon |
+| UX14 | 0.5 | Sonnet | **Better status bar:** coordinates in a chosen format, map scale you can type, current CRS, background jobs |
+| UX15 | 0.5 | Sonnet | **First-run hints:** short tips in the node editor and layouts, which can be turned off |
+
+**Total:** about 10–13 sessions, a rough estimate until UX0 reports.
+
 ### Phase T — More tools from open-source code (user, 2026-11-06)
 
 **Order (user, 2026-11-06):** after shape editing, before the Census importer.
@@ -262,8 +308,10 @@ E  Raster foundation     complete
 H  Advanced analysis     complete
 UI UI redesign           done, pushed 2026-11-05
 -- Bug fixes             done (docs/BUGS.md)
--- User requests         <- now: Batches A, B built; C, D next (docs/USER_REQUESTS_2026-11-05.md)
+-- User requests         <- now: Batches A, B, C built; D next (docs/USER_REQUESTS_2026-11-05.md)
 E* Shape editing         edit mode and New Layer (docs/SHAPE_EDITING_PLAN.md)
+GR Georeferencing        scanned maps and images, plus vector spatial adjustment (Phase GR above)
+UX Everyday usability    autosave, start page, node preview and 12 more (Phase UX above)
 T  More tools            open-source tools (docs/TOOL_SOURCES.md)
 C* Census tables         importer, custom tables, with the Public Data node (CENSUS_TABLES_PLAN, PUBLIC_DATA_NODE_PLAN)
 S  Server connections    REST and WMS, then every USGS service (SERVER_CONNECTIONS_PLAN §4, §4a)
