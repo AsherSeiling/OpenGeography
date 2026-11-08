@@ -52,6 +52,8 @@ export function blank(w: number, h: number): HTMLCanvasElement {
 /** One off-screen Web Mercator map around `group`, reused for every picture (so its tiles stay cached). */
 export class MercatorRenderer {
   private map: OlMap;
+  private gone = false;
+  private disposers: (() => void)[] = [];
   private host: HTMLDivElement;
   /** `background`: the style's background colour, painted under the layers (OpenLayers puts it on a map's element, not in its canvases). */
   constructor(group: LayerGroup, private background: string | null = null) {
@@ -61,8 +63,14 @@ export class MercatorRenderer {
     this.map = new OlMap({ target: this.host, layers: [group], controls: [], interactions: [], pixelRatio: 1, view: new View({ projection: "EPSG:3857", center: [0, 0], resolution: 10000, constrainResolution: false }) });
   }
 
-  /** Draw the Web Mercator rectangle `merc` at `w` × `h` pixels and return the finished canvas. */
-  render(merc: [number, number, number, number], w: number, h: number): Promise<HTMLCanvasElement> {
+  /** True once the renderer has been disposed (the basemap, CRS or view changed): it draws nothing more. */
+  get disposed(): boolean {
+    return this.gone;
+  }
+
+  /** Draw the Web Mercator rectangle `merc` at `w` × `h` pixels and return the finished canvas; null when the renderer is (or becomes) disposed. */
+  render(merc: [number, number, number, number], w: number, h: number): Promise<HTMLCanvasElement | null> {
+    if (this.gone) return Promise.resolve(null);
     const map = this.map;
     this.host.style.width = `${w}px`;
     this.host.style.height = `${h}px`;
@@ -76,10 +84,11 @@ export class MercatorRenderer {
         if (done) return;
         done = true;
         clearTimeout(timer);
-        resolve(this.composite(w, h));
+        resolve(this.gone ? null : this.composite(w, h));
       };
       const timer = setTimeout(finish, RENDER_TIMEOUT_MS);
       map.once("rendercomplete", finish);
+      this.disposers.push(finish); // disposing while a picture is in flight ends the wait
       map.renderSync();
     });
   }
@@ -108,6 +117,10 @@ export class MercatorRenderer {
   }
 
   dispose() {
+    if (this.gone) return;
+    this.gone = true;
+    const waiting = this.disposers.splice(0);
+    waiting.forEach((f) => f());
     this.map.setTarget(undefined);
     this.map.getLayers().clear();
     this.host.remove();
@@ -115,21 +128,27 @@ export class MercatorRenderer {
 }
 
 /** An image for the map-CRS rectangle `extent` (`resolution` CRS units per pixel): the style drawn in Web Mercator, warped by the engine. */
-export async function vectorPictureFor(renderer: Pick<MercatorRenderer, "render">, crsKey: string, extent: [number, number, number, number], resolution: number, pixelRatio: number): Promise<HTMLCanvasElement> {
+/** `isCurrent` says whether the answer is still wanted (not superseded, renderer not disposed); after every wait it is checked and a stale picture is null, never drawn. */
+export async function vectorPictureFor(renderer: Pick<MercatorRenderer, "render">, crsKey: string, extent: [number, number, number, number], resolution: number, pixelRatio: number, isCurrent: () => boolean = () => true): Promise<HTMLCanvasElement | null> {
+  if (!isCurrent()) return null;
   let w = Math.max(1, Math.round(((extent[2] - extent[0]) / resolution) * pixelRatio));
   let h = Math.max(1, Math.round(((extent[3] - extent[1]) / resolution) * pixelRatio));
   const scale = Math.min(1, Math.sqrt(4_000_000 / (w * h)));
   w = Math.max(1, Math.round(w * scale));
   h = Math.max(1, Math.round(h * scale));
   const merc = await api.basemapMercatorExtent(crsKey, extent);
+  if (!isCurrent()) return null;
   if (!merc) return blank(w, h); // nothing of this view can be placed in Web Mercator
   const { mw, mh } = pictureSize(merc, w, h);
   const picture = await renderer.render(merc, mw, mh);
+  if (!picture || !isCurrent()) return null;
   const b64 = picture.toDataURL("image/png").split(",")[1];
   const warped = await api.warpBasemapPicture(b64, merc, crsKey, extent, w, h);
+  if (!isCurrent()) return null;
   const img = new Image();
   img.src = `data:image/png;base64,${warped}`;
   await img.decode();
+  if (!isCurrent()) return null;
   const out = blank(w, h);
   out.getContext("2d")!.drawImage(img, 0, 0);
   return out;

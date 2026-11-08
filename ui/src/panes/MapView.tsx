@@ -15,7 +15,7 @@ import XYZ from "ol/source/XYZ";
 import { apply as applyMapboxStyle } from "ol-mapbox-style";
 import ImageLayer from "ol/layer/Image";
 import ImageSource from "ol/source/Image";
-import { backgroundOf, loadStyleGroup, MercatorRenderer, vectorPictureFor } from "../map/vectorBasemap";
+import { backgroundOf, blank, loadStyleGroup, MercatorRenderer, vectorPictureFor } from "../map/vectorBasemap";
 import VectorSource from "ol/source/Vector";
 import VectorTileSource from "ol/source/VectorTile";
 import "ol/ol.css";
@@ -336,11 +336,14 @@ export function MapView({ mapId }: { mapId: string }) {
             const renderer = new MercatorRenderer(styled, backgroundOf(style));
             disposeRenderer = () => renderer.dispose();
             let chain: Promise<unknown> = Promise.resolve();
+            let latest = 0;
             const source = new ImageSource({
               projection,
               attributions: def.credit,
               loader: (extent, resolution, pixelRatio) => {
-                const next = chain.then(() => vectorPictureFor(renderer, crsKey, extent as [number, number, number, number], resolution, pixelRatio));
+                // A request that a newer one has replaced, or that outlives the renderer, resolves to an empty picture that nobody draws.
+                const mine = ++latest;
+                const next = chain.then(async () => (await vectorPictureFor(renderer, crsKey, extent as [number, number, number, number], resolution, pixelRatio, () => mine === latest && !renderer.disposed)) ?? blank(1, 1));
                 chain = next.catch(() => undefined);
                 return next;
               },
