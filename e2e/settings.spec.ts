@@ -33,3 +33,35 @@ test("UR-16 Settings opens from the View tab and the project menu, saves per use
   // Put the machine's settings back: this run shares one settings file.
   await gis(app, (g) => g.api.setSettings({}));
 });
+
+test("UR-17 the current panes can be saved as the startup layout: new projects open with them, a project with its own layout keeps it, Reset goes back", async ({ app }) => {
+  const dockTab = (name: string) => app.locator(".dv-tab").filter({ hasText: new RegExp(`^${name}$`) });
+  await expect(dockTab("Catalog")).toHaveCount(1);
+  const builtin = await app.evaluate(async () => (await import("/src/panes/panes.ts")).serializeDock());
+  // Arrange: no Catalog, Sources open. Save it from the View tab.
+  await dockTab("Catalog").locator(".dv-default-tab-action").click();
+  await expect(dockTab("Catalog")).toHaveCount(0);
+  await ribbon(app, "View", /^Sources$/);
+  await expect(dockTab("Sources")).toHaveCount(1);
+  await ribbon(app, "View", /^Save Startup Layout$/);
+  await expect.poll(() => gis(app, (g) => g.api.getSettings().then((s: any) => !!s.startupLayout))).toBe(true);
+
+  // A new project opens with it.
+  await gis(app, (g) => g.actions.newProject());
+  await expect(dockTab("Sources")).toHaveCount(1);
+  await expect(dockTab("Catalog")).toHaveCount(0);
+  await expect(dockTab("Map Layers")).toHaveCount(1);
+
+  // A project saved with its own layout keeps it (here: the built-in one, restored the way opening a project does).
+  await app.evaluate(async (d) => (await import("/src/panes/panes.ts")).restoreDock(d), builtin);
+  await expect(dockTab("Catalog")).toHaveCount(1);
+  await expect(dockTab("Sources")).toHaveCount(0);
+
+  // Reset: a new project is built-in again.
+  await ribbon(app, "View", /^Reset Startup Layout$/);
+  await expect.poll(() => gis(app, (g) => g.api.getSettings().then((s: any) => !!s.startupLayout))).toBe(false);
+  await gis(app, (g) => g.actions.newProject());
+  await expect(dockTab("Catalog")).toHaveCount(1);
+  await expect(dockTab("Sources")).toHaveCount(0);
+  await gis(app, (g) => g.api.setSettings({}));
+});

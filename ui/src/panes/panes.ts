@@ -116,8 +116,42 @@ export function syncMapPanels() {
   }
 }
 
-/** Default layout: Map Layers over Catalog on the left, the map in the middle, Properties on the right. No bottom panel; Sources is left out and opens from View. */
+/** The arrangement the user saved as their startup layout (Settings, UR-17), as `serializeDock()` made it; null = the built-in one. */
+let startupLayout: unknown = null;
+export const setStartupLayout = (v: unknown) => {
+  startupLayout = v ?? null;
+};
+export const hasStartupLayout = () => startupLayout !== null;
+
+/**
+ * The startup arrangement for this project: the saved panes and where they sit, with its first map panel pointing at the active map
+ * (the saved map's id means nothing here) and no layout tabs (those belong to the project they were saved in).
+ */
+export function adaptStartup(saved: unknown, activeMapId: string): unknown | null {
+  if (!usableDock(saved)) return null;
+  const ids = Object.keys(saved.layout.panels ?? {}).filter(isMapPanelId);
+  let text = JSON.stringify(saved);
+  const first = ids[0];
+  if (first && first !== activeMapId) text = text.split(`"${first}"`).join(`"${activeMapId}"`);
+  return JSON.parse(text);
+}
+
+/** Default layout: the user's startup layout if they saved one, else the built-in one. */
 export function defaultLayout() {
+  if (!dock) return;
+  if (startupLayout !== null) {
+    const adapted = adaptStartup(startupLayout, activeMapOf(useApp.getState()).id);
+    if (adapted) {
+      restoreDock(adapted, builtinLayout);
+      closeLayoutPanels();
+      return;
+    }
+  }
+  builtinLayout();
+}
+
+/** Built-in layout: Map Layers over Catalog on the left, the map in the middle, Properties on the right. No bottom panel; Sources is left out and opens from View. */
+export function builtinLayout() {
   if (!dock) return;
   rebuilding++;
   try {
@@ -205,9 +239,9 @@ export function usableDock(saved: unknown): saved is { version: number; layout: 
 }
 
 /** Restore a saved layout, or fall back to the default when it is old, unknown, names a removed pane or cannot be read. */
-export function restoreDock(saved: unknown) {
+export function restoreDock(saved: unknown, fallback: () => void = defaultLayout) {
   if (!dock) return;
-  if (!usableDock(saved)) return defaultLayout();
+  if (!usableDock(saved)) return fallback();
   rebuilding++;
   try {
     dock.fromJSON(saved.layout as never);
@@ -217,7 +251,7 @@ export function restoreDock(saved: unknown) {
       if (t && KNOWN.has(p.id) && p.title !== t) p.api.setTitle(t);
     }
   } catch {
-    defaultLayout();
+    fallback();
   } finally {
     rebuilding--;
   }

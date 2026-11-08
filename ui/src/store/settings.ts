@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { api, errorText, type ProgramSettings } from "../ipc/api";
 import { useNav } from "../nav/navStore";
 import { LENGTH_UNITS, AREA_UNITS } from "../nav/geodesy";
+import { defaultLayout, getDock, serializeDock, setStartupLayout } from "../panes/panes";
 import { setDefaultMapCrs } from "./defaults";
 import { useApp } from "./store";
 
@@ -25,12 +26,29 @@ export function applySettings(s: ProgramSettings) {
   if (s.areaUnit && AREA_UNITS[s.areaUnit]) nav.areaUnit = s.areaUnit;
   if (Object.keys(nav).length) useNav.getState().set(nav);
   setDefaultMapCrs(s.defaultCrs ?? null);
+  setStartupLayout(s.startupLayout ?? null);
   // An empty first map starts in the default system too.
   const a = useApp.getState();
   if (s.defaultCrs && !Object.keys(a.layers).length) {
     const m = a.maps.find((x) => x.id === a.activeMapId);
     if (m && !m.crs) a.setMapCrs(s.defaultCrs, m.id);
   }
+}
+
+/** Save the panes as they are now as the arrangement new projects and empty starts open with (UR-17). */
+export async function saveStartupLayout(): Promise<string | null> {
+  const dock = serializeDock();
+  if (!dock) return "There is no pane arrangement to save yet.";
+  const err = await useSettings.getState().update({ startupLayout: dock });
+  useApp.getState().setStatus(err ?? "Saved the current panes as your startup layout. New projects and empty starts open with it; a project keeps the layout it was saved with.");
+  return err;
+}
+
+/** Forget the startup layout: new projects open with the built-in panes again. */
+export async function resetStartupLayout(): Promise<string | null> {
+  const err = await useSettings.getState().update({ startupLayout: null });
+  useApp.getState().setStatus(err ?? "Startup layout reset: new projects open with the built-in panes.");
+  return err;
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
@@ -45,6 +63,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
     }
     set({ settings: s, loaded: true });
     applySettings(s);
+    // An empty start (no project, no layers) that already drew the built-in panes takes the user's startup layout.
+    const a = useApp.getState();
+    if (s.startupLayout && getDock() && !a.projectDir && !Object.keys(a.layers).length) defaultLayout();
   },
   update: async (patch) => {
     const next = { ...get().settings, ...patch };
