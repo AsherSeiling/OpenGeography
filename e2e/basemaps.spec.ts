@@ -25,16 +25,48 @@ test.describe("basemaps", () => {
     await expect.poll(async () => (await gis(app, (g) => g.api.sources())).map((s: any) => s.citation.key).sort()).toEqual(expect.arrayContaining(["natural-earth"]));
   });
 
-  test("a vector basemap in a UTM map says so in words and doesn't draw; the CRS stays", async ({ app }) => {
+  test("a vector basemap draws in a UTM map (UR-19): drawn off-screen in Web Mercator, warped by the engine, and a known polygon is where it belongs", async ({ app }) => {
+    // A synthetic style stands in for the provider (no network): a white background and a black square 0.1° wide around (-98, 38.5).
+    const style = {
+      version: 8,
+      sources: { box: { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [[[-98.05, 38.45], [-97.95, 38.45], [-97.95, 38.55], [-98.05, 38.55], [-98.05, 38.45]]] } } } },
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#ffffff" } }, { id: "box", type: "fill", source: "box", paint: { "fill-color": "#000000", "fill-opacity": 1 } }],
+    };
+    await app.route(/styles\/liberty/, (route: any) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(style) }));
     const m = (await gis(app, (g) => g.useApp.getState().maps[0])) as { id: string };
     await gis(app, (g, a: any) => { g.useApp.getState().setMapCrs(a.crs, a.id); g.useApp.getState().setBasemap("ofmLiberty", a.id); }, { crs: UTM14, id: m.id });
     await expect.poll(() => gis(app, (g, id: string) => g.mapController.getActiveCrs(id)?.id, m.id)).toBe("EPSG:26914");
-    await expect(mapEl(app, m.id).getByTestId("map-notices")).toContainText("OpenFreeMap Liberty is drawn in Web Mercator only, so it can't be shown in NAD83 / UTM zone 14N");
-    await expect(credit(app, m.id)).not.toContainText("OpenFreeMap");
+    // No refusal any more; the CRS stays; the provider's credit is on the map.
+    await expect(mapEl(app, m.id).getByText(/Web Mercator only/)).toHaveCount(0);
     expect(await gis(app, (g, id: string) => g.useApp.getState().maps.find((x: any) => x.id === id).crs.id, m.id)).toBe("EPSG:26914");
-    // Natural Earth draws in the same map and the message goes.
-    await gis(app, (g, id: string) => g.useApp.getState().setBasemap("naturalEarth", id), m.id);
-    await expect(mapEl(app, m.id).getByTestId("map-notices")).toHaveCount(0);
+    // Centre the view on the square's centre at 100 m per pixel: the square is about 90 px wide, so its centre is dark and 150 px away is white.
+    await gis(app, async (g, id: string) => {
+      const [x, y] = await g.api.transformPoint(-98, 38.5, "EPSG:4326", "EPSG:26914");
+      const v = g.getMap(id).getView();
+      v.setCenter([x, y]);
+      v.setResolution(100);
+    }, m.id);
+    const px = (dx: number) => gis(app, (g, a: any) => {
+      const map = g.getMap(a.id);
+      const size = map.getSize();
+      const k = (map.getViewport().querySelector("canvas") as HTMLCanvasElement).width / size[0];
+      // The basemap image layer is one of the viewport's canvases; read the composite of them all at the point.
+      const out = document.createElement("canvas");
+      out.width = Math.round(size[0] * k); out.height = Math.round(size[1] * k);
+      const ctx = out.getContext("2d")!;
+      map.getViewport().querySelectorAll("canvas").forEach((c: HTMLCanvasElement) => { if (c.width) ctx.drawImage(c, 0, 0, out.width, out.height); });
+      const d = ctx.getImageData(Math.round((size[0] / 2 + a.dx) * k), Math.round((size[1] / 2) * k), 1, 1).data;
+      return [d[0], d[1], d[2], d[3]];
+    }, { id: m.id, dx });
+    // (Poll for all three at once: the first picture may be an earlier view's until the one for this view is warped.)
+    await expect.poll(async () => [(await px(0))[0], (await px(70))[0] > 240, (await px(150))[0] > 240], { timeout: 40_000 }).toEqual([0, true, true]);
+    expect((await px(0))[3]).toBe(255);
+    // The edge is where 0.05° of longitude at 38.5° N is: about 41 px at 100 m/px. 30 px inside is dark, 55 px out is white.
+    expect((await px(30))[0]).toBe(0);
+    expect((await px(55))[0]).toBeGreaterThan(240);
+    expect((await px(-30))[0]).toBe(0);
+    expect((await px(-55))[0]).toBeGreaterThan(240);
+    expect(await credit(app, m.id).textContent()).toContain("OpenFreeMap");
   });
 
   test("a raster basemap in a UTM map is no longer refused far outside the zone (MM-3, UR-19): the engine warps it, the map says it is far outside", async ({ app }) => {

@@ -11,6 +11,9 @@ use gdal::Dataset;
 /// Base maps a layout frame may use, besides "none".
 pub const IDS: [&str; 4] = ["usgsTopo", "usgsImagery", "usgsRelief", NATURAL_EARTH];
 
+/// Latitude where Web Mercator ends.
+pub const MERCATOR_MAX_LAT: f64 = 85.0511;
+
 /// The bundled Natural Earth basemap's id.
 pub const NATURAL_EARTH: &str = "naturalEarth";
 
@@ -113,6 +116,36 @@ pub fn screen_tile(url: &str, level: u32, crs: &str, bounds: [f64; 4], size: u32
 pub fn screen_raster_tile(id: &str, crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
     let (_, url, level) = SCREEN_RASTERS.iter().find(|(k, _, _)| *k == id).ok_or_else(|| anyhow!("'{id}' is not an on-screen raster basemap"))?;
     screen_tile(url, *level, crs, bounds, size)
+}
+
+/// Warp an RGBA picture drawn in Web Mercator (`rgba`, `w` × `h` px covering `merc` = `[xmin, ymin, xmax, ymax]` in EPSG:3857) to the
+/// rectangle `extent` of the map CRS `crs`, `out_w` × `out_h` px, as an RGBA PNG. This is how a vector basemap, drawn off-screen in
+/// Web Mercator by the map view, is placed in any other coordinate system: the picture is a raster from here on, warped by PROJ like the
+/// raster tile basemaps. Transparent where the picture has nothing or the CRS has no answer.
+pub fn warp_mercator_picture(rgba: &[u8], w: u32, h: u32, merc: [f64; 4], crs: &str, extent: [f64; 4], out_w: u32, out_h: u32) -> Result<Vec<u8>> {
+    use gdal::raster::{Buffer, ColorInterpretation};
+    if rgba.len() != (w as usize) * (h as usize) * 4 || w == 0 || h == 0 {
+        bail!("The basemap picture is {} bytes, not {w} × {h} RGBA", rgba.len());
+    }
+    if !(merc[0] < merc[2] && merc[1] < merc[3]) {
+        bail!("The basemap picture has no extent");
+    }
+    let drv = gdal::DriverManager::get_driver_by_name("MEM")?;
+    let mut ds = drv.create_with_band_type::<u8, _>("", w as usize, h as usize, 4)?;
+    ds.set_geo_transform(&[merc[0], (merc[2] - merc[0]) / w as f64, 0.0, merc[3], 0.0, -(merc[3] - merc[1]) / h as f64])?;
+    ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(3857)?)?;
+    for b in 0..4usize {
+        let plane: Vec<u8> = rgba.chunks_exact(4).map(|p| p[b]).collect();
+        let mut band = ds.rasterband(b + 1)?;
+        band.write((0, 0), (w as usize, h as usize), &mut Buffer::new((w as usize, h as usize), plane))?;
+        band.set_color_interpretation(match b {
+            0 => ColorInterpretation::RedBand,
+            1 => ColorInterpretation::GreenBand,
+            2 => ColorInterpretation::BlueBand,
+            _ => ColorInterpretation::AlphaBand,
+        })?;
+    }
+    render_rgba(&ds, crs, extent, out_w, out_h)
 }
 
 /// Like [`render`] but keeps the source's own transparency (a four-band source) instead of replacing it.

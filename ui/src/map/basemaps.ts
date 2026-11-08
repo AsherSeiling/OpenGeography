@@ -11,7 +11,8 @@ import { MERCATOR_KEY } from "./crs";
  *  - `xyz`: Web Mercator raster tiles. In a Web Mercator map OpenLayers draws them as they are; in any other CRS the engine fetches the
  *    tiles it needs for each tile of the map's own grid and warps them with PROJ (datum shifts, poles, conics), so they draw wherever
  *    both the CRS and the service have something and are blank (transparent) elsewhere.
- *  - `vector`: Mapbox/MapLibre-style vector tiles. OpenLayers cannot reproject vector tiles, so they draw in Web Mercator only.
+ *  - `vector`: Mapbox/MapLibre-style vector tiles. In Web Mercator OpenLayers draws them. OpenLayers cannot reproject vector tiles, so in any
+ *    other CRS the style is drawn off-screen in Web Mercator and the engine warps the picture to the view (map/vectorBasemap.ts).
  *  - `engine`: the bundled Natural Earth raster, warped by the engine to the map CRS's own tile grid (any CRS, offline).
  */
 export type BasemapKind = "xyz" | "vector" | "engine";
@@ -115,16 +116,6 @@ export const AREA_OF_USE_MARGIN_DEG = 10;
 
 /** Latitude where Web Mercator tiles end. */
 export const MERCATOR_MAX_LAT = 85.0511;
-
-/**
- * Why `def` can't be drawn for this view, in words (null = it can). A basemap never changes the map's coordinate system and never
- * draws misaligned. Raster tile basemaps draw in every CRS (the engine warps them, see `BasemapKind`) and are blank where they must be,
- * with a notice from `basemapNotice`; only vector basemaps are still refused outside Web Mercator (replaced in the next step).
- */
-export function basemapRefusal(def: BasemapDef | null, v: BasemapView): string | null {
-  if (!def || def.kind !== "vector" || v.crsKey === MERCATOR_KEY) return null;
-  return `${def.label} is drawn in Web Mercator only, so it can't be shown in ${v.crsName}. Switch the map to Web Mercator, or choose Natural Earth or a raster basemap.`;
-}
 
 const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 

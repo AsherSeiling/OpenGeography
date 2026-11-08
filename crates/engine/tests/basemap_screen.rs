@@ -183,3 +183,84 @@ fn the_engine_serves_these_tiles_by_id_and_the_provider_list_matches_the_map_vie
         }
     }
 }
+
+/// An RGBA PNG covering the Web Mercator rectangle `merc`, `w` × `h` px: white, with a black disc of `radius` metres at `at`.
+fn picture(merc: [f64; 4], w: u32, h: u32, at: (f64, f64), radius: f64) -> Vec<u8> {
+    let (ux, uy) = ((merc[2] - merc[0]) / w as f64, (merc[3] - merc[1]) / h as f64);
+    let mut px = vec![255u8; (w * h * 4) as usize];
+    for r in 0..h {
+        for c in 0..w {
+            let (mx, my) = (merc[0] + (c as f64 + 0.5) * ux, merc[3] - (r as f64 + 0.5) * uy);
+            if ((mx - at.0).powi(2) + (my - at.1).powi(2)).sqrt() <= radius {
+                let i = ((r * w + c) * 4) as usize;
+                px[i..i + 3].copy_from_slice(&[0, 0, 0]);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    let mut enc = png::Encoder::new(&mut out, w, h);
+    enc.set_color(png::ColorType::Rgba);
+    enc.set_depth(png::BitDepth::Eight);
+    enc.write_header().unwrap().write_image_data(&px).unwrap();
+    out
+}
+
+/// The vector basemap path: the map view draws the style in Web Mercator over the rectangle the engine names, and the engine warps that
+/// picture to the map CRS's rectangle. A known point must land where it belongs in the same six kinds of CRS.
+#[test]
+fn a_vector_basemap_drawn_in_web_mercator_is_placed_correctly_in_other_crs() {
+    let e = Engine::new().unwrap();
+    let cases = [
+        ("EPSG:26915", "UTM 15N", -93.0, 41.5, 20_000.0, (128.0, 128.0)),
+        ("EPSG:26915", "UTM 15N far outside its zone", -111.0, 33.5, 20_000.0, (200.0, 60.0)),
+        ("EPSG:2277", "State Plane Texas Central (US feet)", -97.74, 30.27, 70_000.0, (100.0, 150.0)),
+        ("EPSG:3413", "polar stereographic north", -45.0, 72.0, 60_000.0, (128.0, 128.0)),
+        ("EPSG:3031", "Antarctic polar stereographic", 166.67, -77.85, 60_000.0, (180.0, 90.0)),
+        ("EPSG:8857", "Equal Earth", 10.0, 50.0, 1_000_000.0, (128.0, 128.0)),
+    ];
+    for (crs, what, lon, lat, half, at_px) in cases {
+        let key = e.crs_display_info(crs, None).unwrap().crs_key;
+        let (px, py) = e.transform_point(lon, lat, "EPSG:4326", crs).unwrap();
+        let u = 2.0 * half / 256.0;
+        let x0 = px - at_px.0 * u;
+        let y1 = py + at_px.1 * u;
+        let extent = [x0, y1 - 256.0 * u, x0 + 256.0 * u, y1];
+        let merc = e.basemap_mercator_extent(&key, extent).unwrap().unwrap_or_else(|| panic!("{what}: no Web Mercator extent"));
+        // The named rectangle contains the point.
+        let (mx, my) = mercator(lon, lat);
+        assert!(merc[0] <= mx && mx <= merc[2] && merc[1] <= my && my <= merc[3], "{what}: {merc:?} does not contain the point");
+        // Draw the picture the way the map view would: fixed pixels over `merc`.
+        let (w, h) = (512u32, ((merc[3] - merc[1]) / (merc[2] - merc[0]) * 512.0).round().max(8.0) as u32);
+        let ground_px = (merc[2] - merc[0]) / w as f64;
+        let png = picture(merc, w, h, (mx, my), (half / 25.0 / lat.to_radians().cos()).max(ground_px * 1.5)); // Web Mercator metres are longer than ground metres away from the equator
+        let warped = e.warp_basemap_picture(&png, merc, &key, extent, 256, 256).unwrap_or_else(|er| panic!("{what}: {er:#}"));
+        let (centroid, n, _) = disc(&decode(&warped));
+        let (cx, cy) = centroid.unwrap_or_else(|| panic!("{what}: no disc in the warped picture"));
+        assert!(n >= 4, "{what}: {n} px");
+        assert!((cx - at_px.0).abs() < 2.0 && (cy - at_px.1).abs() < 2.0, "{what}: expected {at_px:?}, got ({cx:.1}, {cy:.1})");
+    }
+}
+
+#[test]
+fn the_mercator_rectangle_for_a_map_view_is_none_where_nothing_can_be_placed_and_wide_at_a_pole() {
+    let e = Engine::new().unwrap();
+    let key = e.crs_display_info("EPSG:3413", None).unwrap().crs_key;
+    // A square around the north pole: past Web Mercator's last latitude, so the whole width of the world, up to its top edge.
+    let m = e.basemap_mercator_extent(&key, [-100_000.0, -100_000.0, 100_000.0, 100_000.0]).unwrap().unwrap();
+    assert!((m[0] + WORLD).abs() < 1.0 && (m[2] - WORLD).abs() < 1.0 && m[3] > 19_000_000.0, "{m:?}");
+    // Web Mercator itself is the identity.
+    let w = e.crs_display_info("EPSG:3857", None).unwrap().crs_key;
+    assert_eq!(e.basemap_mercator_extent(&w, [1.0, 2.0, 3.0, 4.0]).unwrap(), Some([1.0, 2.0, 3.0, 4.0]));
+    // A bad extent is refused in words; a picture that isn't RGBA, too.
+    assert!(e.basemap_mercator_extent(&key, [1.0, 1.0, 1.0, 1.0]).is_err());
+    let gray = {
+        let mut out = Vec::new();
+        let mut enc = png::Encoder::new(&mut out, 2, 2);
+        enc.set_color(png::ColorType::Grayscale);
+        enc.set_depth(png::BitDepth::Eight);
+        enc.write_header().unwrap().write_image_data(&[0, 0, 0, 0]).unwrap();
+        out
+    };
+    assert!(e.warp_basemap_picture(&gray, [0.0, 0.0, 1.0, 1.0], &w, [0.0, 0.0, 1.0, 1.0], 2, 2).unwrap_err().to_string().contains("RGBA"));
+    assert!(e.warp_basemap_picture(b"not a png", [0.0, 0.0, 1.0, 1.0], &w, [0.0, 0.0, 1.0, 1.0], 2, 2).unwrap_err().to_string().contains("PNG"));
+}

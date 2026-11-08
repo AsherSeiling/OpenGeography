@@ -322,6 +322,8 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         }
         "datum_coverage" => json!(e.datum_coverage()),
         "list_datum_grids" => json!(e.list_datum_grids()),
+        "basemap_mercator_extent" => json!(e.basemap_mercator_extent(&s(a, "key")?, de(a, "extent")?)?),
+        "warp_basemap_picture" => json!(e.warp_basemap_picture_b64(&s(a, "png")?, de(a, "merc")?, &s(a, "key")?, de(a, "extent")?, a["w"].as_u64().unwrap_or(0) as u32, a["h"].as_u64().unwrap_or(0) as u32)?),
         "layout_frame_units_per_mm" => json!(e.layout_frame_units_per_mm(&s(a, "body")?, &s(a, "crs")?, de(a, "center")?, f(a, "scale")?, f(a, "w")?, f(a, "h")?)?),
         "layout_text_slots" => json!(e.layout_text_slots()),
         "usng_grid_layer" => json!(e.usng_grid_layer(de(a, "bbox")?, a["interval"].as_f64().unwrap_or(1000.0), &s(a, "style").unwrap_or_default(), &s(a, "datum").unwrap_or_default(), &s(a, "name")?)?),

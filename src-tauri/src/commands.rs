@@ -140,6 +140,16 @@ pub async fn set_datum_policy(engine: Eng<'_>, strict: bool) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn basemap_mercator_extent(engine: Eng<'_>, key: String, extent: [f64; 4]) -> Res<Option<[f64; 4]>> {
+    blocking(&engine, move |e| e.basemap_mercator_extent(&key, extent)).await
+}
+
+#[tauri::command]
+pub async fn warp_basemap_picture(engine: Eng<'_>, png: String, merc: [f64; 4], key: String, extent: [f64; 4], w: u32, h: u32) -> Res<String> {
+    blocking(&engine, move |e| e.warp_basemap_picture_b64(&png, merc, &key, extent, w, h)).await
+}
+
+#[tauri::command]
 pub async fn layout_frame_units_per_mm(engine: Eng<'_>, body: String, crs: String, center: [f64; 2], scale: f64, w: f64, h: f64) -> Res<[f64; 2]> {
     blocking(&engine, move |e| e.layout_frame_units_per_mm(&body, &crs, center, scale, w, h)).await
 }

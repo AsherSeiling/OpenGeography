@@ -677,6 +677,11 @@ export const api = {
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   listFonts: () => invoke<FontFamily[]>("list_fonts"),
   exportTable: (id: string, spec: TableExportSpec) => invoke<TableExportResult>("export_table", { id, spec }),
+  /** The Web Mercator rectangle covering `extent` of the map CRS `key` (null = nothing there can be placed in Web Mercator). */
+  basemapMercatorExtent: (key: string, extent: [number, number, number, number]) => invoke<[number, number, number, number] | null>("basemap_mercator_extent", { key, extent }),
+  /** A picture drawn in Web Mercator over `merc` (base64 PNG, RGBA) warped to `extent` of the map CRS `key`, `w` × `h` px; base64 PNG back. */
+  warpBasemapPicture: (png: string, merc: [number, number, number, number], key: string, extent: [number, number, number, number], w: number, h: number) =>
+    invoke<string>("warp_basemap_picture", { png, merc, key, extent, w, h }),
   /** Ground per millimetre of a map frame, in its CRS units: [east, north]. */
   layoutFrameUnitsPerMm: (body: string, crs: string, center: [number, number], scale: number, w: number, h: number) => invoke<[number, number]>("layout_frame_units_per_mm", { body, crs, center, scale, w, h }),
   layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),

@@ -56,6 +56,8 @@ fn main() {
             commands::list_datum_grids,
             commands::layout_text_slots,
             commands::layout_frame_units_per_mm,
+            commands::basemap_mercator_extent,
+            commands::warp_basemap_picture,
             commands::build_topo_layout,
             commands::topo_prepare_data,
             commands::usng_crs_at,

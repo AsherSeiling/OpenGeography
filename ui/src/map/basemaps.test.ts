@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BASEMAP_DEFS, BASEMAP_IDS, BASEMAP_OPTIONS, basemapDef, basemapNotice, basemapRefusal, printRefusal, providerGridMaxLevel, readBasemap, type BasemapView } from "./basemaps";
+import * as basemapModule from "./basemaps";
+import { BASEMAP_DEFS, BASEMAP_IDS, BASEMAP_OPTIONS, basemapDef, basemapNotice, printRefusal, providerGridMaxLevel, readBasemap, type BasemapView } from "./basemaps";
 import { printBasemap } from "../store/layout";
 import { loadMaps } from "../store/maps";
 
@@ -34,17 +35,9 @@ describe("basemap list", () => {
 });
 
 describe("CRS rule", () => {
-  it("lets every kind draw in Web Mercator", () => {
-    for (const d of BASEMAP_DEFS) expect(basemapRefusal(d, merc)).toBeNull();
-  });
-  it("refuses vector tiles outside Web Mercator, in words (until they are drawn through the off-screen renderer)", () => {
-    for (const id of ["ofmLiberty", "ofmBright", "ofmPositron", "versatiles"]) {
-      expect(basemapRefusal(basemapDef(id), utm11)).toMatch(/Web Mercator only.*NAD83 \/ UTM zone 11N/);
-    }
-  });
-  it("never refuses a raster tile basemap, anywhere (UR-19, MM-3): the engine warps it and it is blank where it must be", () => {
-    const views: BasemapView[] = [utm11, { ...utm11, center: [-98.5, 39.5] }, { ...utm11, center: [-130.1, 36] }, { ...utm11, center: [0, -89], areaOfUse: [-180, -90, 180, -60] }, { ...utm11, areaKnown: false, center: [10, 10] }, { ...utm11, center: null }];
-    for (const id of ["usgsTopo", "usgsImagery", "usgsRelief", "osm", "openTopoMap", "naturalEarth"]) for (const v of views) expect(basemapRefusal(basemapDef(id), v)).toBeNull();
+  it("has no refusal: every basemap draws in every CRS (UR-19), blank where it must be, with a notice", () => {
+    expect((basemapModule as Record<string, unknown>).basemapRefusal).toBeUndefined();
+    expect(printRefusal("osm")).toMatch(/can't be used in print layouts/); // a provider's terms are not a technical limit: print stays refused
   });
 });
 
