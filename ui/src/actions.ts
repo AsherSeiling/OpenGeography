@@ -5,6 +5,7 @@ import { gridLabel, gridSizeFor, groundWidthM, usngGridStyle } from "./map/usngG
 import { bibliographyFiles } from "./sources/cite";
 import { useBibPrefs } from "./sources/prefs";
 import { track } from "./progress/progress";
+import { applySettings, useSettings } from "./store/settings";
 import { confirmDownloads } from "./downloads/background";
 import { open, save } from "./ipc/dialogs";
 import { create } from "zustand";
@@ -32,6 +33,7 @@ export type DialogState =
   | { kind: "selectByLocation"; layer: string }
   | { kind: "testData" }
   | { kind: "newTable" }
+  | { kind: "settings" }
   | { kind: "benchmark" }
   | { kind: "rename"; layer: string }
   | { kind: "addField"; layer: string }
@@ -738,6 +740,7 @@ export async function newProject() {
   if (ok === undefined) return;
   useLayouts.getState().loadAll([]);
   restoreState([], {}, null);
+  applySettings(useSettings.getState().settings); // the default coordinate system for the new, empty map
   status("New project");
 }
 

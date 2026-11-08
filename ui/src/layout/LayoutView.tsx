@@ -22,6 +22,7 @@ import { copySelected, cutSelected, duplicateSelected, pasteHeld } from "./clipb
 import { insertMapFrame, setFrameFromMapView } from "./actions";
 import { clampZoom, pageMmAt, scrollToKeep, useLayoutView, wheelZoomFactor, zoomPercent } from "./view";
 import { useSeriesView } from "./series";
+import { activationRefusal, clampScale, frameWheelFactor, panCenter, zoomCenter, type Upm } from "./activate";
 import type { Layout, LayoutElement, MapFrame, PlacedLabel } from "./types";
 
 const MIN_MM = 2;
@@ -76,6 +77,113 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const [ptr, setPtr] = useState<{ x: number; y: number } | null>(null);
   const { page } = layout;
 
+  // ---- UR-18: an activated map frame. Double-click a frame; drag pans its map, the wheel zooms at the cursor, Esc or a click elsewhere ends it.
+  // The whole activation is one undo step. While it is going the frame shows the preview picture moved or scaled under the pointer (no render
+  // per move); the engine draws the real thing when the gesture ends.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [live, setLive] = useState<{ dx: number; dy: number; k: number; ox: number; oy: number } | null>(null);
+  const [grabbing, setGrabbing] = useState(false);
+  const upmRef = useRef<Upm | null>(null);
+  const stepEnd = useRef<(() => void) | null>(null);
+  const zoomAcc = useRef<{ k: number; offX: number; offY: number; timer: number | null } | null>(null);
+  const frame = activeId ? (layout.elements.find((e) => e.id === activeId && e.kind === "map_frame") as MapFrame | undefined) : undefined;
+  const frameRef = useRef<MapFrame | undefined>(undefined);
+  frameRef.current = frame;
+  const zRef = useRef(1);
+  const deactivate = () => {
+    if (zoomAcc.current?.timer) window.clearTimeout(zoomAcc.current.timer);
+    zoomAcc.current = null;
+    stepEnd.current?.();
+    stepEnd.current = null;
+    setActiveId(null);
+    setLive(null);
+    setGrabbing(false);
+  };
+  const activateFrame = (el: MapFrame) => {
+    const refused = activationRefusal({ id: el.id, locked: el.locked, followsSeries: el.followsSeries, crs: el.crs, name: el.name });
+    if (refused) return void useApp.getState().setStatus(refused);
+    if (activeId === el.id) return;
+    if (activeId) deactivate();
+    stepEnd.current = beginStep();
+    upmRef.current = null;
+    setActiveId(el.id);
+    store().select([el.id]);
+    const followed = typeof el.layers === "object" && !Array.isArray(el.layers) ? " It keeps showing the layers of its map." : "";
+    useApp.getState().setStatus(`Map active: drag to pan, turn the wheel to zoom at the pointer, press Esc or click elsewhere to finish.${followed}`);
+  };
+  // The ground one millimetre covers, kept fresh for the frame's centre and scale (it changes with latitude in a geographic frame).
+  const frameKey = frame ? `${frame.crs}|${frame.center.join(",")}|${frame.scale}|${frame.w}|${frame.h}` : "";
+  useEffect(() => {
+    if (!frame) return;
+    let alive = true;
+    api.layoutFrameUnitsPerMm(layout.body ?? "earth", frame.crs, frame.center, frame.scale, frame.w, frame.h).then((u) => alive && (upmRef.current = u)).catch((e) => {
+      if (!alive) return;
+      useApp.getState().setStatus(`This map can't be moved on the page: ${errorText(e)}`);
+      deactivate();
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameKey]);
+  // The frame went away, was locked, or the layout closed: the activation ends with it.
+  useEffect(() => {
+    if (activeId && !frame) deactivate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, frame]);
+  useEffect(() => () => { stepEnd.current?.(); }, []);
+  // A new preview replaces the moved picture.
+  useEffect(() => { setLive(null); }, [preview?.src]);
+  const rot = frame?.rotation ?? 0;
+  const startPan = (e: React.PointerEvent) => {
+    if (!frame || e.button !== 0) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const x0 = e.clientX, y0 = e.clientY;
+    setGrabbing(true);
+    const move = (ev: PointerEvent) => setLive({ dx: ev.clientX - x0, dy: ev.clientY - y0, k: 1, ox: 0, oy: 0 });
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      setGrabbing(false);
+      const f = frameRef.current;
+      const dx = ev.clientX - x0, dy = ev.clientY - y0;
+      if (!f || !upmRef.current || (Math.abs(dx) < 1 && Math.abs(dy) < 1)) return void setLive(null);
+      store().update(f.id, { center: panCenter(f.center, dx / zRef.current, dy / zRef.current, upmRef.current, f.rotation) });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
+  // The wheel over an activated frame: scale the picture now, commit the new centre and scale a moment after the last notch.
+  const wheelOnFrame = (e: WheelEvent): boolean => {
+    const f = frameRef.current;
+    const p = pageEl.current;
+    if (!f || !p || e.ctrlKey || e.metaKey) return false;
+    const r = p.getBoundingClientRect();
+    const z0 = zRef.current;
+    const px = (e.clientX - r.left) / z0, py = (e.clientY - r.top) / z0; // page mm
+    if (px < f.x || px > f.x + f.w || py < f.y || py > f.y + f.h) return false;
+    e.preventDefault();
+    if (!upmRef.current) return true;
+    const acc = zoomAcc.current ?? (zoomAcc.current = { k: 1, offX: px - (f.x + f.w / 2), offY: py - (f.y + f.h / 2), timer: null });
+    const next = acc.k * frameWheelFactor(e.deltaY);
+    if (clampScale(f.scale / next) !== f.scale / next) return true;
+    acc.k = next;
+    setLive({ dx: 0, dy: 0, k: acc.k, ox: px * z0, oy: py * z0 });
+    if (acc.timer) window.clearTimeout(acc.timer);
+    acc.timer = window.setTimeout(() => {
+      const g = frameRef.current;
+      const a = zoomAcc.current;
+      zoomAcc.current = null;
+      if (!g || !a || !upmRef.current || Math.abs(a.k - 1) < 1e-6) return void setLive(null);
+      const out = zoomCenter(g.center, g.scale, a.k, a.offX, a.offY, upmRef.current, g.rotation);
+      store().update(g.id, { center: out.center, scale: out.scale });
+    }, 220);
+    return true;
+  };
+  const wheelOnFrameRef = useRef(wheelOnFrame);
+  wheelOnFrameRef.current = wheelOnFrame;
+
   // Fit the page into the canvas.
   useEffect(() => {
     const el = wrap.current;
@@ -87,6 +195,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   const fitRaw = Math.min((box.w - 48) / page.width, (box.h - 48) / page.height);
   const fitZoom = Number.isFinite(fitRaw) ? Math.max(0.2, fitRaw) : 2;
   const z = fit ? fitZoom : zoom;
+  zRef.current = z;
   const zoomTo = (v: number) => useLayoutView.getState().setZoom(v);
   // The ribbon's In and Out step from what is on screen.
   const active = useLayouts((s) => s.id === layout.id);
@@ -129,6 +238,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     const el = wrap.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if (wheelOnFrameRef.current(e)) return;
       if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
       const v = useLayoutView.getState();
@@ -239,6 +349,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
   // Drag to move or resize; the whole gesture is one undo step.
   const startDrag = (e: React.PointerEvent, el: LayoutElement, handle: Handle | null) => {
     e.stopPropagation();
+    if (activeId && el.id !== activeId) deactivate();
     activate();
     wrap.current?.focus();
     const s = store();
@@ -366,6 +477,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       e.preventDefault();
       s.removeElements(s.selected.filter((id) => !s.doc?.elements.find((x) => x.id === id)?.locked));
     } else if (e.key === "Escape") {
+      if (activeId) return void deactivate();
       s.select([]);
     } else if (e.key.startsWith("Arrow") && s.selected.length) {
       e.preventDefault();
@@ -428,6 +540,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
         }}
         onPointerLeave={() => setPtr(null)}
         onPointerDown={() => {
+          if (activeId) deactivate();
           activate();
           store().select([]);
           wrap.current?.focus();
@@ -454,6 +567,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
                   data-el={el.id}
                   style={{ left: el.x * z, top: el.y * z, width: el.w * z, height: el.h * z, transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined }}
                   onPointerDown={(e) => startDrag(e, el, null)}
+                  onDoubleClick={el.kind === "map_frame" ? () => activateFrame(el as MapFrame) : undefined}
                   onContextMenu={(e) => {
                     const sel = store().selected;
                     const only = sel.length <= 1 || !sel.includes(el.id);
@@ -466,6 +580,25 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
               </Tooltip>
             );
           })}
+          {frame && (
+            <>
+              {live && !rot && preview && (
+                <div className="layout-live" style={{ left: frame.x * z, top: frame.y * z, width: frame.w * z, height: frame.h * z, background: page.background }}>
+                  <img src={preview.src} alt="" draggable={false} style={{ left: -frame.x * z, top: -frame.y * z, width: page.width * z, height: page.height * z, transform: `translate(${live.dx}px, ${live.dy}px) scale(${live.k})`, transformOrigin: `${live.ox}px ${live.oy}px` }} />
+                </div>
+              )}
+              <div
+                className={`layout-active ${grabbing ? "grabbing" : ""}`}
+                data-testid="active-frame"
+                data-frame={frame.id}
+                style={{ left: frame.x * z, top: frame.y * z, width: frame.w * z, height: frame.h * z, transform: rot ? `rotate(${rot}deg)` : undefined }}
+                onPointerDown={startPan}
+                onDoubleClick={(e) => e.stopPropagation()}
+              >
+                <span className="layout-active-tip">Map active · drag to pan · wheel to zoom · Esc to finish · 1:{Math.round(frame.scale).toLocaleString("en-US")}</span>
+              </div>
+            </>
+          )}
           {selEl && selected.length === 1 && (
             <ContextBar el={selEl} left={Math.max(0, selEl.x * z)} top={selEl.y * z >= 40 ? selEl.y * z - 38 : (selEl.y + selEl.h) * z + 6} />
           )}

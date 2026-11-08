@@ -39,6 +39,7 @@ export const TABS: Record<string, Group[]> = {
       ],
     },
     { label: "Appearance", items: [{ cmd: "theme" }, { cmd: "colours" }] },
+    { label: "Program", items: [{ cmd: "settings" }, { cmd: "saveStartup", size: "small" }, { cmd: "resetStartup", size: "small" }] },
     { label: "Performance", items: [{ cmd: "fps", size: "small" }, { cmd: "benchmark", size: "small" }] },
     { label: "Testing", items: [{ cmd: "testData" }] },
   ],

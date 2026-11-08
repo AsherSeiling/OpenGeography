@@ -13,7 +13,9 @@ export function newMap(opts: NonNullable<Parameters<typeof showMap>[1]> = {}) {
   status(
     inheritedFrom
       ? `New map "${map.name}" uses the coordinate system of "${inheritedFrom.name}" (${map.crs?.name}). Change it under Map › Coordinate System. Add layers with + in Map Layers.`
-      : `New map "${map.name}" has no coordinate system yet; it takes one from the first layer you add.`,
+      : map.crs
+        ? `New map "${map.name}" starts in your default coordinate system, ${map.crs.name} (Settings). Change it under Map › Coordinate System.`
+        : `New map "${map.name}" has no coordinate system yet; it takes one from the first layer you add.`,
   );
   return map;
 }

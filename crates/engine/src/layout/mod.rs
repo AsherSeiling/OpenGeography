@@ -507,6 +507,21 @@ impl Engine {
     }
 
     /// Render a layout page to SVG against the open project's layers.
+    /// How much ground one millimetre of a map frame covers, in the frame CRS's own units: `[east, north]` per mm. The layout editor
+    /// uses it to turn a drag on the page into a move of the frame's centre, and a wheel turn into a new centre and scale.
+    pub fn layout_frame_units_per_mm(&self, body: &str, crs: &str, center: [f64; 2], scale: f64, w_mm: f64, h_mm: f64) -> Result<[f64; 2]> {
+        if !(scale.is_finite() && scale > 0.0 && w_mm > 0.0 && h_mm > 0.0 && center.iter().all(|v| v.is_finite())) {
+            anyhow::bail!("The frame needs a finite centre, a scale above 0 and a size.");
+        }
+        if crs.trim().is_empty() {
+            anyhow::bail!("Set a coordinate system for the map frame first.");
+        }
+        let b = geo::Body::get(body)?;
+        let fc = geo::FrameCrs::new(crs, &b)?;
+        let e = geo::frame_extent(&b, &fc, center, scale, w_mm, h_mm)?;
+        Ok([(e[2] - e[0]) / w_mm, (e[3] - e[1]) / h_mm])
+    }
+
     pub fn render_layout_svg(&self, req: &RenderRequest, check: &dyn Fn() -> Result<()>) -> Result<LayoutSvg> {
         self.render_layout_svg_with(req, &basemap::open, check)
     }

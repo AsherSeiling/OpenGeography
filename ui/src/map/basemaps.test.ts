@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BASEMAP_DEFS, BASEMAP_IDS, BASEMAP_OPTIONS, basemapDef, basemapRefusal, printRefusal, readBasemap, type BasemapView } from "./basemaps";
+import * as basemapModule from "./basemaps";
+import { BASEMAP_DEFS, BASEMAP_IDS, BASEMAP_OPTIONS, basemapDef, basemapNotice, printRefusal, providerGridMaxLevel, readBasemap, type BasemapView } from "./basemaps";
 import { printBasemap } from "../store/layout";
 import { loadMaps } from "../store/maps";
 
@@ -33,41 +34,51 @@ describe("basemap list", () => {
   });
 });
 
-describe("CRS refusal", () => {
-  it("lets every kind draw in Web Mercator", () => {
-    for (const d of BASEMAP_DEFS) expect(basemapRefusal(d, merc)).toBeNull();
+describe("CRS rule", () => {
+  it("has no refusal: every basemap draws in every CRS (UR-19), blank where it must be, with a notice", () => {
+    expect((basemapModule as Record<string, unknown>).basemapRefusal).toBeUndefined();
+    expect(printRefusal("osm")).toMatch(/can't be used in print layouts/); // a provider's terms are not a technical limit: print stays refused
   });
-  it("refuses vector tiles outside Web Mercator, in words", () => {
-    for (const id of ["ofmLiberty", "ofmBright", "ofmPositron", "versatiles"]) {
-      expect(basemapRefusal(basemapDef(id), utm11)).toMatch(/Web Mercator only.*NAD83 \/ UTM zone 11N/);
-    }
+});
+
+describe("notices where a raster basemap is blank or stretched", () => {
+  it("says nothing in the middle of the CRS's own area and in Web Mercator", () => {
+    for (const id of ["usgsTopo", "osm", "openTopoMap"]) expect(basemapNotice(basemapDef(id), merc)).toBeNull();
+    expect(basemapNotice(basemapDef("usgsImagery"), utm11)).toBeNull();
+    expect(basemapNotice(basemapDef("usgsImagery"), { ...utm11, center: [-122, 36] })).toBeNull(); // just past the zone edge is fine
   });
-  it("draws raster tiles inside the CRS's area of use and refuses far outside it (MM-3)", () => {
-    expect(basemapRefusal(basemapDef("usgsImagery"), utm11)).toBeNull();
-    const away = basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-98.5, 39.5] });
-    expect(away).toMatch(/outside the area where NAD83 \/ UTM zone 11N is valid/);
-    expect(basemapRefusal(basemapDef("openTopoMap"), { ...utm11, center: [-98.5, 39.5] })).toBe(away!.replace("USGS Imagery", "OpenTopoMap"));
-    // A view just past the zone edge still draws: the area of use is advice, not where the projection stops working.
-    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-122, 36] })).toBeNull();
-    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-129.9, 36] })).toBeNull();
-    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, center: [-130.1, 36] })).toMatch(/outside the area/);
-    // A wide area plus the margin that covers the whole globe never refuses on longitude.
-    expect(basemapRefusal(basemapDef("usgsImagery"), { ...utm11, areaOfUse: [-175, -80, 175, 80], center: [179.9, 0] })).toBeNull();
-    // Antimeridian-crossing areas of use work.
+  it("says the USGS services only cover the United States, and not for the others", () => {
+    const paris = { ...merc, center: [2.35, 48.85] as [number, number] };
+    expect(basemapNotice(basemapDef("usgsTopo"), paris)).toMatch(/only has tiles for the United States/);
+    expect(basemapNotice(basemapDef("usgsRelief"), { ...merc, center: [-155.5, 19.5] })).toBeNull(); // Hawaii
+    expect(basemapNotice(basemapDef("usgsRelief"), { ...merc, center: [-150, 64] })).toBeNull(); // Alaska
+    expect(basemapNotice(basemapDef("osm"), paris)).toBeNull();
+  });
+  it("says Web Mercator ends at 85° and points to Natural Earth", () => {
+    const pole = { ...utm11, areaOfUse: [-180, -90, 180, -60] as [number, number, number, number], center: [0, -89] as [number, number] };
+    expect(basemapNotice(basemapDef("osm"), pole)).toMatch(/no tiles beyond 85° latitude.*Natural Earth/);
+    expect(basemapNotice(basemapDef("naturalEarth"), pole)).toBeNull();
+  });
+  it("warns, without refusing, far outside the area where the CRS is meant to be used", () => {
+    expect(basemapNotice(basemapDef("osm"), { ...utm11, center: [-98.5, 39.5] })).toMatch(/far outside the area where NAD83 \/ UTM zone 11N is meant/);
+    expect(basemapNotice(basemapDef("osm"), { ...utm11, center: [-129.9, 36] })).toBeNull();
+    expect(basemapNotice(basemapDef("osm"), { ...utm11, areaKnown: false, center: [10, 10] })).toBeNull();
+    expect(basemapNotice(basemapDef("osm"), { ...utm11, areaOfUse: [-175, -80, 175, 80], center: [179.9, 0] })).toBeNull();
     const fiji = { ...utm11, areaOfUse: [172, -30, -170, -10] as [number, number, number, number], center: [179, -17] as [number, number] };
-    expect(basemapRefusal(basemapDef("osm"), fiji)).toBeNull();
-    expect(basemapRefusal(basemapDef("osm"), { ...fiji, center: [-175, -17] })).toBeNull();
-    expect(basemapRefusal(basemapDef("osm"), { ...fiji, center: [100, -17] })).not.toBeNull();
+    expect(basemapNotice(basemapDef("osm"), fiji)).toBeNull();
+    expect(basemapNotice(basemapDef("osm"), { ...fiji, center: [100, -17] })).not.toBeNull();
   });
-  it("refuses Web Mercator tiles at the poles and never guesses when the area is unknown", () => {
-    expect(basemapRefusal(basemapDef("usgsTopo"), { ...utm11, areaOfUse: [-180, -90, 180, -60], center: [0, -89] })).toMatch(/doesn't cover the poles/);
-    expect(basemapRefusal(basemapDef("usgsTopo"), { ...utm11, areaKnown: false, center: [10, 10] })).toBeNull();
-    expect(basemapRefusal(basemapDef("usgsTopo"), { ...utm11, center: null })).toBeNull();
-  });
-  it("lets Natural Earth draw in every CRS, even at the pole and outside the zone", () => {
-    expect(basemapRefusal(basemapDef("naturalEarth"), { ...utm11, center: [-98.5, 39.5] })).toBeNull();
-    expect(basemapRefusal(basemapDef("naturalEarth"), { ...utm11, center: [0, -90] })).toBeNull();
-    expect(basemapRefusal(basemapDef("none"), utm11)).toBeNull();
+});
+
+describe("how fine a grid level to ask the engine for", () => {
+  it("stops where the grid is more than twice as fine as the provider's own tiles", () => {
+    const res = Array.from({ length: 23 }, (_, i) => 156543.03392804097 / 2 ** i); // Web Mercator's own, in metres
+    expect(providerGridMaxLevel(res, 1, 16)).toBe(17); // half the native size of level 16
+    expect(providerGridMaxLevel(res, 1, 19)).toBe(20);
+    // A grid in feet: 0.3048 m per unit, so each unit is smaller than a metre and the same ground resolution is reached at a coarser number.
+    const feet = res.map((r) => r / 0.3048);
+    expect(providerGridMaxLevel(feet, 0.3048, 16)).toBe(17);
+    expect(providerGridMaxLevel([1000], 1, 16)).toBe(0);
   });
 });
 

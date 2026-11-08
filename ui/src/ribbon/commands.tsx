@@ -7,6 +7,7 @@ import { PUBLIC_DATA } from "../panes/CatalogPane";
 import { toggleAppearance, useAppearance } from "../theme/appearance";
 import { addToolFromUi, focusPublicData } from "./addTool";
 import { RIcon } from "./icons/RIcon";
+import { resetStartupLayout, saveStartupLayout, useSettings } from "../store/settings";
 import type { ReactElement } from "react";
 import {
   addData,
@@ -117,6 +118,9 @@ const list: Command[] = [
   { id: "calcField", label: "Calculate Field", icon: <RIcon name="calc-field" />, run: () => active() && useDialog.getState().show({ kind: "calcField", layer: active()!.id, owner: active()!.id }), enabled: canEditActive },
   { id: "calcGeometry", label: "Calculate Geometry", icon: <RIcon name="calc-geometry" />, run: () => active() && useDialog.getState().show({ kind: "calcGeometry", layer: active()!.id, owner: active()!.id }), enabled: () => canEditActive() && active()!.geomType !== "Table" },
   { id: "newTable", label: "New Table", icon: <RIcon name="table-new" />, run: () => useDialog.getState().show({ kind: "newTable" }), tip: "Make an empty table with typed fields (text, numbers, dates, yes/no) and fill it in the Attribute Table. Tables have rows but no shapes" },
+  { id: "settings", label: "Settings", icon: <RIcon name="settings" />, run: () => useDialog.getState().show({ kind: "settings" }), tip: "Your own choices: theme, units, the coordinate system of new maps and the startup panes. They are saved on this computer, not in a project" },
+  { id: "saveStartup", label: "Save Startup Layout", icon: <RIcon name="startup-layout" />, run: () => void saveStartupLayout(), tip: "Keep the panes as they are now as the arrangement new projects and empty starts open with. A project keeps the layout it was saved with" },
+  { id: "resetStartup", label: "Reset Startup Layout", icon: <RIcon name="reset-panes" />, run: () => void resetStartupLayout(), enabled: () => useSettings.getState().settings.startupLayout != null, tip: "Forget your startup layout: new projects open with the built-in panes again" },
   { id: "testData", label: "Generate Test Data", icon: <RIcon name="test-data" />, run: () => useDialog.getState().show({ kind: "testData" }), tip: "Random points or polygons, to try tools and check speed" },
 
   // Analysis tab
@@ -179,7 +183,7 @@ const list: Command[] = [
   paneToggle("paneProperties", "properties", "Properties", <RIcon name="pane-properties" />, "Show or hide Properties"),
   paneToggle("paneSources", "sources", "Sources", <RIcon name="book" />, "Every data source used in this project, as an annotated bibliography you can export"),
   { id: "paneMap", label: "Map", icon: <RIcon name="map" />, run: () => showPane("map") },
-  { id: "resetPanes", label: "Reset Panes", icon: <RIcon name="reset-panes" />, run: defaultLayout, tip: "Restore the default pane layout" },
+  { id: "resetPanes", label: "Reset Panes", icon: <RIcon name="reset-panes" />, run: defaultLayout, tip: "Restore your startup pane layout, or the built-in one if you have not saved one (Settings)" },
   { id: "fps", label: "Frame Rate", icon: <RIcon name="fps" />, run: () => app().set({ showFps: !app().showFps }), checked: () => app().showFps, tip: "Show map frames per second" },
   { id: "benchmark", label: "Benchmark", icon: <RIcon name="fps" />, run: () => useDialog.getState().show({ kind: "benchmark" }), tip: "Fly the map and measure smoothness" },
   { id: "theme", label: "Dark Theme", icon: <RIcon name="theme" />, run: () => app().set({ dark: !app().dark }), checked: () => app().dark },

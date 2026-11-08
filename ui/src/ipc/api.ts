@@ -108,6 +108,17 @@ export interface TaskInfo {
 }
 
 /** A data source citation (see crates/engine/src/sources.rs). */
+/** The user's program settings (UR-16): stored once per user by the engine, never in a project, never a secret. */
+export interface ProgramSettings {
+  theme?: "light" | "dark" | null;
+  lengthUnit?: string | null;
+  areaUnit?: string | null;
+  defaultCrs?: { id: string; name: string } | null;
+  /** The dock arrangement new projects start with (UR-17). */
+  startupLayout?: unknown;
+  scriptingLanguage?: string | null;
+}
+
 export interface Citation {
   key: string;
   author: string;
@@ -606,6 +617,8 @@ export const api = {
   fsInspect: (path: string) => invoke<FsDetails>("fs_inspect", { path }),
   fsStat: (paths: string[]) => invoke<{ path: string; entry: FsEntry | null }[]>("fs_stat", { paths }),
   sources: () => invoke<SourceEntry[]>("sources"),
+  getSettings: () => invoke<ProgramSettings>("get_settings"),
+  setSettings: (settings: ProgramSettings) => invoke<ProgramSettings>("set_settings", { settings }),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
   /** Give a layer a citation the user wrote (a form, or pasted text with kind "Pasted citation"); `accessed` is YYYY-MM-DD (default today). */
   addLayerSource: (layer: string, citation: Citation, accessed?: string) => invoke<Citation>("add_layer_source", { layer, citation, accessed: accessed ?? null }),
@@ -664,6 +677,13 @@ export const api = {
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   listFonts: () => invoke<FontFamily[]>("list_fonts"),
   exportTable: (id: string, spec: TableExportSpec) => invoke<TableExportResult>("export_table", { id, spec }),
+  /** The Web Mercator rectangle covering `extent` of the map CRS `key` (null = nothing there can be placed in Web Mercator). */
+  basemapMercatorExtent: (key: string, extent: [number, number, number, number]) => invoke<[number, number, number, number] | null>("basemap_mercator_extent", { key, extent }),
+  /** A picture drawn in Web Mercator over `merc` (base64 PNG, RGBA) warped to `extent` of the map CRS `key`, `w` × `h` px; base64 PNG back. */
+  warpBasemapPicture: (png: string, merc: [number, number, number, number], key: string, extent: [number, number, number, number], w: number, h: number) =>
+    invoke<string>("warp_basemap_picture", { png, merc, key, extent, w, h }),
+  /** Ground per millimetre of a map frame, in its CRS units: [east, north]. */
+  layoutFrameUnitsPerMm: (body: string, crs: string, center: [number, number], scale: number, w: number, h: number) => invoke<[number, number]>("layout_frame_units_per_mm", { body, crs, center, scale, w, h }),
   layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),
   exportLayoutSeries: (req: RenderRequest, format: string, dpi: number, path: string) => invoke<SeriesExportResult>("export_layout_series", { req, format, dpi, path }),
   datumDataStatus: () => invoke<DatumReport>("datum_data_status"),
@@ -832,6 +852,12 @@ export function tileUrl(layer: LayerInfo, fields: string[], crsKey?: string): st
   const ext = layer.geomType === "Raster" ? "png" : "pbf";
   const key = crsKey && crsKey !== "3857" ? `${crsKey}/` : "";
   return `${TILE_BASE}/tiles/${layer.id}/${key}{z}/{x}/{y}.${ext}?v=${layer.version}${f}`;
+}
+
+/** Tile URL template of an on-screen raster basemap (`usgsTopo`, `osm` …) on a map CRS's grid: the engine fetches the provider's Web Mercator tiles and warps them with PROJ, so it works in every CRS. */
+export function basemapTileUrl(providerId: string, crsKey: string): string {
+  const key = crsKey && crsKey !== "3857" ? `${crsKey}/` : "";
+  return `${TILE_BASE}/tiles/__bm_${providerId}/${key}{z}/{x}/{y}.png`;
 }
 
 /** Tile URL template of the bundled Natural Earth basemap on a map CRS's grid (the engine warps it; works in every CRS, offline). */

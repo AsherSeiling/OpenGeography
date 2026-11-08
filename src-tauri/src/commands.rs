@@ -140,6 +140,21 @@ pub async fn set_datum_policy(engine: Eng<'_>, strict: bool) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn basemap_mercator_extent(engine: Eng<'_>, key: String, extent: [f64; 4]) -> Res<Option<[f64; 4]>> {
+    blocking(&engine, move |e| e.basemap_mercator_extent(&key, extent)).await
+}
+
+#[tauri::command]
+pub async fn warp_basemap_picture(engine: Eng<'_>, png: String, merc: [f64; 4], key: String, extent: [f64; 4], w: u32, h: u32) -> Res<String> {
+    blocking(&engine, move |e| e.warp_basemap_picture_b64(&png, merc, &key, extent, w, h)).await
+}
+
+#[tauri::command]
+pub async fn layout_frame_units_per_mm(engine: Eng<'_>, body: String, crs: String, center: [f64; 2], scale: f64, w: f64, h: f64) -> Res<[f64; 2]> {
+    blocking(&engine, move |e| e.layout_frame_units_per_mm(&body, &crs, center, scale, w, h)).await
+}
+
+#[tauri::command]
 pub async fn layout_text_slots(engine: Eng<'_>) -> Res<Vec<engine::layout::slots::Slot>> {
     blocking(&engine, move |e| Ok(e.layout_text_slots())).await
 }
@@ -545,6 +560,18 @@ pub async fn tnm_import(engine: Eng<'_>, datasets: Vec<String>, bbox: [f64; 4], 
     let out = blocking(&engine, move |e| e.tnm_import(&datasets, bbox, clip_layer.as_deref(), clip, &label)).await?;
     prewarm(&engine, out.layers.iter().map(|l| l.id.clone()).collect());
     Ok(out)
+}
+
+/// The user's program settings (read at start; unreadable or missing = defaults).
+#[tauri::command]
+pub async fn get_settings() -> Res<engine::settings::Settings> {
+    Ok(engine::settings::load())
+}
+
+/// Save program settings; returns what was kept (only the known fields).
+#[tauri::command]
+pub async fn set_settings(settings: engine::settings::Settings) -> Res<engine::settings::Settings> {
+    engine::settings::save(&settings).map_err(|e| format!("{e:#}"))
 }
 
 /// Running long tasks, for progress bars.

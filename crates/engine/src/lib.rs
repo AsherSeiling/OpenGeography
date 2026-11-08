@@ -3,6 +3,8 @@
 
 /// The tile-URL layer id that stands for the bundled Natural Earth basemap (`/tiles/__naturalEarth/{crsKey}/{z}/{x}/{y}.png`).
 pub const NATURAL_EARTH_TILE_ID: &str = "__naturalEarth";
+/// Tile ids `__bm_<provider>` are on-screen raster basemaps warped to the map CRS by the engine (UR-19).
+pub const BASEMAP_TILE_PREFIX: &str = "__bm_";
 pub mod attrs;
 pub mod catalog;
 pub mod usng;
@@ -38,6 +40,7 @@ pub mod progress;
 pub mod raster;
 pub mod raster_style;
 pub mod topo_symbols;
+pub mod settings;
 pub mod sources;
 pub mod resources;
 pub mod table;
@@ -1154,12 +1157,132 @@ impl Engine {
         Ok(t)
     }
 
+    /// A tile of an on-screen raster basemap (`provider`: `usgsTopo`, `osm` …) on the grid of the map CRS `key`.
+    fn basemap_tile(&self, provider: &str, key: &str, z: u32, x: u32, y: u32) -> Result<Arc<Vec<u8>>> {
+        let cache_key: TileKey = (format!("{BASEMAP_TILE_PREFIX}{provider}"), 0, z, x, y, key.to_string());
+        if let Some(t) = self.tile_cache.lock().get(&cache_key) {
+            return Ok(t.clone());
+        }
+        let (crs, bounds, size) = self.screen_tile_geometry(key, z, x, y)?;
+        let png = {
+            let _slot = raster::WarpSlot::take();
+            layout::basemap::screen_raster_tile(provider, &crs, bounds, size)?
+        };
+        let t = Arc::new(png);
+        self.tile_cache.lock().put(cache_key, t.clone());
+        Ok(t)
+    }
+
+    /// The Web Mercator rectangle that covers `extent` of the map CRS `key` (so a vector basemap can be drawn over it in Web Mercator and
+    /// warped back). None when no part of the rectangle can be placed in Web Mercator. Edges are sampled densely; a rectangle that reaches
+    /// toward a pole, where Web Mercator ends, is given the whole width of the world.
+    pub fn basemap_mercator_extent(&self, key: &str, extent: [f64; 4]) -> Result<Option<[f64; 4]>> {
+        if !(extent[0] < extent[2] && extent[1] < extent[3]) || !extent.iter().all(|v| v.is_finite()) {
+            bail!("The view has no extent");
+        }
+        let (crs, _) = if key == display::MERCATOR_KEY { (crs::WEB_MERCATOR.to_string(), ()) } else { (self.display_key(key)?.0, ()) };
+        if key == display::MERCATOR_KEY {
+            return Ok(Some(extent));
+        }
+        let world = 20037508.342789244;
+        let lim = layout::basemap::MERCATOR_MAX_LAT;
+        let n = 24;
+        let mut pts: Vec<(f64, f64)> = Vec::new();
+        for i in 0..=n {
+            let t = i as f64 / n as f64;
+            let (x, y) = (extent[0] + t * (extent[2] - extent[0]), extent[1] + t * (extent[3] - extent[1]));
+            pts.extend([(x, extent[1]), (x, extent[3]), (extent[0], y), (extent[2], y)]);
+        }
+        for i in 1..n {
+            for j in 1..n {
+                pts.push((extent[0] + i as f64 / n as f64 * (extent[2] - extent[0]), extent[1] + j as f64 / n as f64 * (extent[3] - extent[1])));
+            }
+        }
+        let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+        let mut any = false;
+        let mut polar = false;
+        // One query for all the sample points (a point PROJ can't place comes back NULL and is skipped).
+        let values = pts.iter().map(|(x, y)| format!("({x}, {y})")).collect::<Vec<_>>().join(", ");
+        let sql = format!(
+            "SELECT TRY(ST_X(p)), TRY(ST_Y(p)) FROM (SELECT TRY(ST_Transform(ST_Point(x, y), {}, {}, true)) AS p FROM (VALUES {values}) t(x, y))",
+            db::lit(&crs::resolve(&crs)),
+            db::lit(&crs::resolve(crs::WGS84))
+        );
+        let lonlat: Vec<(Option<f64>, Option<f64>)> = self.with_conn(|c| {
+            let mut st = c.prepare(&sql)?;
+            let rows = st.query_map([], |r| Ok((r.get::<_, Option<f64>>(0)?, r.get::<_, Option<f64>>(1)?)))?;
+            Ok(rows.collect::<Result<_, _>>()?)
+        })?;
+        for (lon, lat) in lonlat {
+            let (Some(lon), Some(lat)) = (lon, lat) else { continue };
+            if !(lon.is_finite() && lat.is_finite()) {
+                continue;
+            }
+            if lat.abs() > 80.0 {
+                polar = true;
+            }
+            let lat = lat.clamp(-lim, lim);
+            let (mx, my) = (lon.to_radians() * 6378137.0, (std::f64::consts::FRAC_PI_4 + lat.to_radians() / 2.0).tan().ln() * 6378137.0);
+            x0 = x0.min(mx);
+            x1 = x1.max(mx);
+            y0 = y0.min(my);
+            y1 = y1.max(my);
+            any = true;
+        }
+        if !any {
+            return Ok(None);
+        }
+        if polar {
+            x0 = -world;
+            x1 = world;
+        }
+        // A little room around, so the warp's resampling has pixels on every side.
+        let (px, py) = ((x1 - x0) * 0.02 + 1.0, (y1 - y0) * 0.02 + 1.0);
+        Ok(Some([(x0 - px).max(-world), (y0 - py).max(-world), (x1 + px).min(world), (y1 + py).min(world)]))
+    }
+
+    /// A vector basemap the map view drew in Web Mercator (`png`, covering `merc`) placed in the rectangle `extent` of the map CRS `key`.
+    pub fn warp_basemap_picture(&self, png: &[u8], merc: [f64; 4], key: &str, extent: [f64; 4], out_w: u32, out_h: u32) -> Result<Vec<u8>> {
+        let mut dec = png::Decoder::new(std::io::Cursor::new(png)).read_info().map_err(|e| anyhow!("The basemap picture is not a PNG: {e}"))?;
+        let mut buf = vec![0u8; dec.output_buffer_size().ok_or_else(|| anyhow!("The basemap picture is too large"))?];
+        let info = dec.next_frame(&mut buf).map_err(|e| anyhow!("The basemap picture can't be read: {e}"))?;
+        if info.color_type != png::ColorType::Rgba || info.bit_depth != png::BitDepth::Eight {
+            bail!("The basemap picture must be 8-bit RGBA");
+        }
+        let crs = if key == display::MERCATOR_KEY { crs::WEB_MERCATOR.to_string() } else { self.display_key(key)?.0 };
+        let _slot = raster::WarpSlot::take();
+        layout::basemap::warp_mercator_picture(&buf[..info.buffer_size()], info.width, info.height, merc, &crs, extent, out_w, out_h)
+    }
+
+    /// [`Engine::warp_basemap_picture`] with the pictures as base64 text, the way they cross the command interface.
+    pub fn warp_basemap_picture_b64(&self, png_b64: &str, merc: [f64; 4], key: &str, extent: [f64; 4], out_w: u32, out_h: u32) -> Result<String> {
+        use base64::Engine as _;
+        let png = base64::engine::general_purpose::STANDARD.decode(png_b64.trim()).map_err(|e| anyhow!("The basemap picture is not base64: {e}"))?;
+        let out = self.warp_basemap_picture(&png, merc, key, extent, out_w, out_h)?;
+        Ok(base64::engine::general_purpose::STANDARD.encode(out))
+    }
+
+    /// The CRS, the rectangle and the pixel size of tile (z, x, y) on the grid of the map CRS `key`.
+    fn screen_tile_geometry(&self, key: &str, z: u32, x: u32, y: u32) -> Result<(String, [f64; 4], u32)> {
+        if key == display::MERCATOR_KEY {
+            let world = 20037508.342789244;
+            let span = 2.0 * world / 2f64.powi(z as i32);
+            let (x0, y1) = (-world + x as f64 * span, world - y as f64 * span);
+            return Ok((crs::WEB_MERCATOR.to_string(), [x0, y1 - span, x0 + span, y1], 256));
+        }
+        let (crs, di) = self.display_key(key)?;
+        Ok((crs, di.grid.tile_bounds(z, x, y)?, di.grid.tile_size))
+    }
+
     /// A tile on the grid of the map CRS `key` (from `crs_display_info`).
     /// `3857` is the Web Mercator tile above; any other key reads the layer's
     /// display table and fails while that is still being built.
     pub fn tile_in_crs(&self, id: &str, key: &str, z: u32, x: u32, y: u32, fields: &[String]) -> Result<Arc<Vec<u8>>> {
         if id == NATURAL_EARTH_TILE_ID {
             return self.natural_earth_tile(key, z, x, y);
+        }
+        if let Some(provider) = id.strip_prefix(BASEMAP_TILE_PREFIX) {
+            return self.basemap_tile(provider, key, z, x, y);
         }
         if key == display::MERCATOR_KEY {
             return self.tile(id, z, x, y, fields);

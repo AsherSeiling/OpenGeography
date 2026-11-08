@@ -13,13 +13,16 @@ import type { Coordinate } from "ol/coordinate";
 import LayerGroup from "ol/layer/Group";
 import XYZ from "ol/source/XYZ";
 import { apply as applyMapboxStyle } from "ol-mapbox-style";
+import ImageLayer from "ol/layer/Image";
+import ImageSource from "ol/source/Image";
+import { backgroundOf, loadStyleGroup, MercatorRenderer, vectorPictureFor } from "../map/vectorBasemap";
 import VectorSource from "ol/source/Vector";
 import VectorTileSource from "ol/source/VectorTile";
 import "ol/ol.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { useProjectEpoch } from "../store/projectEpoch";
-import { api, errorText, naturalEarthTileUrl, tileUrl, type LayerInfo } from "../ipc/api";
+import { api, basemapTileUrl, errorText, naturalEarthTileUrl, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, resolutionForScale, scaleOf, tileGridFor } from "../map/crs";
@@ -29,7 +32,7 @@ import { mapOf } from "../store/maps";
 import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
-import { basemapDef, basemapRefusal } from "../map/basemaps";
+import { basemapDef, basemapNotice, providerGridMaxLevel } from "../map/basemaps";
 import { labelField, styleFields } from "../map/style";
 import { displayInfo, drawableLayerIds, effectiveStyle, ownerOf, useApp } from "../store/store";
 import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
@@ -274,15 +277,25 @@ export function MapView({ mapId }: { mapId: string }) {
   const basemap = doc?.basemap ?? "none";
   const def = basemapDef(basemap);
   // A basemap that can't be placed right in this map's CRS says so and doesn't draw (it never changes the CRS).
-  const refusal = active ? basemapRefusal(def, { crsKey: active.info.crsKey, crsName: mapCrs?.name ?? "Web Mercator", world: !!active.info.world, center: centerLL, areaOfUse: active.info.areaOfUse, areaKnown: active.info.areaOfUseKnown }) : null;
+  const basemapView = active ? { crsKey: active.info.crsKey, crsName: mapCrs?.name ?? "Web Mercator", world: !!active.info.world, center: centerLL, areaOfUse: active.info.areaOfUse, areaKnown: active.info.areaOfUseKnown } : null;
+  // Where a raster basemap can only draw in part, or not at all, the map says so; the basemap stays on and is blank where it must be.
+  const basemapInfo = basemapView ? basemapNotice(def, basemapView) : null;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !active || !def || refusal) return;
+    if (!map || !active || !def) return;
     setBasemapError(null);
     let layer: BaseLayer | null = null;
     let cancelled = false;
-    if (def.kind === "xyz") {
-      // OL reprojects these Web Mercator tiles to the map CRS in the client (proj4, no datum grids: R1).
+    let disposeRenderer: (() => void) | null = null;
+    if (def.kind === "xyz" && active.info.crsKey !== MERCATOR_KEY) {
+      // Any other map CRS: the engine fetches the provider's Web Mercator tiles for each tile of this CRS's own grid and warps them with
+      // PROJ (datum shifts, poles, conics). Blank (transparent) where the CRS or the service has nothing: no refusal, a notice instead.
+      layer = new TileLayer({
+        source: new XYZ({ url: basemapTileUrl(def.id, active.info.crsKey), projection: active.projection, tileGrid: tileGridFor(active.info.grid, providerGridMaxLevel(active.info.grid.resolutions, active.info.unitM, def.maxzoom)), attributions: def.credit, crossOrigin: "anonymous", transition: 0 }),
+        zIndex: -1,
+      });
+    } else if (def.kind === "xyz") {
+      // Web Mercator map: the tiles are drawn as they are.
       layer = new TileLayer({
         source: new XYZ({ urls: def.tiles, maxZoom: def.maxzoom, attributions: def.credit, crossOrigin: "anonymous", transition: 0 }),
         zIndex: -1,
@@ -294,23 +307,46 @@ export function MapView({ mapId }: { mapId: string }) {
         zIndex: -1,
       });
     } else {
+      // Vector tiles. In a Web Mercator map OpenLayers draws the style itself. In any other CRS the style is drawn off-screen in Web
+      // Mercator over the rectangle of the view and the engine warps that picture to the view (map/vectorBasemap.ts).
       const group = new LayerGroup({ zIndex: -1 });
       layer = group;
+      const mercatorMap = active.info.crsKey === MERCATOR_KEY;
+      const crsKey = active.info.crsKey;
+      const projection = active.projection;
       void (async () => {
         try {
           const url = new URL(def.bundled ? `${import.meta.env.BASE_URL}${def.style}` : def.style!, document.baseURI).href;
           const style = await (await fetch(url)).json();
           if (def.bundled && typeof style.sprite === "string") style.sprite = new URL(`${import.meta.env.BASE_URL}basemaps/versatiles/sprites/base`, document.baseURI).href;
           if (cancelled) return;
-          // `webfonts` points at an empty stylesheet: no font files are fetched from anywhere; labels use the computer's own fonts.
-          await applyMapboxStyle(group, style, { styleUrl: url, webfonts: "data:text/css;charset=utf-8," });
-          if (cancelled) return;
-          // The provider's own wording, on every layer of the style (the control lists identical credits once).
-          const credit = (l: BaseLayer) => {
-            if (l instanceof LayerGroup) l.getLayers().forEach(credit);
-            else (l as TileLayer<XYZ>).getSource?.()?.setAttributions(def.credit);
-          };
-          credit(group);
+          if (mercatorMap) {
+            // `webfonts` points at an empty stylesheet: no font files are fetched from anywhere; labels use the computer's own fonts.
+            await applyMapboxStyle(group, style, { styleUrl: url, webfonts: "data:text/css;charset=utf-8," });
+            if (cancelled) return;
+            // The provider's own wording, on every layer of the style (the control lists identical credits once).
+            const credit = (l: BaseLayer) => {
+              if (l instanceof LayerGroup) l.getLayers().forEach(credit);
+              else (l as TileLayer<XYZ>).getSource?.()?.setAttributions(def.credit);
+            };
+            credit(group);
+          } else {
+            const styled = await loadStyleGroup(style, url);
+            if (cancelled) return;
+            const renderer = new MercatorRenderer(styled, backgroundOf(style));
+            disposeRenderer = () => renderer.dispose();
+            let chain: Promise<unknown> = Promise.resolve();
+            const source = new ImageSource({
+              projection,
+              attributions: def.credit,
+              loader: (extent, resolution, pixelRatio) => {
+                const next = chain.then(() => vectorPictureFor(renderer, crsKey, extent as [number, number, number, number], resolution, pixelRatio));
+                chain = next.catch(() => undefined);
+                return next;
+              },
+            });
+            group.getLayers().push(new ImageLayer({ source }));
+          }
         } catch (e) {
           if (!cancelled) setBasemapError(`${def.label} could not be loaded (${errorText(e)}). Check the network connection or choose another basemap.`);
         }
@@ -319,9 +355,10 @@ export function MapView({ mapId }: { mapId: string }) {
     map.addLayer(layer);
     return () => {
       cancelled = true;
+      disposeRenderer?.();
       map.removeLayer(layer!);
     };
-  }, [basemap, active, refusal]);
+  }, [basemap, active]);
 
   // ---------- data layers ----------
   const layers = useApp((s) => s.layers);
@@ -665,7 +702,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
           style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
         />
       )}
-      <MapNotices basemap={basemap} basemapNote={refusal ?? basemapError} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
+      <MapNotices basemap={basemap} basemapNote={basemapError} basemapInfo={basemapInfo} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
       <ScaleBar scale={scaleState?.scale ?? null} />
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
       {isActive && tool === "measure" && <MeasurePanel />}
@@ -677,7 +714,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
 }
 
 /** "Projecting…", dropped-feature and basemap-offset messages. */
-function MapNotices({ basemap, basemapNote, crsKey, offset }: { basemap: string; basemapNote: string | null; crsKey: string | null; offset: number | null }) {
+function MapNotices({ basemap, basemapNote, basemapInfo, crsKey, offset }: { basemap: string; basemapNote: string | null; basemapInfo: string | null; crsKey: string | null; offset: number | null }) {
   const projecting = useMapView((s) => s.projecting);
   const notices = useMapView((s) => s.notices);
   // Keys end in the CRS key they were made for ("rasters" has none and is always current).
@@ -688,6 +725,7 @@ function MapNotices({ basemap, basemapNote, crsKey, offset }: { basemap: string;
     ...Object.entries(notices).filter(([k]) => here(k)).map(([k, text]) => ({ id: `notice:${k}`, text, kind: "warn" as const })),
   ];
   if (basemapNote) all.push({ id: "basemap-note", text: basemapNote, kind: "warn" });
+  else if (basemapInfo) all.push({ id: "basemap-info", text: basemapInfo, kind: "warn" });
   if (offset !== null && basemap !== "none" && !basemapNote) all.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
   const lines = visibleNotices(all, dismissed);
   if (!lines.length) return null;

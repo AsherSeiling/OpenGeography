@@ -136,7 +136,7 @@ test("Undo and Redo act on the node tree, grey out when there is nothing to undo
   await expect(undo).toBeDisabled();
 });
 
-test("the project name is a small box at the far left of the tab row, styled like the search box, with New, Open and Save As", async ({ app }) => {
+test("the project name is a small box at the far left of the tab row, styled like the search box, with New, Open, Save As and Settings", async ({ app }) => {
   const proj = (await app.locator(".proj-btn").boundingBox())!;
   const search = (await app.locator(".search").boundingBox())!;
   const firstTab = (await app.locator(".rtab").first().boundingBox())!;
@@ -151,7 +151,7 @@ test("the project name is a small box at the far left of the tab row, styled lik
   expect(band.x).toBeLessThan(2);
   expect(band.width).toBeGreaterThan(1600 - 4);
   await app.locator(".proj-btn").click();
-  await expect(app.getByRole("menuitem")).toHaveText([/^New/, /^Open/, /^Save As/]);
+  await expect(app.getByRole("menuitem")).toHaveText([/^New/, /^Open/, /^Save As/, /^Settings/]);
   await app.keyboard.press("Escape");
 });
 

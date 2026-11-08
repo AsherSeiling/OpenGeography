@@ -161,3 +161,10 @@
 .itabs button.on { color: var(--link); font-weight: 600; background: var(--surface-1); box-shadow: inset 0 -2px 0 var(--accent); }
 .itabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .itab-body { padding-top: 8px; }
+
+/* ---- an activated map frame (UR-18) ---- */
+.layout-live { position: absolute; overflow: hidden; z-index: 4; pointer-events: none; }
+.layout-live img { position: absolute; max-width: none; user-select: none; }
+.layout-active { position: absolute; z-index: 6; box-sizing: border-box; outline: 2px solid var(--accent); outline-offset: 0; cursor: grab; touch-action: none; }
+.layout-active.grabbing { cursor: grabbing; }
+.layout-active-tip { position: absolute; left: 0; bottom: 100%; margin-bottom: 4px; padding: 2px 8px; white-space: nowrap; background: var(--accent); color: var(--ink, #06222B); font: var(--type-small); border-radius: var(--r-control); pointer-events: none; }
