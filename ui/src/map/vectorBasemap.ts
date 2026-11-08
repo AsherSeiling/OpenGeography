@@ -84,6 +84,7 @@ export class MercatorRenderer {
         if (done) return;
         done = true;
         clearTimeout(timer);
+        this.disposers = this.disposers.filter((f) => f !== finish); // a finished wait must not keep its canvas alive
         resolve(this.gone ? null : this.composite(w, h));
       };
       const timer = setTimeout(finish, RENDER_TIMEOUT_MS);
