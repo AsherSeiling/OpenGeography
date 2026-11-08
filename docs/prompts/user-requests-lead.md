@@ -4,7 +4,7 @@ You are the Opus lead for the list the user gave after testing the Mac app. Use 
 
 Read only: `CLAUDE.md`, `PROJECT_STATUS.md`, and `docs/USER_REQUESTS_2026-11-05.md`. Read other docs only for the area you touch.
 
-**First:** the order is decided (this list first). Decision 2 (ship CPython) is decided; decision 3 uses its recommended default (see the requests file). **Push nothing while the user is away (user, 2026-11-06), until they say otherwise.** Then ask about nothing else that has a sensible default.
+**First:** the order is decided (this list first). Decision 2 (ship CPython) is decided; decision 3 uses its recommended default (see the requests file). Pushes need the user's word. Then ask about nothing else that has a sensible default.
 
 ## Keep usage low: this comes first
 
