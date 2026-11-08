@@ -2015,3 +2015,25 @@ fn ur12_grouped_values_share_one_class_and_other_values_can_be_relabelled_or_hid
     let o = serde_json::to_value(&old).unwrap();
     assert!(o.get("otherHidden").is_none() && o.get("otherLabel").is_none() && o["classes"][0].get("values").is_none());
 }
+
+// UR-18: ground per millimetre of a frame, for panning and zooming it on the page.
+#[test]
+fn ur18_units_per_mm_follow_the_scale_and_the_crs() {
+    let e = Engine::new().unwrap();
+    // UTM (metres): 1:24,000 is 24 m per mm both ways; 1:48,000 doubles it.
+    let u = e.layout_frame_units_per_mm("earth", "EPSG:26915", [500_000.0, 4_649_776.0], 24_000.0, 200.0, 150.0).unwrap();
+    assert!((u[0] - 24.0).abs() < 1e-9 && (u[1] - 24.0).abs() < 1e-9, "{u:?}");
+    let u2 = e.layout_frame_units_per_mm("earth", "EPSG:26915", [500_000.0, 4_649_776.0], 48_000.0, 200.0, 150.0).unwrap();
+    assert!((u2[0] / u[0] - 2.0).abs() < 1e-9);
+    // Feet: a US-foot grid has more units per mm than metres.
+    let ft = e.layout_frame_units_per_mm("earth", "EPSG:2276", [3_000_000.0, 10_000_000.0], 24_000.0, 200.0, 150.0).unwrap();
+    assert!((ft[0] - 24.0 / 0.3048006096).abs() < 0.05, "{ft:?}");
+    // Geographic: 1 mm at 1:1,000,000 is 1 km; a degree of longitude is shorter at 60° than at the equator.
+    let eq = e.layout_frame_units_per_mm("earth", "EPSG:4326", [10.0, 0.0], 1_000_000.0, 100.0, 100.0).unwrap();
+    let hi = e.layout_frame_units_per_mm("earth", "EPSG:4326", [10.0, 60.0], 1_000_000.0, 100.0, 100.0).unwrap();
+    assert!((eq[1] - 1000.0 / 110_574.0).abs() < 2e-5 && (eq[0] - 1000.0 / 111_320.0).abs() < 2e-5, "{eq:?}");
+    assert!(hi[0] > eq[0] * 1.9, "degrees of longitude per mm double at 60°: {hi:?} vs {eq:?}");
+    // Refusals in words.
+    assert!(e.layout_frame_units_per_mm("earth", "", [0.0, 0.0], 24_000.0, 10.0, 10.0).unwrap_err().to_string().contains("coordinate system"));
+    assert!(e.layout_frame_units_per_mm("earth", "EPSG:26915", [0.0, 0.0], 0.0, 10.0, 10.0).is_err());
+}

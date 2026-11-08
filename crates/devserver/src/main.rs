@@ -322,6 +322,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         }
         "datum_coverage" => json!(e.datum_coverage()),
         "list_datum_grids" => json!(e.list_datum_grids()),
+        "layout_frame_units_per_mm" => json!(e.layout_frame_units_per_mm(&s(a, "body")?, &s(a, "crs")?, de(a, "center")?, f(a, "scale")?, f(a, "w")?, f(a, "h")?)?),
         "layout_text_slots" => json!(e.layout_text_slots()),
         "usng_grid_layer" => json!(e.usng_grid_layer(de(a, "bbox")?, a["interval"].as_f64().unwrap_or(1000.0), &s(a, "style").unwrap_or_default(), &s(a, "datum").unwrap_or_default(), &s(a, "name")?)?),
         "usng_crs_at" => json!(e.usng_crs_at(a["lon"].as_f64().unwrap_or(f64::NAN), a["lat"].as_f64().unwrap_or(f64::NAN), &s(a, "datum").unwrap_or_default())?),

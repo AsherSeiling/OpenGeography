@@ -140,6 +140,11 @@ pub async fn set_datum_policy(engine: Eng<'_>, strict: bool) -> Res<()> {
 }
 
 #[tauri::command]
+pub async fn layout_frame_units_per_mm(engine: Eng<'_>, body: String, crs: String, center: [f64; 2], scale: f64, w: f64, h: f64) -> Res<[f64; 2]> {
+    blocking(&engine, move |e| e.layout_frame_units_per_mm(&body, &crs, center, scale, w, h)).await
+}
+
+#[tauri::command]
 pub async fn layout_text_slots(engine: Eng<'_>) -> Res<Vec<engine::layout::slots::Slot>> {
     blocking(&engine, move |e| Ok(e.layout_text_slots())).await
 }

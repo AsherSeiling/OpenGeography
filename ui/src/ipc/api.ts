@@ -677,6 +677,8 @@ export const api = {
   copyLayer: (id: string, name: string, fids: number[] | null = null) => invoke<LayerInfo>("copy_layer", { id, name, fids }),
   listFonts: () => invoke<FontFamily[]>("list_fonts"),
   exportTable: (id: string, spec: TableExportSpec) => invoke<TableExportResult>("export_table", { id, spec }),
+  /** Ground per millimetre of a map frame, in its CRS units: [east, north]. */
+  layoutFrameUnitsPerMm: (body: string, crs: string, center: [number, number], scale: number, w: number, h: number) => invoke<[number, number]>("layout_frame_units_per_mm", { body, crs, center, scale, w, h }),
   layoutSeriesPages: (layout: Layout) => invoke<SeriesPageInfo[]>("layout_series_pages", { layout }),
   exportLayoutSeries: (req: RenderRequest, format: string, dpi: number, path: string) => invoke<SeriesExportResult>("export_layout_series", { req, format, dpi, path }),
   datumDataStatus: () => invoke<DatumReport>("datum_data_status"),
