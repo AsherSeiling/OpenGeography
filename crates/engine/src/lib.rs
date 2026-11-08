@@ -3,6 +3,8 @@
 
 /// The tile-URL layer id that stands for the bundled Natural Earth basemap (`/tiles/__naturalEarth/{crsKey}/{z}/{x}/{y}.png`).
 pub const NATURAL_EARTH_TILE_ID: &str = "__naturalEarth";
+/// Tile ids `__bm_<provider>` are on-screen raster basemaps warped to the map CRS by the engine (UR-19).
+pub const BASEMAP_TILE_PREFIX: &str = "__bm_";
 pub mod attrs;
 pub mod catalog;
 pub mod usng;
@@ -1155,12 +1157,43 @@ impl Engine {
         Ok(t)
     }
 
+    /// A tile of an on-screen raster basemap (`provider`: `usgsTopo`, `osm` …) on the grid of the map CRS `key`.
+    fn basemap_tile(&self, provider: &str, key: &str, z: u32, x: u32, y: u32) -> Result<Arc<Vec<u8>>> {
+        let cache_key: TileKey = (format!("{BASEMAP_TILE_PREFIX}{provider}"), 0, z, x, y, key.to_string());
+        if let Some(t) = self.tile_cache.lock().get(&cache_key) {
+            return Ok(t.clone());
+        }
+        let (crs, bounds, size) = self.screen_tile_geometry(key, z, x, y)?;
+        let png = {
+            let _slot = raster::WarpSlot::take();
+            layout::basemap::screen_raster_tile(provider, &crs, bounds, size)?
+        };
+        let t = Arc::new(png);
+        self.tile_cache.lock().put(cache_key, t.clone());
+        Ok(t)
+    }
+
+    /// The CRS, the rectangle and the pixel size of tile (z, x, y) on the grid of the map CRS `key`.
+    fn screen_tile_geometry(&self, key: &str, z: u32, x: u32, y: u32) -> Result<(String, [f64; 4], u32)> {
+        if key == display::MERCATOR_KEY {
+            let world = 20037508.342789244;
+            let span = 2.0 * world / 2f64.powi(z as i32);
+            let (x0, y1) = (-world + x as f64 * span, world - y as f64 * span);
+            return Ok((crs::WEB_MERCATOR.to_string(), [x0, y1 - span, x0 + span, y1], 256));
+        }
+        let (crs, di) = self.display_key(key)?;
+        Ok((crs, di.grid.tile_bounds(z, x, y)?, di.grid.tile_size))
+    }
+
     /// A tile on the grid of the map CRS `key` (from `crs_display_info`).
     /// `3857` is the Web Mercator tile above; any other key reads the layer's
     /// display table and fails while that is still being built.
     pub fn tile_in_crs(&self, id: &str, key: &str, z: u32, x: u32, y: u32, fields: &[String]) -> Result<Arc<Vec<u8>>> {
         if id == NATURAL_EARTH_TILE_ID {
             return self.natural_earth_tile(key, z, x, y);
+        }
+        if let Some(provider) = id.strip_prefix(BASEMAP_TILE_PREFIX) {
+            return self.basemap_tile(provider, key, z, x, y);
         }
         if key == display::MERCATOR_KEY {
             return self.tile(id, z, x, y, fields);

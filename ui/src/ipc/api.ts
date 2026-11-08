@@ -849,6 +849,12 @@ export function tileUrl(layer: LayerInfo, fields: string[], crsKey?: string): st
   return `${TILE_BASE}/tiles/${layer.id}/${key}{z}/{x}/{y}.${ext}?v=${layer.version}${f}`;
 }
 
+/** Tile URL template of an on-screen raster basemap (`usgsTopo`, `osm` …) on a map CRS's grid: the engine fetches the provider's Web Mercator tiles and warps them with PROJ, so it works in every CRS. */
+export function basemapTileUrl(providerId: string, crsKey: string): string {
+  const key = crsKey && crsKey !== "3857" ? `${crsKey}/` : "";
+  return `${TILE_BASE}/tiles/__bm_${providerId}/${key}{z}/{x}/{y}.png`;
+}
+
 /** Tile URL template of the bundled Natural Earth basemap on a map CRS's grid (the engine warps it; works in every CRS, offline). */
 export function naturalEarthTileUrl(crsKey: string): string {
   const key = crsKey && crsKey !== "3857" ? `${crsKey}/` : "";

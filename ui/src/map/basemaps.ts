@@ -8,7 +8,9 @@ import { MERCATOR_KEY } from "./crs";
 
 /**
  * How a basemap is drawn, which decides where it can be shown:
- *  - `xyz`: Web Mercator raster tiles that OpenLayers reprojects to the map CRS in the browser (proj4, no datum grids).
+ *  - `xyz`: Web Mercator raster tiles. In a Web Mercator map OpenLayers draws them as they are; in any other CRS the engine fetches the
+ *    tiles it needs for each tile of the map's own grid and warps them with PROJ (datum shifts, poles, conics), so they draw wherever
+ *    both the CRS and the service have something and are blank (transparent) elsewhere.
  *  - `vector`: Mapbox/MapLibre-style vector tiles. OpenLayers cannot reproject vector tiles, so they draw in Web Mercator only.
  *  - `engine`: the bundled Natural Earth raster, warped by the engine to the map CRS's own tile grid (any CRS, offline).
  */
@@ -29,10 +31,14 @@ export interface BasemapDef {
   credit: string;
   /** The same credit as plain text (tests, status messages). */
   creditText: string;
+  /** Where an `xyz` provider has tiles at all (lon/lat boxes: west, south, east, north); undefined = the whole Web Mercator world. Outside, the basemap is blank and the map says so. */
+  coverage?: [number, number, number, number][];
   /** A layout frame may print it (USGS; Natural Earth). The rest stay on screen: their terms forbid bulk tile downloads. */
   print: boolean;
 }
 
+/** The United States and its territories, roughly (USGS tiles; elsewhere the service has none). */
+const US_COVERAGE: [number, number, number, number][] = [[-180, -15, -64, 72], [144, 13, 146, 21]];
 const USGS = (svc: string) => `https://basemap.nationalmap.gov/arcgis/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`;
 const OSM_LINK = `<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>`;
 const OFM_CREDIT = `<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> <a href="https://openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>`;
@@ -40,9 +46,9 @@ const OFM_TEXT = "OpenFreeMap © OpenMapTiles Data from OpenStreetMap";
 const OFM = (name: string) => `https://tiles.openfreemap.org/styles/${name}`;
 
 export const BASEMAP_DEFS: BasemapDef[] = [
-  { id: "usgsTopo", label: "USGS Topo", kind: "xyz", tiles: [USGS("USGSTopo")], maxzoom: 16, credit: "USGS The National Map", creditText: "USGS The National Map", print: true },
-  { id: "usgsImagery", label: "USGS Imagery", kind: "xyz", tiles: [USGS("USGSImageryOnly")], maxzoom: 16, credit: "USGS The National Map", creditText: "USGS The National Map", print: true },
-  { id: "usgsRelief", label: "USGS Shaded Relief", kind: "xyz", tiles: [USGS("USGSShadedReliefOnly")], maxzoom: 16, credit: "USGS The National Map", creditText: "USGS The National Map", print: true },
+  { id: "usgsTopo", label: "USGS Topo", kind: "xyz", tiles: [USGS("USGSTopo")], coverage: US_COVERAGE, maxzoom: 16, credit: "USGS The National Map", creditText: "USGS The National Map", print: true },
+  { id: "usgsImagery", label: "USGS Imagery", kind: "xyz", tiles: [USGS("USGSImageryOnly")], coverage: US_COVERAGE, maxzoom: 16, credit: "USGS The National Map", creditText: "USGS The National Map", print: true },
+  { id: "usgsRelief", label: "USGS Shaded Relief", kind: "xyz", tiles: [USGS("USGSShadedReliefOnly")], coverage: US_COVERAGE, maxzoom: 16, credit: "USGS The National Map", creditText: "USGS The National Map", print: true },
   { id: "osm", label: "OpenStreetMap", kind: "xyz", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], maxzoom: 19, credit: `© ${OSM_LINK}`, creditText: "© OpenStreetMap contributors", print: false },
   {
     id: "openTopoMap",
@@ -112,33 +118,12 @@ export const MERCATOR_MAX_LAT = 85.0511;
 
 /**
  * Why `def` can't be drawn for this view, in words (null = it can). A basemap never changes the map's coordinate system and never
- * draws misaligned or partly blank where it can't be placed right:
- *  - vector tiles exist only in Web Mercator and can't be reprojected, so any other CRS refuses them;
- *  - Web Mercator raster tiles are reprojected in the browser, which holds only near the coordinate system's area of use and
- *    within Web Mercator's 85° limit, so a view centred well outside either is refused (docs/BUGS.md MM-3: USGS Imagery left a
- *    UTM 11N map blank when centred far outside the zone);
- *  - the bundled Natural Earth raster is warped by the engine to the map's own grid, so it draws in every CRS.
+ * draws misaligned. Raster tile basemaps draw in every CRS (the engine warps them, see `BasemapKind`) and are blank where they must be,
+ * with a notice from `basemapNotice`; only vector basemaps are still refused outside Web Mercator (replaced in the next step).
  */
 export function basemapRefusal(def: BasemapDef | null, v: BasemapView): string | null {
-  if (!def || def.kind === "engine") return null;
-  if (def.kind === "vector") {
-    if (v.crsKey === MERCATOR_KEY) return null;
-    return `${def.label} is drawn in Web Mercator only, so it can't be shown in ${v.crsName}. Switch the map to Web Mercator, or choose Natural Earth or a raster basemap.`;
-  }
-  if (v.crsKey === MERCATOR_KEY) return null;
-  if (!v.center) return null;
-  const [lon, lat] = v.center;
-  if (Math.abs(lat) > MERCATOR_MAX_LAT) return `${def.label} doesn't cover the poles (its tiles stop at ${MERCATOR_MAX_LAT.toFixed(0)}° latitude), so it isn't drawn here. Choose Natural Earth.`;
-  if (v.areaKnown) {
-    const [w, s, e, n] = v.areaOfUse;
-    const m = AREA_OF_USE_MARGIN_DEG;
-    const [west, east] = [wrapLon(w - m), wrapLon(e + m)];
-    // A margin that closes the gap around the globe means every longitude is in range.
-    const whole = (w <= e ? e - w : e - w + 360) + 2 * m >= 360;
-    const inLon = whole || (west <= east ? lon >= west && lon <= east : lon >= west || lon <= east);
-    if (!inLon || lat < s - m || lat > n + m) return `${def.label} isn't drawn here: the view is outside the area where ${v.crsName} is valid, and a basemap there would be misplaced or blank. Pan back into the area, or choose Natural Earth.`;
-  }
-  return null;
+  if (!def || def.kind !== "vector" || v.crsKey === MERCATOR_KEY) return null;
+  return `${def.label} is drawn in Web Mercator only, so it can't be shown in ${v.crsName}. Switch the map to Web Mercator, or choose Natural Earth or a raster basemap.`;
 }
 
 const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
@@ -148,4 +133,40 @@ export function printRefusal(id: string): string | null {
   const d = basemapDef(id);
   if (!d || d.print) return null;
   return `${d.label} can't be used in print layouts (its terms don't allow bulk tile downloads), so the frame has no basemap. Choose a USGS basemap or Natural Earth.`;
+}
+
+/**
+ * A sentence about a view where an on-screen raster basemap draws only in part or not at all, or null. It is information, not a refusal: the
+ * basemap stays on and is blank where it must be (the engine warps it wherever the coordinate system and the service both have something).
+ */
+export function basemapNotice(def: BasemapDef | null, v: BasemapView): string | null {
+  if (!def || def.kind !== "xyz" || !v.center) return null;
+  const [lon, lat] = v.center;
+  if (Math.abs(lat) > MERCATOR_MAX_LAT) return `${def.label} has no tiles beyond ${MERCATOR_MAX_LAT.toFixed(0)}° latitude (Web Mercator ends there), so the map is blank here. Natural Earth covers the poles.`;
+  if (def.coverage && !def.coverage.some(([w, s, e, n]) => lat >= s && lat <= n && (w <= e ? lon >= w && lon <= e : lon >= w || lon <= e))) {
+    return `${def.label} only has tiles for the United States and its territories, so it is blank here. Choose OpenStreetMap, OpenTopoMap or Natural Earth for other places.`;
+  }
+  if (v.crsKey !== MERCATOR_KEY && v.areaKnown) {
+    const [w, s, e, n] = v.areaOfUse;
+    const m = AREA_OF_USE_MARGIN_DEG;
+    const [west, east] = [wrapLon(w - m), wrapLon(e + m)];
+    const whole = (w <= e ? e - w : e - w + 360) + 2 * m >= 360;
+    const inLon = whole || (west <= east ? lon >= west && lon <= east : lon >= west || lon <= east);
+    if (!inLon || lat < s - m || lat > n + m) return `This view is far outside the area where ${v.crsName} is meant to be used. The basemap is drawn as far as the projection works, but it may be stretched, cut off or blank here.`;
+  }
+  return null;
+}
+
+/**
+ * The finest tile level of a map CRS's grid worth asking the engine for: a provider's own finest level (`maxzoom`) has about
+ * 156 543 m / 2^maxzoom per pixel at the equator, and levels more than a factor of two finer would only enlarge it. The view still zooms
+ * past it (the last level is stretched, as for every raster basemap).
+ */
+export function providerGridMaxLevel(resolutions: number[], unitM: number, maxzoom: number): number {
+  const native = 156543.03392804097 / 2 ** maxzoom;
+  let last = 0;
+  resolutions.forEach((r, i) => {
+    if (r * unitM >= native * 0.5) last = i;
+  });
+  return last;
 }

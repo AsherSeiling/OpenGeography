@@ -19,7 +19,7 @@ import "ol/ol.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { useProjectEpoch } from "../store/projectEpoch";
-import { api, errorText, naturalEarthTileUrl, tileUrl, type LayerInfo } from "../ipc/api";
+import { api, basemapTileUrl, errorText, naturalEarthTileUrl, tileUrl, type LayerInfo } from "../ipc/api";
 import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, resolutionForScale, scaleOf, tileGridFor } from "../map/crs";
@@ -29,7 +29,7 @@ import { mapOf } from "../store/maps";
 import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
 import { createReadout, type Readout } from "../map/readout";
-import { basemapDef, basemapRefusal } from "../map/basemaps";
+import { basemapDef, basemapNotice, basemapRefusal, providerGridMaxLevel } from "../map/basemaps";
 import { labelField, styleFields } from "../map/style";
 import { displayInfo, drawableLayerIds, effectiveStyle, ownerOf, useApp } from "../store/store";
 import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
@@ -274,15 +274,25 @@ export function MapView({ mapId }: { mapId: string }) {
   const basemap = doc?.basemap ?? "none";
   const def = basemapDef(basemap);
   // A basemap that can't be placed right in this map's CRS says so and doesn't draw (it never changes the CRS).
-  const refusal = active ? basemapRefusal(def, { crsKey: active.info.crsKey, crsName: mapCrs?.name ?? "Web Mercator", world: !!active.info.world, center: centerLL, areaOfUse: active.info.areaOfUse, areaKnown: active.info.areaOfUseKnown }) : null;
+  const basemapView = active ? { crsKey: active.info.crsKey, crsName: mapCrs?.name ?? "Web Mercator", world: !!active.info.world, center: centerLL, areaOfUse: active.info.areaOfUse, areaKnown: active.info.areaOfUseKnown } : null;
+  const refusal = basemapView ? basemapRefusal(def, basemapView) : null;
+  // Where a raster basemap can only draw in part, or not at all, the map says so; the basemap stays on and is blank where it must be.
+  const basemapInfo = basemapView ? basemapNotice(def, basemapView) : null;
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !active || !def || refusal) return;
     setBasemapError(null);
     let layer: BaseLayer | null = null;
     let cancelled = false;
-    if (def.kind === "xyz") {
-      // OL reprojects these Web Mercator tiles to the map CRS in the client (proj4, no datum grids: R1).
+    if (def.kind === "xyz" && active.info.crsKey !== MERCATOR_KEY) {
+      // Any other map CRS: the engine fetches the provider's Web Mercator tiles for each tile of this CRS's own grid and warps them with
+      // PROJ (datum shifts, poles, conics). Blank (transparent) where the CRS or the service has nothing: no refusal, a notice instead.
+      layer = new TileLayer({
+        source: new XYZ({ url: basemapTileUrl(def.id, active.info.crsKey), projection: active.projection, tileGrid: tileGridFor(active.info.grid, providerGridMaxLevel(active.info.grid.resolutions, active.info.unitM, def.maxzoom)), attributions: def.credit, crossOrigin: "anonymous", transition: 0 }),
+        zIndex: -1,
+      });
+    } else if (def.kind === "xyz") {
+      // Web Mercator map: the tiles are drawn as they are.
       layer = new TileLayer({
         source: new XYZ({ urls: def.tiles, maxZoom: def.maxzoom, attributions: def.credit, crossOrigin: "anonymous", transition: 0 }),
         zIndex: -1,
@@ -665,7 +675,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
           style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
         />
       )}
-      <MapNotices basemap={basemap} basemapNote={refusal ?? basemapError} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
+      <MapNotices basemap={basemap} basemapNote={refusal ?? basemapError} basemapInfo={basemapInfo} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
       <ScaleBar scale={scaleState?.scale ?? null} />
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
       {isActive && tool === "measure" && <MeasurePanel />}
@@ -677,7 +687,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
 }
 
 /** "Projecting…", dropped-feature and basemap-offset messages. */
-function MapNotices({ basemap, basemapNote, crsKey, offset }: { basemap: string; basemapNote: string | null; crsKey: string | null; offset: number | null }) {
+function MapNotices({ basemap, basemapNote, basemapInfo, crsKey, offset }: { basemap: string; basemapNote: string | null; basemapInfo: string | null; crsKey: string | null; offset: number | null }) {
   const projecting = useMapView((s) => s.projecting);
   const notices = useMapView((s) => s.notices);
   // Keys end in the CRS key they were made for ("rasters" has none and is always current).
@@ -688,6 +698,7 @@ function MapNotices({ basemap, basemapNote, crsKey, offset }: { basemap: string;
     ...Object.entries(notices).filter(([k]) => here(k)).map(([k, text]) => ({ id: `notice:${k}`, text, kind: "warn" as const })),
   ];
   if (basemapNote) all.push({ id: "basemap-note", text: basemapNote, kind: "warn" });
+  else if (basemapInfo) all.push({ id: "basemap-info", text: basemapInfo, kind: "warn" });
   if (offset !== null && basemap !== "none" && !basemapNote) all.push({ id: "basemap-offset", text: `Basemap may be offset ≈${Math.round(offset)} m in this coordinate system (datum shift)`, kind: "warn" });
   const lines = visibleNotices(all, dismissed);
   if (!lines.length) return null;

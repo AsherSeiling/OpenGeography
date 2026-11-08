@@ -37,18 +37,28 @@ test.describe("basemaps", () => {
     await expect(mapEl(app, m.id).getByTestId("map-notices")).toHaveCount(0);
   });
 
-  test("a raster basemap in a UTM map is refused when the view is outside the zone (MM-3) and draws once it is inside", async ({ app }) => {
+  test("a raster basemap in a UTM map is no longer refused far outside the zone (MM-3, UR-19): the engine warps it, the map says it is far outside", async ({ app }) => {
+    // The engine would fetch the provider's tiles; here the tile route answers with a transparent PNG and records what was asked.
+    const asked: string[] = [];
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+    await app.route(/\/tiles\/__bm_usgsImagery\//, (route: any) => { asked.push(route.request().url()); return route.fulfill({ status: 200, contentType: "image/png", body: png }); });
     const m = (await gis(app, (g) => g.useApp.getState().maps[0])) as { id: string };
     await gis(app, (g, a: any) => { g.useApp.getState().setMapCrs(a.crs, a.id); g.useApp.getState().setBasemap("usgsImagery", a.id); }, { crs: UTM11, id: m.id });
     await expect.poll(() => gis(app, (g, id: string) => g.mapController.getActiveCrs(id)?.id, m.id)).toBe("EPSG:26911");
-    // The default view is centred on the middle of the US, far east of UTM zone 11.
-    await expect(mapEl(app, m.id).getByTestId("map-notices")).toContainText("USGS Imagery isn't drawn here: the view is outside the area where NAD83 / UTM zone 11N is valid");
+    // The default view is centred on the middle of the US, far east of UTM zone 11: said in a sentence, not refused.
+    await expect(mapEl(app, m.id).getByTestId("map-notices")).toContainText("far outside the area where NAD83 / UTM zone 11N is meant to be used");
+    await expect(mapEl(app, m.id).getByTestId("map-notices")).not.toContainText("isn't drawn here");
+    await expect(credit(app, m.id)).toContainText("USGS The National Map");
+    // The tiles come from the engine, on this map's own grid (the CRS key is in the path), not from the provider's server.
+    await expect.poll(() => asked.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    expect(asked[0]).toMatch(/\/tiles\/__bm_usgsImagery\/[^/]+\/\d+\/\d+\/\d+\.png/);
+    expect(asked.every((u) => !u.includes("nationalmap.gov"))).toBe(true);
+    // Inside the zone the notice goes and the tiles keep coming.
     await gis(app, async (g, id: string) => {
       const [x, y] = await g.api.transformPoint(-117, 36, "EPSG:4326", "EPSG:26911");
       g.getMap(id).getView().setCenter([x, y]);
     }, m.id);
     await expect(mapEl(app, m.id).getByTestId("map-notices")).toHaveCount(0);
-    await expect(credit(app, m.id)).toContainText("USGS The National Map");
   });
 
   test("Natural Earth draws from the engine in a projected CRS", async ({ app }) => {

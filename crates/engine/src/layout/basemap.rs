@@ -47,6 +47,17 @@ fn service(id: &str) -> Option<&'static str> {
     })
 }
 
+/// The on-screen raster tile basemaps the engine can warp to any map CRS (UR-19): id, tile URL template (`${z}`, `${x}`, `${y}` as GDAL
+/// writes them) and the finest tile level. The map view's own list is `ui/src/map/basemaps.ts`; a test keeps the two in step. Only the
+/// USGS ones may also be printed (`IDS`); the others are looked at on screen, one tile at a time, and are never kept on disk.
+pub const SCREEN_RASTERS: [(&str, &str, u32); 5] = [
+    ("usgsTopo", "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/${z}/${y}/${x}", 16),
+    ("usgsImagery", "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}", 16),
+    ("usgsRelief", "https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/${z}/${y}/${x}", 16),
+    ("osm", "https://tile.openstreetmap.org/${z}/${x}/${y}.png", 19),
+    ("openTopoMap", "https://a.tile.opentopomap.org/${z}/${x}/${y}.png", 17),
+];
+
 /// Tiles stay in the disk cache this many seconds before they are fetched again (30 days).
 const CACHE_EXPIRES_S: u32 = 30 * 24 * 3600;
 
@@ -73,6 +84,67 @@ fn tile_xml_at(url: &str, cache: Option<&std::path::Path>) -> String {
 
 fn tile_xml(svc: &str, cache: Option<&std::path::Path>) -> String {
     tile_xml_at(&format!("https://basemap.nationalmap.gov/arcgis/rest/services/{svc}/MapServer/tile/${{z}}/${{y}}/${{x}}"), cache)
+}
+
+/// GDAL definition of a Web Mercator tile service read for the screen: four bands, so a tile the server doesn't have (404 or 204) is
+/// transparent and the warp leaves that place blank; no disk cache; a polite user agent and a few parallel connections.
+fn screen_xml(url: &str, level: u32) -> String {
+    let w = 20037508.342789244;
+    format!(
+        "<GDAL_WMS><Service name=\"TMS\"><ServerUrl>{}</ServerUrl></Service>\
+         <DataWindow><UpperLeftX>-{w}</UpperLeftX><UpperLeftY>{w}</UpperLeftY><LowerRightX>{w}</LowerRightX><LowerRightY>-{w}</LowerRightY><TileLevel>{level}</TileLevel><TileCountX>1</TileCountX><TileCountY>1</TileCountY><YOrigin>top</YOrigin></DataWindow>\
+         <Projection>EPSG:3857</Projection><BlockSizeX>256</BlockSizeX><BlockSizeY>256</BlockSizeY><BandsCount>4</BandsCount>\
+         <ZeroBlockHttpCodes>204,404</ZeroBlockHttpCodes><ZeroBlockOnServerException>true</ZeroBlockOnServerException><MaxConnections>8</MaxConnections>\
+         <UserAgent>GIS Studio (open-source desktop GIS; map view)</UserAgent><Timeout>20</Timeout></GDAL_WMS>",
+        xml_escape(url)
+    )
+}
+
+/// One map tile (`bounds` = `[xmin, ymin, xmax, ymax]` of a tile of the map CRS `crs`, `size` px square) of the Web Mercator tile service
+/// at `url` (finest level `level`), warped by PROJ and returned as an RGBA PNG. The whole range where the CRS and the service both have
+/// something is drawn; everywhere else (past the poles of Web Mercator, where the CRS is undefined, where the server has no tile) the
+/// pixels are transparent.
+pub fn screen_tile(url: &str, level: u32, crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
+    let ds = Dataset::open(screen_xml(url, level)).map_err(|e| anyhow!("Could not open the basemap tile service: {e}"))?;
+    render_rgba(&ds, crs, bounds, size, size)
+}
+
+/// An on-screen basemap tile by provider id (see [`SCREEN_RASTERS`]).
+pub fn screen_raster_tile(id: &str, crs: &str, bounds: [f64; 4], size: u32) -> Result<Vec<u8>> {
+    let (_, url, level) = SCREEN_RASTERS.iter().find(|(k, _, _)| *k == id).ok_or_else(|| anyhow!("'{id}' is not an on-screen raster basemap"))?;
+    screen_tile(url, *level, crs, bounds, size)
+}
+
+/// Like [`render`] but keeps the source's own transparency (a four-band source) instead of replacing it.
+pub fn render_rgba(ds: &Dataset, crs: &str, extent: [f64; 4], w_px: u32, h_px: u32) -> Result<Vec<u8>> {
+    let (w, h) = (w_px as usize, h_px as usize);
+    if w == 0 || h == 0 || w.saturating_mul(h) > 100_000_000 {
+        bail!("Basemap image size {w_px}×{h_px} px is not supported");
+    }
+    let target = crate::crs::resolve(crs);
+    let mut args: Vec<String> = ["-of", "MEM", "-t_srs", target.as_str(), "-r", "bilinear", "-dstalpha"].map(String::from).to_vec();
+    args.extend(["-te".into(), extent[0].to_string(), extent[1].to_string(), extent[2].to_string(), extent[3].to_string(), "-ts".into(), w.to_string(), h.to_string()]);
+    let out = crate::raster::warp(ds, "", &args)?;
+    let bands = out.raster_count();
+    if bands < 4 {
+        bail!("The warped basemap tile has {bands} bands, not RGBA");
+    }
+    let mut rgba = vec![0u8; w * h * 4];
+    for band in 1..=4 {
+        let v = out.rasterband(band)?.read_as::<u8>((0, 0), (w, h), (w, h), None)?;
+        for (i, p) in v.data().iter().enumerate() {
+            rgba[i * 4 + band - 1] = *p;
+        }
+    }
+    let mut png_bytes = Vec::new();
+    {
+        let mut enc = png::Encoder::new(&mut png_bytes, w_px, h_px);
+        enc.set_color(png::ColorType::Rgba);
+        enc.set_depth(png::BitDepth::Eight);
+        let mut wr = enc.write_header()?;
+        wr.write_image_data(&rgba)?;
+    }
+    Ok(png_bytes)
 }
 
 /// Open a tile service (`url` with `${z}/${y}/${x}`), caching tiles in `cache`.
