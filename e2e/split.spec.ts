@@ -37,6 +37,7 @@ test("B6 split into files: needs a folder, writes one file per value, never over
   await dlg.getByRole("button", { name: "Split", exact: true }).click();
   await expect.poll(() => readdirSync(dir).filter((f) => f.endsWith(".gpkg")).length).toBe(distinct);
   expect(existsSync(join(dir, `${vals[0]}.gpkg`))).toBe(true);
+  await expect(dlg).toHaveCount(0); // the files land just before the dialog closes; opening it now would be closed by the first run finishing
   // Again into the same folder: the files are kept, new ones get a number.
   const dlg2 = await open(app, layer.id);
   await dlg2.getByRole("radio", { name: /One file per value/ }).check();
