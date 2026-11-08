@@ -38,6 +38,7 @@ pub mod progress;
 pub mod raster;
 pub mod raster_style;
 pub mod topo_symbols;
+pub mod settings;
 pub mod sources;
 pub mod resources;
 pub mod table;

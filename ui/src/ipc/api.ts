@@ -108,6 +108,17 @@ export interface TaskInfo {
 }
 
 /** A data source citation (see crates/engine/src/sources.rs). */
+/** The user's program settings (UR-16): stored once per user by the engine, never in a project, never a secret. */
+export interface ProgramSettings {
+  theme?: "light" | "dark" | null;
+  lengthUnit?: string | null;
+  areaUnit?: string | null;
+  defaultCrs?: { id: string; name: string } | null;
+  /** The dock arrangement new projects start with (UR-17). */
+  startupLayout?: unknown;
+  scriptingLanguage?: string | null;
+}
+
 export interface Citation {
   key: string;
   author: string;
@@ -606,6 +617,8 @@ export const api = {
   fsInspect: (path: string) => invoke<FsDetails>("fs_inspect", { path }),
   fsStat: (paths: string[]) => invoke<{ path: string; entry: FsEntry | null }[]>("fs_stat", { paths }),
   sources: () => invoke<SourceEntry[]>("sources"),
+  getSettings: () => invoke<ProgramSettings>("get_settings"),
+  setSettings: (settings: ProgramSettings) => invoke<ProgramSettings>("set_settings", { settings }),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),
   /** Give a layer a citation the user wrote (a form, or pasted text with kind "Pasted citation"); `accessed` is YYYY-MM-DD (default today). */
   addLayerSource: (layer: string, citation: Citation, accessed?: string) => invoke<Citation>("add_layer_source", { layer, citation, accessed: accessed ?? null }),

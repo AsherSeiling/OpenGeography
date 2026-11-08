@@ -162,6 +162,8 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             }
             json!(out)
         }
+        "get_settings" => json!(engine::settings::load()),
+        "set_settings" => json!(engine::settings::save(&de::<engine::settings::Settings>(a, "settings")?)?),
         "progress" => json!(engine::progress::snapshot()),
         "select_by_location" => {
             let by_fids: Option<Vec<i64>> = de(a, "byFids").ok();

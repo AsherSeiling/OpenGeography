@@ -2,6 +2,7 @@
 //
 // A map owns its coordinate system, basemap, saved view, world view, and which project layers it shows with their order and visibility.
 // Layer data, sources, node trees, styles and layouts stay project-wide.
+import { getDefaultMapCrs } from "./defaults";
 import type { Camera } from "../map/mapController";
 import type { LayerInfo } from "../ipc/api";
 import { readBasemap } from "../map/basemaps";
@@ -55,7 +56,7 @@ export function uniqueName(maps: MapDoc[], wanted: string): string {
 /** A new empty map. It takes the last map's coordinate system and basemap (null stays null) and says which map they came from. */
 export function newMapFrom(maps: MapDoc[]): { map: MapDoc; inheritedFrom: MapDoc | null } {
   const last = maps[maps.length - 1] ?? null;
-  const map = emptyMap({ id: newMapId(maps), name: uniqueName(maps, `Map ${maps.length + 1}`), crs: last?.crs ? { ...last.crs } : null, basemap: last?.basemap ?? "usgsTopo" });
+  const map = emptyMap({ id: newMapId(maps), name: uniqueName(maps, `Map ${maps.length + 1}`), crs: last?.crs ? { ...last.crs } : getDefaultMapCrs(), basemap: last?.basemap ?? "usgsTopo" });
   return { map, inheritedFrom: last?.crs ? last : null };
 }
 

@@ -123,6 +123,8 @@ fn main() {
             commands::sources,
             commands::update_source,
             commands::add_layer_source,
+            commands::get_settings,
+            commands::set_settings,
             commands::remove_source,
             commands::record_basemap,
             commands::save_text,

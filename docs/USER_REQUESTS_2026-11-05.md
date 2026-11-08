@@ -39,7 +39,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 
 | ID | Request | Today | Work |
 |---|---|---|---|
-| UR-16 | Program settings menu, easy to reach | None | Settings dialog on the ribbon, stored per user outside any project (never secrets in it). Holds UR-17 and default scripting language, default CRS, units. |
+| UR-16 **done** (commit: `git log --grep UR-16`) | Program settings menu, easy to reach | None | Settings dialog on the ribbon, stored per user outside any project (never secrets in it). Holds UR-17 and default scripting language, default CRS, units. |
 | UR-17 | Customizable startup panes | Fixed default layout, `panes.ts` | Save the current arrangement as the startup layout; reset to default. Needs UR-16. |
 | UR-18 | Activate a map in the layout editor and move it | No activation in `LayoutView.tsx` | Double-click a map frame to activate it: pan and zoom change that frame's extent and scale. Esc or click outside ends it. One undo step. Needs care: the preview is engine-rendered, so pan must stay responsive. |
 | UR-19 | All basemaps work in all CRSs | Refused on purpose (`basemapRefusal`, `ui/src/map/basemaps.ts:123`): vector basemaps in any non-Mercator CRS; raster ones outside the CRS's area of use (bug MM-3) | Raster: reproject over the whole valid range, leaving blank only what the CRS or the tiles can't cover. Vector: draw through an off-screen renderer into raster, then reproject. Must stay correct: nothing misplaced, and a clear notice where blank. **Print limits stay**: a provider's terms (`printRefusal`) aren't a technical limit. Reads `docs/MAP_PROJECTION_PLAN.md` M4 first. Read closely. |

@@ -117,6 +117,7 @@ const list: Command[] = [
   { id: "calcField", label: "Calculate Field", icon: <RIcon name="calc-field" />, run: () => active() && useDialog.getState().show({ kind: "calcField", layer: active()!.id, owner: active()!.id }), enabled: canEditActive },
   { id: "calcGeometry", label: "Calculate Geometry", icon: <RIcon name="calc-geometry" />, run: () => active() && useDialog.getState().show({ kind: "calcGeometry", layer: active()!.id, owner: active()!.id }), enabled: () => canEditActive() && active()!.geomType !== "Table" },
   { id: "newTable", label: "New Table", icon: <RIcon name="table-new" />, run: () => useDialog.getState().show({ kind: "newTable" }), tip: "Make an empty table with typed fields (text, numbers, dates, yes/no) and fill it in the Attribute Table. Tables have rows but no shapes" },
+  { id: "settings", label: "Settings", icon: <RIcon name="settings" />, run: () => useDialog.getState().show({ kind: "settings" }), tip: "Your own choices: theme, units, the coordinate system of new maps and the startup panes. They are saved on this computer, not in a project" },
   { id: "testData", label: "Generate Test Data", icon: <RIcon name="test-data" />, run: () => useDialog.getState().show({ kind: "testData" }), tip: "Random points or polygons, to try tools and check speed" },
 
   // Analysis tab

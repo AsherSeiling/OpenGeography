@@ -4,7 +4,7 @@ import { ChevronDownRegular } from "@fluentui/react-icons";
 import { useApp } from "../store/store";
 import { commands } from "./commands";
 
-export const PROJECT_MENU = ["new", "open", "saveAs"];
+export const PROJECT_MENU = ["new", "open", "saveAs", "settings"];
 
 export function ProjectBox() {
   const name = useApp((s) => s.projectDir?.split(/[\\/]/).filter(Boolean).pop()?.replace(/\.gproj$/, "") || "Untitled");

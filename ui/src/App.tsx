@@ -5,6 +5,7 @@ import { DockviewReact, type DockviewReadyEvent, type IDockviewHeaderActionsProp
 import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
+import { useSettings } from "./store/settings";
 import { addData, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
 import { Dialogs } from "./dialogs/Dialogs";
 import { actionFor, eventCombo, useKeymap } from "./nodes/keymap";
@@ -68,6 +69,10 @@ export function App() {
   useEffect(() => applyThemeMode(dark ? "dark" : "light"), [dark]);
 
   useEffect(startProgressPolling, []);
+  // Program settings (UR-16): read once at start and applied. (The ribbon's Dark Theme keeps using the app's own remembered choice; the theme in Settings is saved to the file.)
+  useEffect(() => {
+    void useSettings.getState().load();
+  }, []);
   // PROJ without its datum files moves NAD27 / NAD83 / WGS 84 coordinates by metres, silently: say so at start-up (R3).
   useEffect(() => {
     api.datumDataStatus().then((r) => {

@@ -547,6 +547,18 @@ pub async fn tnm_import(engine: Eng<'_>, datasets: Vec<String>, bbox: [f64; 4], 
     Ok(out)
 }
 
+/// The user's program settings (read at start; unreadable or missing = defaults).
+#[tauri::command]
+pub async fn get_settings() -> Res<engine::settings::Settings> {
+    Ok(engine::settings::load())
+}
+
+/// Save program settings; returns what was kept (only the known fields).
+#[tauri::command]
+pub async fn set_settings(settings: engine::settings::Settings) -> Res<engine::settings::Settings> {
+    engine::settings::save(&settings).map_err(|e| format!("{e:#}"))
+}
+
 /// Running long tasks, for progress bars.
 #[tauri::command]
 pub async fn progress() -> Res<Vec<engine::progress::TaskInfo>> {
