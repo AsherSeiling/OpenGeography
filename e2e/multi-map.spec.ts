@@ -42,7 +42,8 @@ test.describe("maps", () => {
     expect([m[0].crs, m[1].crs]).toEqual(["EPSG:4326", "EPSG:3857"]);
     expect([m[0].basemap, m[1].basemap]).toEqual(["none", "usgsImagery"]);
 
-    // Panning one leaves the other where it was.
+    // Panning one leaves the other where it was. (Adding a layer fits the view with a 600 ms animation: let it finish, or the centre is read mid-flight.)
+    await app.waitForFunction(([a, b]) => ![a, b].some((i) => (window as any).__gis.getMap(i).getView().getAnimating()), [first.id, second.id]);
     const before = await center(app, first.id);
     await gis(app, (g, id: string) => { const v = g.getMap(id).getView(); const c = v.getCenter(); v.setCenter([c[0] + 5_000_000, c[1] + 1_000_000]); }, second.id);
     expect(await center(app, first.id)).toEqual(before);
