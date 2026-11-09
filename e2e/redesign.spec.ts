@@ -109,7 +109,7 @@ async function partsInPage(page: Page): Promise<Record<string, string>> {
       layout: JSON.stringify({ id: L.id, doc: L.doc, sel: L.selected }),
       model: JSON.stringify({ n: g.useModel.getState().nodes?.length, e: g.useModel.getState().edges?.length }),
       view: view ? `${view.getCenter()}|${view.getResolution()}` : "",
-      net: String((window as any).__netCalls.filter((u: string) => /\/invoke\//.test(u) && !/progress|list_|_list|tile|extent|layer_info|get_|specs|describe/.test(u)).length),
+      net: String((window as any).__netCalls.filter((u: string) => /\/invoke\//.test(u) && !/progress|list_|_list|tile|extent|layer_info|get_|specs|describe|transform_point|map_scale_factor|\/sources$/.test(u)).length),
       theme: `${document.documentElement.dataset.theme}|${document.documentElement.getAttribute("style")?.length ?? 0}`,
     };
   });

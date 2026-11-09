@@ -83,117 +83,117 @@ function Body() {
   };
 
   return (
-    <Dialog open onOpenChange={(_, d) => !d.open && !busy && hide()}>
+    <Dialog open onOpenChange={(_, d) => !d.open && !busy && (crsOpen ? setCrsOpen(false) : hide())}>
       <DialogSurface className="gr-crs-surface" style={{ maxWidth: 980, width: 980 }}>
-        <DialogBody>
-          <DialogTitle>Spatial Adjustment</DialogTitle>
-          <DialogContent className="stack">
-            <div className="muted small">Moves a layer's shapes so From positions land on To positions. The layer is not changed; a new layer is made in the layer's own coordinate system. Only x and y move; Z and M are kept.</div>
-            <div className="gr-bar" style={{ padding: 0, border: 0 }}>
-              <Field label="Layer" size="small">
-                <Dropdown size="small" value={layer?.name ?? ""} selectedOptions={layerId ? [layerId] : []} onOptionSelect={(_, d) => setLayerId(d.optionValue ?? "")}>
-                  {vector.map((l) => <Option key={l.id} value={l.id}>{`${l.name} (${(l.crsName ?? l.crs ?? "").slice(0, 40)})`}</Option>)}
-                </Dropdown>
-              </Field>
-              <Field label="Method" size="small">
-                <Dropdown size="small" value={m.label} selectedOptions={[method]} onOptionSelect={(_, d) => setMethod((d.optionValue ?? "affine") as AdjustMethod)}>
-                  {ADJUST_METHODS.map((x) => <Option key={x.id} value={x.id}>{x.label}</Option>)}
-                </Dropdown>
-              </Field>
-              <Field label="To points are in" size="small">
-                <Button size="small" onClick={() => setCrsOpen(true)} data-testid="adj-crs">{cs.targetCrs ? cs.targetCrs.split(/\s+/).join(" ").slice(0, 40) : "Choose…"}</Button>
-              </Field>
-              <Field label="Saved set" size="small">
-                <Dropdown size="small" value="" placeholder={saved.length ? "Load a saved set" : "None saved"} selectedOptions={[]} onOptionSelect={(_, d) => {
-                  const s = saved.find((x) => x.id === d.optionValue);
-                  if (s) setCs({ ...s });
-                }}>
-                  {saved.map((s) => <Option key={s.id} value={s.id}>{`${s.name} (${s.points.length})`}</Option>)}
-                </Dropdown>
-              </Field>
-            </div>
-            <div className="gr-table-wrap" style={{ maxHeight: 220 }}>
-              <table className="gr-table" data-testid="adj-table">
-                <thead>
-                  <tr>
-                    <th>Use</th><th>#</th><th>From X</th><th>From Y</th><th>To X</th><th>To Y</th>
-                    <th title="Where the transform puts the From point, minus the To point (units of the layer's CRS)">dX</th><th>dY</th><th>Error (m)</th><th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {cs.points.map((p) => {
-                    const er = report?.points.find((e) => e.id === p.id);
-                    const set = (patch: Partial<typeof p>) => edit((s) => ({ ...s, points: s.points.map((q) => (q.id === p.id ? { ...q, ...patch } : q)) }));
-                    return (
-                      <tr key={p.id} className={p.enabled ? "" : "off"}>
-                        <td><Checkbox checked={p.enabled} onChange={(_, d) => set({ enabled: !!d.checked })} aria-label={`Use point ${p.id}`} /></td>
-                        <td>{p.id}{er?.check ? <span className="gr-chk"> check</span> : null}</td>
-                        <td><NumCell value={p.pixel} width={110} onCommit={(v) => set({ pixel: v })} /></td>
-                        <td><NumCell value={p.line} width={110} onCommit={(v) => set({ line: v })} /></td>
-                        <td><NumCell value={p.x} width={110} onCommit={(v) => set({ x: v })} /></td>
-                        <td><NumCell value={p.y} width={110} onCommit={(v) => set({ y: v })} /></td>
-                        <td className="num">{er ? fmtErr(er.dx, report!.metresKind === "geodesic" ? "deg" : "m") : "–"}</td>
-                        <td className="num">{er ? fmtErr(er.dy, report!.metresKind === "geodesic" ? "deg" : "m") : "–"}</td>
-                        <td className="num">{er ? fmtErr(er.lengthM, "m") : "–"}</td>
-                        <td><Button size="small" appearance="subtle" icon={<DeleteRegular />} aria-label={`Delete point ${p.id}`} onClick={() => edit((s) => ({ ...s, points: s.points.filter((q) => q.id !== p.id) }))} /></td>
-                      </tr>
-                    );
-                  })}
-                  {cs.points.length === 0 && <tr><td colSpan={10} className="muted">No points yet.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-            <div className="btn-row">
-              <Button size="small" onClick={() => edit((s) => ({ ...s, points: [...s.points, { id: nextPointId(s.points), pixel: 0, line: 0, x: 0, y: 0, enabled: true }] }))}>Add a point</Button>
-              <Button size="small" disabled={!cs.targetCrs || cs.points.length === 0} onClick={async () => {
-                try {
-                  await api.saveControlSet({ ...cs, name: cs.name.trim() || "Adjustment points" });
-                  useApp.setState({ dirty: true });
-                  setSaved(await api.listControlSets());
-                } catch (e) { setErr(errorText(e)); }
-              }}>Save these points as a set</Button>
-              <Input size="small" value={cs.name} onChange={(_, d) => edit((s) => ({ ...s, name: d.value }))} aria-label="Set name" />
-            </div>
-            {report ? (
-              <div data-testid="adj-rms" title={report.formula}>
-                <strong>RMS {fmtErr(report.rmsM, "m")} m</strong> ({report.enabledCount} points in the fit
-                {report.checkRmsM != null ? `; check points ${fmtErr(report.checkRmsM, "m")} m` : ""}
-                {report.scale != null ? `; scale ${report.scale.toFixed(8)}, rotation ${report.rotationDeg!.toFixed(5)}°` : ""}). Output in {report.outputCrs.split(/\s+/)[0]}.
+        {/* The picker replaces the window's content: Fluent loses the first dialog for screen readers when two modal dialogs stack. */}
+        {crsOpen ? (
+          <DialogBody>
+            <DialogTitle>Coordinate system of the To points</DialogTitle>
+            <DialogContent>
+              <CrsPicker value={cs.targetCrs || null} onChange={(id) => { edit((s) => ({ ...s, targetCrs: id })); setCrsOpen(false); }} />
+            </DialogContent>
+            <DialogActions><Button onClick={() => setCrsOpen(false)}>Cancel</Button></DialogActions>
+          </DialogBody>
+        ) : (
+          <DialogBody>
+            <DialogTitle>Spatial Adjustment</DialogTitle>
+            <DialogContent className="stack">
+              <div className="muted small">Moves a layer's shapes so From positions land on To positions. The layer is not changed; a new layer is made in the layer's own coordinate system. Only x and y move; Z and M are kept.</div>
+              <div className="gr-bar" style={{ padding: 0, border: 0 }}>
+                <Field label="Layer" size="small">
+                  <Dropdown size="small" value={layer?.name ?? ""} selectedOptions={layerId ? [layerId] : []} onOptionSelect={(_, d) => setLayerId(d.optionValue ?? "")}>
+                    {vector.map((l) => <Option key={l.id} value={l.id}>{`${l.name} (${(l.crsName ?? l.crs ?? "").slice(0, 40)})`}</Option>)}
+                  </Dropdown>
+                </Field>
+                <Field label="Method" size="small">
+                  <Dropdown size="small" value={m.label} selectedOptions={[method]} onOptionSelect={(_, d) => setMethod((d.optionValue ?? "affine") as AdjustMethod)}>
+                    {ADJUST_METHODS.map((x) => <Option key={x.id} value={x.id}>{x.label}</Option>)}
+                  </Dropdown>
+                </Field>
+                <Field label="To points are in" size="small">
+                  <Button size="small" onClick={() => setCrsOpen(true)} data-testid="adj-crs">{cs.targetCrs ? cs.targetCrs.split(/\s+/).join(" ").slice(0, 40) : "Choose…"}</Button>
+                </Field>
+                <Field label="Saved set" size="small">
+                  <Dropdown size="small" value="" placeholder={saved.length ? "Load a saved set" : "None saved"} selectedOptions={[]} onOptionSelect={(_, d) => {
+                    const s = saved.find((x) => x.id === d.optionValue);
+                    if (s) setCs({ ...s });
+                  }}>
+                    {saved.map((s) => <Option key={s.id} value={s.id}>{`${s.name} (${s.points.length})`}</Option>)}
+                  </Dropdown>
+                </Field>
               </div>
-            ) : (
-              <div className="muted small">{msg}</div>
-            )}
-            {report?.warnings.map((w) => <MessageBar key={w} intent="warning"><MessageBarBody>{w}</MessageBarBody></MessageBar>)}
-            {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
-            {result && (
-              <MessageBar intent={result.dropped.length ? "warning" : "success"}>
-                <MessageBarBody>
-                  Added "{result.layer.name}" with {result.moved} adjusted feature{result.moved === 1 ? "" : "s"}.
-                  {result.dropped.length > 0 && ` ${result.dropped.length} left out (feature id: reason): ${result.dropped.slice(0, 10).map((d) => `${d.fid}: ${d.reason}`).join("; ")}${result.dropped.length > 10 ? "; …" : ""}.`}
-                  {result.notes.length > 0 && ` ${result.notes.join(" ")}`}
-                </MessageBarBody>
-              </MessageBar>
-            )}
-            <Field label="New layer name" size="small">
-              <Input size="small" value={name} placeholder={layer ? `${layer.name} (adjusted)` : ""} onChange={(_, d) => setName(d.value)} />
-            </Field>
-          </DialogContent>
-          <DialogActions>
-            <Button appearance="primary" disabled={!report || busy || !layerId} onClick={() => void run()} data-testid="adj-run">{busy ? "Adjusting…" : "Adjust"}</Button>
-            <Button onClick={hide} disabled={busy}>Close</Button>
-          </DialogActions>
-        </DialogBody>
-        <Dialog open={crsOpen} onOpenChange={(_, d) => !d.open && setCrsOpen(false)}>
-          <DialogSurface className="gr-crs-surface">
-            <DialogBody>
-              <DialogTitle>Coordinate system of the To points</DialogTitle>
-              <DialogContent>
-                <CrsPicker value={cs.targetCrs || null} onChange={(id) => { edit((s) => ({ ...s, targetCrs: id })); setCrsOpen(false); }} />
-              </DialogContent>
-              <DialogActions><Button onClick={() => setCrsOpen(false)}>Cancel</Button></DialogActions>
-            </DialogBody>
-          </DialogSurface>
-        </Dialog>
+              <div className="gr-table-wrap" style={{ maxHeight: 220 }}>
+                <table className="gr-table" data-testid="adj-table">
+                  <thead>
+                    <tr>
+                      <th>Use</th><th>#</th><th>From X</th><th>From Y</th><th>To X</th><th>To Y</th>
+                      <th title="Where the transform puts the From point, minus the To point (units of the layer's CRS)">dX</th><th>dY</th><th>Error (m)</th><th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cs.points.map((p) => {
+                      const er = report?.points.find((e) => e.id === p.id);
+                      const set = (patch: Partial<typeof p>) => edit((s) => ({ ...s, points: s.points.map((q) => (q.id === p.id ? { ...q, ...patch } : q)) }));
+                      return (
+                        <tr key={p.id} className={p.enabled ? "" : "off"}>
+                          <td><Checkbox checked={p.enabled} onChange={(_, d) => set({ enabled: !!d.checked })} aria-label={`Use point ${p.id}`} /></td>
+                          <td>{p.id}{er?.check ? <span className="gr-chk"> check</span> : null}</td>
+                          <td><NumCell value={p.pixel} width={110} onCommit={(v) => set({ pixel: v })} /></td>
+                          <td><NumCell value={p.line} width={110} onCommit={(v) => set({ line: v })} /></td>
+                          <td><NumCell value={p.x} width={110} onCommit={(v) => set({ x: v })} /></td>
+                          <td><NumCell value={p.y} width={110} onCommit={(v) => set({ y: v })} /></td>
+                          <td className="num">{er ? fmtErr(er.dx, report!.metresKind === "geodesic" ? "deg" : "m") : "–"}</td>
+                          <td className="num">{er ? fmtErr(er.dy, report!.metresKind === "geodesic" ? "deg" : "m") : "–"}</td>
+                          <td className="num">{er ? fmtErr(er.lengthM, "m") : "–"}</td>
+                          <td><Button size="small" appearance="subtle" icon={<DeleteRegular />} aria-label={`Delete point ${p.id}`} onClick={() => edit((s) => ({ ...s, points: s.points.filter((q) => q.id !== p.id) }))} /></td>
+                        </tr>
+                      );
+                    })}
+                    {cs.points.length === 0 && <tr><td colSpan={10} className="muted">No points yet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <div className="btn-row">
+                <Button size="small" onClick={() => edit((s) => ({ ...s, points: [...s.points, { id: nextPointId(s.points), pixel: 0, line: 0, x: 0, y: 0, enabled: true }] }))}>Add a point</Button>
+                <Button size="small" disabled={!cs.targetCrs || cs.points.length === 0} onClick={async () => {
+                  try {
+                    await api.saveControlSet({ ...cs, name: cs.name.trim() || "Adjustment points" });
+                    useApp.setState({ dirty: true });
+                    setSaved(await api.listControlSets());
+                  } catch (e) { setErr(errorText(e)); }
+                }}>Save these points as a set</Button>
+                <Input size="small" value={cs.name} onChange={(_, d) => edit((s) => ({ ...s, name: d.value }))} aria-label="Set name" />
+              </div>
+              {report ? (
+                <div data-testid="adj-rms" title={report.formula}>
+                  <strong>RMS {fmtErr(report.rmsM, "m")} m</strong> ({report.enabledCount} points in the fit
+                  {report.checkRmsM != null ? `; check points ${fmtErr(report.checkRmsM, "m")} m` : ""}
+                  {report.scale != null ? `; scale ${report.scale.toFixed(8)}, rotation ${report.rotationDeg!.toFixed(5)}°` : ""}). Output in {report.outputCrs.split(/\s+/)[0]}.
+                </div>
+              ) : (
+                <div className="muted small">{msg}</div>
+              )}
+              {report?.warnings.map((w) => <MessageBar key={w} intent="warning"><MessageBarBody>{w}</MessageBarBody></MessageBar>)}
+              {err && <MessageBar intent="error"><MessageBarBody>{err}</MessageBarBody></MessageBar>}
+              {result && (
+                <MessageBar intent={result.dropped.length ? "warning" : "success"}>
+                  <MessageBarBody>
+                    Added "{result.layer.name}" with {result.moved} adjusted feature{result.moved === 1 ? "" : "s"}.
+                    {result.dropped.length > 0 && ` ${result.dropped.length} left out (feature id: reason): ${result.dropped.slice(0, 10).map((d) => `${d.fid}: ${d.reason}`).join("; ")}${result.dropped.length > 10 ? "; …" : ""}.`}
+                    {result.notes.length > 0 && ` ${result.notes.join(" ")}`}
+                  </MessageBarBody>
+                </MessageBar>
+              )}
+              <Field label="New layer name" size="small">
+                <Input size="small" value={name} placeholder={layer ? `${layer.name} (adjusted)` : ""} onChange={(_, d) => setName(d.value)} />
+              </Field>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="primary" disabled={!report || busy || !layerId} onClick={() => void run()} data-testid="adj-run">{busy ? "Adjusting…" : "Adjust"}</Button>
+              <Button onClick={hide} disabled={busy}>Close</Button>
+            </DialogActions>
+          </DialogBody>
+        )}
       </DialogSurface>
     </Dialog>
   );
