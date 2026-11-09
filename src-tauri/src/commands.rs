@@ -612,6 +612,12 @@ pub async fn edit_parse_coords(engine: Eng<'_>, layer: String, map_crs: String, 
     blocking(&engine, move |e| e.edit_parse_coords(&layer, &map_crs, &kind, &text)).await
 }
 
+/// Go To Coordinates: read a typed position (RB4).
+#[tauri::command]
+pub async fn parse_location(engine: Eng<'_>, map_crs: Option<String>, request: engine::location::LocationRequest) -> Res<engine::location::LocationResult> {
+    blocking(&engine, move |e| e.parse_location(map_crs.as_deref(), &request)).await
+}
+
 #[tauri::command]
 pub async fn edit_paste(engine: Eng<'_>, from_layer: String, fids: Vec<i64>, to_layer: String) -> Res<engine::edit_tools::PasteResult> {
     blocking(&engine, move |e| e.edit_paste(&from_layer, &fids, &to_layer)).await

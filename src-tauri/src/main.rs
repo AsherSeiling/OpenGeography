@@ -127,6 +127,7 @@ fn main() {
             commands::edit_rectangle,
             commands::edit_destination,
             commands::edit_parse_coords,
+            commands::parse_location,
             commands::edit_paste,
             commands::create_layer,
             commands::restore_rows,

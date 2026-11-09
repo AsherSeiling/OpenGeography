@@ -38,6 +38,7 @@ import { zoomToExtent } from "../map/mapController";
 import { duplicateMap, newMap } from "../maps/mapActions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { useNav } from "../nav/navStore";
+import { useGoTo } from "../goto/gotoStore";
 import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurround, newLayout, pickFrameCrs, setFrameFromMapView } from "../layout/actions";
 import { addChart, addGuide, addShape, addTable, addText, clearGuides, useLayouts } from "../store/layout";
 import { toggleLockSelected } from "../layout/clipboard";
@@ -87,6 +88,7 @@ const list: Command[] = [
   // Map tab
   { id: "explore", label: "Explore", icon: <RIcon name="explore" />, run: setTool("pan"), checked: tool("pan"), tip: "Pan and zoom the map" },
   { id: "fullExtent", label: "Full Extent", icon: <RIcon name="full-extent" />, run: zoomFull, tip: "Zoom to all layers" },
+  { id: "goToCoordinates", label: "Go To Coordinates", icon: <RIcon name="go-to-coordinates" />, run: () => useGoTo.getState().setOpen(true), checked: () => useGoTo.getState().open, keys: "Ctrl+G", tip: "Type a position (latitude and longitude, UTM, USNG/MGRS, map x and y, or another coordinate system) and go there. Drops a temporary marker; changes no data." },
   { id: "addData", label: "Add Data", icon: <RIcon name="add-data" />, run: () => addData(), tip: "Add shapefiles, GeoPackages, GeoJSON, KML, CSV, GeoParquet…" },
   { id: "select", label: "Select", icon: <RIcon name="select" />, run: setTool("select"), checked: tool("select"), tip: "Click features to select (Shift adds, Ctrl toggles)" },
   { id: "selectBox", label: "Select by Rectangle", icon: <RIcon name="select-box" />, run: setTool("selectBox"), checked: tool("selectBox"), tip: "Drag a box to select features" },

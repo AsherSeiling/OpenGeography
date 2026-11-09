@@ -44,6 +44,8 @@ import { displayInfo, drawableLayerIds, effectiveStyle, ownerOf, useApp } from "
 import { formatArea, formatLength, geodesicLine, toMgrs, type LonLat } from "../nav/geodesy";
 import { MeasurePanel } from "../nav/MeasurePanel";
 import { NavPanel } from "../nav/NavPanel";
+import { GoToPanel } from "../goto/GoToPanel";
+import { useGoTo } from "../goto/gotoStore";
 import { useNav } from "../nav/navStore";
 
 /** The pointer position as the engine reports it: lon/lat and the map-CRS coordinates they came from. */
@@ -540,6 +542,7 @@ export function MapView({ mapId }: { mapId: string }) {
 
   // ---------- measure + land-nav sketch (drawn above all layers) ----------
   const nav = useNav();
+  const gotoOpen = useGoTo((s) => s.open);
   const sketch = useRef<VectorSource | null>(null);
   useEffect(() => {
     const map = mapRef.current;
@@ -738,6 +741,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
       {isActive && tool === "measure" && <MeasurePanel />}
       {isActive && nav.navPanel && <NavPanel />}
+      {isActive && gotoOpen && <GoToPanel />}
       {isActive && nav.pick && <div className="map-hint">Click the map to pick the point · Esc to cancel</div>}
       {isActive && showFps && <FpsMeter />}
     </div>

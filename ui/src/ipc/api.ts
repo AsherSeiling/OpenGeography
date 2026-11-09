@@ -18,6 +18,33 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 }
 
 export type Extent = [number, number, number, number];
+
+/** Go To Coordinates (RB4): what one panel box set holds, as text, and what the engine reads from it. */
+export interface LocationRequest {
+  kind: "latlon" | "xy" | "utm" | "usng" | "crs";
+  lat?: string;
+  lon?: string;
+  x?: string;
+  y?: string;
+  zone?: string;
+  hemisphere?: string;
+  easting?: string;
+  northing?: string;
+  text?: string;
+  datum?: string;
+  crs?: string;
+}
+export interface LocationResult {
+  lon: number;
+  lat: number;
+  mapX: number | null;
+  mapY: number | null;
+  mapCrs: string | null;
+  /** Why the map can't show the place (no coordinate system, or outside what the CRS can draw). */
+  mapMessage: string | null;
+  reading: string;
+  formats: { id: string; label: string; text: string }[];
+}
 export type GeomType = "Point" | "Line" | "Polygon" | "Mixed" | "Table" | "Raster";
 
 export interface RasterInfo {
@@ -786,6 +813,8 @@ export const api = {
   editDistance: (mapCrs: string, a: [number, number], b: [number, number]) => invoke<number>("edit_distance", { mapCrs, a, b }),
   editDestination: (mapCrs: string, from: [number, number], distanceM: number, bearingDeg: number) => invoke<[number, number]>("edit_destination", { mapCrs, from, distanceM, bearingDeg }),
   editParseCoords: (layer: string, mapCrs: string, kind: "xy" | "lonlat" | "usng", text: string) => invoke<[number, number][]>("edit_parse_coords", { layer, mapCrs, kind, text }),
+  /** Go To Coordinates: read a typed position; the map CRS is null while the map has none. */
+  parseLocation: (mapCrs: string | null, request: LocationRequest) => invoke<LocationResult>("parse_location", { mapCrs, request }),
   editPaste: (fromLayer: string, fids: number[], toLayer: string) =>
     invoke<{ pasted: number; unmatchedFields: string[]; failedValues: number; apply: { status: EditStatus } }>("edit_paste", { fromLayer, fids, toLayer }),
   createLayer: (name: string, geomType: string, crs: string, fields: [string, string][]) => invoke<LayerInfo>("create_layer", { name, geomType, crs, fields }),
