@@ -17,6 +17,7 @@ const ALLOW: Record<string, Why> = {
   "map/olStyle.ts": { why: "map symbol defaults" },
   "edit/EditOverlay.ts": { why: "colours of the shapes being edited, drawn on the map (OpenLayers styles take colour values, not CSS variables)" },
   "map/usngGrid.ts": { why: "USNG grid line colours on the map" },
+  "georef/maps.ts": { why: "colours of the control point markers drawn on the image and reference maps (OpenLayers styles take colour values, not CSS variables)" },
   "layers/nodeStyle.ts": { why: "label colour defaults of a layer's style" },
   "store/store.ts": { why: "default layer palette and label defaults" },
   "store/layout.ts": { why: "layout document defaults" },

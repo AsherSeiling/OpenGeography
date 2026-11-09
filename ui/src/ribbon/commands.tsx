@@ -7,6 +7,7 @@ import { PUBLIC_DATA } from "../panes/CatalogPane";
 import { toggleAppearance, useAppearance } from "../theme/appearance";
 import { addToolFromUi, focusPublicData } from "./addTool";
 import { RIcon } from "./icons/RIcon";
+import { useGeoref } from "../georef/store";
 import { editCommandList } from "../edit/editCommands";
 import { resetStartupLayout, saveStartupLayout, useSettings } from "../store/settings";
 import type { ReactElement } from "react";
@@ -106,6 +107,7 @@ const list: Command[] = [
   { id: "tissot", label: "Tissot Circles", icon: <RIcon name="tissot" />, run: addTissotCircles, tip: "Add circles that are round on the ground; their shape in the map's coordinate system shows its distortion" },
   { id: "datumGrids", label: "Datum Grids", icon: <RIcon name="datum-grids" />, run: () => useDialog.getState().show({ kind: "datumGrids" }), tip: "See which datum-shift grids are installed (they make coordinate conversions between datums accurate), and download more" },
   { id: "responsibleUse", label: "Limits & Responsible Use", icon: <RIcon name="info" />, run: () => useDialog.getState().show({ kind: "responsibleUse" }), tip: "What this program can and cannot be relied on for: datum accuracy, heights, distortion, estimates, sensitive coordinates" },
+  { id: "georeference", label: "Georeference", icon: <RIcon name="coordinate-system" />, run: () => useGeoref.getState().show(), tip: "Fit a scanned map or photo to the ground with control points, and write a new georeferenced GeoTIFF (the image file is not changed)" },
   { id: "mapCrs", label: "Coordinate System", icon: <RIcon name="coordinate-system" />, run: pickMapCrs, tip: "Set the map's coordinate system (used for coordinates, measurements and layouts)" },
 
   // Data tab
