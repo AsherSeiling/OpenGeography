@@ -2,6 +2,8 @@
 // `every_tool_has_its_own_icon` fails when a tool is added without a line here or when two tools share an icon.
 import {
   WrenchRegular,
+  ImageEditRegular,
+  ArrowMoveRegular,
   TextNumberFormatRegular,
   MapPinRegular,
   TableSimpleRegular,
@@ -195,6 +197,8 @@ export const TOOL_ICONS: Record<string, FluentIcon> = {
   clip_raster: ScreenCutRegular,
   clip_raster_by_layer: CropRegular,
   warp: ArrowSwapRegular,
+  georef_image: ImageEditRegular,
+  adjust_shapes: ArrowMoveRegular,
   select_bands: LayerDiagonalRegular,
   resample_raster: ResizeRegular,
   align_raster: AlignCenterVerticalRegular,

@@ -3,6 +3,7 @@ import type { RasterStyle } from "../store/store";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { track } from "../progress/progress";
 import type { Layout, LayoutPreview, RenderRequest } from "../layout/types";
+import type { AdjustMethod, AdjustReport, AdjustRequest, AdjustResult, ControlSet, ErrorReport, ImageInfo, ParsedControlFile, Resampling, WarpMethod, WarpPreview, WarpRequest } from "../georef/types";
 
 /** True inside the desktop app; false when the UI runs in a browser against `cargo run -p devserver`. */
 export const IN_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -123,6 +124,8 @@ export interface ProgramSettings {
   /** The dock arrangement new projects start with (UR-17). */
   startupLayout?: unknown;
   scriptingLanguage?: string | null;
+  /** The one format the status bar shows the pointer in: dd, dms, projected or mgrs (UX14). */
+  coordinateFormat?: string | null;
 }
 
 export interface Citation {
@@ -834,6 +837,8 @@ export const api = {
   buildDisplay: (layer: string, crs: string) => invoke<DisplayStatus>("build_display", { layer, crs }),
   displayStatus: (layer: string, crs: string) => invoke<DisplayStatus>("display_status", { layer, crs }),
   getRows: (id: string, query: RowsQuery) => invoke<RowsPage>("get_rows", { id, query }),
+  /** The 0-based row of a feature in the table as getRows lists it for this query (offset and limit ignored), or null when it isn't in that view. */
+  rowPosition: (id: string, query: RowsQuery, fid: number) => invoke<number | null>("row_position", { id, query, fid }),
   selectWhere: (id: string, filter: string) => invoke<number[]>("select_where", { id, filter }),
   /** Features within `tolerance` of (x, y); both are in `crs` (the map CRS) units, nearest first. */
   identify: (ids: string[], x: number, y: number, crs: string, tolerance: number) =>
@@ -873,6 +878,31 @@ export const api = {
   listLayouts: () => invoke<Layout[]>("list_layouts"),
   saveLayout: (layout: Layout) => invoke<void>("save_layout", { layout }),
   deleteLayout: (id: string) => invoke<void>("delete_layout", { id }),
+  /** Georeferencing control point sets saved in the project (GR1). */
+  listControlSets: () => invoke<ControlSet[]>("list_control_sets"),
+  saveControlSet: (set: ControlSet) => invoke<void>("save_control_set", { set }),
+  deleteControlSet: (id: string) => invoke<void>("delete_control_set", { id }),
+  /** CSV whose header states the set's CRS. */
+  exportControlSet: (set: ControlSet, path: string) => invoke<void>("export_control_set", { set, path }),
+  /** GIS Studio CSV or QGIS `.points`; `crs` is null when the file names none (ask the user). */
+  readControlFile: (path: string, imageSize?: [number, number] | null) => invoke<ParsedControlFile>("read_control_file", { path, imageSize: imageSize ?? null }),
+  /** The same points expressed in another CRS through an explicit PROJ transform. */
+  reprojectControlSet: (set: ControlSet, toCrs: string) => invoke<ControlSet>("reproject_control_set", { set, toCrs }),
+  /** Per-point errors and RMS from GDAL's own transform (GR2). Rejects, in words, when the points can't make the transform. */
+  georefErrors: (set: ControlSet, method: WarpMethod) => invoke<ErrorReport>("georef_errors", { set, method }),
+  georefImageInfo: (path: string) => invoke<ImageInfo>("georef_image_info", { path }),
+  /** PNG (base64) of an image window, for the image pane. */
+  georefImageRegion: (path: string, x0: number, y0: number, w: number, h: number, outW: number, outH: number) =>
+    invoke<string>("georef_image_region", { path, x0, y0, w, h, outW, outH }),
+  /** A low-resolution in-memory picture of the warped image; a newer request cancels the older one (it rejects with "Cancelled"). */
+  georefPreview: (image: string, set: ControlSet, method: WarpMethod, resampling: Resampling, maxSide: number) =>
+    invoke<WarpPreview>("georef_preview", { image, set, method, resampling, maxSide }),
+  /** Warp into a new GeoTIFF layer. Cancellable (progress task). */
+  /** Error table for adjusting a vector layer with control points (GR3); nothing is changed. */
+  adjustErrors: (layer: string, set: ControlSet, method: AdjustMethod) => invoke<AdjustReport>("adjust_errors", { layer, set, method }),
+  /** Adjust a layer's shapes into a new layer in the layer's own CRS; features that can't be adjusted are left out and listed. Cancellable. */
+  adjustLayer: (req: AdjustRequest) => track(invoke<AdjustResult>("adjust_layer", { req })),
+  georefWarp: (req: WarpRequest) => track(invoke<LayerInfo>("georef_warp", { req })),
   /** A PNG of the page (base64) at `dpi`, plus the render's warnings. */
   renderLayoutPreview: (req: RenderRequest, dpi: number) => invoke<LayoutPreview>("render_layout_preview", { req, dpi }),
   /** Write the page to `path` as "svg" | "pdf" | "png"; returns the render's warnings. Cancellable (progress task). */

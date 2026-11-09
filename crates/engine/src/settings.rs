@@ -27,6 +27,8 @@ pub struct Settings {
     pub startup_layout: Option<Value>,
     /// Batch D: "python", "sql", … Kept as text; unknown values are the UI's to ignore.
     pub scripting_language: Option<String>,
+    /// UX14: the one format the status bar shows the pointer in ("dd", "dms", "projected", "mgrs").
+    pub coordinate_format: Option<String>,
 }
 
 fn text(v: &Value, key: &str, allowed: Option<&[&str]>) -> Option<String> {
@@ -57,6 +59,7 @@ impl Settings {
             default_crs,
             startup_layout,
             scripting_language: text(v, "scriptingLanguage", None),
+            coordinate_format: text(v, "coordinateFormat", Some(&["dd", "dms", "projected", "mgrs"])),
         }
     }
 }

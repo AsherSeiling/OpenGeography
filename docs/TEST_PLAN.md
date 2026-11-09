@@ -1046,6 +1046,46 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | TU-6 | Not built | purple revision overlays, provisional-edition hand lettering, bathymetric/glacier symbol sets beyond the catalogue entries, automatic USGS-style label placement, a table of range facilities filled from data, GeoPDF | — |
 | UI-K1 | **Add menu keyword search** (`keywords` in `tool_specs`): typing a plain word finds the tool, e.g. "cut" → Clip, Clip Raster, Erase; "merge" → Union, Merge, Mosaic Rasters | every tool except Layer Input/Output/Add to Map has ≥ 1 keyword; no keyword id without a tool | auto: engine nodes/keywords.rs tests; UI search by WP3 e2e |
 
+## GR — Georeferencing (`docs/DECISIONS.md` "Georeferencing: control points and raster warp")
+
+| Id | Case | How |
+|---|---|---|
+| GR-1 | A control point set (points, enabled flags, one explicit target CRS) saved in the project round-trips through save and open; a project saved without the table still opens, lists no sets and takes a new one | `crates/engine/tests/georef.rs` |
+| GR-2 | Set validation in words: no CRS ("never guessed"), unreadable CRS, duplicate ids, non-numbers, duplicate names; a missing name lists the sets that exist | `georef.rs` |
+| GR-3 | CSV: header states the CRS and conventions; export and read round-trip exactly; a file with no CRS reports none; bad rows name the line | `georef.rs` |
+| GR-4 | QGIS `.points`: row = -sourceY, CRS read, no `#CRS:` line reports none, positive sourceY refused; set CRS conversion is an explicit PROJ transform | `georef.rs` |
+| GR-5 | Warp, affine: a synthetic image with a known affine recovers the geotransform (origin, cell size) within 1e-6, output holds the same cell values, an alpha band is added | `crates/engine/tests/georef_warp.rs` |
+| GR-6 | A known 2nd-order distortion is recovered by order 2 and not by order 1; order 3 also fits | `georef_warp.rs` |
+| GR-7 | One deliberately bad point inflates RMS and is the worst point; turning it off restores RMS to ~0 and it shows as a check point with its true error (dx, dy, metres, pixels) | `georef_warp.rs` |
+| GR-8 | RMS equals sqrt(sum(dx² + dy²) / n) over the enabled points | `georef_warp.rs` |
+| GR-9 | Thin plate spline: error ~0 at every enabled point, non-zero at a check point, the "zero error" warning shown (and not for a polynomial) | `georef_warp.rs` |
+| GR-10 | Metres: UTM check point 3 m east and 4 m north reads 5 m; a geographic target reads the geodesic distance on the ellipsoid (matches `geographiclib`); a geographic warp lands in degrees at the right origin | `georef_warp.rs` |
+| GR-11 | Minimum points per method (3, 6, 10, 3), collinear in the image or on the ground, same image position, an unsolvable fit: each refused with a sentence | `georef_warp.rs` |
+| GR-12 | Outside the image is transparent (RGB gets alpha), keeps NoData (float with NoData) or NaN (float without), never 0 | `georef_warp.rs` |
+| GR-13 | The source's bytes and folder listing are unchanged after a warp, a preview and `georef_warp`; no `.aux.xml` appears beside it; a cancelled warp leaves no output | `georef_warp.rs` |
+| GR-14 | `georef_warp` adds a raster layer in the target CRS with the source's citation and a `georef:` citation naming method, resampling, points and check points; a bad request makes no layer | `georef_warp.rs` |
+| GR-15 | Preview is a small PNG with the right extent and writes nothing beside the image | `georef_warp.rs` |
+| GR-16 | UI: point edits, fit key, cell parsing, marker positions (image y is -line), pending half-point | `ui/src/georef/store.test.ts` |
+| GR-18 | Spatial adjustment: a known affine (rotation, scale, shift) and a known similarity are recovered vertex for vertex; scale and rotation reported; attributes identical; the source layer unchanged | `crates/engine/tests/georef_adjust.rs` |
+| GR-19 | Rubber sheet: control points land exactly (error ~0 at enabled points, non-zero at a check point), with the zero-error warning; a similarity of 2 points and an affine of 3 carry the "no spare points" warning | `georef_adjust.rs` |
+| GR-20 | Features pushed past the poles, or folded into an invalid shape, are dropped and reported by feature id with the reason; the rest are kept; Z values carried through | `georef_adjust.rs` |
+| GR-21 | To points in another CRS are transformed explicitly into the layer's CRS and the output is in the layer's CRS (stated in the notes) | `georef_adjust.rs` |
+| GR-22 | Refusals in words: too few points, no CRS, collinear From or To points, two From points at one place (similarity), geographic longitude span over 180 degrees, a table instead of a layer | `georef_adjust.rs` |
+| GR-23 | The adjusted layer keeps the source's citation and gets an `adjust:` citation with the method and every point | `georef_adjust.rs` |
+| UX-3a | Bookmarks: an older project without any opens with none; a project with some brings them back; damaged entries are dropped without failing the open | `ui/src/openProject.test.ts`, `ui/src/map/bookmarks.test.ts` |
+| UX-3b | A bookmark in one CRS is moved into the map's or frame's CRS through the engine (9 points), the same CRS skips the engine, an unplaceable one is refused in words, names are unique, scale-to-fit takes the larger side | `ui/src/map/bookmarks.test.ts` |
+| UX-3c | By hand: add a bookmark, change the map CRS, go to it (same place); save and reopen; in a layout, Map Frame > Bookmark sets the frame centre and scale | not yet run |
+| UX-4a | Swipe: choosing layers turns it on at the middle, choosing none turns it off, the divider keeps its place, it is per map and clamped inside the map; the clip is the left part of the map and follows the position at every draw; detaching removes every listener | `ui/src/map/swipe.test.ts` |
+| UX-4b | By hand: a raster over a vector layer, in Web Mercator and then a projected CRS and a world view: drag the divider, ticked layers show only on the left, labels follow, Turn Off Swipe restores the map | not yet run |
+| UX-10a | Row position of a feature follows the default order, a descending sort, a filter and an only-selected view; a feature outside the view has none; a bad sort field is a readable error | `crates/engine/tests/tables.rs` (`row_position_follows_sort_filter_and_ids`) |
+| UX-10b | By hand: a table of thousands of rows, click a feature on the map: the table scrolls to its row and shades it; click a row header: the map highlights it and the table does not jump; Zoom To Selection | not yet run |
+| UX-14a | Coordinate format: saved value read back, unknown or missing falls back to decimal degrees; exactly one format is shown; map E/N on a degrees map falls back to degrees and says why; no MGRS near the poles; the engine keeps only the four known format names | `ui/src/statusbar/coordFormat.test.ts`, `crates/engine/tests/settings.rs` |
+| UX-14b | By hand: pick each format with the pointer over a projected map and a degrees map, restart the app (the choice is kept); start two imports and open Jobs (2): each has its own bar and Cancel | not yet run (`e2e/map.spec.ts` M-7 updated for the menu, not yet run) |
+| GR-24 | Adjust Shapes node: the named set (any letter case) moves the shapes, attributes and CRS kept, scratch tables gone; editing the set re-runs the node (an unchanged one is cached) | `crates/engine/tests/georef_tools.rs` |
+| GR-25 | A missing, empty or unusable set (none yet, other sets named, too few points) and a bad method are readable errors in the node | `georef_tools.rs` |
+| GR-26 | Georeference Image node warps with the named set to the expected origin and cell size in the set's CRS; "georeference" finds the new tools and no longer Reproject Raster | `georef_tools.rs`, `nodes/keywords.rs` tests |
+| GR-17 | By hand in the browser (devserver, 2026-11-09): open an image, set the CRS, five points, RMS and per-point errors update, the preview draws on the reference map, a click on the image and then the map adds a point, Georeference adds the layer, Save set stores it. A browser e2e spec has not been written yet | by hand |
+
 ## UI redesign (`docs/UI_REDESIGN_PLAN.md`)
 
 | Id | Case | How |

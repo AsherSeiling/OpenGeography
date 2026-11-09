@@ -165,6 +165,29 @@ export function AttributeTable() {
     for (let p = first; p <= last; p++) loadPage(p);
   }, [items, loadPage]);
 
+  // Linked with the map (UX10): a selection made anywhere but this table's row headers (a map click, Select By Attributes) scrolls
+  // the table to the newest selected row, wherever it sits under the current sort and filter. Row-header clicks don't move the table.
+  const ownSelection = useRef("");
+  useEffect(() => {
+    if (!id || nodeMode || onlySelected || !selected?.length) return;
+    const key = JSON.stringify(selected);
+    if (key === ownSelection.current) return;
+    const fid = selected[selected.length - 1];
+    let stale = false;
+    api
+      .rowPosition(id, { offset: 0, limit: 1, sort: sort?.field, desc: sort?.desc, filter: filter || null }, fid)
+      .then((pos) => {
+        const box = scrollRef.current;
+        if (stale || pos === null || !box) return;
+        const top = pos * ROW_H;
+        if (top < box.scrollTop || top + 2 * ROW_H > box.scrollTop + box.clientHeight) virt.scrollToIndex(pos, { align: "center" });
+      })
+      .catch(() => undefined); // a failed look-up only means the table stays where it is
+    return () => {
+      stale = true;
+    };
+  }, [selected]);
+
   const rowAt = (i: number) => {
     const page = pages.current.get(Math.floor(i / PAGE));
     if (!page) return null;
@@ -200,6 +223,7 @@ export function AttributeTable() {
       s.setSelection(owner, [fid], "new");
       anchor.current = i;
     }
+    ownSelection.current = JSON.stringify(useApp.getState().selection[owner] ?? []);
   };
 
   // ---------- editing ----------

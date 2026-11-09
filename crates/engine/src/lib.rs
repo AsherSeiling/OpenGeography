@@ -32,6 +32,7 @@ pub mod db;
 pub mod display;
 pub mod edit;
 pub mod edit_tools;
+pub mod georef;
 pub mod graph;
 pub mod history;
 pub mod layers;
@@ -168,6 +169,7 @@ impl Engine {
             "CREATE TABLE IF NOT EXISTS __layers (id VARCHAR PRIMARY KEY, info JSON);
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);
              CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);
+             CREATE TABLE IF NOT EXISTS __control_sets (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);
              CREATE TABLE IF NOT EXISTS __defq_fids (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT);
              CREATE TABLE IF NOT EXISTS __defq_sets (layer VARCHAR, script VARCHAR, version BIGINT, kept BIGINT);
              CREATE TABLE IF NOT EXISTS __label_vals (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT, text VARCHAR);
@@ -1562,6 +1564,12 @@ impl Engine {
     pub fn rows(&self, id: &str, q: &table::RowsQuery) -> Result<table::RowsPage> {
         let info = self.layer(id)?;
         self.with_conn(|c| table::rows(c, &info, q))
+    }
+
+    /// The 0-based row number of a feature in the table as `rows` lists it for this query, or None if it isn't in that view.
+    pub fn row_position(&self, id: &str, q: &table::RowsQuery, fid: i64) -> Result<Option<i64>> {
+        let info = self.layer(id)?;
+        self.with_conn(|c| table::row_position(c, &info, q, fid))
     }
 
     pub fn select_where(&self, id: &str, filter: &str) -> Result<Vec<i64>> {

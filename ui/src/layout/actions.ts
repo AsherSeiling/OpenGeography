@@ -16,6 +16,7 @@ import { recolour } from "./themes";
 import { followedMap, frames, newLayoutDoc, normalizeLayout, roundScaleUp, type Layout, type MapFrame, type Orientation, type RenderRequest } from "./types";
 import { isMapPanelId, mapOf } from "../store/maps";
 import { printRefusal } from "../map/basemaps";
+import { extentIn, scaleToFit, useBookmarks } from "../map/bookmarks";
 
 const status = (s: string) => useApp.getState().setStatus(s);
 
@@ -268,6 +269,28 @@ export async function setFrameFromMapView(frameId?: string) {
     useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(Math.max(w, h)), basemap: printBasemap(mapBasemap) });
     const refused = printRefusal(mapBasemap);
     if (refused) status(refused);
+  } catch (e) {
+    status(`Could not place the frame: ${errorText(e)}`);
+  }
+}
+
+/** Point the frame at a bookmark: its extent is moved into the frame's CRS, the frame is centred on it and takes the smallest standard scale that shows all of it. */
+export async function setFrameFromBookmark(bookmarkId: string, frameId?: string) {
+  const frame = frameById(frameId);
+  const bm = useBookmarks.getState().items.find((b) => b.id === bookmarkId);
+  if (!frame) return status("Insert a map frame first (Insert rail → Map Frame).");
+  if (!bm) return status("That bookmark no longer exists.");
+  if (!frame.crs) return status("Set a coordinate system for the map frame.");
+  try {
+    const box = await extentIn(bm, frame.crs);
+    const center: [number, number] = [(box[0] + box[2]) / 2, (box[1] + box[3]) / 2];
+    // Ground per millimetre at a reference scale; the size shown grows in step with the scale number.
+    const ref = 10000;
+    const per = await api.layoutFrameUnitsPerMm(useLayouts.getState().doc?.body ?? "earth", frame.crs, center, ref, frame.w, frame.h);
+    const scale = scaleToFit(box, [Math.max(frame.w, 1), Math.max(frame.h, 1)], per, ref);
+    if (!Number.isFinite(scale) || scale <= 0) return status("That bookmark can't be fitted in this frame's coordinate system.");
+    useLayouts.getState().update(frame.id, { center, scale: roundScaleUp(scale) });
+    status(`Map frame set to the bookmark "${bm.name}".`);
   } catch (e) {
     status(`Could not place the frame: ${errorText(e)}`);
   }

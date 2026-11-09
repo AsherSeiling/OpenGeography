@@ -76,8 +76,12 @@ test("M-7 coordinate readout follows the pointer and ends on the last position",
   }, [lx, ly]);
   await expect(app.locator(".sb-coords")).toContainText("°");
   await expect.poll(async () => { const p = await gis(app, (g) => g.useMapView.getState().pointer); return p ? Math.abs(p.lon - expected[0]) + Math.abs(p.lat - expected[1]) : 99; }).toBeLessThan(0.01);
+  // One format at a time (UX14): choose degrees minutes seconds.
+  await app.locator(".sb-format").selectOption("dms");
+  await app.mouse.move(lx + 1, ly + 1);
   await expect(app.locator(".sb-coords")).toContainText(/\d+°\d{2}′/); // DMS
-  // projected CRS: shows E/N
+  // projected CRS with the map coordinate format: shows E/N
+  await app.locator(".sb-format").selectOption("projected");
   await gis(app, (g) => g.useApp.getState().setMapCrs({ id: "EPSG:32614", name: "WGS 84 / UTM zone 14N" }));
   await app.waitForTimeout(500);
   await app.mouse.move(b.x + 300, b.y + 200);

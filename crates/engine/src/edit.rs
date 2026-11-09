@@ -208,7 +208,7 @@ impl Geom {
     pub fn coords(&self) -> impl Iterator<Item = &Coord> {
         self.parts.iter().flatten().flatten()
     }
-    fn coords_mut(&mut self) -> impl Iterator<Item = &mut Coord> {
+    pub(crate) fn coords_mut(&mut self) -> impl Iterator<Item = &mut Coord> {
         self.parts.iter_mut().flatten().flatten()
     }
     /// The shape of the geometry (type and the number of coordinates in every ring): two geometries with the same shape correspond

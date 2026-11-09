@@ -585,6 +585,8 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(qgis_raster::Aspect),
         Box::new(qgis_raster::Ruggedness),
         Box::new(qgis_raster::Warp),
+        Box::new(crate::georef::tools::GeorefImage),
+        Box::new(crate::georef::tools::AdjustShapes),
         Box::new(qgis_raster::Polygonize),
         Box::new(raster_ops_tools::Calc1),
         Box::new(raster_ops_tools::Calc2),

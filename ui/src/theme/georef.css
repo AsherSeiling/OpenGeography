@@ -1,0 +1,29 @@
+/* Georeference window (GR1, GR2). Owner: Lane A. */
+.georef { position: fixed; inset: 24px; z-index: 880; display: flex; flex-direction: column; background: var(--surface-1); color: var(--text); border: 1px solid var(--rule); box-shadow: var(--e-float); min-width: 720px; }
+.gr-head { display: flex; align-items: center; gap: 12px; padding: 6px 8px 6px 12px; background: var(--surface-0); border-bottom: 1px solid var(--rule-soft); flex: none; }
+.gr-head .grow { flex: 1; }
+.gr-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 8px 12px; border-bottom: 1px solid var(--rule-soft); flex: none; }
+.gr-bar .btn-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.gr-notice { margin: 4px 12px 0; flex: none; }
+.gr-panes { flex: 1 1 50%; display: flex; gap: 6px; padding: 8px 12px 0; min-height: 200px; }
+.gr-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.gr-label { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 12px; padding: 2px 0 4px; }
+.gr-prev { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-weight: 400; }
+.gr-map { flex: 1; min-height: 160px; border: 1px solid var(--rule); background: var(--surface-0); position: relative; overflow: hidden; }
+.gr-empty { display: flex; align-items: center; justify-content: center; color: var(--text-2); text-align: center; padding: 12px; }
+.gr-hint { padding: 3px 12px; flex: none; }
+.gr-lower { flex: 0 0 auto; display: flex; gap: 12px; padding: 0 12px 10px; max-height: 38%; min-height: 150px; }
+.gr-table-wrap { flex: 1; overflow: auto; border: 1px solid var(--rule-soft); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.gr-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.gr-table th, .gr-table td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--rule-soft); white-space: nowrap; }
+.gr-table th { position: sticky; top: 0; background: var(--surface-0); font-weight: 600; }
+.gr-table tr.sel { background: var(--sel-bg); }
+.gr-table tr.off { color: var(--text-2); }
+.gr-table td.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.gr-num { font: 12px var(--font-mono); height: 22px; border: 1px solid var(--rule-soft); border-radius: 2px; background: var(--surface-1); color: var(--text); padding: 0 4px; }
+.gr-num:focus { border-color: var(--accent); outline: none; }
+.gr-chk { color: var(--text-2); font-size: 11px; }
+.gr-side { width: 300px; flex: none; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+.gr-rms { border: 1px solid var(--rule-soft); background: var(--surface-0); padding: 6px 8px; cursor: help; }
+.gr-rms-main { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gr-crs-surface { max-width: 860px !important; width: 860px; }

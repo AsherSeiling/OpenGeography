@@ -15,6 +15,7 @@ fn settings_round_trip_through_a_file_in_a_new_folder() {
         default_crs: Some(DefaultCrs { id: "EPSG:5070".into(), name: "NAD83 / Conus Albers".into() }),
         startup_layout: Some(json!({ "version": 3, "layout": { "grid": {} } })),
         scripting_language: Some("python".into()),
+        coordinate_format: Some("mgrs".into()),
     };
     let saved = save_to(&file, &s).unwrap();
     assert_eq!(saved, s);
@@ -47,4 +48,14 @@ fn only_the_known_fields_are_ever_written_so_nothing_else_can_get_in() {
     save_to(&file, &s).unwrap();
     let text = std::fs::read_to_string(&file).unwrap();
     assert!(!text.contains("SECRET123") && !text.contains("token") && !text.contains("censusApiKey"), "{text}");
+}
+
+#[test]
+fn coordinate_format_keeps_only_the_known_formats() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("settings.json");
+    std::fs::write(&file, r#"{ "coordinateFormat": "dms" }"#).unwrap();
+    assert_eq!(load_from(&file).coordinate_format.as_deref(), Some("dms"));
+    std::fs::write(&file, r#"{ "coordinateFormat": "utm-zone-soup" }"#).unwrap();
+    assert_eq!(load_from(&file).coordinate_format, None);
 }

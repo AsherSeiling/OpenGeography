@@ -2,7 +2,7 @@
 // tasks (downloads, imports, model runs, tile building); this polls it —
 // quickly while a tracked request is in flight, slowly otherwise — so any
 // long operation shows a real bar.
-import { Button, ProgressBar } from "@fluentui/react-components";
+import { Button, Popover, PopoverSurface, PopoverTrigger, ProgressBar } from "@fluentui/react-components";
 import { useEffect } from "react";
 import { create } from "zustand";
 import { api, errorText, type TaskInfo } from "../ipc/api";
@@ -90,7 +90,30 @@ export function TaskProgress({ active, label, match }: { active: boolean; label:
   );
 }
 
-/** Compact bar for the status bar: the oldest running task. */
+/** Every running background job with its own bar and cancel button (status bar, Jobs). */
+export function JobsList({ tasks }: { tasks: TaskInfo[] }) {
+  return (
+    <div className="sb-jobs" role="list" aria-label="Background jobs">
+      {tasks.map((t) => (
+        <div className="sb-job" role="listitem" key={t.id}>
+          <span className="sb-job-label" title={t.label}>{t.label}</span>
+          <span>
+            {t.fraction != null && <span className="sb-progress-pct">{Math.round(t.fraction * 100)}%</span>}
+            {t.cancellable && (
+              <button className="sb-progress-x" title={`Cancel ${t.label}`} aria-label={`Cancel ${t.label}`} onClick={() => api.cancelTask(t.id)}>
+                ✕
+              </button>
+            )}
+          </span>
+          {t.detail && <span className="sb-job-detail" title={t.detail}>{t.detail}</span>}
+          <ProgressBar className="sb-progress-bar" value={t.fraction ?? undefined} max={1} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Status bar: the oldest running task as a compact bar, and a Jobs button listing all of them when more than one runs. */
 export function StatusProgress() {
   const tasks = useProgress((s) => s.tasks);
   const pending = useProgress((s) => s.pending);
@@ -106,6 +129,18 @@ export function StatusProgress() {
         <button className="sb-progress-x" title="Cancel" aria-label="Cancel" onClick={() => api.cancelTask(t.id)}>
           ✕
         </button>
+      )}
+      {tasks.length > 0 && (
+        <Popover positioning="above-end">
+          <PopoverTrigger disableButtonEnhancement>
+            <button className="sb-jobs-btn" title="Show every running job" aria-label={`Jobs, ${tasks.length} running`}>
+              Jobs ({tasks.length})
+            </button>
+          </PopoverTrigger>
+          <PopoverSurface>
+            <JobsList tasks={tasks} />
+          </PopoverSurface>
+        </Popover>
       )}
     </span>
   );

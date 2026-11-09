@@ -76,6 +76,34 @@ pub fn rows(conn: &Connection, info: &LayerInfo, q: &RowsQuery) -> Result<RowsPa
     Ok(RowsPage { total, fids, rows })
 }
 
+/// Where a feature sits in the table as `rows` would list it (same sort, filter, definition query and ids; offset and limit are
+/// ignored): its 0-based row number, or None when the feature is not in that view. Lets the table scroll to a feature picked on the map.
+pub fn row_position(conn: &Connection, info: &LayerInfo, q: &RowsQuery, fid: i64) -> Result<Option<i64>> {
+    let t = ident(&info.table);
+    let w = where_clause(info, &q.filter, &q.fids);
+    match &q.sort {
+        Some(s) if !info.fields.iter().any(|f| &f.name == s) => bail!("Unknown sort field '{s}'"),
+        Some(s) => {
+            let order = format!("ORDER BY {} {} NULLS LAST, __fid", ident(s), if q.desc { "DESC" } else { "ASC" });
+            let sql = format!("SELECT rn FROM (SELECT __fid, row_number() OVER ({order}) - 1 AS rn FROM {t} {w}) WHERE __fid = {fid}");
+            let mut stmt = conn.prepare(&sql)?;
+            let mut it = stmt.query([])?;
+            Ok(match it.next()? {
+                Some(r) => Some(r.get::<_, i64>(0)?),
+                None => None,
+            })
+        }
+        None => {
+            let (before, here): (i64, i64) = conn.query_row(
+                &format!("SELECT count(*) FILTER (WHERE __fid < {fid}), count(*) FILTER (WHERE __fid = {fid}) FROM (SELECT __fid FROM {t} {w})"),
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            Ok(if here > 0 { Some(before) } else { None })
+        }
+    }
+}
+
 /// Feature ids matching a filter expression (Select By Attributes).
 pub fn select_where(conn: &Connection, info: &LayerInfo, filter: &str) -> Result<Vec<i64>> {
     let w = where_clause(info, &Some(filter.to_string()), &None);
