@@ -722,23 +722,24 @@ const IDENTIFY_TOLERANCE_PX = 4;
 /** "Projecting…", dropped-feature and basemap-offset messages. */
 /** A layer whose Python definition query is waiting for approval (or failed) shows no features: say so, and offer to review the script. Not dismissible. */
 function ScriptNotices({ ids }: { ids: string[] }) {
-  const layers = useApp(useShallow((s) => ids.map((id) => s.layers[id]).filter((l) => l?.definitionPython)));
+  const layers = useApp(useShallow((s) => ids.map((id) => s.layers[id]).filter((l) => l?.definitionPython || l?.labelPython)));
   const approved = useScripts((s) => s.approved);
   useEffect(() => {
-    for (const l of layers) if (l.definitionPython) void useScripts.getState().check(l.definitionPython);
-  }, [layers.map((l) => l.definitionPython).join("\u0000")]);
-  const waiting = layers.filter((l) => approved[l.definitionPython!] === false);
-  const failed = layers.filter((l) => approved[l.definitionPython!] !== false && l.definitionError);
+    for (const l of layers) for (const sc of [l.definitionPython, l.labelPython]) if (sc) void useScripts.getState().check(sc);
+  }, [layers.map((l) => `${l.definitionPython}\u0001${l.labelPython}`).join("\u0000")]);
+  const waitingOf = (l: LayerInfo) => [l.definitionPython, l.labelPython].find((sc) => sc && approved[sc] === false) ?? null;
+  const waiting = layers.filter((l) => waitingOf(l));
+  const failed = layers.filter((l) => !waitingOf(l) && (l.definitionError || l.labelError));
   if (!waiting.length && !failed.length) return null;
   return (
     <div className="map-notices script-notices" data-testid="script-notices">
       {waiting.map((l) => (
         <div key={l.id} className="map-notice warn script-notice" data-testid="script-waiting-notice">
-          <span><b>{l.name}:</b> script waiting for approval — no features are shown until you approve it.</span>
+          <span><b>{l.name}:</b> script waiting for approval — nothing is shown from it (no features, no labels) until you approve it.</span>
           <button
             className="map-notice-all"
             onClick={async () => {
-              if (await reviewScript(l.definitionPython!)) for (const x of await api.listLayers()) useApp.getState().updateLayer(x);
+              if (await reviewScript(waitingOf(l)!)) for (const x of await api.listLayers()) useApp.getState().updateLayer(x);
             }}
           >
             Review and approve…
@@ -747,7 +748,7 @@ function ScriptNotices({ ids }: { ids: string[] }) {
       ))}
       {failed.map((l) => (
         <div key={l.id} className="map-notice warn script-notice" data-testid="script-failed-notice">
-          <span><b>{l.name}:</b> the Python query failed, so no features are shown. {l.definitionError}</span>
+          <span><b>{l.name}:</b> the Python script failed, so nothing is shown from it. {l.definitionError ?? l.labelError}</span>
         </div>
       ))}
     </div>

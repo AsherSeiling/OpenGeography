@@ -1,6 +1,8 @@
 // The Labels section of a layer's Properties (L1): which field to show, how it looks, and the scales it shows at.
-import { Accordion, AccordionHeader, AccordionItem, AccordionPanel, Checkbox, Combobox, Dropdown, Field, Input, Option, Slider } from "@fluentui/react-components";
+import { Accordion, AccordionHeader, AccordionItem, AccordionPanel, Checkbox, Combobox, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, Slider, Textarea, Button } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
+import { api, errorText } from "../ipc/api";
+import { approveAuthored, reviewScript, useScripts } from "../scripts/script";
 import { matchFonts, useFonts } from "../map/fonts";
 import { displayInfo, defaultLabel, useApp, defaultContourLabels, type LabelPosition, type LabelStyle, type LayerStyle } from "../store/store";
 
@@ -53,10 +55,12 @@ export function LabelSettings({ id }: { id: string }) {
             <AccordionHeader size="small">Text</AccordionHeader>
             <AccordionPanel className="stack">
               <Field label="Label field" size="small">
-                <Dropdown size="small" value={label.field} selectedOptions={[label.field]} onOptionSelect={(_, d) => set({ field: d.optionValue })}>
+                <Dropdown size="small" value={label.field === LABEL_EXPR ? "Python expression…" : label.field} selectedOptions={[label.field]} onOptionSelect={(_, d) => set({ field: d.optionValue })}>
                   {names.map((f) => <Option key={f} value={f}>{f}</Option>)}
+                  <Option value={LABEL_EXPR}>Python expression…</Option>
                 </Dropdown>
               </Field>
+              {label.field === LABEL_EXPR && <LabelExpression id={id} />}
               <FontPicker value={label.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
               <div className="row2">
                 <Checkbox label="Bold" checked={!!label.bold} onChange={(_, d) => set({ bold: !!d.checked })} />
@@ -210,5 +214,60 @@ export function FontPicker({ value, onChange }: { value?: string; onChange: (fam
         {list.map((f) => <Option key={f.name} value={f.name} text={f.name}><span style={{ fontFamily: `"${f.name}"` }}>{f.name}</span></Option>)}
       </Combobox>
     </Field>
+  );
+}
+
+/** The pseudo-field the engine fills from a layer's Python label expression. */
+const LABEL_EXPR = "__label";
+
+/** Edit the layer's label expression: a Python function returning each feature's label text. Runs once, never while drawing. */
+function LabelExpression({ id }: { id: string }) {
+  const info = useApp((s) => s.layers[id]);
+  const [text, setText] = useState(info?.labelPython ?? 'def calculate(row):\n    return str(row["NAME"])\n');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const approved = useScripts((s) => (info?.labelPython ? s.approved[info.labelPython] : undefined));
+  useEffect(() => {
+    if (info?.labelPython) void useScripts.getState().check(info.labelPython);
+  }, [info?.labelPython]);
+  if (!info) return null;
+  const apply = async (script: string | null) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      if (script) await approveAuthored(script);
+      useApp.getState().updateLayer(await api.setLabelPython(id, script));
+    } catch (e) {
+      setErr(errorText(e));
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="stack" data-testid="label-expression">
+      <Textarea className="mono" rows={5} value={text} onChange={(_, d) => setText(d.value)} aria-label="Label expression" data-testid="label-python" />
+      <div className="muted small">Return the label text for each feature (<code>None</code> for no label). Attributes only. It runs once, not while the map draws.</div>
+      {info.labelPython && approved === false && (
+        <MessageBar intent="warning" data-testid="label-waiting">
+          <MessageBarBody>
+            <b>Script waiting for approval.</b> No labels are drawn until you review and approve it.{" "}
+            <Button size="small" onClick={async () => { if (await reviewScript(info.labelPython!)) for (const l of await api.listLayers()) useApp.getState().updateLayer(l); }}>Review and approve…</Button>
+          </MessageBarBody>
+        </MessageBar>
+      )}
+      {info.labelError && (
+        <MessageBar intent="error">
+          <MessageBarBody>The label script did not run cleanly, so nothing is labelled: {info.labelError}</MessageBarBody>
+        </MessageBar>
+      )}
+      {err && (
+        <MessageBar intent="error">
+          <MessageBarBody>{err}</MessageBarBody>
+        </MessageBar>
+      )}
+      <div className="btn-row">
+        <Button appearance="primary" size="small" disabled={busy || !/def\s+calculate\s*\(\s*row\s*\)/.test(text)} onClick={() => apply(text)}>Apply</Button>
+        <Button size="small" disabled={busy || !info.labelPython} onClick={() => apply(null)}>Clear</Button>
+      </div>
+    </div>
   );
 }

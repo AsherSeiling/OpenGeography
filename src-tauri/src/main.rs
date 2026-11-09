@@ -131,6 +131,7 @@ fn main() {
             commands::script_trust_info,
             commands::approve_script,
             commands::set_definition_python,
+            commands::set_label_python,
             commands::calculate_field_python,
             commands::select_python,
             commands::python_status,

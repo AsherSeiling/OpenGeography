@@ -227,3 +227,39 @@ fn select_by_python_respects_the_definition_query_and_never_returns_partial_resu
     engine::pyscript::approve(bad).unwrap();
     assert!(e.select_python(&l.id, bad).unwrap_err().to_string().contains("rows failed"));
 }
+
+fn has(bytes: &[u8], needle: &str) -> bool {
+    bytes.windows(needle.len()).any(|w| w == needle.as_bytes())
+}
+
+#[test]
+fn a_python_label_expression_labels_from_a_separate_store_and_only_once_approved() {
+    let Some((e, _one)) = engine() else { return };
+    let l = layer(&e);
+    let script = "def calculate(row):\n    return 'AREA-' + str(int(row['area'])) + 'ha'  # label-1\n";
+    // Waiting: the label text is not in the tile, and the layer table has no label column.
+    let info = e.set_label_python(&l.id, Some(script)).unwrap();
+    assert!(!engine::pyscript::is_approved(script));
+    let tile = e.tile(&l.id, 0, 0, 0, &["__label".to_string()]).unwrap();
+    assert!(!tile.is_empty() && !has(&tile, "AREA-10ha"), "no labels while the script waits");
+    assert!(info.fields.iter().all(|f| f.name != "__label"));
+    // Approving runs it; the tile now carries the text.
+    e.approve_script(script).unwrap();
+    let tile = e.tile(&l.id, 0, 0, 0, &["__label".to_string()]).unwrap();
+    // (At zoom 0 the four close points are one dot: the tile keeps the first, whose label is area 10.)
+    assert!(has(&tile, "AREA-10ha"), "labels from the expression");
+    let n: i64 = e.with_conn_for_tests(|c| Ok(c.query_row("SELECT count(*) FROM __label_vals", [], |r| r.get(0))?)).unwrap();
+    assert_eq!(n, 4);
+    // A tile that does not ask for __label does not carry it.
+    assert!(!has(&e.tile(&l.id, 0, 0, 0, &[]).unwrap(), "AREA-10ha"));
+    // A failing script labels nothing and says why.
+    let bad = "def calculate(row):\n    return 'x' + row['area']  # label-2\n";
+    engine::pyscript::approve(bad).unwrap();
+    let info = e.set_label_python(&l.id, Some(bad)).unwrap();
+    assert!(info.label_error.unwrap_or_default().contains("rows failed"));
+    assert!(!has(&e.tile(&l.id, 0, 0, 0, &["__label".to_string()]).unwrap(), "x10"));
+    // Clearing removes the store.
+    e.set_label_python(&l.id, None).unwrap();
+    let n: i64 = e.with_conn_for_tests(|c| Ok(c.query_row("SELECT count(*) FROM __label_vals", [], |r| r.get(0))?)).unwrap();
+    assert_eq!(n, 0);
+}

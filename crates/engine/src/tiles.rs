@@ -21,6 +21,9 @@ const BUFFER: u32 = 64;
 /// A pseudo-field: asking for it returns one label anchor point per feature instead of its geometry (L1).
 pub const ANCHORS: &str = "__anchors";
 
+/// A pseudo-field: the text of a layer's Python label expression (see `LayerInfo::label_python`).
+pub const LABEL: &str = "__label";
+
 pub fn tile_envelope_sql(z: u32, x: u32, y: u32) -> String {
     format!("ST_TileEnvelope({z}, {x}, {y})")
 }
@@ -81,6 +84,22 @@ fn mvt(conn: &Connection, info: &LayerInfo, count_sql: &str, cand_sql: &str, env
     if count == 0 {
         return Ok(Vec::new());
     }
+    // The label expression's text rides along as the property `__label` (NULL until the script is approved and has run).
+    let want_label = fields.iter().any(|f| f == LABEL) && info.label_python.is_some();
+    let labelled;
+    let cand_sql = if want_label {
+        use crate::db::lit;
+        labelled = format!(
+            "SELECT c.*, l.text AS {} FROM ({cand_sql}) c LEFT JOIN __label_vals l ON l.__fid = c.__fid AND l.layer = {} AND l.script = {} AND l.version = {}",
+            ident(LABEL),
+            lit(&info.id),
+            lit(&crate::pyscript::script_hash(info.label_python.as_deref().unwrap_or(""))),
+            info.version
+        );
+        labelled.as_str()
+    } else {
+        cand_sql
+    };
     let k = (count as f64 / DENSE_TILE_FEATURES).sqrt().max(1.0);
     let small = px * k;
     let cell = px * 2.0 * k;
@@ -88,7 +107,7 @@ fn mvt(conn: &Connection, info: &LayerInfo, count_sql: &str, cand_sql: &str, env
     let mut props = vec!["'__fid': __fid".to_string()];
     let mut cols = vec!["__fid".to_string()];
     for f in fields {
-        if info.fields.iter().any(|x| &x.name == f) {
+        if info.fields.iter().any(|x| &x.name == f) || (want_label && f == LABEL) {
             props.push(format!("{}: {}", lit(f), ident(f)));
             cols.push(ident(f));
         }

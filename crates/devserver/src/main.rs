@@ -221,6 +221,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "set_settings" => json!(engine::settings::save(&de::<engine::settings::Settings>(a, "settings")?)?),
         "script_trust_info" => json!(engine::pyscript::trust_info(&s(a, "script")?)),
         "approve_script" => json!(e.approve_script(&s(a, "script")?)?),
+        "set_label_python" => json!(e.set_label_python(&s(a, "id")?, a["script"].as_str())?),
         "set_definition_python" => json!(e.set_definition_python(&s(a, "id")?, a["script"].as_str())?),
         "calculate_field_python" => {
             let fids: Option<Vec<i64>> = de(a, "fids")?;

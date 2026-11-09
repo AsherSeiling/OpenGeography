@@ -60,6 +60,14 @@ pub struct LayerInfo {
     /// Why the Python definition query has no result (it failed on some rows, or could not run), for the layer's notice.
     #[serde(default)]
     pub definition_error: Option<String>,
+    /// A Python label expression (`def calculate(row): return "text"`). Run once per (layer, script, data version), never while drawing: the
+    /// text of each feature is kept apart from the layer in `__label_vals` and tiles and layouts read it as the pseudo-field `__label`.
+    /// Until the script is approved and has run, there is no label text, so nothing is labelled.
+    #[serde(default)]
+    pub label_python: Option<String>,
+    /// Why the label expression gave no labels (failed rows, cancelled).
+    #[serde(default)]
+    pub label_error: Option<String>,
     /// Number of features passing the definition query.
     #[serde(default)]
     pub query_count: Option<i64>,
@@ -97,6 +105,22 @@ impl LayerInfo {
     /// `AND (<definition query>)`, or empty when the layer has none.
     pub fn def_and(&self) -> String {
         self.def_condition().map_or(String::new(), |c| format!(" AND ({c})"))
+    }
+
+    /// The relation labels are read from: the layer table, plus the pseudo-field `__label` (the label expression's text, NULL where there is none).
+    pub fn label_source(&self) -> String {
+        use crate::db::{ident, lit};
+        match self.label_python.as_deref().filter(|s| !s.trim().is_empty()) {
+            Some(script) => format!(
+                "(SELECT x.*, l.text AS {} FROM {} x LEFT JOIN __label_vals l ON l.__fid = x.__fid AND l.layer = {} AND l.script = {} AND l.version = {})",
+                ident(crate::tiles::LABEL),
+                ident(&self.table),
+                lit(&self.id),
+                lit(&crate::pyscript::script_hash(script)),
+                self.version
+            ),
+            None => ident(&self.table),
+        }
     }
 
     /// ` WHERE (<definition query>)`, or empty.
@@ -297,6 +321,8 @@ pub fn build_layer(conn: &Connection, id: &str, src: &ImportSource) -> Result<La
         definition_query: None,
         definition_python: None,
         definition_error: None,
+        label_python: None,
+        label_error: None,
         query_count: None,
         raster: None,
     };
@@ -571,6 +597,8 @@ pub fn raster_layer(id: &str, name: &str, path: &std::path::Path, source: Option
         definition_query: None,
         definition_python: None,
         definition_error: None,
+        label_python: None,
+        label_error: None,
         query_count: None,
         raster: Some(r),
     })

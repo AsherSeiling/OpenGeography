@@ -492,6 +492,9 @@ export interface LayerInfo {
   definitionPython?: string | null;
   /** Why the Python definition query gave nothing (failed rows, cancelled). */
   definitionError?: string | null;
+  /** A Python label expression; labels use the field `__label`. */
+  labelPython?: string | null;
+  labelError?: string | null;
   overviews: number[];
   raster?: RasterInfo | null;
   queryCount?: number | null;
@@ -711,6 +714,8 @@ export const api = {
   setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),
   /** A Python definition query (`def calculate(row): return True`): runs once, not at draw time; the layer shows nothing until the script is approved. */
   setDefinitionPython: (id: string, script: string | null) => invoke<LayerInfo>("set_definition_python", { id, script }),
+  /** A Python label expression (`def calculate(row): return "text"`): run once, labels read it as the field `__label`. */
+  setLabelPython: (id: string, script: string | null) => invoke<LayerInfo>("set_label_python", { id, script }),
   calculateFieldPython: (id: string, field: string, script: string, ty: FieldType | null, fids: number[] | null, skipFailed: boolean) =>
     invoke<{ layer: LayerInfo; count: number; note: string | null }>("calculate_field_python", { id, field, script, ty, fids, skipFailed }),
   selectPython: (id: string, script: string) => invoke<number[]>("select_python", { id, script }),

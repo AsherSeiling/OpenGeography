@@ -606,6 +606,14 @@ pub async fn set_definition_python(engine: Eng<'_>, id: String, script: Option<S
     Ok(info)
 }
 
+/// Set or clear a layer's Python label expression (run once, not while drawing; unapproved or failing it gives no labels).
+#[tauri::command]
+pub async fn set_label_python(engine: Eng<'_>, id: String, script: Option<String>) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.set_label_python(&id, script.as_deref())).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
 /// The field calculator with a Python script.
 #[tauri::command]
 pub async fn calculate_field_python(engine: Eng<'_>, id: String, field: String, script: String, ty: Option<String>, fids: Option<Vec<i64>>, skip_failed: bool) -> Res<PythonEditResult> {

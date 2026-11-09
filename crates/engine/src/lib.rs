@@ -165,7 +165,9 @@ impl Engine {
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);
              CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);
              CREATE TABLE IF NOT EXISTS __defq_fids (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT);
-             CREATE TABLE IF NOT EXISTS __defq_sets (layer VARCHAR, script VARCHAR, version BIGINT, kept BIGINT);",
+             CREATE TABLE IF NOT EXISTS __defq_sets (layer VARCHAR, script VARCHAR, version BIGINT, kept BIGINT);
+             CREATE TABLE IF NOT EXISTS __label_vals (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT, text VARCHAR);
+             CREATE TABLE IF NOT EXISTS __label_sets (layer VARCHAR, script VARCHAR, version BIGINT, n BIGINT);",
         )?;
         sources::init(&conn)?;
         display::init(&conn)?;
@@ -203,10 +205,11 @@ impl Engine {
         drop(stmt);
         // Python definition queries of an opened project: sets that came with the project are never trusted (a shared project could carry a
         // forged one): they are dropped, scripts this computer approved run again now, and the others wait for approval.
-        conn.execute_batch("DELETE FROM __defq_fids; DELETE FROM __defq_sets;")?;
-        let pending: Vec<LayerInfo> = self.layers.read().values().filter(|l| l.definition_python.is_some()).cloned().collect();
+        conn.execute_batch("DELETE FROM __defq_fids; DELETE FROM __defq_sets; DELETE FROM __label_vals; DELETE FROM __label_sets;")?;
+        let pending: Vec<LayerInfo> = self.layers.read().values().filter(|l| l.definition_python.is_some() || l.label_python.is_some()).cloned().collect();
         for mut info in pending {
             let _ = self.ensure_definition(&conn, &mut info);
+            let _ = self.ensure_labels(&conn, &mut info);
             self.layers.write().insert(info.id.clone(), info);
         }
         Ok(())
@@ -234,6 +237,7 @@ impl Engine {
         let mut stored = info.clone();
         // New data: a Python definition query's fid set is for the old version, so it runs again (if its script is approved).
         self.ensure_definition(conn, &mut stored)?;
+        self.ensure_labels(conn, &mut stored)?;
         let info = &stored.clone();
         if let (Some(r), Some(dir)) = (stored.raster.as_mut(), self.project_dir()) {
             if let Ok(rel) = Path::new(&r.path).strip_prefix(&dir) {
@@ -916,11 +920,63 @@ impl Engine {
         })
     }
 
+    /// Set or clear a layer's Python label expression: `def calculate(row): return "text"` gives each feature's label. It runs once (and again
+    /// when the data changes), not while drawing; labels use the pseudo-field `__label`. Unapproved or failing, it gives no labels.
+    pub fn set_label_python(&self, id: &str, script: Option<&str>) -> Result<LayerInfo> {
+        let script = script.filter(|s| !s.trim().is_empty()).map(String::from);
+        let mut info = self.layer(id)?;
+        self.with_conn(|conn| {
+            conn.execute("DELETE FROM __label_vals WHERE layer = ?", [&info.id])?;
+            conn.execute("DELETE FROM __label_sets WHERE layer = ?", [&info.id])?;
+            info.label_python = script;
+            info.label_error = None;
+            info.version += 1;
+            self.save_meta(conn, &info)?;
+            self.layer(&info.id)
+        })
+    }
+
+    /// Like `ensure_definition`, for the label expression: text for each feature, kept in `__label_vals`.
+    fn ensure_labels(&self, conn: &Connection, info: &mut LayerInfo) -> Result<()> {
+        let Some(script) = info.label_python.clone().filter(|s| !s.trim().is_empty()) else { return Ok(()) };
+        let hash = pyscript::script_hash(&script);
+        let done: i64 = conn.query_row("SELECT count(*) FROM __label_sets WHERE layer = ? AND script = ? AND version = ?", duckdb::params![info.id, hash, info.version as i64], |r| r.get(0))?;
+        if done > 0 || !pyscript::is_approved(&script) {
+            return Ok(());
+        }
+        let run = pyscript::evaluate_layer(conn, info, &script, pyscript::Mode::Field, pyscript::OutType::Text, false, None, false);
+        conn.execute("DELETE FROM __label_vals WHERE layer = ?", [&info.id])?;
+        conn.execute("DELETE FROM __label_sets WHERE layer = ?", [&info.id])?;
+        match run {
+            Ok(ev) => {
+                conn.execute(
+                    &format!("INSERT INTO __label_vals SELECT ?, ?, ?, s.__fid, o.s FROM {} s JOIN {} o USING (__rn)", ident(&ev.snapshot), ident(&ev.staging)),
+                    duckdb::params![info.id, hash, info.version as i64],
+                )?;
+                let n: i64 = conn.query_row("SELECT count(*) FROM __label_vals WHERE layer = ?", [&info.id], |r| r.get(0))?;
+                conn.execute("INSERT INTO __label_sets VALUES (?, ?, ?, ?)", duckdb::params![info.id, hash, info.version as i64, n])?;
+                let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS {}; DROP TABLE IF EXISTS {}", ident(&ev.snapshot), ident(&ev.staging)));
+                info.label_error = None;
+            }
+            Err(e) => {
+                info.label_error = Some(if progress::is_cancelled(&e) { "The label script was cancelled; nothing is labelled until it runs.".into() } else { format!("{e:#}") });
+                conn.execute("INSERT INTO __label_sets VALUES (?, ?, ?, 0)", duckdb::params![info.id, hash, info.version as i64])?;
+            }
+        }
+        Ok(())
+    }
+
     /// The user approved this script on this computer: record it, and run the layers' Python definition queries that were waiting for it.
     pub fn approve_script(&self, script: &str) -> Result<pyscript::TrustInfo> {
         pyscript::approve(script)?;
         let hash = pyscript::script_hash(script);
-        let waiting: Vec<LayerInfo> = self.layers.read().values().filter(|l| l.definition_python.as_deref().is_some_and(|s| pyscript::script_hash(s) == hash)).cloned().collect();
+        let waiting: Vec<LayerInfo> = self
+            .layers
+            .read()
+            .values()
+            .filter(|l| [&l.definition_python, &l.label_python].iter().any(|p| p.as_deref().is_some_and(|s| pyscript::script_hash(s) == hash)))
+            .cloned()
+            .collect();
         self.with_conn(|conn| {
             for mut info in waiting {
                 info.version += 1; // tiles and tables drawn from the empty result are stale now

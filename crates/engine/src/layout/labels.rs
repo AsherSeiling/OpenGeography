@@ -185,7 +185,7 @@ fn anchor_sql(info: &LayerInfo, label: &LabelStyle, frame_crs: &str, bbox3857: O
         extent[2],
         extent[1],
         extent[3],
-        t = ident(&info.table),
+        t = if label.field == crate::tiles::LABEL { info.label_source() } else { ident(&info.table) },
         def = info.def_and(),
         limit = MAX_CANDIDATES + 1,
     );

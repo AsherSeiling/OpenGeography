@@ -88,3 +88,17 @@ test("a new Definition Query node uses Python; a node saved with SQL keeps runni
   const res = await gis(app, async (g, id) => g.api.runGraph({ nodes: [{ id: "in", tool: "input_layer", params: { layer: id } }, { id: "f", tool: "filter", params: { where: "value > 50" } }, { id: "o", tool: "layer_output", params: { layer: id } }], edges: [{ source: "in", target: "f", targetHandle: "in" }, { source: "f", target: "o", targetHandle: "in" }] }, null), layer.id);
   expect(JSON.stringify(res)).not.toMatch(/"status":"error"/);
 });
+
+test("a label expression waits for approval too; the Labels panel offers a Python expression and nothing is labelled until it is approved", async ({ app }) => {
+  const layer = await addTestLayer(app, "points", 15, [-100, 30, -95, 35]);
+  const script = 'def calculate(row):\n    return "V" + str(int(row["value"]))  # label script from elsewhere\n';
+  await gis(app, async (g, a: any) => { const info = await g.api.setLabelPython(a.id, a.script); g.useApp.getState().updateLayer(info); }, { id: layer.id, script });
+  await expect(app.getByTestId("script-waiting-notice")).toContainText(/script waiting for approval.*no labels/i);
+  // The layer's own features are not hidden by a waiting label script.
+  expect(await gis(app, async (g, id) => (await g.api.getRows(id, { offset: 0, limit: 100 })).total, layer.id)).toBe(15);
+  await app.getByRole("button", { name: /Review and approve/ }).first().click();
+  await expect(app.getByTestId("script-text")).toContainText("label script from elsewhere");
+  await app.getByTestId("script-approval").getByRole("button", { name: /Approve and run/ }).click();
+  await expect(app.getByTestId("script-waiting-notice")).toHaveCount(0);
+  expect(await gis(app, (g, id) => g.useApp.getState().layers[id].labelError ?? null, layer.id)).toBeNull();
+});
