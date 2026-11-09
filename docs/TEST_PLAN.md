@@ -1077,6 +1077,8 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | UX-3c | By hand: add a bookmark, change the map CRS, go to it (same place); save and reopen; in a layout, Map Frame > Bookmark sets the frame centre and scale | not yet run |
 | UX-4a | Swipe: choosing layers turns it on at the middle, choosing none turns it off, the divider keeps its place, it is per map and clamped inside the map; the clip is the left part of the map and follows the position at every draw; detaching removes every listener | `ui/src/map/swipe.test.ts` |
 | UX-4b | By hand: a raster over a vector layer, in Web Mercator and then a projected CRS and a world view: drag the divider, ticked layers show only on the left, labels follow, Turn Off Swipe restores the map | not yet run |
+| UX-10a | Row position of a feature follows the default order, a descending sort, a filter and an only-selected view; a feature outside the view has none; a bad sort field is a readable error | `crates/engine/tests/tables.rs` (`row_position_follows_sort_filter_and_ids`) |
+| UX-10b | By hand: a table of thousands of rows, click a feature on the map: the table scrolls to its row and shades it; click a row header: the map highlights it and the table does not jump; Zoom To Selection | not yet run |
 | GR-17 | By hand in the browser (devserver, 2026-11-09): open an image, set the CRS, five points, RMS and per-point errors update, the preview draws on the reference map, a click on the image and then the map adds a point, Georeference adds the layer, Save set stores it. A browser e2e spec has not been written yet | by hand |
 
 ## UI redesign (`docs/UI_REDESIGN_PLAN.md`)

@@ -271,6 +271,11 @@ pub async fn get_rows(engine: Eng<'_>, id: String, query: RowsQuery) -> Res<Rows
 }
 
 #[tauri::command]
+pub async fn row_position(engine: Eng<'_>, id: String, query: RowsQuery, fid: i64) -> Res<Option<i64>> {
+    blocking(&engine, move |e| e.row_position(&id, &query, fid)).await
+}
+
+#[tauri::command]
 pub async fn select_where(engine: Eng<'_>, id: String, filter: String) -> Res<Vec<i64>> {
     blocking(&engine, move |e| e.select_where(&id, &filter)).await
 }

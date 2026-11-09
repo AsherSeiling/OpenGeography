@@ -1564,6 +1564,12 @@ impl Engine {
         self.with_conn(|c| table::rows(c, &info, q))
     }
 
+    /// The 0-based row number of a feature in the table as `rows` lists it for this query, or None if it isn't in that view.
+    pub fn row_position(&self, id: &str, q: &table::RowsQuery, fid: i64) -> Result<Option<i64>> {
+        let info = self.layer(id)?;
+        self.with_conn(|c| table::row_position(c, &info, q, fid))
+    }
+
     pub fn select_where(&self, id: &str, filter: &str) -> Result<Vec<i64>> {
         let info = self.layer(id)?;
         self.with_conn(|c| table::select_where(c, &info, filter))

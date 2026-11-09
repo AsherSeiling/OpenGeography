@@ -835,6 +835,8 @@ export const api = {
   buildDisplay: (layer: string, crs: string) => invoke<DisplayStatus>("build_display", { layer, crs }),
   displayStatus: (layer: string, crs: string) => invoke<DisplayStatus>("display_status", { layer, crs }),
   getRows: (id: string, query: RowsQuery) => invoke<RowsPage>("get_rows", { id, query }),
+  /** The 0-based row of a feature in the table as getRows lists it for this query (offset and limit ignored), or null when it isn't in that view. */
+  rowPosition: (id: string, query: RowsQuery, fid: number) => invoke<number | null>("row_position", { id, query, fid }),
   selectWhere: (id: string, filter: string) => invoke<number[]>("select_where", { id, filter }),
   /** Features within `tolerance` of (x, y); both are in `crs` (the map CRS) units, nearest first. */
   identify: (ids: string[], x: number, y: number, crs: string, tolerance: number) =>

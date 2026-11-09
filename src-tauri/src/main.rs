@@ -75,6 +75,7 @@ fn main() {
             commands::build_display,
             commands::display_status,
             commands::get_rows,
+            commands::row_position,
             commands::select_where,
             commands::identify,
             commands::select_rect,

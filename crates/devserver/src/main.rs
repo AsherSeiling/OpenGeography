@@ -432,6 +432,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "crs_display_info" => json!(e.crs_display_info(&s(a, "crs")?, de(a, "fallbackExtent").ok())?),
         "build_display" => json!(e.build_display(&s(a, "layer")?, &s(a, "crs")?)?),
         "display_status" => json!(e.display_status(&s(a, "layer")?, &s(a, "crs")?)?),
+        "row_position" => json!(e.row_position(&s(a, "id")?, &de::<RowsQuery>(a, "query")?, a["fid"].as_i64().unwrap_or(0))?),
         "get_rows" => json!(e.rows(&s(a, "id")?, &de::<RowsQuery>(a, "query")?)?),
         "select_where" => json!(e.select_where(&s(a, "id")?, &s(a, "filter")?)?),
         "identify" | "select_rect" => {

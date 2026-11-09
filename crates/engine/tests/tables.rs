@@ -353,3 +353,31 @@ fn extents_for_selections() {
     assert!(f.e.extent(&f.polys, Some(vec![])).unwrap().is_none(), "an empty selection has no extent");
     assert!(f.e.extent(&f.polys, Some(vec![999])).unwrap().is_none());
 }
+
+#[test]
+fn row_position_follows_sort_filter_and_ids() {
+    let f = fx();
+    let q = |sort: Option<&str>, desc: bool, filter: Option<&str>| RowsQuery { limit: 10, sort: sort.map(String::from), desc, filter: filter.map(String::from), ..Default::default() };
+    // Default order is by feature id.
+    let first = f.e.rows(&f.polys, &q(None, false, None)).unwrap().fids;
+    for (i, fid) in first.iter().enumerate() {
+        assert_eq!(f.e.row_position(&f.polys, &q(None, false, None), *fid).unwrap(), Some(i as i64));
+    }
+    // Sorted descending by pop: the order flips.
+    let desc = f.e.rows(&f.polys, &q(Some("pop"), true, None)).unwrap().fids;
+    for (i, fid) in desc.iter().enumerate() {
+        assert_eq!(f.e.row_position(&f.polys, &q(Some("pop"), true, None), *fid).unwrap(), Some(i as i64));
+    }
+    // A filter removes rows: the one left out has no position, the others close up.
+    let kept = f.e.rows(&f.polys, &q(None, false, Some("pop > 10"))).unwrap().fids;
+    assert_eq!(kept.len(), 2);
+    assert_eq!(f.e.row_position(&f.polys, &q(None, false, Some("pop > 10")), kept[1]).unwrap(), Some(1));
+    assert_eq!(f.e.row_position(&f.polys, &q(None, false, Some("pop > 10")), first[0]).unwrap(), None);
+    assert_eq!(f.e.row_position(&f.polys, &q(Some("pop"), false, Some("pop > 10")), kept[0]).unwrap(), Some(0));
+    // Only-selected view.
+    let only = RowsQuery { limit: 10, fids: Some(vec![first[2]]), ..Default::default() };
+    assert_eq!(f.e.row_position(&f.polys, &only, first[2]).unwrap(), Some(0));
+    assert_eq!(f.e.row_position(&f.polys, &only, first[0]).unwrap(), None);
+    // A bad sort field is a readable error.
+    assert!(f.e.row_position(&f.polys, &q(Some("nope"), false, None), first[0]).unwrap_err().to_string().contains("Unknown sort field"));
+}
