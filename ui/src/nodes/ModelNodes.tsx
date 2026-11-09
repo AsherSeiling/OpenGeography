@@ -13,6 +13,7 @@ import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 import { splitCategory } from "./categories";
 import { ParamControl } from "./ParamControl";
+import { isWaiting, reviewScript } from "../scripts/script";
 
 /** Card header family: the `--fam-<name>` token pair, or "Output" for the rule-coloured header. */
 const FAMILY: Record<string, string> = { Input: "Input", Vector: "Vector", Raster: "Raster", Hydrology: "Hydrology", Tables: "Tables", "Coordinate Systems": "Coordinate", Analysis: "Analysis", Styling: "Styling", Output: "Output", "Save to File": "Output" };
@@ -112,7 +113,11 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
           <Globe16Regular /> input reprojected
         </div>
       )}
-      {r?.status === "error" && <div className="bnode-error" title={r.error ?? ""}>{r.error}</div>}
+      {r?.status === "error" && (
+        <div className="bnode-error" title={r.error ?? ""}>
+          {isWaiting(r.error) ? <ScriptWaiting nodeId={id} params={data.params} /> : r.error}
+        </div>
+      )}
     </div>
   );
 }
@@ -215,3 +220,25 @@ export const nodeTypes = {
   tool: (p: NodeProps<ModelNode>) => <NodeCard {...p} kind="tool" />,
   output: (p: NodeProps<ModelNode>) => <NodeCard {...p} kind="output" />,
 };
+
+
+/** A node whose Python script came from a project or model that this computer has not approved: show it and offer the approval dialog. */
+function ScriptWaiting({ nodeId, params }: { nodeId: string; params: Record<string, unknown> }) {
+  const script = String(params.expression ?? params.where ?? "");
+  return (
+    <span data-testid="node-script-waiting">
+      Script waiting for approval.{" "}
+      <button
+        className="bctl bbtn"
+        data-nodrag="true"
+        onClick={async (e) => {
+          e.preventDefault();
+          if (await reviewScript(script)) useApp.getState().setStatus("Script approved. Run the model again to use it.");
+        }}
+        aria-label={`Review and approve the script of ${nodeId}`}
+      >
+        Review and approve…
+      </button>
+    </span>
+  );
+}

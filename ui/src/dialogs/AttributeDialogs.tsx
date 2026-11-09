@@ -21,6 +21,7 @@ import {
 import { useState } from "react";
 import { api, errorText, type FieldType, type LayerInfo } from "../ipc/api";
 import { useApp } from "../store/store";
+import { approveAuthored, fieldRef, valueTemplate } from "../scripts/script";
 
 const TYPES: [FieldType, string][] = [
   ["text", "Text"],
@@ -126,7 +127,9 @@ const SNIPPETS: [string, string][] = [
 export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: string; owner: string; field?: string; onClose: () => void }) {
   const info = useLayer(layer);
   const [target, setTarget] = useState(field ?? "");
+  const [language, setLanguage] = useState<"python" | "sql">("python");
   const [expr, setExpr] = useState("");
+  const [skip, setSkip] = useState(false);
   const [ty, setTy] = useState<FieldType | "auto">("auto");
   const [onlySel, setOnlySel] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -143,9 +146,16 @@ export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: 
     setErr(null);
     try {
       const fids = onlySel ? (useApp.getState().selection[owner] ?? []) : null;
-      const r = await api.calculateField(layer, target.trim(), expr, isNew && ty !== "auto" ? ty : null, fids);
+      let r: { layer: LayerInfo; count: number; note?: string | null };
+      if (language === "python") {
+        // A script written here is approved on this computer; the engine checks every row's result strictly and stops, changing nothing, if any fails.
+        await approveAuthored(expr);
+        r = await api.calculateFieldPython(layer, target.trim(), expr, isNew && ty !== "auto" ? ty : null, fids, skip);
+      } else {
+        r = await api.calculateField(layer, target.trim(), expr, isNew && ty !== "auto" ? ty : null, fids);
+      }
       useApp.getState().updateLayer(r.layer);
-      useApp.getState().setStatus(`Calculated ${target.trim()} for ${r.count.toLocaleString()} row(s)`);
+      useApp.getState().setStatus(`Calculated ${target.trim()} for ${r.count.toLocaleString()} row(s)${r.note ? `. ${r.note}` : ""}`);
       onClose();
     } catch (e) {
       setErr(errorText(e));
@@ -165,23 +175,47 @@ export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: 
           </Dropdown>
         </Field>
       )}
+      <Field label="Language">
+        <Dropdown
+          value={language === "python" ? "Python" : "SQL"}
+          onOptionSelect={(_, d) => {
+            const next = d.optionValue as "python" | "sql";
+            if (next === "python" && !expr.trim()) setExpr(valueTemplate(info.fields));
+            if (next === "sql" && expr === valueTemplate(info.fields)) setExpr("");
+            setLanguage(next);
+          }}
+        >
+          <Option value="python">Python</Option>
+          <Option value="sql">SQL</Option>
+        </Dropdown>
+      </Field>
       <div>
         <div className="muted small">Fields (click to insert):</div>
         <div className="field-chips">
           {info.fields.map((f) => (
-            <button key={f.name} className="chip" onClick={() => insert(quote(f.name))} title={f.type}>{f.name}</button>
+            <button key={f.name} className="chip" onClick={() => insert(language === "python" ? fieldRef(f.name) : quote(f.name))} title={f.type}>{f.name}</button>
           ))}
         </div>
-        <div className="muted small">Helpers:</div>
-        <div className="field-chips">
-          {SNIPPETS.map(([label, text]) => (
-            <button key={label} className="chip op" onClick={() => insert(text)}>{label}</button>
-          ))}
-        </div>
+        {language === "sql" && (
+          <>
+            <div className="muted small">Helpers:</div>
+            <div className="field-chips">
+              {SNIPPETS.map(([label, text]) => (
+                <button key={label} className="chip op" onClick={() => insert(text)}>{label}</button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
-      <Field label={`${target.trim() || "Field"} =`} hint="SQL expression. Text values go in single quotes: 'TX'.">
-        <Textarea value={expr} onChange={(_, d) => setExpr(d.value)} rows={4} className="mono" placeholder="POP2020 / AREA_SQMI" />
+      <Field
+        label={language === "python" ? `${target.trim() || "Field"} = the value  def calculate(row)  returns` : `${target.trim() || "Field"} =`}
+        hint={language === "python" ? "Return the value for each feature; None leaves the field empty. Text, whole or decimal numbers, True/False and dates are kept as they are, and a value that does not fit the field is an error for that row. Attributes only." : "SQL expression. Text values go in single quotes: 'TX'."}
+      >
+        <Textarea value={expr} onChange={(_, d) => setExpr(d.value)} rows={language === "python" ? 6 : 4} className="mono" placeholder={language === "python" ? valueTemplate(info.fields) : "POP2020 / AREA_SQMI"} data-testid="calc-expression" />
       </Field>
+      {language === "python" && (
+        <Checkbox checked={skip} onChange={(_, d) => setSkip(!!d.checked)} label="If a row fails, keep its old value and report it (otherwise nothing is changed)" />
+      )}
       <OnlySelected owner={owner} value={onlySel} onChange={setOnlySel} />
     </Shell>
   );

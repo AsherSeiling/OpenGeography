@@ -98,7 +98,7 @@ export function LayerPropertiesWindow() {
           {section === "general" && <General id={layer} />}
           {section === "source" && <Source id={layer} />}
           {section === "symbology" && <Symbology id={layer} />}
-          {section === "query" && <DefinitionQuery id={layer} />}
+          {section === "query" && <DefinitionQuery key={layer} id={layer} />}
           {section === "fields" && <Fields id={layer} />}
           {section === "crs" && <CrsInfo id={layer} />}
         </div>

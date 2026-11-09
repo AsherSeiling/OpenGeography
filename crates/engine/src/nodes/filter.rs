@@ -13,7 +13,7 @@ impl Tool for Filter {
             inputs: vec![Port { id: "in", label: "Input", kind: PortKind::Table }],
             output: Some(PortKind::Table),
             params: vec![
-                Param::new("language", "Language", ParamKind::Enum).default("sql").options(&[("sql", "SQL"), ("python", "Python")]),
+                Param::new("language", "Language", ParamKind::Enum).default("python").options(&[("sql", "SQL"), ("python", "Python")]),
                 Param::new("where", "Query", ParamKind::Query)
                     .field_of("in")
                     .help("e.g. POP100 > 1000 AND COUNTY = '109'. In Python: def calculate(row): return row[\"POP100\"] > 1000 (return True or False)"),

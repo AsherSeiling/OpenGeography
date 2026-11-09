@@ -21,7 +21,7 @@ import {
 import { WaitBar } from "../progress/progress";
 import { Globe20Regular, Location20Regular, Star20Filled } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
-import { defineProjection, generateTestData, selectByAttributes, selectByLocation, useDialog } from "../actions";
+import { defineProjection, generateTestData, selectByAttributes, selectByLocation, selectByPython, useDialog } from "../actions";
 import { reportError } from "../errors/store";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
 import { SettingsDialog } from "./SettingsDialog";
@@ -52,7 +52,7 @@ import { NodeQueryDialog } from "./NodeQueryDialog";
 import { TigerDialog } from "./TigerDialog";
 import { ToolMenu } from "../nodes/ToolMenu";
 import { AddFieldDialog, CalculateFieldDialog, CalculateGeometryDialog, RenameFieldDialog } from "./AttributeDialogs";
-import { QueryEditor } from "../query/QueryEditor";
+import { QueryEditor, type QueryLanguage } from "../query/QueryEditor";
 import { benchmarkFlight, getCenterLonLat, type FlightResult } from "../map/mapController";
 import { displayInfo, useApp, type SelectMode } from "../store/store";
 
@@ -411,7 +411,7 @@ function DefineProjectionDialog({ layer, onClose }: { layer: string; onClose: ()
 function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: string; onClose: () => void }) {
   const layers = useApp(useShallow((s) => s.order.map((id) => s.layers[id]).filter(Boolean)));
   const [layer, setLayer] = useState(initialLayer);
-  const [where, setWhere] = useState<{ sql: string; error: string | null }>({ sql: "", error: null });
+  const [where, setWhere] = useState<{ sql: string; error: string | null; language: QueryLanguage }>({ sql: "", error: null, language: "python" });
   const [mode, setMode] = useState<"new" | "add">("new");
   const [err, setErr] = useState<string | null>(null);
   const info = useApp((s) => displayInfo(s, layer));
@@ -432,7 +432,7 @@ function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: str
               <Radio value="new" label="New selection" />
               <Radio value="add" label="Add to current selection" />
             </RadioGroup>
-            {info && <QueryEditor key={info.id} layerId={info.id} fields={info.fields} onChange={(sql, error) => { setWhere({ sql, error }); setErr(null); }} />}
+            {info && <QueryEditor key={info.id} layerId={info.id} fields={info.fields} onChange={(sql, error, language) => { setWhere({ sql, error, language }); setErr(null); }} />}
             {err && (
               <MessageBar intent="error">
                 <MessageBarBody>{err}</MessageBarBody>
@@ -446,6 +446,10 @@ function SelectByAttributesDialog({ layer: initialLayer, onClose }: { layer: str
               disabled={!where.sql || !!where.error || !info}
               onClick={async () => {
                 try {
+                  if (where.language === "python") {
+                    if (await selectByPython(layer, where.sql, mode)) onClose();
+                    return;
+                  }
                   await api.selectWhere(info!.id, `(${where.sql}) AND FALSE`);
                 } catch (e) {
                   setErr(errorText(e).split("\n")[0]);

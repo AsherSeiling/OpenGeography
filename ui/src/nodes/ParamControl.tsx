@@ -18,6 +18,8 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
   // Re-render when connections change so field lists stay current.
   useModel((s) => s.edges.length);
   const fields = p.fieldOf ? fieldsForPort(nodeId, p.fieldOf) : [];
+  // Python or SQL for this node (a node saved before Python was the default has no language and is SQL).
+  const python = useModel((s) => s.nodes.find((n) => n.id === nodeId)?.data.params.language === "python");
   const str = value === undefined || value === null ? "" : String(value);
 
   const row = (control: React.ReactNode, wide = false) => (
@@ -74,9 +76,9 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
     case "expression":
       return row(
         <div className="bexpr">
-          <textarea className="bctl mono" rows={2} value={str} placeholder={p.help.replace(/^SQL expression, e\.g\. /, "")} onChange={(e) => set(e.target.value)} />
+          <textarea className="bctl mono" rows={python && p.id === "expression" ? 4 : 2} value={str} placeholder={python && p.id === "expression" ? 'def calculate(row):\n    return row["POP"] / row["AREA"]' : p.help.replace(/^SQL expression, e\.g\. /, "")} onChange={(e) => set(e.target.value)} />
           {fields.length > 0 && (
-            <select className="bctl bfield-insert" value="" onChange={(e) => e.target.value && set(`${str}${str && !str.endsWith(" ") ? " " : ""}${quote(e.target.value)}`)} title="Insert a field">
+            <select className="bctl bfield-insert" value="" onChange={(e) => e.target.value && set(`${str}${str && !str.endsWith(" ") ? " " : ""}${python && p.id === "expression" ? `row[${JSON.stringify(e.target.value)}]` : quote(e.target.value)}`)} title="Insert a field">
               <option value="">+ field</option>
               {fields.map((f) => (
                 <option key={f.name} value={f.name}>{f.name}</option>
@@ -89,7 +91,7 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
     case "query":
       return row(
         <div className="bexpr">
-          <div className={`bquery ${str ? "" : "empty"}`} title={str || "No query yet"}>{str || "No query yet"}</div>
+          <div className={`bquery ${str ? "" : "empty"}`} title={str || "No query yet"}>{python && str ? "Python: " : ""}{str || "No query yet"}</div>
           <button className="bctl bbtn" onClick={(e) => { e.preventDefault(); useDialog.getState().show({ kind: "nodeQuery", nodeId, param: p.id }); }}>
             {str ? "Edit query…" : "Build query…"}
           </button>

@@ -83,6 +83,9 @@ test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear"
   await ribbon(app, "Feature Layer", /^Definition Query$/);
   const qe = app.locator(".qe");
   await expect(qe).toBeVisible();
+  // Python is the first and default tab (UR-20); this test is about the Builder.
+  await expect(qe.getByRole("tab", { name: "Python" })).toHaveAttribute("aria-selected", "true");
+  await qe.getByRole("tab", { name: "Builder" }).click();
   const row0 = qe.locator(".qe-row").nth(0);
   await row0.locator("select").nth(0).selectOption("pop");
   await row0.locator("select").nth(1).selectOption("gt");
@@ -101,8 +104,10 @@ test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear"
   await qe.getByRole("tab", { name: "SQL" }).click();
   await expect(qe.locator("textarea")).toHaveValue(/pop.*20.*AND.*name/is);
   await qe.getByRole("tab", { name: "Python" }).click();
-  await qe.locator("textarea").fill("pop > 20 and name != 'b'");
-  await expect(qe.locator(".qe-preview")).toContainText(/pop/);
+  await qe.locator("textarea").fill('def calculate(row):\n    return row["pop"] > 20 and row["name"] != "b"\n');
+  await expect(qe.locator(".qe-preview")).toContainText(/Runs with Python/);
+  await qe.locator("textarea").fill('def calculate(row):\n    return row["name"] == "a"\n');
+  await expect(qe.locator(".qe-preview")).toContainText(/also valid as SQL/);
   await qe.getByRole("tab", { name: "Builder" }).click();
 
   await app.getByRole("button", { name: "Apply" }).click();

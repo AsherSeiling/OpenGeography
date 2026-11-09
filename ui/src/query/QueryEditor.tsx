@@ -1,13 +1,15 @@
-// Build a filter three ways: point-and-click Builder, Python-style
-// expression, or SQL. Reports the SQL to run (or an error) via onChange.
+// Build a filter three ways: a Python function (the default, run by CPython), a point-and-click Builder, or SQL. Reports the text to run
+// (SQL, or a Python script) with its language, or an error, via onChange. A query saved before Python was the default is SQL and opens as SQL.
 import { Button, Tab, TabList, Textarea } from "@fluentui/react-components";
 import { AddRegular, DeleteRegular } from "@fluentui/react-icons";
 import { useEffect, useMemo, useState } from "react";
 import { api, type Field } from "../ipc/api";
 import { builderToSql, needsValue, opsFor, type Clause } from "./builder";
-import { pyToSql } from "./pyToSql";
+import { fieldRef, filterTemplate } from "../scripts/script";
+import { pySubsetSql } from "./pySubset";
 
 export type QueryMode = "builder" | "python" | "sql";
+export type QueryLanguage = "sql" | "python";
 
 /** Fields with more distinct values than this get a type-ahead box instead of a full list. */
 const MAX_VALUES = 1000;
@@ -68,32 +70,44 @@ export function QueryEditor({
   layerId,
   fields,
   initialSql,
+  initialPython,
   onChange,
 }: {
   layerId: string;
   fields: Field[];
+  /** An existing SQL query: opens in the SQL tab, unchanged. */
   initialSql?: string | null;
-  onChange: (sql: string, error: string | null) => void;
+  /** An existing Python script: opens in the Python tab. */
+  initialPython?: string | null;
+  /** `text` is SQL or a Python script, by `language`. */
+  onChange: (text: string, error: string | null, language: QueryLanguage) => void;
 }) {
-  const [mode, setMode] = useState<QueryMode>(initialSql ? "sql" : "builder");
+  const [mode, setMode] = useState<QueryMode>(initialPython ? "python" : initialSql ? "sql" : "python");
   const firstField = (fields.find((f) => !/^(OGC_FID|OBJECTID|OID|FID|fid|id)$/.test(f.name)) ?? fields[0])?.name;
   const [clauses, setClauses] = useState<Clause[]>([newClause(firstField)]);
-  const [python, setPython] = useState("");
+  const [python, setPython] = useState(initialPython ?? "");
   const [sql, setSql] = useState(initialSql ?? "");
   const [values, setValues] = useState<Record<string, string[]>>({});
-  const names = useMemo(() => fields.map((f) => f.name), [fields]);
 
   // Current SQL (or error) for the active mode.
   const result = useMemo((): [string, string | null] => {
     try {
       if (mode === "builder") return [builderToSql(clauses, fields), null];
-      if (mode === "python") return [python.trim() ? pyToSql(python, names) : "", null];
+      if (mode === "python") {
+        if (!python.trim()) return ["", null];
+        return /def\s+calculate\s*\(\s*row\s*\)/.test(python) ? [python, null] : ["", "Write a function:  def calculate(row):  that returns True to keep a feature, False to drop it."];
+      }
       return [sql.trim(), null];
     } catch (e) {
       return ["", (e as Error).message];
     }
-  }, [mode, clauses, python, sql, fields, names]);
-  useEffect(() => onChange(result[0], result[1]), [result]);
+  }, [mode, clauses, python, sql, fields]);
+  useEffect(() => onChange(result[0], result[1], mode === "python" ? "python" : "sql"), [result]);
+  // A short filter can also be answered by SQL with exactly the same rows (nulls and all): say so. Everything else runs in Python.
+  const simple = useMemo(() => (mode === "python" && python.trim() ? pySubsetSql(python, fields.map((f) => ({ name: f.name, type: f.type }))) : null), [mode, python, fields]);
+  useEffect(() => {
+    if (mode === "python" && !python) setPython(filterTemplate(fields));
+  }, [mode]);
 
   // Values for the builder's value pickers, fetched per field on demand.
   const loadValues = async (field: string) => {
@@ -113,16 +127,17 @@ export function QueryEditor({
   const update = (i: number, p: Partial<Clause>) => setClauses((cs) => cs.map((c, j) => (j === i ? { ...c, ...p } : c)));
 
   const switchTo = (m: QueryMode) => {
-    // Carry the expression forward where it can be represented.
-    if (m === "sql" && mode !== "sql" && result[0]) setSql(result[0]);
+    // Carry the expression forward where it can be represented (a Python filter that is plain SQL carries over as that SQL).
+    if (m === "sql" && mode === "builder" && result[0]) setSql(result[0]);
+    if (m === "sql" && mode === "python" && simple) setSql(simple);
     setMode(m);
   };
 
   return (
     <div className="qe">
       <TabList size="small" selectedValue={mode} onTabSelect={(_, d) => switchTo(d.value as QueryMode)}>
-        <Tab value="builder">Builder</Tab>
         <Tab value="python">Python</Tab>
+        <Tab value="builder">Builder</Tab>
         <Tab value="sql">SQL</Tab>
       </TabList>
 
@@ -175,15 +190,17 @@ export function QueryEditor({
 
       {mode === "python" && (
         <div className="stack">
-          <Textarea className="mono" rows={4} value={python} onChange={(_, d) => setPython(d.value)} placeholder={"POP100 > 1000 and NAME.startswith('Okla')\nCLASS in ['State', 'County']\n!Area sq mi! >= 2 and NOTE is not None"} />
+          <Textarea className="mono" rows={6} value={python} onChange={(_, d) => setPython(d.value)} aria-label="Python function" data-testid="qe-python" />
           <div className="qe-fields">
             {fields.map((x) => (
-              <button key={x.name} className="chip" onClick={() => setPython((p) => `${p}${p && !p.endsWith(" ") ? " " : ""}${/^[A-Za-z_]\w*$/.test(x.name) ? x.name : `!${x.name}!`}`)}>
+              <button key={x.name} className="chip" title={`Insert ${fieldRef(x.name)}`} onClick={() => setPython((p) => `${p.replace(/\s+$/, "")} ${fieldRef(x.name)}`.replace(/\n    return \s+/, "\n    return "))}>
                 {x.name}
               </button>
             ))}
           </div>
-          <div className="muted small">Python operators: == != &lt; &gt; and or not in · is None · .startswith() .endswith() .upper() .lower() · len() · 'text' in FIELD</div>
+          <div className="muted small">
+            Return <code>True</code> to keep a feature, <code>False</code> to drop it — nothing else (not 1, not None). A field with no value is <code>None</code>. Attributes only, no geometry. The script runs in Python on this computer, once, not every time the map draws.
+          </div>
         </div>
       )}
 
@@ -200,7 +217,12 @@ export function QueryEditor({
         </div>
       )}
 
-      {mode !== "sql" && (
+      {mode === "python" && (
+        <div className={`qe-preview ${result[1] ? "err" : ""}`} data-testid="qe-preview">
+          {result[1] ? result[1] : simple ? <>A simple filter: also valid as SQL — <code>{simple}</code></> : <span className="muted">Runs with Python.</span>}
+        </div>
+      )}
+      {mode === "builder" && (
         <div className={`qe-preview ${result[1] ? "err" : ""}`}>
           {result[1] ? result[1] : result[0] ? <>SQL: <code>{result[0]}</code></> : <span className="muted">Build an expression above.</span>}
         </div>

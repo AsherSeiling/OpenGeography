@@ -15,7 +15,7 @@ test("M-18 attribute history UI: node picker, diff chips, node menu, reopen with
   await connect(app, inId, filter);
   await connect(app, filter, buf);
   await connect(app, buf, outId);
-  await gis(app, (g, a: any) => g.useModel.getState().setParam(a.f, "where", "value > 50"), { f: filter });
+  await gis(app, (g, a: any) => { const m = g.useModel.getState(); m.setParam(a.f, "language", "sql"); m.setParam(a.f, "where", "value > 50"); }, { f: filter });
   await hoverCanvas(app);
   await app.keyboard.press(`${MOD}+Enter`);
   await expect.poll(() => gis(app, (g, id) => !!g.useApp.getState().results[id], layer.id), { timeout: 30_000 }).toBe(true);

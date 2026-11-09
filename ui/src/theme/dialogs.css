@@ -92,3 +92,7 @@ select.qe-val { width: 160px; }
 .lp-foot { border-top-color: var(--rule-soft); }
 /* Links on a hovered surface: --link on a hovered --surface-0 is 4.05:1 (BUGS UI-1), so use body text there. */
 .lp-nav-item:hover svg, .crs-row:hover a, .lp-field-actions button:hover, .keyadd:hover { color: var(--text); }
+
+/* Python scripts (UR-20) */
+.script-view { max-height: 320px; overflow: auto; margin: 0; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface-1); white-space: pre; font-size: 12px; }
+.script-notice { display: flex; gap: 8px; align-items: center; }

@@ -9,6 +9,7 @@ import { applySettings, useSettings } from "./store/settings";
 import { confirmDownloads } from "./downloads/background";
 import { open, save } from "./ipc/dialogs";
 import { create } from "zustand";
+import { approveAuthored } from "./scripts/script";
 import { reportError } from "./errors/store";
 import { api, errorText, type TableExportSpec, type SplitTarget, type LayerInfo } from "./ipc/api";
 import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent } from "./map/mapController";
@@ -436,6 +437,32 @@ export async function setDefinitionQuery(owner: string, query: string | null) {
   useApp.getState().setSelection(owner, []);
   status(query ? `Definition query on ${info.name}: ${info.queryCount?.toLocaleString()} of ${info.featureCount.toLocaleString()} features` : `Definition query cleared on ${info.name}`);
   return info;
+}
+
+/** A Python definition query written here: approved on this computer (the user is its author), then run once by the engine. */
+export async function setDefinitionPython(owner: string, script: string | null) {
+  if (script) await approveAuthored(script);
+  const info = await api.setDefinitionPython(owner, script);
+  useApp.getState().updateLayer(info);
+  useApp.getState().setSelection(owner, []);
+  status(
+    !script
+      ? `Definition query cleared on ${info.name}`
+      : info.definitionError
+        ? `The script on ${info.name} failed; the layer shows no features`
+        : `Definition query on ${info.name}: ${info.queryCount?.toLocaleString()} of ${info.featureCount.toLocaleString()} features`,
+  );
+  return info;
+}
+
+/** Select by a Python script (the user wrote it here, so it is approved first). */
+export async function selectByPython(layer: string, script: string, mode: "new" | "add") {
+  await approveAuthored(script);
+  const fids = await busy("Selecting", () => api.selectPython(shown(layer)?.id ?? layer, script));
+  if (!fids) return false;
+  useApp.getState().setSelection(layer, fids, mode);
+  status(`Selected ${fids.length.toLocaleString()} feature(s)`);
+  return true;
 }
 
 export async function selectByAttributes(layer: string, where: string, mode: "new" | "add") {

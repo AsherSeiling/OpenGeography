@@ -15,6 +15,8 @@ import XYZ from "ol/source/XYZ";
 import { apply as applyMapboxStyle } from "ol-mapbox-style";
 import ImageLayer from "ol/layer/Image";
 import ImageSource from "ol/source/Image";
+import { useShallow } from "zustand/react/shallow";
+import { reviewScript, useScripts } from "../scripts/script";
 import { backgroundOf, blank, loadStyleGroup, MercatorRenderer, vectorPictureFor } from "../map/vectorBasemap";
 import VectorSource from "ol/source/Vector";
 import VectorTileSource from "ol/source/VectorTile";
@@ -706,6 +708,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
         />
       )}
       <MapNotices basemap={basemap} basemapNote={basemapError} basemapInfo={basemapInfo} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
+      <ScriptNotices ids={order} />
       <ScaleBar scale={scaleState?.scale ?? null} />
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
       {isActive && tool === "measure" && <MeasurePanel />}
@@ -717,6 +720,40 @@ const IDENTIFY_TOLERANCE_PX = 4;
 }
 
 /** "Projecting…", dropped-feature and basemap-offset messages. */
+/** A layer whose Python definition query is waiting for approval (or failed) shows no features: say so, and offer to review the script. Not dismissible. */
+function ScriptNotices({ ids }: { ids: string[] }) {
+  const layers = useApp(useShallow((s) => ids.map((id) => s.layers[id]).filter((l) => l?.definitionPython)));
+  const approved = useScripts((s) => s.approved);
+  useEffect(() => {
+    for (const l of layers) if (l.definitionPython) void useScripts.getState().check(l.definitionPython);
+  }, [layers.map((l) => l.definitionPython).join("\u0000")]);
+  const waiting = layers.filter((l) => approved[l.definitionPython!] === false);
+  const failed = layers.filter((l) => approved[l.definitionPython!] !== false && l.definitionError);
+  if (!waiting.length && !failed.length) return null;
+  return (
+    <div className="map-notices script-notices" data-testid="script-notices">
+      {waiting.map((l) => (
+        <div key={l.id} className="map-notice warn script-notice" data-testid="script-waiting-notice">
+          <span><b>{l.name}:</b> script waiting for approval — no features are shown until you approve it.</span>
+          <button
+            className="map-notice-all"
+            onClick={async () => {
+              if (await reviewScript(l.definitionPython!)) for (const x of await api.listLayers()) useApp.getState().updateLayer(x);
+            }}
+          >
+            Review and approve…
+          </button>
+        </div>
+      ))}
+      {failed.map((l) => (
+        <div key={l.id} className="map-notice warn script-notice" data-testid="script-failed-notice">
+          <span><b>{l.name}:</b> the Python query failed, so no features are shown. {l.definitionError}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MapNotices({ basemap, basemapNote, basemapInfo, crsKey, offset }: { basemap: string; basemapNote: string | null; basemapInfo: string | null; crsKey: string | null; offset: number | null }) {
   const projecting = useMapView((s) => s.projecting);
   const notices = useMapView((s) => s.notices);

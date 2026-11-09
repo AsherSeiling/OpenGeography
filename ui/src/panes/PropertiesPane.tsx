@@ -19,15 +19,16 @@ import {
 import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@fluentui/react-icons";
 import { save } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
-import { previewNode, runModel, setDefinitionQuery, useDialog } from "../actions";
+import { previewNode, runModel, setDefinitionPython, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
-import { api, errorText, type CrsInfo as CrsInfoT, type ToolParam, type TransformReport } from "../ipc/api";
+import { api, errorText, type CrsInfo as CrsInfoT, type LayerInfo, type ToolParam, type TransformReport } from "../ipc/api";
 import { TopoSymbolPicker } from "../topo/TopoSymbolPicker";
 import { pickPicture } from "../layout/actions";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
 import { RAMPS, rampColors } from "../map/style";
-import { QueryEditor } from "../query/QueryEditor";
+import { QueryEditor, type QueryLanguage } from "../query/QueryEditor";
+import { reviewScript, useScripts } from "../scripts/script";
 import { RasterSymbology } from "../raster/RasterSymbology";
 import { LabelSettings } from "./LabelSettings";
 import { fieldsForPort, useModel, useRun } from "../store/model";
@@ -69,7 +70,7 @@ function LayerProperties({ id }: { id: string }) {
       </TabList>
       <div className="props-body">
         {tab === "query" ? (
-          <DefinitionQuery id={id} />
+          <DefinitionQuery key={id} id={id} />
         ) : tab === "general" || isTable ? (
           <dl className="kv">
             <dt>Type</dt>
@@ -386,21 +387,28 @@ export function Symbology({ id }: { id: string }) {
 export function DefinitionQuery({ id }: { id: string }) {
   const info = useApp((s) => s.layers[id]);
   const hasResult = useApp((s) => !!s.results[id] && !s.showOriginal[id]);
-  const [pending, setPending] = useState<{ sql: string; error: string | null }>({ sql: info.definitionQuery ?? "", error: null });
+  const [pending, setPending] = useState<{ text: string; error: string | null; language: QueryLanguage }>({ text: info.definitionPython ?? info.definitionQuery ?? "", error: null, language: info.definitionPython ? "python" : "sql" });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
-  const apply = async (q: string | null) => {
+  const approved = useScripts((s) => (info.definitionPython ? s.approved[info.definitionPython] : undefined));
+  useEffect(() => {
+    if (info.definitionPython) void useScripts.getState().check(info.definitionPython);
+  }, [info.definitionPython]);
+  const apply = async (q: string | null, language: QueryLanguage) => {
     setBusy(true);
     setErr(null);
     try {
-      await setDefinitionQuery(id, q);
+      if (language === "python" && q) await setDefinitionPython(id, q);
+      else if (!q && info.definitionPython) await setDefinitionPython(id, null);
+      else await setDefinitionQuery(id, q);
       if (!q) setEditorKey((k) => k + 1); // reset the editor after Clear
     } catch (e) {
       setErr(errorText(e));
     }
     setBusy(false);
   };
+  const active = info.definitionQuery || info.definitionPython;
   return (
     <div className="stack">
       <div className="muted">
@@ -413,22 +421,57 @@ export function DefinitionQuery({ id }: { id: string }) {
           </MessageBarBody>
         </MessageBar>
       ) : null}
+      {info.definitionPython ? <PythonQueryStatus info={info} approved={approved} /> : null}
       {hasResult && (
         <MessageBar intent="warning">
           <MessageBarBody>This layer shows its node-tree result. The query filters the tree's Layer Input: run the tree to update the result.</MessageBarBody>
         </MessageBar>
       )}
-      <QueryEditor key={editorKey} layerId={id} fields={info.fields} initialSql={info.definitionQuery} onChange={(sql, error) => setPending({ sql, error })} />
+      <QueryEditor key={editorKey} layerId={id} fields={info.fields} initialSql={info.definitionQuery} initialPython={info.definitionPython} onChange={(text, error, language) => setPending({ text, error, language })} />
       {err && (
         <MessageBar intent="error">
           <MessageBarBody>{err}</MessageBarBody>
         </MessageBar>
       )}
       <div className="btn-row">
-        <Button appearance="primary" size="small" disabled={busy || !!pending.error || !pending.sql} onClick={() => apply(pending.sql)}>Apply</Button>
-        <Button size="small" disabled={busy || !info.definitionQuery} onClick={() => apply(null)}>Clear</Button>
+        <Button appearance="primary" size="small" disabled={busy || !!pending.error || !pending.text} onClick={() => apply(pending.text, pending.language)}>Apply</Button>
+        <Button size="small" disabled={busy || !active} onClick={() => apply(null, "sql")}>Clear</Button>
       </div>
     </div>
+  );
+}
+
+/** The state of a layer's Python definition query: waiting for approval (the layer shows nothing), failed, or active. */
+export function PythonQueryStatus({ info, approved }: { info: LayerInfo; approved: boolean | undefined }) {
+  const refresh = async () => {
+    // Approving runs the layers that were waiting for this script; fetch them again.
+    if (await reviewScript(info.definitionPython!)) {
+      for (const l of await api.listLayers()) useApp.getState().updateLayer(l);
+    }
+  };
+  if (approved === false)
+    return (
+      <MessageBar intent="warning" data-testid="script-waiting">
+        <MessageBarBody>
+          <b>Script waiting for approval.</b> This layer shows no features until you review the script and approve it; it has not been run on this computer.{" "}
+          <Button size="small" onClick={refresh}>Review and approve…</Button>
+        </MessageBarBody>
+      </MessageBar>
+    );
+  if (info.definitionError)
+    return (
+      <MessageBar intent="error" data-testid="script-failed">
+        <MessageBarBody>
+          The script did not run cleanly, so this layer shows no features: {info.definitionError}
+        </MessageBarBody>
+      </MessageBar>
+    );
+  return (
+    <MessageBar intent="info">
+      <MessageBarBody>
+        Active: a Python script — {(info.queryCount ?? 0).toLocaleString()} of {info.featureCount.toLocaleString()} features.
+      </MessageBarBody>
+    </MessageBar>
   );
 }
 

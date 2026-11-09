@@ -15,7 +15,7 @@ impl Tool for CalculateField {
             output: Some(PortKind::Table),
             params: vec![
                 Param::new("field", "Field name", ParamKind::Text).default("NEW_FIELD"),
-                Param::new("language", "Language", ParamKind::Enum).default("sql").options(&[("sql", "SQL"), ("python", "Python")]),
+                Param::new("language", "Language", ParamKind::Enum).default("python").options(&[("sql", "SQL"), ("python", "Python")]),
                 Param::new("expression", "Expression", ParamKind::Expression)
                     .field_of("in")
                     .help("SQL expression, e.g. POP / AREA_SQMI  or  upper(NAME). In Python: def calculate(row): return row[\"POP\"] / row[\"AREA_SQMI\"]"),
