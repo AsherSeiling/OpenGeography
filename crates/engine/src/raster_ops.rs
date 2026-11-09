@@ -44,7 +44,7 @@ pub fn grid_of(path: &Path) -> Result<Grid> {
 }
 
 /// The tools that combine rasters cell by cell need them on one grid.
-fn same_grid(a: &Grid, b: &Grid, what: &str) -> Result<()> {
+pub(crate) fn same_grid(a: &Grid, b: &Grid, what: &str) -> Result<()> {
     let close = |x: f64, y: f64| (x - y).abs() <= 1e-9 * x.abs().max(y.abs()).max(1.0);
     if a.cols != b.cols || a.rows != b.rows || !a.gt.iter().zip(&b.gt).all(|(x, y)| close(*x, *y)) {
         bail!(

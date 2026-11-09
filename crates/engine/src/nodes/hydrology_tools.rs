@@ -29,7 +29,7 @@ fn wbt_raster(tool: &str, input: &Rel, input_flag: &str, extra: &[(&str, String)
 }
 
 /// Check the result sits on the input's grid and write the input's CRS into it.
-fn restamp(out: &Path, src: &Path, crs: &str) -> Result<()> {
+pub(super) fn restamp(out: &Path, src: &Path, crs: &str) -> Result<()> {
     let a = crate::raster_ops::grid_of(src)?;
     let b = crate::raster_ops::grid_of(out).map_err(|_| anyhow!("WhiteboxTools did not produce a raster. Check the input is a single-band elevation raster."))?;
     if (a.cols, a.rows) != (b.cols, b.rows) || a.gt.iter().zip(&b.gt).any(|(x, y)| (x - y).abs() > 1e-6 * x.abs().max(1.0)) {
@@ -43,7 +43,7 @@ fn restamp(out: &Path, src: &Path, crs: &str) -> Result<()> {
 }
 
 /// (min, max, is a whole-number type) of band 1's valid cells; None when there are none or the file can't be read.
-fn band_range(path: &Path) -> Option<(f64, f64, bool)> {
+pub(super) fn band_range(path: &Path) -> Option<(f64, f64, bool)> {
     let ds = gdal::Dataset::open(path).ok()?;
     let band = ds.rasterband(1).ok()?;
     let whole = matches!(band.band_type(), gdal::raster::GdalDataType::UInt8 | gdal::raster::GdalDataType::Int16 | gdal::raster::GdalDataType::UInt16 | gdal::raster::GdalDataType::Int32 | gdal::raster::GdalDataType::UInt32);

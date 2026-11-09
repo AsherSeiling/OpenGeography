@@ -1190,3 +1190,50 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SE-21 | Manual / not covered: drag-drawing Circle and Rectangle with the mouse, Cut Hole by drawing, Modify drags other than one vertex (the engine side of each is tested; draw, vertex drag, snap and split are in `e2e/edit.spec.ts`) | by hand |
 | SE-23 | Z from a DEM: new vertices take the cell value where they fall, looked up through an explicit layer-CRS → DEM-CRS transform (UTM or geographic layer, other-CRS DEM); outside the DEM or on NoData is reported and left NaN, never filled; stored vertices are not looked up again; switching back to a fixed value; a vector layer is refused as a DEM. e2e: choose the DEM in the Edit tab (the choice is stated), draw, the Z values and the banner note | `new_vertices_take_z_from_a_dem_…`, `e2e/edit.spec.ts` |
 | SE-22 | Reshape Edge: the line's ends move onto the nearest points of the edge, the shorter stretch (also one through the ring's start) is replaced, untouched corners stay bit-identical, same-place and one-point lines refused with a sentence; e2e draws the new edge with the mouse | `reshape_edge_replaces_…`, `e2e/edit.spec.ts` |
+
+## T1. WhiteboxTools nodes (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T1-1 | Euclidean distance of a 3-4-5 offset on 10 m cells; allocation of two targets | 50 m; each cell takes the nearer target's value | auto: `crates/engine/tests/whitebox_tools.rs` |
+| T1-2 | Tools that need metres (distance, curvature, geomorphons, cost, viewshed, FD8 area) on a raster in degrees | refused with a sentence telling the user to project first; FD8 in cells still runs | auto: same file |
+| T1-3 | Focal mean, TPI, focal max, focal range against a hand-computed plane and single peak; a zero window | 33; 0; 8 and -1; 9; a readable refusal | auto: same file |
+| T1-4 | Viewshed behind a 100 m wall; observers given in WGS 84 on a UTM DEM; an observer outside the DEM | cell in front visible, cell behind hidden; outside observer reported in the result message | auto: same file |
+| T1-5 | Cost distance over uniform cost 2 on 10 m cells; zero cost refused; least-cost path | 80 along a row; sentence; path along the row | auto: same file |
+| T1-6 | Strahler, Shreve, topological order and link ids on a hand-made network with three headwaters | Strahler 2 / Shreve 3 below the second junction; topological 3; links numbered apart | auto: same file |
+| T1-7 | Curvature of a bowl z = a(x^2 + y^2) | profile curvature magnitude 2a | auto: same file |
+| T1-8 | Every T1 tool is registered with a category, a description and keywords | | auto: same file |
+| T3-1 | Proximity: 3-4-5 offset on 10 m cells; 60 m limit leaves far cells no data and says how many; target values list; raster in degrees refused; non-numeric list refused | 50 m; no data and a note; 40 m; "Project" sentence | auto: `crates/engine/tests/gdal_tools.rs` |
+| T3-2 | Sieve: 2-cell patch merged at minimum 4, 6-cell patch kept, 2 of 100 cells reported changed; 4 vs 8 connectedness on a diagonal pair; float raster and minimum 0 refused | | auto: same file |
+
+## T4. Textbook analysis tools (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T4-1 | Mean centre: weighted plane mean; two points at 60 N on opposite meridians; 179 and -179 degrees; three points against PROJ's geocentric (EPSG:4978) mean; negative weight | x = 4.5; the pole; 180; agrees to 1e-9 degrees; refused | auto: `crates/engine/tests/textbook_tools.rs` |
+| T4-2 | Standard distance: planar unweighted (3) and weighted (sqrt 6.75); geographic N/E/S/W points 10 km out | 3; 2.598; 10 000 m within 1 m | auto: same file |
+| T4-3 | Directional distribution of a rotated lattice with known sigma (projected, and geographic through the azimuthal equidistant plane); 2 SD; collinear points | semi-axes sqrt(2) sigma and azimuth to 1e-6 (projected) / 2e-3 (geographic); doubled; refused | auto: same file |
+| T4-4 | Average nearest neighbour: four corners of a 10 x 10 area; area required; geographic geodesic distances and ellipsoidal area | 10, 2.5, ratio 4, z = 7.5 / 0.6534; refused without area; within 1e-6 m / 1 % | auto: same file |
+| T4-5 | Ripley's K: three collinear points (none and border correction); seeded CSR pattern; clustered pattern; same seed repeats, other seed differs; degrees refused | K = 33.3, 66.7, 100; CSR inside envelope; clustered flagged at every distance | auto: same file |
+| T4-6 | Kernel density: sum of density x cell area equals the total weight (weighted and unweighted); peak 3 / (pi h^2); extent = points + bandwidth; degrees refused | within 0.2 % | auto: same file |
+| T4-7 | Tabulate area: cell-centre rule, no-data row, class areas; geographic cell areas against the spherical formula and 12 308.8 km2 at the equator; decimal raster refused | 5000 / 1000 / 3900 / 100 m2 | auto: same file |
+| T4-8 | Cut and fill: 4 x 4 block (fill 1200, cut 600, net 600 m3), no-data cell reported, feet, different grids refused, geographic cell area | exact | auto: same file |
+| T4-9 | Profile along a line: spacing, bilinear on a plane, outside-the-raster stations reported, geographic DEM with a UTM line, points refused | within 1e-3 / 0.01 | auto: same file |
+
+## T5. Network analysis (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T5-1 | Shortest route on a hand network (square with a pulled-in corner, a one-way, a disconnected piece): by length through the short side; the way back refuses the one-way; by travel time (60 and 5 km/h) through the fast side | 395.3 m via D; 443.8 m via B only with the one-way field; (AB + BC) / 1000 min | auto: `crates/engine/tests/network_tools.rs` |
+| T5-2 | Unreachable legs, stops beyond the snap distance, stops on a disconnected piece, a speed missing on a line | rows kept with a status; notes name the stops and row numbers | auto: same file |
+| T5-3 | Snapping into the middle of a segment: 20 m and 22 m off, route between two mid-segment stops | snap distances reported; cost = half + half of the two segments | auto: same file, `network.rs` unit tests |
+| T5-4 | OD matrix: costs, path lengths, unreachable pairs, cutoff | (S, B) = AB; (S, T) via D; unreachable pairs have a status | auto: same file |
+| T5-5 | Service area: reachable stretches within 300 m (full and partial segments, one-way respected), minutes cutoff, polygon variant | fractions (300 - AB) / BC and (300 - AD) / DC; valid polygon around the facility | auto: same file |
+| T5-6 | Closest facility: ranks, count 2, incident that reaches nothing, travel from the facility | FB then FC; a 'no facility reachable' row; C to S goes through B | auto: same file |
+| T5-7 | Refusals: time without a speed field, points as the network, one stop | readable sentences | auto: same file |
+
+## T6. Modelling tools (Wave 1, Lane B)
+| # | Case | Expected | Check |
+|---|---|---|---|
+| T6-1 | Hex Bins: three points in one cell and one far away, field sum/mean; UTM input; resolution 16 | count 3, sum 9, mean 3; cell id equals h3o's; area within 1 % of H3's; same cell from UTM; refusal sentence | auto: `crates/engine/tests/modelling_tools.rs` |
+| T6-2 | DBSCAN: two lines of 5 points, a border point, two noise points; geographic pair at 60 N and at the equator with eps 60 km | clusters 1 and 2, border joins 1, noise 0 and counted; only the 60 N pair joins | auto: same file |
+| T6-3 | Natural neighbour on a plane z = 2x + 3y + 1 | reproduced within 0.01 inside the hull; NoData outside; values within data range on a bumpy surface; degrees and collinear points refused | auto: same file |
+| T6-4 | TIN with breaklines: line at height 7 through a spike of 100; line without height; crossing lines | cells on the line equal 7; reported and skipped; crossing counted | auto: same file |
+| T6-5 | Supervised classification, Random Forest and k-NN: hold-out accuracy, confusion matrix, repeatability with a seed, polygon training areas, one class, single-sample class | accuracy and matrix in the message and raster metadata; same seed same map; 320 samples; readable refusals | auto: same file |

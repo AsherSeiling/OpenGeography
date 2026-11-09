@@ -222,9 +222,77 @@ fn rel(a: f64, b: f64) -> f64 {
     if a == b { 0.0 } else { (a - b).abs() / a.abs().max(b.abs()) }
 }
 
+/// Wave 1 tools (Lane B): raster tools restamp the CRS from the first input and refuse or handle geographic rasters as their descriptions
+/// say (whitebox_tools.rs, gdal_tools.rs); the analysis tools state their CRS handling in the description and are tested against hand
+/// calculations in projected and geographic CRSs (textbook_tools.rs). They are not shape tools for this matrix.
+const WAVE1_RASTER: &[&str] = &[
+    "hex_bins",
+    "dbscan",
+    "natural_neighbour",
+    "tin_breaklines",
+    "classify_supervised",
+    "shortest_route",
+    "service_area",
+    "closest_facility",
+    "od_matrix",
+    "kernel_density",
+    "mean_centre",
+    "standard_distance",
+    "directional_distribution",
+    "average_nearest_neighbour",
+    "ripleys_k",
+    "tabulate_area",
+    "profile_line",
+    "cut_fill",
+    "proximity",
+    "sieve",
+    "plan_curvature",
+    "profile_curvature",
+    "total_curvature",
+    "tangential_curvature",
+    "gaussian_curvature",
+    "tpi",
+    "dev",
+    "rel_topographic_position",
+    "elev_rel_minmax",
+    "geomorphons",
+    "breach_depressions",
+    "fd8_flow_accumulation",
+    "dinf_flow_accumulation",
+    "wetness_index",
+    "stream_power_index",
+    "hand",
+    "downslope_distance_to_stream",
+    "strahler_order",
+    "shreve_magnitude",
+    "horton_order",
+    "stream_link_id",
+    "subbasins",
+    "strahler_basins",
+    "isobasins",
+    "focal_mean",
+    "focal_median",
+    "focal_max",
+    "focal_min",
+    "focal_range",
+    "focal_stddev",
+    "focal_majority",
+    "focal_gaussian",
+    "euclidean_distance",
+    "euclidean_allocation",
+    "viewshed",
+    "cost_distance",
+    "cost_path",
+    "cost_allocation",
+    "viewshed",
+    "cost_distance",
+    "cost_path",
+    "cost_allocation",
+];
+
 #[test]
 fn every_registered_tool_is_in_the_matrix_or_excluded_with_a_reason() {
-    let covered: std::collections::BTreeSet<&str> = recipes().iter().map(|r| r.tool).chain(EXCLUDED.iter().map(|(t, _)| *t)).chain(["zonal_statistics"]).collect();
+    let covered: std::collections::BTreeSet<&str> = recipes().iter().map(|r| r.tool).chain(EXCLUDED.iter().map(|(t, _)| *t)).chain(["zonal_statistics"]).chain(WAVE1_RASTER.iter().copied()).collect();
     let missing: Vec<String> = engine().tool_specs().into_iter().map(|s| s.id.to_string()).filter(|id| !covered.contains(id.as_str())).collect();
     assert!(missing.is_empty(), "add these tools to crs_matrix.rs (a recipe, or EXCLUDED with a reason): {missing:?}");
     for (t, why) in EXCLUDED {

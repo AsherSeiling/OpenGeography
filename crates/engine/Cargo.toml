@@ -36,6 +36,9 @@ geographiclib-rs = "0.2.7"
 # Raster calculator expressions (MIT).
 fasteval = "0.2"
 world_magnetic_model = "1.2025.0"
+h3o = "0.11.1"
+spade = "2.15.1"
+smartcore = "0.7.0"
 
 # Kills a script's whole process group on cancel and at the end of a run.
 [target.'cfg(unix)'.dependencies]

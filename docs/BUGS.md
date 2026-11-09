@@ -206,3 +206,7 @@ Tests: `reopen_tiles::reopening_the_project_that_is_already_open_keeps_working` 
 ### Map CRS check for M3
 
 Nothing found. While cycling the map CRS (EPSG:3857 → 32615 → 5070 → 4326 → 3395 → ortho/laea custom → 3031/3413 → invalid ids set straight into the store, with layers loaded and a layout tab open), `MapView.tsx` never threw: invalid ids show the status message "The map can't be drawn in …" and keep the last good CRS. Checked at commit time of this branch; re-run after M3 lands (`window.__gis.useApp.getState().setMapCrs({id, name})` in the browser build).
+
+### WhiteboxTools v2.4.0: TopologicalStreamOrder returns only no-data (found in T1, 2026-11-09)
+
+Run on a hand-made 9 x 9 stream network (D8 ESRI pointer plus streams raster), `TopologicalStreamOrder` writes no-data in every cell, with or without `--zero_background`; the other stream-order tools (Strahler, Shreve, Horton, link identifier) give correct values on the same input. The tool is therefore not exposed. Revisit when WhiteboxTools is updated.

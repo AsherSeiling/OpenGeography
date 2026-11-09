@@ -1,14 +1,6 @@
 # Third-party notices
 
-GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-10-29 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
-
-## Licensing note for the macOS installer
-
-The bundled GDAL build (from Homebrew) links these libraries, which are licensed under the GPL only. Distributing the installer with them makes that binary distribution subject to the GPL (source must be offered). GIS Studio's own source code remains MIT OR Apache-2.0. A GDAL build without these optional drivers (PDF via poppler, HEIF/HEVC via x265, SpatiaLite topology via librttopo) avoids this.
-
-- **librttopo 1.1.0** — GPL-2.0-or-later — RT Topology Library (librttopo.1.dylib)
-- **poppler 26.10.0** — GPL-2.0-only OR GPL-3.0-only — PDF rendering library (based on the xpdf-3.0 code base) (libpoppler.159.0.0.dylib)
-- **x265 4.3** — GPL-2.0-or-later — H.265/HEVC encoder (libx265.216.dylib)
+GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-11-09 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
 
 ## Bundled data
 
@@ -28,102 +20,26 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | VersaTiles Colorful style and sprite sheet, versatiles-style 8.1.1 (`ui/public/basemaps/versatiles/`); icons from Maki and Temaki | Style and icons CC0; style code MIT, © 2023–2026 yetzt, Michael Kreil | https://versatiles.org |
 | Extra CRS definitions (`crates/engine/assets/extra_crs.json`) | Derived from PROJ / EPSG (terms above) | https://proj.org/ |
 
-## Native libraries bundled in the macOS app (187 files from 85 projects)
+## Native libraries
 
-| Project | Version | License | Home page | Files |
-|---|---|---|---|---|
-| abseil | 20260817.0 | Apache-2.0 | https://abseil.io | libabsl_base.2601.0.0.dylib, libabsl_borrowed_fixup_buffer.2601.0.0.dylib, libabsl_city.2601.0.0.dylib, libabsl_civil_time.2601.0.0.dylib, libabsl_cord.2601.0.0.dylib, libabsl_cord_internal.2601.0.0.dylib, libabsl_cordz_functions.2601.0.0.dylib, libabsl_cordz_handle.2601.0.0.dylib, libabsl_cordz_info.2601.0.0.dylib, libabsl_crc32c.2601.0.0.dylib, libabsl_crc_cord_state.2601.0.0.dylib, libabsl_crc_cpu_detect.2601.0.0.dylib, libabsl_crc_internal.2601.0.0.dylib, libabsl_debugging_internal.2601.0.0.dylib, libabsl_decode_rust_punycode.2601.0.0.dylib, libabsl_demangle_internal.2601.0.0.dylib, libabsl_demangle_rust.2601.0.0.dylib, libabsl_examine_stack.2601.0.0.dylib, libabsl_exponential_biased.2601.0.0.dylib, libabsl_flags_commandlineflag.2601.0.0.dylib, libabsl_flags_commandlineflag_internal.2601.0.0.dylib, libabsl_flags_config.2601.0.0.dylib, libabsl_flags_internal.2601.0.0.dylib, libabsl_flags_marshalling.2601.0.0.dylib, libabsl_flags_private_handle_accessor.2601.0.0.dylib, libabsl_flags_program_name.2601.0.0.dylib, libabsl_flags_reflection.2601.0.0.dylib, libabsl_graphcycles_internal.2601.0.0.dylib, libabsl_hash.2601.0.0.dylib, libabsl_hashtablez_sampler.2601.0.0.dylib, libabsl_int128.2601.0.0.dylib, libabsl_kernel_timeout_internal.2601.0.0.dylib, libabsl_leak_check.2601.0.0.dylib, libabsl_log_entry.2601.0.0.dylib, libabsl_log_globals.2601.0.0.dylib, libabsl_log_internal_check_op.2601.0.0.dylib, libabsl_log_internal_conditions.2601.0.0.dylib, libabsl_log_internal_fnmatch.2601.0.0.dylib, libabsl_log_internal_format.2601.0.0.dylib, libabsl_log_internal_globals.2601.0.0.dylib, libabsl_log_internal_log_sink_set.2601.0.0.dylib, libabsl_log_internal_message.2601.0.0.dylib, libabsl_log_internal_nullguard.2601.0.0.dylib, libabsl_log_internal_proto.2601.0.0.dylib, libabsl_log_internal_structured_proto.2601.0.0.dylib, libabsl_log_severity.2601.0.0.dylib, libabsl_log_sink.2601.0.0.dylib, libabsl_malloc_internal.2601.0.0.dylib, libabsl_raw_hash_set.2601.0.0.dylib, libabsl_raw_logging_internal.2601.0.0.dylib, libabsl_spinlock_wait.2601.0.0.dylib, libabsl_stacktrace.2601.0.0.dylib, libabsl_str_format_internal.2601.0.0.dylib, libabsl_strerror.2601.0.0.dylib, libabsl_strings.2601.0.0.dylib, libabsl_strings_internal.2601.0.0.dylib, libabsl_symbolize.2601.0.0.dylib, libabsl_synchronization.2601.0.0.dylib, libabsl_throw_delegate.2601.0.0.dylib, libabsl_time.2601.0.0.dylib, libabsl_time_zone.2601.0.0.dylib, libabsl_tracing_internal.2601.0.0.dylib, libabsl_utf8_for_code_point.2601.0.0.dylib, libabsl_vlog_config_internal.2601.0.0.dylib |
-| aom | 3.15.2 | BSD-2-Clause | https://aomedia.googlesource.com/aom | libaom.3.13.3.dylib |
-| apache-arrow | 26.0.0 | Apache-2.0 | https://arrow.apache.org/ | libarrow.2300.1.0.dylib, libarrow_acero.2300.1.0.dylib, libarrow_compute.2300.1.0.dylib, libarrow_dataset.2300.1.0.dylib, libparquet.2300.1.0.dylib |
-| aws-c-auth | 1.0.2 | Apache-2.0 | https://github.com/awslabs/aws-c-auth | libaws-c-auth.1.0.0.dylib |
-| aws-c-cal | 1.0.0 | Apache-2.0 | https://github.com/awslabs/aws-c-cal | libaws-c-cal.1.0.0.dylib |
-| aws-c-common | 1.0.5 | Apache-2.0 | https://github.com/awslabs/aws-c-common | libaws-c-common.1.0.0.dylib |
-| aws-c-compression | 1.0.0 | Apache-2.0 | https://github.com/awslabs/aws-c-compression | libaws-c-compression.1.0.0.dylib |
-| aws-c-event-stream | 1.0.0 | Apache-2.0 | https://github.com/awslabs/aws-c-event-stream | libaws-c-event-stream.1.0.0.dylib |
-| aws-c-http | 1.1.1 | Apache-2.0 | https://github.com/awslabs/aws-c-http | libaws-c-http.1.0.0.dylib |
-| aws-c-io | 1.1.1 | Apache-2.0 | https://github.com/awslabs/aws-c-io | libaws-c-io.1.0.0.dylib |
-| aws-c-mqtt | 1.1.2 | Apache-2.0 | https://github.com/awslabs/aws-c-mqtt | libaws-c-mqtt.1.0.0.dylib |
-| aws-c-s3 | 1.5.1 | Apache-2.0 | https://github.com/awslabs/aws-c-s3 | libaws-c-s3.1.0.0.dylib |
-| aws-c-sdkutils | 1.0.1 | Apache-2.0 | https://github.com/awslabs/aws-c-sdkutils | libaws-c-sdkutils.1.0.0.dylib |
-| aws-checksums | 1.0.1 | Apache-2.0 | https://github.com/awslabs/aws-checksums | libaws-checksums.1.0.0.dylib |
-| aws-crt-cpp | 0.44.3 | Apache-2.0 | https://github.com/awslabs/aws-crt-cpp | libaws-crt-cpp.dylib |
-| aws-sdk-cpp | 1.11.915 | Apache-2.0 | https://github.com/aws/aws-sdk-cpp | libaws-cpp-sdk-cognito-identity.dylib, libaws-cpp-sdk-core.dylib, libaws-cpp-sdk-identity-management.dylib, libaws-cpp-sdk-s3.dylib, libaws-cpp-sdk-sts.dylib |
-| boost | 1.92.0 | BSL-1.0 | https://www.boost.org/ | libboost_atomic.dylib, libboost_chrono.dylib, libboost_container.dylib, libboost_date_time.dylib, libboost_serialization.dylib, libboost_thread.dylib |
-| brotli | 1.2.1 | MIT | https://github.com/google/brotli | libbrotlicommon.1.2.0.dylib, libbrotlidec.1.2.0.dylib, libbrotlienc.1.2.0.dylib |
-| c-blosc | 1.21.6 | BSD-3-Clause | https://www.blosc.org/ | libblosc.1.21.6.dylib |
-| cfitsio | 4.7.0 | CFITSIO | https://heasarc.gsfc.nasa.gov/docs/software/fitsio/fitsio.html | libcfitsio.4.6.3.dylib |
-| duckdb | 2.0.0 | MIT | https://www.duckdb.org | libduckdb.dylib |
-| fontconfig | 2.18.3 | HPND-sell-variant AND Unicode-3.0 AND MIT-Modern-Variant AND MIT AND LicenseRef-Homebrew-public-domain | https://wiki.freedesktop.org/www/Software/fontconfig/ | libfontconfig.1.dylib |
-| freetype | 2.15.0 | FTL | https://www.freetype.org/ | libfreetype.6.dylib |
-| freexl | 2.0.0 | MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later | https://www.gaia-gis.it/fossil/freexl/index | libfreexl.1.dylib |
-| gdal | 3.13.3 | MIT | https://gdal.org/en/stable/ | libgdal.38.3.12.3.dylib |
-| geos | 3.15.0 | LGPL-2.1-or-later | https://libgeos.org/ | libgeos.3.14.1.dylib, libgeos_c.1.20.5.dylib |
-| gettext | 1.0 | LGPL-2.1-or-later (libintl; the gettext tools are GPL-3.0-or-later) | https://www.gnu.org/software/gettext/ | libintl.8.dylib |
-| giflib | 6.1.3 | MIT | https://giflib.sourceforge.net/ | libgif.7.2.0.dylib |
-| gmp | 6.3.0 | LGPL-3.0-or-later OR GPL-2.0-or-later | https://gmplib.org/ | libgmp.10.dylib, libgmpxx.4.dylib |
-| gpgme | 2.2.0 | LGPL-2.1-or-later | https://www.gnupg.org/related_software/gpgme/ | libgpgme.45.dylib |
-| gpgmepp | 2.2.0 | LGPL-2.1-or-later | https://www.gnupg.org/related_software/gpgme/ | libgpgmepp.7.0.0.dylib |
-| hdf5 | 2.2.0 | BSD-3-Clause | https://www.hdfgroup.org/solutions/hdf5/ | libhdf5.320.1.1.dylib, libhdf5_hl.320.0.2.dylib |
-| highway | 1.4.0 | Apache-2.0 OR BSD-3-Clause | https://github.com/google/highway | libhwy.1.3.0.dylib |
-| imath | 3.2.3 | BSD-3-Clause | https://imath.readthedocs.io/en/latest/ | libImath-3_2.30.3.2.2.dylib |
-| jpeg-turbo | 3.2.1 | IJG AND Zlib AND BSD-3-Clause | https://www.libjpeg-turbo.org/ | libjpeg.8.3.2.dylib |
-| jpeg-xl | 0.12.0 | BSD-3-Clause | https://jpeg.org/jpegxl/index.html | libjxl.0.11.2.dylib, libjxl_cms.0.11.2.dylib, libjxl_threads.0.11.2.dylib |
-| json-c | 0.19 | MIT | https://github.com/json-c/json-c/wiki | libjson-c.5.4.0.dylib |
-| krb5 | 1.22.2 | BSD-2-Clause AND BSD-2-Clause-first-lines AND BSD-3-Clause AND BSD-4-Clause AND Brian-Gladman-2-Clause AND CMU-Mach-nodoc AND FSFULLRWD AND HPND AND HPND-export2-US AND HPND-export-US AND HPND-export-US-acknowledgement AND HPND-export-US-modify AND ISC AND MIT AND MIT-CMU AND OLDAP-2.8 AND OpenVision AND (BSD-2-Clause OR GPL-2.0-or-later) | https://web.mit.edu/kerberos/ | libcom_err.3.0.dylib, libgssapi_krb5.2.2.dylib, libk5crypto.3.1.dylib, libkrb5.3.3.dylib, libkrb5support.1.1.dylib |
-| libaec | 1.1.7 | BSD-2-Clause | https://github.com/Deutsches-Klimarechenzentrum/libaec | libaec.0.1.6.dylib, libsz.2.0.1.dylib |
-| libarchive | 3.8.10 | BSD-2-Clause | https://www.libarchive.org | libarchive.13.dylib |
-| libassuan | 3.0.2 | LGPL-2.1-or-later AND GPL-3.0-or-later AND FSFULLR | https://www.gnupg.org/related_software/libassuan/ | libassuan.9.dylib |
-| libb2 | 0.98.1 | CC0-1.0 | https://blake2.net/ | libb2.1.dylib |
-| libde265 | 1.1.3 | LGPL-3.0-or-later | https://github.com/strukturag/libde265 | libde265.0.1.11.dylib |
-| libdeflate | 1.26 | MIT | https://github.com/ebiggers/libdeflate | libdeflate.0.dylib |
-| libgeotiff | 1.7.4 | MIT | https://github.com/OSGeo/libgeotiff | libgeotiff.5.dylib |
-| libgpg-error | 1.61 | LGPL-2.1-or-later | https://www.gnupg.org/related_software/libgpg-error/ | libgpg-error.0.dylib |
-| libheif | 1.23.7 | LGPL-3.0-or-later | https://www.libde265.org/ | libheif.1.21.2.dylib |
-| libkml | 1.3.0 | BSD-3-Clause | https://github.com/libkml/libkml | libkmlbase.1.3.0.dylib, libkmldom.1.3.0.dylib, libkmlengine.1.3.0.dylib |
-| liblerc | 4.2.0 | Apache-2.0 | https://github.com/Esri/lerc | libLerc.4.dylib |
-| libpng | 1.6.59 | libpng-2.0 | https://www.libpng.org/pub/png/libpng.html | libpng16.16.dylib |
-| libpq | 18.6 | PostgreSQL | https://www.postgresql.org/docs/current/libpq.html | libpq.5.dylib |
-| librttopo | 1.1.0 | GPL-2.0-or-later | https://git.osgeo.org/gitea/rttopo/librttopo | librttopo.1.dylib |
-| libspatialite | 5.1.0 | MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later | https://www.gaia-gis.it/fossil/libspatialite/index | libspatialite.8.dylib |
-| libtiff | 4.7.2 | libtiff | https://libtiff.gitlab.io/libtiff/ | libtiff.6.dylib |
-| libtool | 2.6.2 | LGPL-2.1-or-later (libltdl; the libtool scripts are GPL-2.0-or-later) | https://www.gnu.org/software/libtool/ | libltdl.7.dylib |
-| libvmaf | 3.2.1 | BSD-2-Clause-Patent | https://github.com/Netflix/vmaf | libvmaf.3.dylib |
-| libxml2 | 2.15.4 | MIT | http://xmlsoft.org/ | libxml2.16.dylib |
-| little-cms2 | 2.19.1 | MIT | https://www.littlecms.com/ | liblcms2.2.dylib |
-| lz4 | 1.10.0 | BSD-2-Clause | https://lz4.github.io/lz4/ | liblz4.1.10.0.dylib |
-| minizip | 1.3.2 | Zlib | https://www.winimage.com/zLibDll/minizip.html | libminizip.1.dylib |
-| mpfr | 4.2.2 | LGPL-3.0-or-later | https://www.mpfr.org/ | libmpfr.6.dylib |
-| netcdf | 4.10.1 | BSD-3-Clause | https://www.unidata.ucar.edu/software/netcdf/ | libnetcdf.22.dylib |
-| nspr | 4.40 | MPL-2.0 | https://hg.mozilla.org/projects/nspr | libnspr4.dylib, libplc4.dylib, libplds4.dylib |
-| nss | 3.132 | MPL-2.0 | https://firefox-source-docs.mozilla.org/security/nss/index.html | libnss3.dylib, libnssutil3.dylib, libsmime3.dylib, libssl3.dylib |
-| openexr | 3.5.2 | BSD-3-Clause | https://www.openexr.com/ | libIex-3_4.33.3.4.10.dylib, libIlmThread-3_4.33.3.4.10.dylib, libOpenEXR-3_4.33.3.4.10.dylib, libOpenEXRCore-3_4.33.3.4.10.dylib, libOpenEXRUtil-3_4.33.3.4.10.dylib |
-| openjpeg | 2.5.4 | BSD-2-Clause | https://www.openjpeg.org/ | libopenjp2.2.5.4.dylib |
-| openjph | 0.32.0 | BSD-2-Clause | https://github.com/aous72/OpenJPH | libopenjph.0.27.0.dylib |
-| openssl@3 | 3.5.9 | Apache-2.0 | https://openssl-library.org | libcrypto.3.dylib, libssl.3.dylib |
-| pcre2 | 10.49 | BSD-3-Clause | https://www.pcre.org/ | libpcre2-8.0.dylib |
-| poppler | 26.10.0 | GPL-2.0-only OR GPL-3.0-only | https://poppler.freedesktop.org/ | libpoppler.159.0.0.dylib |
-| proj | 9.9.0 | MIT | https://proj.org/ | libproj.25.9.8.1.dylib |
-| qhull | 2020.2 | Qhull | http://www.qhull.org/ | libqhull_r.8.0.2.dylib |
-| re2 | 2025-11-05 | BSD-3-Clause | https://github.com/google/re2 | libre2.11.0.0.dylib |
-| sfcgal | 2.3.0 | LGPL-2.0-or-later | https://sfcgal.gitlab.io/SFCGAL/ | libSFCGAL.2.2.0.dylib |
-| snappy | 1.3.1 | BSD-3-Clause | https://google.github.io/snappy/ | libsnappy.1.2.2.dylib |
-| sqlite | 3.54.1 | blessing | https://sqlite.org/index.html | libsqlite3.3.53.1.dylib |
-| thrift | 0.25.0 | Apache-2.0 | https://thrift.apache.org/ | libthrift-0.22.0.dylib |
-| unixodbc | 2.3.14 | LGPL-2.1-or-later (libodbc) | https://www.unixodbc.org/ | libodbc.2.dylib, libodbcinst.2.dylib |
-| uriparser | 1.0.2 | BSD-3-Clause | https://uriparser.github.io/ | liburiparser.1.2.0.dylib |
-| utf8proc | 2.12.0 | MIT AND Unicode-DFS-2015 | https://juliastrings.github.io/utf8proc/ | libutf8proc.3.2.3.dylib |
-| webp | 1.6.0 | BSD-3-Clause | https://developers.google.com/speed/webp/ | libsharpyuv.0.1.2.dylib, libwebp.7.2.0.dylib |
-| x265 | 4.3 | GPL-2.0-or-later | https://github.com/Multicorewareinc/x265 | libx265.216.dylib |
-| xerces-c | 3.3.0 | Apache-2.0 | https://xerces.apache.org/xerces-c/ | libxerces-c-3.3.dylib |
-| xz | 5.8.4 | 0BSD (liblzma; some xz tools are GPL-2.0-or-later) | https://tukaani.org/xz/ | liblzma.5.dylib |
-| zstd | 1.5.7 | (BSD-3-Clause OR GPL-2.0-only) AND BSD-2-Clause AND MIT | https://facebook.github.io/zstd/ | libzstd.1.5.7.dylib |
+Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list the bundled native libraries.
 
-## JavaScript packages bundled in the user interface (157)
+## JavaScript packages bundled in the user interface (194)
 
 | Package | Version | License |
 |---|---|---|
+| [@asamuzakjp/css-color](https://www.npmjs.com/package/@asamuzakjp/css-color) | 7.2.0 | MIT |
+| [@asamuzakjp/dom-selector](https://www.npmjs.com/package/@asamuzakjp/dom-selector) | 10.0.5 | MIT |
 | [@babel/runtime](https://www.npmjs.com/package/@babel/runtime) | 7.29.10 | MIT |
+| [@bramus/specificity](https://www.npmjs.com/package/@bramus/specificity) | 2.4.3 | MIT |
+| [@csstools/color-helpers](https://www.npmjs.com/package/@csstools/color-helpers) | 6.1.2 | MIT-0 |
+| [@csstools/css-calc](https://www.npmjs.com/package/@csstools/css-calc) | 3.4.3 | MIT |
+| [@csstools/css-color-parser](https://www.npmjs.com/package/@csstools/css-color-parser) | 4.2.7 | MIT |
+| [@csstools/css-parser-algorithms](https://www.npmjs.com/package/@csstools/css-parser-algorithms) | 4.0.2 | MIT |
+| [@csstools/css-syntax-patches-for-csstree](https://www.npmjs.com/package/@csstools/css-syntax-patches-for-csstree) | 1.1.16 | MIT-0 |
+| [@csstools/css-tokenizer](https://www.npmjs.com/package/@csstools/css-tokenizer) | 4.0.2 | MIT |
 | [@emotion/hash](https://www.npmjs.com/package/@emotion/hash) | 0.9.2 | MIT |
+| [@exodus/bytes](https://www.npmjs.com/package/@exodus/bytes) | 1.16.0 | MIT |
 | [@floating-ui/core](https://www.npmjs.com/package/@floating-ui/core) | 1.8.0 | MIT |
 | [@floating-ui/devtools](https://www.npmjs.com/package/@floating-ui/devtools) | 0.2.3 | MIT |
 | [@floating-ui/dom](https://www.npmjs.com/package/@floating-ui/dom) | 1.8.0 | MIT |
@@ -219,7 +135,10 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | [@xyflow/react](https://www.npmjs.com/package/@xyflow/react) | 12.12.0 | MIT |
 | [@xyflow/system](https://www.npmjs.com/package/@xyflow/system) | 0.0.83 | MIT |
 | [@zarrita/storage](https://www.npmjs.com/package/@zarrita/storage) | 0.2.0 | MIT |
+| [bidi-js](https://www.npmjs.com/package/bidi-js) | 1.1.0 | MIT |
+| [blockly](https://www.npmjs.com/package/blockly) | 13.4.0 | Apache-2.0 |
 | [classcat](https://www.npmjs.com/package/classcat) | 5.0.5 | MIT |
+| [css-tree](https://www.npmjs.com/package/css-tree) | 3.2.1 | MIT |
 | [csstype](https://www.npmjs.com/package/csstype) | 3.2.3 | MIT |
 | [d3-color](https://www.npmjs.com/package/d3-color) | 3.1.0 | ISC |
 | [d3-dispatch](https://www.npmjs.com/package/d3-dispatch) | 3.0.1 | ISC |
@@ -230,6 +149,8 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | [d3-timer](https://www.npmjs.com/package/d3-timer) | 3.0.1 | ISC |
 | [d3-transition](https://www.npmjs.com/package/d3-transition) | 3.0.1 | ISC |
 | [d3-zoom](https://www.npmjs.com/package/d3-zoom) | 3.0.0 | ISC |
+| [data-urls](https://www.npmjs.com/package/data-urls) | 8.0.0 | MIT |
+| [decimal.js](https://www.npmjs.com/package/decimal.js) | 10.6.0 | MIT |
 | [dockview](https://www.npmjs.com/package/dockview) | 8.6.1 | MIT |
 | [dockview-core](https://www.npmjs.com/package/dockview-core) | 8.6.1 | MIT |
 | [dockview-react](https://www.npmjs.com/package/dockview-react) | 8.6.1 | MIT |
@@ -237,14 +158,20 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | [embla-carousel](https://www.npmjs.com/package/embla-carousel) | 8.6.0 | MIT |
 | [embla-carousel-autoplay](https://www.npmjs.com/package/embla-carousel-autoplay) | 8.6.0 | MIT |
 | [embla-carousel-fade](https://www.npmjs.com/package/embla-carousel-fade) | 8.6.0 | MIT |
+| [entities](https://www.npmjs.com/package/entities) | 9.0.0 | BSD-2-Clause |
 | [fflate](https://www.npmjs.com/package/fflate) | 0.8.3 | MIT |
 | [geographiclib-geodesic](https://www.npmjs.com/package/geographiclib-geodesic) | 2.2.0 | MIT |
 | [geomagnetism](https://www.npmjs.com/package/geomagnetism) | 0.2.0 | Apache-2.0 |
 | [geotiff](https://www.npmjs.com/package/geotiff) | 3.1.0-beta.0 | MIT |
+| [html-encoding-sniffer](https://www.npmjs.com/package/html-encoding-sniffer) | 7.0.0 | MIT |
+| [is-potential-custom-element-name](https://www.npmjs.com/package/is-potential-custom-element-name) | 1.0.1 | MIT |
+| [jsdom](https://www.npmjs.com/package/jsdom) | 30.1.3 | MIT |
 | [json-stringify-pretty-compact](https://www.npmjs.com/package/json-stringify-pretty-compact) | 4.0.0 | MIT |
 | [keyborg](https://www.npmjs.com/package/keyborg) | 3.498.0 | MIT |
 | [lerc](https://www.npmjs.com/package/lerc) | 3.0.0 | Apache-2.0 |
+| [lru-cache](https://www.npmjs.com/package/lru-cache) | 11.5.3 | BlueOak-1.0.0 |
 | [mapbox-to-css-font](https://www.npmjs.com/package/mapbox-to-css-font) | 3.3.0 | BSD-2-Clause |
+| [mdn-data](https://www.npmjs.com/package/mdn-data) | 2.27.1 | CC0-1.0 |
 | [mgrs](https://www.npmjs.com/package/mgrs) | 1.0.0 | MIT |
 | [mgrs](https://www.npmjs.com/package/mgrs) | 2.2.0 | MIT |
 | [minimist](https://www.npmjs.com/package/minimist) | 1.2.8 | MIT |
@@ -253,34 +180,50 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | [ol-mapbox-style](https://www.npmjs.com/package/ol-mapbox-style) | 13.8.0 | BSD-2-Clause |
 | [pako](https://www.npmjs.com/package/pako) | 2.2.0 | (MIT AND Zlib) |
 | [parse-headers](https://www.npmjs.com/package/parse-headers) | 2.0.6 | MIT |
+| [parse5](https://www.npmjs.com/package/parse5) | 8.1.1 | MIT |
 | [pbf](https://www.npmjs.com/package/pbf) | 5.1.2 | BSD-3-Clause |
 | [proj4](https://www.npmjs.com/package/proj4) | 2.22.0 | MIT |
 | [protocol-buffers-schema](https://www.npmjs.com/package/protocol-buffers-schema) | 3.6.1 | MIT |
+| [punycode](https://www.npmjs.com/package/punycode) | 2.3.1 | MIT |
 | [quick-lru](https://www.npmjs.com/package/quick-lru) | 6.1.2 | MIT |
 | [quickselect](https://www.npmjs.com/package/quickselect) | 3.0.0 | ISC |
 | [rbush](https://www.npmjs.com/package/rbush) | 4.0.1 | MIT |
 | [react](https://www.npmjs.com/package/react) | 19.3.1 | MIT |
 | [react-dom](https://www.npmjs.com/package/react-dom) | 19.3.1 | MIT |
 | [reference-spec-reader](https://www.npmjs.com/package/reference-spec-reader) | 0.2.0 | MIT |
+| [require-from-string](https://www.npmjs.com/package/require-from-string) | 2.0.2 | MIT |
 | [resolve-protobuf-schema](https://www.npmjs.com/package/resolve-protobuf-schema) | 2.1.0 | MIT |
 | [rtl-css-js](https://www.npmjs.com/package/rtl-css-js) | 1.16.1 | MIT |
+| [saxes](https://www.npmjs.com/package/saxes) | 6.0.0 | ISC |
 | [scheduler](https://www.npmjs.com/package/scheduler) | 0.28.0 | MIT |
+| [source-map-js](https://www.npmjs.com/package/source-map-js) | 1.2.2 | BSD-3-Clause |
 | [stylis](https://www.npmjs.com/package/stylis) | 4.4.0 | MIT |
 | [tabster](https://www.npmjs.com/package/tabster) | 8.8.1 | MIT |
 | [tinyqueue](https://www.npmjs.com/package/tinyqueue) | 3.0.0 | ISC |
+| [tldts](https://www.npmjs.com/package/tldts) | 7.4.19 | MIT |
+| [tldts-core](https://www.npmjs.com/package/tldts-core) | 7.4.20 | MIT |
+| [tough-cookie](https://www.npmjs.com/package/tough-cookie) | 6.1.0 | BSD-3-Clause |
+| [tr46](https://www.npmjs.com/package/tr46) | 7.0.0 | MIT |
 | [tslib](https://www.npmjs.com/package/tslib) | 2.8.1 | 0BSD |
+| [undici](https://www.npmjs.com/package/undici) | 8.12.4 | MIT |
 | [unzipit](https://www.npmjs.com/package/unzipit) | 2.0.0 | MIT |
 | [use-sync-external-store](https://www.npmjs.com/package/use-sync-external-store) | 1.7.0 | MIT |
+| [w3c-xmlserializer](https://www.npmjs.com/package/w3c-xmlserializer) | 6.0.0 | MIT |
 | [web-worker](https://www.npmjs.com/package/web-worker) | 1.5.0 | Apache-2.0 |
+| [webidl-conversions](https://www.npmjs.com/package/webidl-conversions) | 8.0.1 | BSD-2-Clause |
+| [whatwg-mimetype](https://www.npmjs.com/package/whatwg-mimetype) | 5.0.0 | MIT |
+| [whatwg-url](https://www.npmjs.com/package/whatwg-url) | 17.3.0 | MIT |
 | [wkt-parser](https://www.npmjs.com/package/wkt-parser) | 1.6.0 | MIT |
+| [xml-name-validator](https://www.npmjs.com/package/xml-name-validator) | 5.0.0 | Apache-2.0 |
 | [xml-utils](https://www.npmjs.com/package/xml-utils) | 1.10.2 | CC0-1.0 |
+| [xmlchars](https://www.npmjs.com/package/xmlchars) | 2.2.0 | MIT |
 | [zarrita](https://www.npmjs.com/package/zarrita) | 0.7.5 | MIT |
 | [zstddec](https://www.npmjs.com/package/zstddec) | 0.2.0 | MIT AND BSD-3-Clause |
 | [zundo](https://www.npmjs.com/package/zundo) | 2.3.0 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 4.5.7 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 5.0.15 | MIT |
 
-## Rust crates compiled into the app (646)
+## Rust crates compiled into the app (659)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
@@ -415,6 +358,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | duckdb | 1.10506.1 | MIT | https://github.com/duckdb/duckdb-rs |
 | dunce | 1.0.5 | CC0-1.0 OR MIT-0 OR Apache-2.0 | https://gitlab.com/kornelski/dunce |
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 | https://github.com/dtolnay/dyn-clone |
+| either | 1.19.0 | MIT OR Apache-2.0 | https://github.com/rayon-rs/either |
 | embed-resource | 3.0.12 | MIT | https://github.com/nabijaczleweli/rust-embed-resource |
 | embed_plist | 1.2.2 | MIT OR Apache-2.0 | https://github.com/nvzqz/embed-plist-rs |
 | endi | 1.1.1 | MIT | https://github.com/zeenix/endi |
@@ -436,6 +380,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | find-msvc-tools | 0.1.15 | MIT OR Apache-2.0 | https://github.com/rust-lang/cc-rs |
 | flate2 | 1.1.10 | MIT OR Apache-2.0 | https://github.com/rust-lang/flate2-rs |
 | float-cmp | 0.9.0 | MIT | https://github.com/mikedilger/float-cmp |
+| float_eq | 1.0.1 | MIT OR Apache-2.0 | https://github.com/jtempest/float_eq-rs |
 | fnv | 1.0.7 | Apache-2.0 / MIT | https://github.com/servo/rust-fnv |
 | foldhash | 0.1.5 | Zlib | https://github.com/orlp/foldhash |
 | foldhash | 0.2.0 | Zlib | https://github.com/orlp/foldhash |
@@ -484,6 +429,8 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | gtk | 0.18.2 | MIT | https://github.com/gtk-rs/gtk3-rs |
 | gtk-sys | 0.18.2 | MIT | https://github.com/gtk-rs/gtk3-rs |
 | gtk3-macros | 0.18.2 | MIT | https://github.com/gtk-rs/gtk3-rs |
+| h3o | 0.11.1 | BSD-3-Clause | https://github.com/HydroniumLabs/h3o |
+| h3o-bit | 0.1.2 | BSD-3-Clause | https://github.com/HydroniumLabs/h3o-bit |
 | half | 2.7.1 | MIT OR Apache-2.0 | https://github.com/VoidStarKat/half-rs |
 | hashbrown | 0.12.3 | MIT OR Apache-2.0 | https://github.com/rust-lang/hashbrown |
 | hashbrown | 0.15.5 | MIT OR Apache-2.0 | https://github.com/rust-lang/hashbrown |
@@ -566,6 +513,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | log | 0.4.34 | MIT OR Apache-2.0 | https://github.com/rust-lang/log |
 | lru | 0.16.4 | MIT | https://github.com/jeromefroe/lru-rs.git |
 | markup5ever | 0.39.0 | MIT OR Apache-2.0 | https://github.com/servo/html5ever |
+| matrixmultiply | 0.3.11 | MIT/Apache-2.0 | https://github.com/bluss/matrixmultiply/ |
 | memchr | 2.8.3 | Unlicense OR MIT | https://github.com/BurntSushi/memchr |
 | memmap2 | 0.9.12 | MIT OR Apache-2.0 | https://github.com/RazrFalcon/memmap2-rs |
 | memoffset | 0.9.1 | MIT | https://github.com/Gilnaa/memoffset |
@@ -575,6 +523,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | mio | 1.2.4 | MIT | https://github.com/tokio-rs/mio |
 | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/moxcms.git |
 | muda | 0.20.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/muda |
+| ndarray | 0.17.2 | MIT OR Apache-2.0 | https://github.com/rust-ndarray/ndarray |
 | ndk | 0.9.0 | MIT OR Apache-2.0 | https://github.com/rust-mobile/ndk |
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rust-windowing/android-ndk-rs |
 | ndk-sys | 0.6.0+11769913 | MIT OR Apache-2.0 | https://github.com/rust-mobile/ndk |
@@ -614,6 +563,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | openssl-src | 300.6.1+3.6.3 | MIT/Apache-2.0 | https://github.com/alexcrichton/openssl-src-rs |
 | openssl-sys | 0.9.117 | MIT | https://github.com/rust-openssl/rust-openssl |
 | option-ext | 0.2.0 | MPL-2.0 | https://github.com/soc/option-ext.git |
+| ordered-float | 5.5.1 | MIT | https://github.com/reem/rust-ordered-float |
 | ordered-stream | 0.2.0 | MIT OR Apache-2.0 | https://github.com/danieldg/ordered-stream |
 | pango | 0.18.3 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | pango-sys | 0.18.0 | MIT | https://github.com/gtk-rs/gtk-rs-core |
@@ -654,10 +604,13 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | quote | 1.0.47 | MIT OR Apache-2.0 | https://github.com/dtolnay/quote |
 | r-efi | 5.3.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later | https://github.com/r-efi/r-efi |
 | r-efi | 6.0.0 | MIT OR Apache-2.0 OR LGPL-2.1-or-later | https://github.com/r-efi/r-efi |
+| rand | 0.10.3 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
 | rand | 0.8.8 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
 | rand_chacha | 0.3.1 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
+| rand_core | 0.10.1 | MIT OR Apache-2.0 | https://github.com/rust-random/rand_core |
 | rand_core | 0.6.4 | MIT OR Apache-2.0 | https://github.com/rust-random/rand |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib | https://github.com/rust-windowing/raw-window-handle |
+| rawpointer | 0.2.1 | MIT/Apache-2.0 | https://github.com/bluss/rawpointer/ |
 | read-fonts | 0.39.2 | MIT OR Apache-2.0 | https://github.com/googlefonts/fontations |
 | redox_syscall | 0.5.18 | MIT | https://gitlab.redox-os.org/redox-os/syscall |
 | redox_users | 0.5.3 | MIT | https://gitlab.redox-os.org/redox-os/users |
@@ -671,6 +624,7 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | rfd | 0.16.0 | MIT | https://github.com/PolyMeilex/rfd |
 | rgb | 0.8.53 | MIT | https://github.com/kornelski/rust-rgb |
 | ring | 0.17.14 | Apache-2.0 AND ISC | https://github.com/briansmith/ring |
+| robust | 1.2.0 | MIT OR Apache-2.0 | https://github.com/georust/robust |
 | roxmltree | 0.20.0 | MIT OR Apache-2.0 | https://github.com/RazrFalcon/roxmltree |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |
 | rustc_version | 0.4.1 | MIT OR Apache-2.0 | https://github.com/djc/rustc-version-rs |
@@ -719,10 +673,12 @@ The bundled GDAL build (from Homebrew) links these libraries, which are licensed
 | slab | 0.4.12 | MIT | https://github.com/tokio-rs/slab |
 | slotmap | 1.1.1 | Zlib | https://github.com/orlp/slotmap |
 | smallvec | 1.16.3 | MIT OR Apache-2.0 | https://github.com/servo/rust-smallvec |
+| smartcore | 0.7.0 | Apache-2.0 | https://github.com/smartcorelib/smartcore |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 | https://github.com/rust-lang/socket2 |
 | softbuffer | 0.4.8 | MIT OR Apache-2.0 | https://github.com/rust-windowing/softbuffer |
 | soup3 | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |
 | soup3-sys | 0.5.0 | MIT | https://gitlab.gnome.org/World/Rust/soup3-rs |
+| spade | 2.15.1 | MIT OR Apache-2.0 | https://github.com/Stoeoef/spade |
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | https://github.com/storyyeller/stable_deref_trait |
 | static_assertions | 1.1.0 | MIT OR Apache-2.0 | https://github.com/nvzqz/static-assertions-rs |
 | static_vcruntime | 3.0.0 | MIT OR Apache-2.0 OR Zlib | https://github.com/ChrisDenton/static_vcruntime |
