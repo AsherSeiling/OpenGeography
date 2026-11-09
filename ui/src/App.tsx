@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
 import { useSettings } from "./store/settings";
 import { addData, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
+import { EditHost } from "./edit/EditHost";
 import { ScriptApprovalDialog } from "./dialogs/ScriptApprovalDialog";
 import { Dialogs } from "./dialogs/Dialogs";
 import { actionFor, eventCombo, useKeymap } from "./nodes/keymap";
@@ -172,6 +173,7 @@ export function App() {
         <LayerPropertiesWindow />
         <Dialogs />
         <ScriptApprovalDialog />
+        <EditHost />
         <ErrorDialog />
       </div>
     </FluentProvider>

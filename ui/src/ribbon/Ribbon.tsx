@@ -20,6 +20,8 @@ import { fitRibbon, type Variant } from "./ribbonFit";
 import { TopSearch } from "./search";
 import { KEY_TIPS, LAYOUT_ORDER, MAIN_TABS, TABS } from "./tabsDef";
 import { useRibbonTabs, type Group } from "./tabs";
+import { useEdit } from "../edit/editStore";
+import { useSaved } from "../edit/editActions";
 
 /** The contextual tab for the active layer: its name follows what the layer is. */
 const layerTabLabel = (geom: string) => (geom === "Table" ? "Table" : geom === "Raster" ? "Raster Layer" : "Feature Layer");
@@ -43,6 +45,12 @@ export function Ribbon() {
   const workspace = useLayoutView((s) => s.workspace);
   const inLayout = !!layoutId && workspace;
   useLayouts((s) => s.doc);
+  // Shape editing commands read the edit session; redraw when it changes.
+  useEdit((s) => s.status);
+  useEdit((s) => s.tool);
+  useEdit((s) => s.snapping);
+  useEdit((s) => s.layerId);
+  useSaved((s) => s.saved);
   useLayouts((s) => s.selected);
   useLayoutView((s) => s.fit); // pressed state of View › Fit Page
   useLayoutView((s) => s.preflightOpen);

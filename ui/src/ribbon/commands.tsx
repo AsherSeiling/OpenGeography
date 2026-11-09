@@ -7,6 +7,7 @@ import { PUBLIC_DATA } from "../panes/CatalogPane";
 import { toggleAppearance, useAppearance } from "../theme/appearance";
 import { addToolFromUi, focusPublicData } from "./addTool";
 import { RIcon } from "./icons/RIcon";
+import { editCommandList } from "../edit/editCommands";
 import { resetStartupLayout, saveStartupLayout, useSettings } from "../store/settings";
 import type { ReactElement } from "react";
 import {
@@ -212,7 +213,7 @@ export { BASEMAP_OPTIONS } from "../map/basemaps";
 /** The Catalog's Public Data rows are also commands (search, tests); the list itself lives in CatalogPane. */
 const publicData: Command[] = PUBLIC_DATA.map((p) => ({ id: p.id, label: p.label, icon: <>{p.icon}</>, tip: p.tip, run: () => useDialog.getState().show(p.dialog) }));
 
-export const commands: Record<string, Command> = Object.fromEntries([...list, ...publicData].map((c) => [c.id, c]));
+export const commands: Record<string, Command> = Object.fromEntries([...list, ...editCommandList, ...publicData].map((c) => [c.id, c]));
 /** Ids of the commands that live in the Catalog's Public Data tree rather than on a ribbon tab. */
 export const CATALOG_COMMANDS: string[] = PUBLIC_DATA.map((p) => p.id);
 

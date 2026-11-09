@@ -33,6 +33,8 @@ import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, 
 import { mapOf } from "../store/maps";
 import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
 import { layerStyleFunction, sketchStyle } from "../map/olStyle";
+import { useEditOverlay } from "../edit/EditOverlay";
+import { useEdit } from "../edit/editStore";
 import { createReadout, type Readout } from "../map/readout";
 import { basemapDef, basemapNotice, providerGridMaxLevel } from "../map/basemaps";
 import { labelField, styleFields } from "../map/style";
@@ -132,6 +134,7 @@ export function MapView({ mapId }: { mapId: string }) {
   /** Why this map's basemap failed to load (the CRS rule's refusals are computed, not stored). */
   const [basemapError, setBasemapError] = useState<string | null>(null);
   const tool = useApp((s) => s.tool);
+  const editEpoch = useEdit((s) => s.epoch);
   const showFps = useApp((s) => s.showFps);
   const mapCrs = doc?.crs ?? null;
 
@@ -449,7 +452,7 @@ export function MapView({ mapId }: { mapId: string }) {
         return;
       }
       const fields = styleFields(style);
-      const key = JSON.stringify([active.info.crsKey, info.id, info.version, info.geomType, fields, { ...style, label: undefined }, raster ? 0 : 1]);
+      const key = JSON.stringify([active.info.crsKey, info.id, info.version, info.geomType, fields, { ...style, label: undefined }, raster ? 0 : 1, info.editing ? editEpoch : 0]);
       let d = drawn.current[id];
       if (!d || d.key !== key) {
         if (d) removeDrawn(map, id);
@@ -505,7 +508,7 @@ export function MapView({ mapId }: { mapId: string }) {
       d.labels?.layer.setZIndex(zIndex + 0.5);
       d.labels?.layer.setVisible(!!visible[id]);
     });
-  }, [layers, results, showOriginal, resultRasterStyles, order, visible, styles, active, mapCrs, tick, buildFor]);
+  }, [layers, results, showOriginal, resultRasterStyles, order, visible, styles, active, mapCrs, tick, buildFor, editEpoch]);
 
   // Selection highlight: the style function reads the sets, so a selection change only redraws.
   useEffect(() => {
@@ -513,6 +516,9 @@ export function MapView({ mapId }: { mapId: string }) {
     selRef.current = Object.fromEntries(Object.entries(selection).map(([k, v]) => [k, new Set(v)]));
     for (const id of touched) (drawn.current[id]?.layer as VectorTileLayer | undefined)?.changed();
   }, [selection]);
+
+  // Shape editing: the pending edits of the layer being edited, and the Draw / Modify / Snap tools on the map being edited.
+  useEditOverlay(mapRef, active, mapId);
 
   // ---------- measure + land-nav sketch (drawn above all layers) ----------
   const nav = useNav();

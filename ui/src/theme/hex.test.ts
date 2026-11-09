@@ -15,6 +15,7 @@ const ALLOW: Record<string, Why> = {
   // Content: colours the user's map, layout or data owns, never the app's chrome.
   "map/style.ts": { why: "map symbol and label defaults" },
   "map/olStyle.ts": { why: "map symbol defaults" },
+  "edit/EditOverlay.ts": { why: "colours of the shapes being edited, drawn on the map (OpenLayers styles take colour values, not CSS variables)" },
   "map/usngGrid.ts": { why: "USNG grid line colours on the map" },
   "layers/nodeStyle.ts": { why: "label colour defaults of a layer's style" },
   "store/store.ts": { why: "default layer palette and label defaults" },

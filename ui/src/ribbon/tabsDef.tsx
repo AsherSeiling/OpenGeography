@@ -8,7 +8,8 @@ import type { Group } from "./tabs";
 export const TABS: Record<string, Group[]> = {
   Map: [
     { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }] },
-    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "newTable" }, { cmd: "catalog" }, { custom: <BasemapGallery /> }] },
+    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "newTable" }, { cmd: "newLayer" }, { cmd: "catalog" }, { custom: <BasemapGallery /> }] },
+    { label: "Edit", items: [{ cmd: "startEditing" }, { cmd: "undoLastSave", size: "small" }] },
     {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "selectByLocation", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
@@ -96,8 +97,16 @@ export const MAIN_TABS = ["Map", "Insert", "View", "Analysis"];
 export const KEY_TIPS: Record<string, string> = { Map: "M", Insert: "I", View: "V", Analysis: "A" };
 
 /** Every command id a tab (or a custom control on it) offers. */
+/** The groups of the Edit tab, which is on the ribbon only while a shape-edit session is open (EditHost registers it). */
+export const EDIT_GROUPS: Group[] = [
+  { label: "Session", items: [{ cmd: "editSave" }, { cmd: "editDiscard" }, { cmd: "editUndo", size: "small" }, { cmd: "editRedo", size: "small" }, { cmd: "editFinish", size: "small" }] },
+  { label: "Create", items: [{ cmd: "editPoint" }, { cmd: "editLine" }, { cmd: "editPolygon" }] },
+  { label: "Modify", items: [{ cmd: "editModify" }, { cmd: "editDelete" }, { cmd: "editFix" }] },
+  { label: "Snapping", items: [{ cmd: "editSnap" }] },
+];
+
 export function commandsOnTabs(tabs: Record<string, Group[]> = TABS): Set<string> {
   const ids = new Set<string>();
-  for (const groups of [...Object.values(tabs), ...(tabs === TABS ? [RAIL] : [])]) for (const g of groups) for (const it of g.items) if ("cmd" in it) ids.add(it.cmd); else for (const c of it.covers ?? []) ids.add(c);
+  for (const groups of [...Object.values(tabs), ...(tabs === TABS ? [RAIL, EDIT_GROUPS] : [])]) for (const g of groups) for (const it of g.items) if ("cmd" in it) ids.add(it.cmd); else for (const c of it.covers ?? []) ids.add(c);
   return ids;
 }

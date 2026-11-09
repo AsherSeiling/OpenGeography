@@ -264,3 +264,28 @@ def _(): return [DOC(), D(TXT(14) + TXT(18) + TXT(22))]
 def _(): return [LN('M4 9h24M4 16h24M4 23h24', w=2), C(11, 9, 3.4, 'b'), C(21, 16, 3.4, 'g'), C(13, 23, 3.4, 'a')]
 @icon('startup-layout')
 def _(): return [R(3, 5, 26, 22, 'p', 2), R(3, 5, 9, 22, 'bl', 2), R(12, 5, 17, 7, 'gl', 0.5), C(24, 22, 6, 'a'), W('M24 18.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z', 1.2)]
+# ---------------------------------------------------------------- shape editing (E2)
+@icon('edit-start')
+def _(): return [P('M5 24l3-1 15-15-2-2L6 21z', 'a'), P('M21 6l2 2 2-2-2-2z', 'r'), LN('M5 27h22', w=2), D(LN('M8 23l-1 3 3-1'))]
+@icon('edit-save')
+def _(): return [P('M5 4h18l4 4v20H5z', 'b'), R(9, 4, 12, 8, 'p', 1), R(9, 18, 14, 10, 'bl', 1), D(LN('M17 6v4'))]
+@icon('edit-discard')
+def _(): return [P('M5 4h18l4 4v20H5z', 'kl'), R(9, 4, 12, 8, 'p', 1), XB(22, 22, 'r', 7.5)]
+@icon('edit-point')
+def _(): return [C(16, 16, 6, 'b'), C(16, 16, 2, 'p'), PLUS(24, 24, 'g', 6)]
+@icon('edit-line')
+def _(): return [LN('M5 24L13 10l8 9 7-12', w=2.6), C(5, 24, 2.6, 'b'), C(13, 10, 2.6, 'b'), C(21, 19, 2.6, 'b'), C(28, 7, 2.6, 'b')]
+@icon('edit-polygon')
+def _(): return [P('M6 22L10 8l14 3 3 12z', 'bl'), C(6, 22, 2.4, 'b'), C(10, 8, 2.4, 'b'), C(24, 11, 2.4, 'b'), C(27, 23, 2.4, 'b'), PLUS(24, 24, 'g', 5.5)]
+@icon('edit-vertex')
+def _(): return [P('M6 24L9 9l15 4 2 11z', 'gl'), C(9, 9, 2.4, 'p'), C(24, 13, 3.6, 'a'), THICK('M18 6l6 6', 'a', 1.4), C(6, 24, 2.4, 'p'), C(26, 24, 2.4, 'p')]
+@icon('edit-delete')
+def _(): return [P('M6 24L9 9l15 4 2 11z', 'kl'), XB(22, 10, 'r', 7)]
+@icon('edit-snap')
+def _(): return [LN('M5 22h22', w=2), C(16, 22, 3, 'b'), P('M9 6v8a7 7 0 0 0 14 0V6h-4v8a3 3 0 0 1-6 0V6z', 'r'), R(9, 6, 4, 3, 'p', 0), R(19, 6, 4, 3, 'p', 0)]
+@icon('edit-fix')
+def _(): return [P('M6 22L10 8l14 3 3 12z', 'rl'), LN('M8 10l17 11M25 10L8 21', ' stroke-opacity=".6"'), CHECK(24, 24, 'g', 6)]
+@icon('layer-new')
+def _(): return [P('M16 4l13 6.5L16 17 3 10.5z', 'g'), P('M3 15.5l13 6.5 13-6.5', 'n'), P('M3 20.5l13 6.5 4-2', 'n'), PLUS(24, 24, 'a', 6)]
+@icon('undo-save')
+def _(): return [P('M5 4h14l4 4v10H5z', 'b'), R(9, 4, 9, 6, 'p', 1), THICK('M10 25h11a4 4 0 0 0 0-8h-3M14 21l-4 4 4 4', 'a', 2)]

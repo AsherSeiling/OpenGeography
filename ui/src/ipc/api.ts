@@ -470,6 +470,37 @@ export interface SplitResult {
 export const SPLIT_CONFIRM_ABOVE = 200;
 export const SPLIT_MAX_OUTPUTS = 1000;
 
+/** One edit in a batch (shape editing): shapes are hex WKB in the MAP's CRS. */
+export interface EditOp {
+  op: "insert" | "update" | "delete";
+  fid?: number;
+  geometry?: string;
+  attributes?: Record<string, unknown>;
+  fix?: boolean;
+}
+export interface EditStatus {
+  layer: string;
+  editing: boolean;
+  mapCrs: string | null;
+  zValue: number | null;
+  added: number;
+  changed: number;
+  deleted: number;
+  steps: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  invalid: number[];
+  canUndoSave: boolean;
+  layerHasZ: boolean;
+  layerHasM: boolean;
+}
+export interface EditFeature {
+  fid: number;
+  geometry: string | null;
+  attributes: Record<string, unknown>;
+  pending: "inserted" | "changed" | null;
+}
+
 export interface LayerInfo {
   id: string;
   name: string;
@@ -492,6 +523,8 @@ export interface LayerInfo {
   definitionPython?: string | null;
   /** Why the Python definition query gave nothing (failed rows, cancelled). */
   definitionError?: string | null;
+  /** A shape-edit session is open on this layer. */
+  editing?: boolean;
   /** A Python label expression; labels use the field `__label`. */
   labelPython?: string | null;
   labelError?: string | null;
@@ -729,6 +762,18 @@ export const api = {
     invoke<{ layer: LayerInfo; count: number }>("calculate_geometry", { id, field, property, areaUnits, lengthUnits, fids }),
   createTable: (name: string, fields: [string, string][]) => invoke<LayerInfo>("create_table", { name, fields }),
   addRow: (id: string) => invoke<{ layer: LayerInfo; fid: number }>("add_row", { id }),
+  // ---- shape editing (the map's CRS goes with every call that carries shapes) ----
+  editBegin: (layer: string, mapCrs: string, zValue: number | null) => invoke<EditStatus>("edit_begin", { layer, mapCrs, zValue }),
+  editApply: (layer: string, mapCrs: string, ops: EditOp[]) => invoke<{ status: EditStatus; fids: number[]; invalid: number[] }>("edit_apply", { layer, mapCrs, ops }),
+  editUndo: (layer: string) => invoke<EditStatus>("edit_undo", { layer }),
+  editRedo: (layer: string) => invoke<EditStatus>("edit_redo", { layer }),
+  editSave: (layer: string) => invoke<{ layer: LayerInfo; added: number; changed: number; deleted: number; invalid: number; note: string | null }>("edit_save", { layer }),
+  editDiscard: (layer: string) => invoke<LayerInfo>("edit_discard", { layer }),
+  editPending: (layer: string) => invoke<EditStatus>("edit_pending", { layer }),
+  editUndoSave: (layer: string) => invoke<LayerInfo>("edit_undo_save", { layer }),
+  editFeaturesIn: (layer: string, mapCrs: string, extent: [number, number, number, number], limit?: number) =>
+    invoke<{ features: EditFeature[]; truncated: boolean; mapCrs: string }>("edit_features_in", { layer, mapCrs, extent, limit }),
+  createLayer: (name: string, geomType: string, crs: string, fields: [string, string][]) => invoke<LayerInfo>("create_layer", { name, geomType, crs, fields }),
   /** The rows with these ids as text, fields in the layer's order (to put back after a delete). */
   rowsByFid: (id: string, fids: number[]) => invoke<{ fid: number; values: (string | null)[] }[]>("rows_by_fid", { id, fids }),
   restoreRows: (id: string, rows: { fid: number; values: (string | null)[] }[]) => invoke<{ layer: LayerInfo; count: number }>("restore_rows", { id, rows }),
