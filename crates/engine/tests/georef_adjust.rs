@@ -245,3 +245,22 @@ fn citations_keep_the_source_and_record_the_points_and_method() {
     assert!(c.citation.annotation.contains("affine") && c.citation.annotation.contains("#1 (600000, 3900000)"), "{}", c.citation.annotation);
     assert!(srcs.iter().any(|s| s.citation.key.starts_with("file:") && s.uses.iter().any(|u| u.layer_id == r.layer.id)), "the source's citation is kept");
 }
+
+#[test]
+fn similarity_refuses_degrees_and_collapsing_points_and_rubber_sheet_says_only_vertices_move() {
+    let dir = tempfile::tempdir().unwrap();
+    let g = setup(dir.path(), "EPSG:4326", "SELECT 1 AS id, ST_Point(10, 60) AS geom");
+    let p = vec![pt(1, 10.0, 60.0, 10.1, 60.1), pt(2, 11.0, 60.0, 11.1, 60.1), pt(3, 10.0, 61.0, 10.1, 61.1)];
+    let err = g.0.adjust_errors(&g.1.id, &set("EPSG:4326", p), AdjustMethod::Similarity).unwrap_err().to_string();
+    assert!(err.contains("Project the layer"), "{err}");
+
+    let sub = tempfile::tempdir().unwrap();
+    let (e, l) = setup(sub.path(), "EPSG:32614", SQUARES);
+    let collapse = vec![pt(1, 600000.0, 3900000.0, 610000.0, 3910000.0), pt(2, 600200.0, 3900000.0, 610000.0, 3910000.0)];
+    let err = e.adjust_errors(&l.id, &set("EPSG:32614", collapse), AdjustMethod::Similarity).unwrap_err().to_string();
+    assert!(err.contains("collapse"), "{err}");
+
+    let sheet = vec![pt(1, 600000.0, 3900000.0, 600001.0, 3900001.0), pt(2, 600200.0, 3900000.0, 600201.0, 3900002.0), pt(3, 600000.0, 3900200.0, 600002.0, 3900201.0), pt(4, 600200.0, 3900200.0, 600201.0, 3900203.0)];
+    let r = e.adjust_errors(&l.id, &set("EPSG:32614", sheet), AdjustMethod::RubberSheet).unwrap();
+    assert!(r.warnings.iter().any(|w| w.contains("Only vertices move")), "{:?}", r.warnings);
+}

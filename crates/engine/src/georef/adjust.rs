@@ -124,7 +124,11 @@ impl Fitted {
                 if den <= 0.0 {
                     bail!("The two from points are at the same place, so no scale or rotation can be found.");
                 }
-                Kind::Similarity { re: num_re / den, im: num_im / den }
+                let (re, im) = (num_re / den, num_im / den);
+                if re.hypot(im) < 1e-9 {
+                    bail!("The enabled to points are all at the same place, so every shape would collapse to one point. Check their coordinates.");
+                }
+                Kind::Similarity { re, im }
             }
             AdjustMethod::Affine | AdjustMethod::RubberSheet => {
                 let tps = method == AdjustMethod::RubberSheet;
@@ -228,6 +232,10 @@ pub(crate) fn prepare(conn: &Connection, layer_crs: &str, set: &ControlSet, meth
         bail!("A {} needs at least {need} enabled control points; this set has {}. Add {} more (or turn some back on).", method.label(), enabled.len(), need - enabled.len());
     }
     let geographic = crate::crs::is_geographic(crs);
+    if geographic && method == AdjustMethod::Similarity {
+        // A degree of longitude is shorter than a degree of latitude away from the equator, so a rotation in degrees shears the shapes.
+        bail!("A similarity adjustment keeps shapes' angles only in a coordinate system with equal units in both directions, and this layer is in degrees. Project the layer to a metre-based coordinate system first (Project), or use the affine method.");
+    }
     if geographic {
         let tmp: Vec<ControlPoint> = enabled.iter().flat_map(|a| [ControlPoint { x: a.0 .0, y: a.0 .1, ..a.2.clone() }, ControlPoint { x: a.1 .0, y: a.1 .1, ..a.2.clone() }]).collect();
         super::longitude_span_ok(&tmp.iter().collect::<Vec<_>>())?;
@@ -272,6 +280,7 @@ pub(crate) fn prepare(conn: &Connection, layer_crs: &str, set: &ControlSet, meth
     let mut warnings = Vec::new();
     if method == AdjustMethod::RubberSheet {
         warnings.push(spline_warning());
+        warnings.push("Only vertices move: a long straight edge stays straight between its two ends even where the surface bends, so long edges may not follow the adjustment between their ends.".into());
         if off().next().is_none() {
             warnings.push("No check points yet: every point is in the fit, so no honest accuracy figure exists.".into());
         }
