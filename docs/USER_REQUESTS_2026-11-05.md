@@ -5,7 +5,7 @@ The user's list after testing the rebuilt app (`47fe444`). "Today" says what the
 ## Decisions to confirm with the user before building
 
 1. **Order. Decided by the user, 2026-11-05:** this list comes first, then server connections, then planetary, which stays the last feature before the first release.
-2. **What runs Python. Decided by the user, 2026-11-06:** ship standard CPython with the app (python-build-standalone, PSF licence), in its own process, exchanging rows through Arrow. Today's SQL translator stays only as a fallback for old saved queries.
+2. **What runs Python. Decided by the user, 2026-11-06:** ship standard CPython with the app (python-build-standalone, PSF licence), in its own process. **Changed 2026-11-08 (lead, after the spike, `docs/PYTHON_SPIKE.md`):** no pyarrow and no Arrow. Rows travel in a small column-wise binary protocol (about 5M rows/s with the standard library alone, against 0.44M for JSON lines; pyarrow would add 29–55 MB). NumPy only, pinned with hashes, for the raster calculator. JSON lines is not shipped as a mode. Today's SQL stays as an option and saved old queries keep working as they are.
 3. **Scripts inside projects run code. Decided by the user, 2026-11-08:** ask before running scripts from a project this computer didn't create; no sandbox beyond that.
 
 ## Work, in the recommended order

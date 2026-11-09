@@ -164,6 +164,13 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         }
         "get_settings" => json!(engine::settings::load()),
         "set_settings" => json!(engine::settings::save(&de::<engine::settings::Settings>(a, "settings")?)?),
+        "script_trust_info" => json!(engine::pyscript::trust_info(&s(a, "script")?)),
+        "approve_script" => {
+            let script = s(a, "script")?;
+            engine::pyscript::approve(&script)?;
+            json!(engine::pyscript::trust_info(&script))
+        }
+        "python_status" => json!(engine::pyscript::python_status()),
         "progress" => json!(engine::progress::snapshot()),
         "select_by_location" => {
             let by_fids: Option<Vec<i64>> = de(a, "byFids").ok();

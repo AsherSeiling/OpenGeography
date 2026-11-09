@@ -574,6 +574,26 @@ pub async fn set_settings(settings: engine::settings::Settings) -> Res<engine::s
     engine::settings::save(&settings).map_err(|e| format!("{e:#}"))
 }
 
+/// Whether the user approved this exact script on this computer, and the plain-language warning to show when asking.
+#[tauri::command]
+pub async fn script_trust_info(script: String) -> Res<engine::pyscript::TrustInfo> {
+    Ok(engine::pyscript::trust_info(&script))
+}
+
+/// Record the user's approval of this exact script (their click in the approval dialog, or a script they wrote here). Kept in the
+/// per-user app-data folder, never in a project.
+#[tauri::command]
+pub async fn approve_script(script: String) -> Res<engine::pyscript::TrustInfo> {
+    engine::pyscript::approve(&script).map_err(|e| format!("{e:#}"))?;
+    Ok(engine::pyscript::trust_info(&script))
+}
+
+/// Whether Python scripts can run on this computer (the Python shipped with the app was found).
+#[tauri::command]
+pub async fn python_status() -> Res<engine::pyscript::PythonStatus> {
+    Ok(engine::pyscript::python_status())
+}
+
 /// Running long tasks, for progress bars.
 #[tauri::command]
 pub async fn progress() -> Res<Vec<engine::progress::TaskInfo>> {

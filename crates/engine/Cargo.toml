@@ -7,6 +7,9 @@ license.workspace = true
 [features]
 # Compile DuckDB from source instead of linking a prebuilt libduckdb.
 bundled = ["duckdb/bundled"]
+# Lets GIS_STUDIO_PYTHON name the Python program to run scripts with (a system Python for tests and the dev server). Never enabled in the shipped app,
+# which only runs the interpreter it was built with.
+dev-python = []
 
 [dependencies]
 duckdb = "1.10506.1"
@@ -36,4 +39,6 @@ world_magnetic_model = "1.2025.0"
 
 [dev-dependencies]
 tempfile = "3"
+# Turns on `dev-python` for this crate's own tests.
+engine = { path = ".", features = ["dev-python"] }
 gdal = "0.19"

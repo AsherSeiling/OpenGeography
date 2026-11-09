@@ -387,6 +387,10 @@ impl Params<'_> {
     pub fn str(&self, k: &str) -> Option<String> {
         self.0.get(k).and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
     }
+    /// The text exactly as typed (not trimmed): a script is approved by the hash of its exact text.
+    pub fn raw_str(&self, k: &str) -> Option<String> {
+        self.0.get(k).and_then(|v| v.as_str()).map(String::from)
+    }
     pub fn req_str(&self, k: &str, label: &str) -> Result<String> {
         self.str(k).ok_or_else(|| anyhow!("'{label}' is required"))
     }

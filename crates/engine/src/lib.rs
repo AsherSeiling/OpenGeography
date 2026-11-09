@@ -37,6 +37,7 @@ pub mod layout;
 pub mod measure;
 pub mod nodes;
 pub mod progress;
+pub mod pyscript;
 pub mod raster;
 pub mod raster_style;
 pub mod topo_symbols;

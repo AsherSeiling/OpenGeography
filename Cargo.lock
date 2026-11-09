@@ -1375,6 +1375,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "duckdb",
+ "engine",
  "fasteval",
  "flate2",
  "gdal",

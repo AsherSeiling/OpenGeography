@@ -253,3 +253,28 @@ pub fn whitebox_exe() -> Option<PathBuf> {
     let candidates = [std::env::var_os("GIS_STUDIO_WHITEBOX").map(PathBuf::from), dir().map(|d| d.join("whitebox").join(&name))];
     candidates.into_iter().flatten().find(|p| p.is_file())
 }
+
+/// The Python program that runs user scripts (CPython 3.13 from python-build-standalone, `scripts/stage-resources.sh`), in its own process.
+/// Installed app: only `python/` in the resource folder. A build with the `dev-python` feature (the dev server and this crate's tests, never the
+/// shipped app) also honours `GIS_STUDIO_PYTHON`, and falls back to `python3` on the PATH. None when no interpreter is available.
+pub fn python_exe() -> Option<PathBuf> {
+    let rel = if cfg!(windows) { "python/python.exe" } else { "python/bin/python3" };
+    if let Some(p) = dir().map(|d| d.join(rel)).filter(|p| p.is_file()) {
+        return Some(p);
+    }
+    #[cfg(feature = "dev-python")]
+    {
+        if let Some(p) = std::env::var_os("GIS_STUDIO_PYTHON").map(PathBuf::from).filter(|p| p.is_file()) {
+            return Some(p);
+        }
+        let name = if cfg!(windows) { "python.exe" } else { "python3" };
+        return std::env::var_os("PATH").and_then(|paths| std::env::split_paths(&paths).map(|d| d.join(name)).find(|p| p.is_file()));
+    }
+    #[allow(unreachable_code)]
+    None
+}
+
+/// The record of scripts the user approved on this computer (hash only), in the per-user app-data folder. Never inside a project file.
+pub fn trusted_scripts_file() -> Option<PathBuf> {
+    data_dir().map(|d| d.join("trusted_scripts.json"))
+}

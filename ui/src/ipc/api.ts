@@ -97,6 +97,12 @@ export interface TableExportResult {
   gridColumn?: string | null;
 }
 
+export interface ScriptTrust {
+  hash: string;
+  approved: boolean;
+  warning: string;
+}
+
 export interface TaskInfo {
   id: number;
   label: string;
@@ -617,6 +623,11 @@ export const api = {
   fsInspect: (path: string) => invoke<FsDetails>("fs_inspect", { path }),
   fsStat: (paths: string[]) => invoke<{ path: string; entry: FsEntry | null }[]>("fs_stat", { paths }),
   sources: () => invoke<SourceEntry[]>("sources"),
+  /** Is this exact script approved on this computer? `warning` is the text to show when asking. */
+  scriptTrustInfo: (script: string) => invoke<ScriptTrust>("script_trust_info", { script }),
+  /** Record the user's approval of this exact script (app data on this computer, never the project). */
+  approveScript: (script: string) => invoke<ScriptTrust>("approve_script", { script }),
+  pythonStatus: () => invoke<{ available: boolean; path: string | null }>("python_status"),
   getSettings: () => invoke<ProgramSettings>("get_settings"),
   setSettings: (settings: ProgramSettings) => invoke<ProgramSettings>("set_settings", { settings }),
   updateSource: (citation: Citation) => invoke<void>("update_source", { citation }),

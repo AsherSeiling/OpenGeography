@@ -50,3 +50,38 @@ echo "Staged resources for $PLATFORM in $OUT ($(du -sh "$OUT" | cut -f1))"
 
 # WhiteboxTools program for the hydrology tools (MIT; built from a pinned release, see the script). WHITEBOX_SKIP=1 leaves it out.
 if [ -z "${WHITEBOX_SKIP:-}" ]; then "$ROOT/scripts/build-whitebox.sh"; fi
+
+# CPython for user scripts (Batch D): python-build-standalone, an exact release pinned per platform and checked against a SHA-256 before it is
+# unpacked. Nothing is committed; the archive is cached outside the repo. PYTHON_SKIP=1 leaves it out (the Python script nodes then say so).
+# NumPy (raster calculator) is added later, pinned with hashes, and is not part of this step. Docs: docs/PYTHON_SPIKE.md, docs/OPEN_SOURCE.md.
+stage_python() {
+  local PBS_RELEASE=20261026 PY_VERSION=3.13.18 triple sha
+  case "$PLATFORM" in
+    osx_arm64)     triple=aarch64-apple-darwin;     sha=8392b6ea51d94391befb2c31ebe75463f045d0b69dfcf5e1bb3234e1f5fa3405 ;;
+    osx_amd64)     triple=x86_64-apple-darwin;      sha=7412c19d896c99431b74a18a5643e110449a7f9590fbab179c3e5ab27b9aa9e3 ;;
+    windows_amd64) triple=x86_64-pc-windows-msvc;   sha=7369f7a35f261222a6ac8b3a87c1c88eeebee8af945d85346202591a64038dd3 ;;
+    linux_amd64)   triple=x86_64-unknown-linux-gnu; sha=df15fe60d3ff55bf9dcf25824b5572756bb8816ff93865a273d3301d7066a8b7 ;;
+    *) echo "No pinned Python for platform '$PLATFORM'; scripts will not be available in this build."; return 0 ;;
+  esac
+  local name="cpython-${PY_VERSION}+${PBS_RELEASE}-${triple}-install_only_stripped.tar.gz"
+  local cache="${GIS_STUDIO_BUILD_CACHE:-$HOME/.cache/gis-studio}/python"
+  mkdir -p "$cache"
+  local archive="$cache/$name"
+  local sum; sum() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+  if [ ! -f "$archive" ] || [ "$(sum "$archive")" != "$sha" ]; then
+    curl -fsSL -o "$archive.part" "https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_RELEASE}/${name//+/%2B}"
+    mv "$archive.part" "$archive"
+  fi
+  if [ "$(sum "$archive")" != "$sha" ]; then
+    echo "Python archive $name does not match its pinned SHA-256 (expected $sha); refusing to use it." >&2
+    rm -f "$archive"
+    return 1
+  fi
+  rm -rf "$OUT/python"
+  mkdir -p "$OUT/python"
+  tar -xzf "$archive" -C "$OUT/python" --strip-components=1
+  # Parts nothing here uses (saves about 3 MB; the interpreter itself is most of the size).
+  rm -rf "$OUT/python/lib/python3.13"/{test,idlelib,tkinter,turtledemo,ensurepip,lib2to3} "$OUT/python/lib/python3.13/lib-dynload"/_tkinter*
+  echo "Staged Python $PY_VERSION ($triple, release $PBS_RELEASE) in $OUT/python ($(du -sh "$OUT/python" | cut -f1))"
+}
+if [ -z "${PYTHON_SKIP:-}" ]; then stage_python; fi

@@ -70,6 +70,16 @@ scripts/license-gate.sh "$FW" $([ "${RELEASE:-}" = "1" ] || echo --warn)
 # Sign: libraries first, then the app (ad-hoc unless an identity is given).
 IDENTITY="${APPLE_SIGNING_IDENTITY:--}"
 for f in "$FW"/*.dylib; do codesign --force --timestamp=none -s "$IDENTITY" "$f"; done
+# The Python for user scripts lives under Resources/, where `codesign --deep` does not look: sign every Mach-O in it ourselves, with the
+# same identity, before the app is sealed (a Developer ID / notarized build refuses unsigned nested code). A real identity also gets the
+# hardened runtime. Not yet verified: that the interpreter then runs from the signed app under the hardened runtime (entitlements).
+PYDIR="$APP/Contents/Resources/resources/python"
+if [ -d "$PYDIR" ]; then
+  RT=(); [ "$IDENTITY" != "-" ] && RT=(--options runtime)
+  while IFS= read -r -d '' f; do
+    if file "$f" | grep -q "Mach-O"; then codesign --force --timestamp=none "${RT[@]}" -s "$IDENTITY" "$f"; fi
+  done < <(find "$PYDIR" -type f \( -name '*.so' -o -name '*.dylib' -o -path '*/bin/*' \) -print0)
+fi
 codesign --force --deep --timestamp=none -s "$IDENTITY" "$APP"
 codesign --verify --deep --strict "$APP"
 
