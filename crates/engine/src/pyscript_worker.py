@@ -2,11 +2,17 @@
 # Protocol: binary frames on stdin/stdout, little-endian, standard library only. See docs/PYTHON_SPIKE.md and pyscript.rs for the layout.
 #   in : frame = u8 kind, u32 length, payload.   kind 1 = init (JSON), 2 = chunk of rows, 3 = end
 #   out: kind 1 = ready (JSON), 2 = chunk result, 3 = done
-import sys, json, struct, datetime, math, numbers, traceback
+import sys, os, json, struct, datetime, math, numbers, traceback
 
-_in = sys.stdin.buffer
-_out = sys.stdout.buffer
-# Anything the script prints must not corrupt the protocol: its stdout goes to stderr.
+# The protocol owns private copies of the original stdin and stdout. Then fd 1 is pointed at stderr and fd 0 at the null device, so nothing the
+# script does can touch the frames: print(), input(), os.write(1, ...), a subprocess or a C library writing to fd 1 all go to stderr or nowhere.
+_in = os.fdopen(os.dup(0), "rb")
+_out = os.fdopen(os.dup(1), "wb")
+_null = os.open(os.devnull, os.O_RDWR)
+os.dup2(2, 1)
+os.dup2(_null, 0)
+os.close(_null)
+sys.stdin = open(os.devnull, "r")
 sys.stdout = sys.stderr
 
 EPOCH_ORD = 719163  # date(1970, 1, 1).toordinal()

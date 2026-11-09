@@ -356,6 +356,12 @@ pub fn run(script: &str, mode: Mode, fields: &[(String, Kind)], total: u64, task
     std::fs::create_dir_all(&scratch.0)?;
     let mut cmd = Command::new(&exe);
     // -I: isolated (ignores PYTHON* variables and the user's site packages); -B: write no .pyc files; utf8 mode for text.
+    // Its own process group (unix), so cancelling or finishing can kill whatever the script left running in the background.
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
     cmd.args(["-I", "-B", "-X", "utf8", "-c", WORKER]).current_dir(&scratch.0).env_clear().stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
     // Nothing from our environment goes in. Windows needs its system folder to start the interpreter at all.
     #[cfg(windows)]
@@ -497,9 +503,35 @@ pub fn run(script: &str, mode: Mode, fields: &[(String, Kind)], total: u64, task
     if outcome.is_err() {
         let _ = child.kill();
     }
+    kill_group(&child);
     let _ = child.wait();
-    let _ = (reader.join(), writer.join(), err_thread.join());
+    // A script can leave a child running that still holds our pipes (on Windows nothing kills it): never wait for the threads indefinitely.
+    for h in [reader, writer, err_thread] {
+        join_within(h, Duration::from_secs(2));
+    }
     outcome
+}
+
+/// Kill the script's whole process group, children it started included (unix; the worker is the group's leader).
+fn kill_group(child: &std::process::Child) {
+    #[cfg(unix)]
+    {
+        // SAFETY: killpg with the pid of our own just-spawned child, which called process_group(0), so the group is its own.
+        unsafe { libc::killpg(child.id() as libc::pid_t, libc::SIGKILL) };
+    }
+    #[cfg(not(unix))]
+    let _ = child;
+}
+
+/// Join a helper thread, but give up (leave it running, detached) after `limit`.
+fn join_within(h: std::thread::JoinHandle<()>, limit: Duration) {
+    let t0 = std::time::Instant::now();
+    while !h.is_finished() && t0.elapsed() < limit {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    if h.is_finished() {
+        let _ = h.join();
+    }
 }
 
 fn progress_seq() -> u64 {

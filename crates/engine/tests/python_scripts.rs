@@ -308,6 +308,62 @@ fn cancel_kills_the_process_and_leaves_no_output() {
 }
 
 #[test]
+fn a_script_cannot_corrupt_the_protocol_by_reading_stdin_or_writing_to_fd_1_or_running_a_subprocess() {
+    let Some((e, _one)) = engine() else { return };
+    let l = layer(&e, SMALL);
+    let s = "import os, subprocess, sys\ndef calculate(row):\n    try:\n        input()\n    except EOFError:\n        pass\n    os.write(1, b'raw bytes on fd 1\\n')\n    subprocess.run(['echo', 'echo from a child'])\n    os.system('echo from a shell')\n    sys.stdout.write('python stdout\\n')\n    return row['id'] * 2\n";
+    approve(s);
+    let (res, _, out) = run_tool(&e, &l, "calculate_field", json!({"field": "TWICE", "language": "python", "expression": s}));
+    assert!(ok(&res), "{res:?}");
+    assert_eq!(column(&e, &out.unwrap(), "TWICE"), ["2", "4", "6", "8"].map(|s| Some(s.to_string())));
+}
+
+#[cfg(unix)]
+#[test]
+fn cancel_returns_even_when_the_script_left_a_background_child_holding_the_pipes() {
+    let Some((e, _one)) = engine() else { return };
+    let l = layer(&e, SMALL);
+    let pidfile = data_dir().join("child.pid");
+    let _ = std::fs::remove_file(&pidfile);
+    let s = format!("import subprocess, time\ndef calculate(row):\n    p = subprocess.Popen(['sleep', '120'], stdout=None, stderr=None)\n    open({:?}, 'w').write(str(p.pid))\n    time.sleep(60)\n    return True\n", pidfile.display().to_string());
+    approve(&s);
+    let canceller = std::thread::spawn({
+        let pidfile = pidfile.clone();
+        move || {
+            for _ in 0..400 {
+                if pidfile.exists() && std::fs::read_to_string(&pidfile).map_or(false, |t| !t.is_empty()) {
+                    if let Some(t) = engine::progress::snapshot().into_iter().find(|t| t.label == "Running Python script") {
+                        engine::progress::cancel(t.id);
+                        return true;
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            false
+        }
+    });
+    let t0 = std::time::Instant::now();
+    let (res, _, out) = run_tool(&e, &l, "filter", json!({"language": "python", "where": s}));
+    assert!(canceller.join().unwrap(), "the script never started its child");
+    assert!(t0.elapsed().as_secs() < 15, "cancel hung for {:?}", t0.elapsed());
+    assert!(err_of(&res, "t").contains("Cancelled") && out.is_none());
+    // The sleeping child died with the group.
+    let pid: i32 = std::fs::read_to_string(&pidfile).unwrap().trim().parse().unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let alive = unsafe { libc_kill(pid) };
+    assert!(!alive, "the background child (pid {pid}) is still running after cancel");
+}
+
+#[cfg(unix)]
+unsafe fn libc_kill(pid: i32) -> bool {
+    // kill(pid, 0) succeeds while the process exists (a zombie of ours would too, but this child is not ours: init reaps it).
+    extern "C" {
+        fn kill(pid: i32, sig: i32) -> i32;
+    }
+    kill(pid, 0) == 0
+}
+
+#[test]
 fn sql_stays_the_default_and_old_nodes_without_a_language_still_run() {
     let Some((e, _one)) = engine() else { return };
     let l = layer(&e, SMALL);

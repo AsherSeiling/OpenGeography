@@ -29,11 +29,23 @@ fn main() -> Result<()> {
             let (server, engine) = (server.clone(), engine.clone());
             std::thread::spawn(move || {
                 for mut req in server.incoming_requests() {
-                    let cors = Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap();
+                    // Only this computer's own pages may talk to the server (it can approve and run Python): see `check_origin`.
+                    let header = |name: &'static str| req.headers().iter().find(|h| h.field.equiv(name)).map(|h| h.value.to_string());
+                    let (origin, host) = (header("Origin"), header("Host"));
+                    let cors = match check_origin(origin.as_deref(), host.as_deref()) {
+                        Ok(Some(origin)) => Header::from_bytes("Access-Control-Allow-Origin", origin).unwrap(),
+                        Ok(None) => Header::from_bytes("Vary", "Origin").unwrap(),
+                        Err(why) => {
+                            let _ = req.respond(Response::from_string(why).with_status_code(403));
+                            continue;
+                        }
+                    };
+                    let vary = Header::from_bytes("Vary", "Origin").unwrap();
                     let url = req.url().to_string();
                     if req.method() == &Method::Options {
                         let h = Header::from_bytes("Access-Control-Allow-Headers", "content-type").unwrap();
-                        let _ = req.respond(Response::empty(204).with_header(cors).with_header(h));
+                        let m = Header::from_bytes("Access-Control-Allow-Methods", "GET, POST, OPTIONS").unwrap();
+                        let _ = req.respond(Response::empty(204).with_header(cors).with_header(h).with_header(m).with_header(vary));
                         continue;
                     }
                     if let Some(rest) = url.strip_prefix("/tiles/") {
@@ -68,6 +80,49 @@ fn main() -> Result<()> {
         let _ = w.join();
     }
     Ok(())
+}
+
+/// Is this request from a page of this computer? A website open in the developer's browser must not be able to call the server (it
+/// can approve and run Python): `Origin` must be absent (curl, the e2e runner) or http(s) on localhost / 127.0.0.1 / [::1], and `Host`
+/// must be one of those too (a DNS-rebinding page arrives with its own host name). Returns the origin to echo in
+/// `Access-Control-Allow-Origin` (never `*`), or None when there was no Origin.
+fn check_origin(origin: Option<&str>, host: Option<&str>) -> std::result::Result<Option<String>, String> {
+    fn local(hostport: &str) -> bool {
+        let h = hostport.rsplit_once(':').filter(|(a, port)| !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) && !a.is_empty() && (a.starts_with('[') == a.ends_with(']'))).map_or(hostport, |(a, _)| a);
+        matches!(h, "localhost" | "127.0.0.1" | "[::1]")
+    }
+    if let Some(h) = host {
+        if !local(h) {
+            return Err(format!("This server only answers requests addressed to this computer (got Host '{h}')"));
+        }
+    }
+    match origin {
+        None => Ok(None),
+        Some(o) => {
+            let rest = o.strip_prefix("http://").or_else(|| o.strip_prefix("https://"));
+            match rest {
+                Some(r) if !r.contains('/') && local(r) => Ok(Some(o.to_string())),
+                _ => Err(format!("This server only answers pages from this computer (got Origin '{o}')")),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod origin_tests {
+    use super::check_origin;
+    #[test]
+    fn only_local_origins_and_hosts_pass() {
+        assert_eq!(check_origin(None, Some("127.0.0.1:7878")), Ok(None), "curl and the e2e runner send no Origin");
+        assert_eq!(check_origin(Some("http://localhost:1420"), Some("127.0.0.1:7878")), Ok(Some("http://localhost:1420".into())));
+        assert_eq!(check_origin(Some("http://127.0.0.1:5173"), Some("localhost:7878")), Ok(Some("http://127.0.0.1:5173".into())));
+        assert_eq!(check_origin(Some("http://[::1]:1420"), Some("[::1]:7878")), Ok(Some("http://[::1]:1420".into())));
+        for bad in ["https://evil.example", "http://localhost.evil.example", "http://127.0.0.1.evil.example:80", "null", "http://localhost@evil.example", "file://", "http://localhost:1420/x", "http://evil.example/localhost"] {
+            assert!(check_origin(Some(bad), Some("127.0.0.1:7878")).is_err(), "{bad}");
+        }
+        assert!(check_origin(None, Some("evil.example:7878")).is_err(), "DNS rebinding: a foreign Host name");
+        assert!(check_origin(None, Some("localhost.evil.example")).is_err());
+    }
 }
 
 fn tile(engine: &Engine, rest: &str) -> Result<Vec<u8>> {

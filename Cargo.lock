@@ -1193,6 +1193,7 @@ dependencies = [
  "engine",
  "serde",
  "serde_json",
+ "tempfile",
  "tiny_http",
 ]
 
@@ -1382,6 +1383,7 @@ dependencies = [
  "gdal-sys",
  "geographiclib-rs",
  "hex",
+ "libc",
  "lru",
  "parking_lot",
  "pdf-writer",
