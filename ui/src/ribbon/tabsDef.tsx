@@ -3,12 +3,13 @@ import { AlignMenu, BasemapGallery, DistributeMenu, DpiBox, MapFrameInsert, NewL
 // PageMenu lives in Ribbon.tsx (a hoisted function declaration, so the import cycle is safe).
 import { PageMenu } from "./Ribbon";
 import { Shelf } from "./shelf";
+import { SwipeMenu } from "../map/SwipeUi";
 import { BookmarksMenu, FrameBookmarkMenu } from "../map/BookmarkMenu";
 import type { Group } from "./tabs";
 
 export const TABS: Record<string, Group[]> = {
   Map: [
-    { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }, { custom: <BookmarksMenu /> }] },
+    { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }, { custom: <BookmarksMenu /> }, { custom: <SwipeMenu /> }] },
     { label: "Layer", items: [{ cmd: "addData" }, { cmd: "newTable" }, { cmd: "newLayer" }, { cmd: "catalog" }, { custom: <BasemapGallery /> }] },
     { label: "Edit", items: [{ cmd: "startEditing" }, { cmd: "undoLastSave", size: "small" }] },
     {

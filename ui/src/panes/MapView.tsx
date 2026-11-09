@@ -29,6 +29,8 @@ import { addData } from "../actions";
 import type { DropDetail } from "../dnd";
 import { MERCATOR_KEY, PX_PER_M, WEB_MERCATOR, carryResolution, displayCrsId, registerCrs, resolutionForScale, scaleOf, tileGridFor } from "../map/crs";
 import { serialQueue } from "../map/serialQueue";
+import { attachSwipe, chosenPresent, useSwipe } from "../map/swipe";
+import { SwipeDivider } from "../map/SwipeUi";
 import { getActiveCrs, makeView, refreshViewCache, scaleFactorAt, setActiveCrs, setMap, type ActiveCrs } from "../map/mapController";
 import { mapOf } from "../store/maps";
 import { labelExtraFields, labelStyleFunction, labelTileFields } from "../map/labels";
@@ -510,6 +512,22 @@ export function MapView({ mapId }: { mapId: string }) {
     });
   }, [layers, results, showOriginal, resultRasterStyles, order, visible, styles, active, mapCrs, tick, buildFor, editEpoch]);
 
+  // Swipe compare (UX4): clip the chosen layers (and their labels) to the left of the divider. Runs after the layers above are
+  // (re)built; turning it off, or a layer being rebuilt or removed, detaches the clip first.
+  const swipeLayers = useSwipe((s) => s.byMap[mapId]?.layers);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !active || !swipeLayers?.length) return;
+    const ids = chosenPresent(swipeLayers, Object.keys(drawn.current));
+    const olLayers = ids.flatMap((id) => [drawn.current[id].layer, ...(drawn.current[id].labels ? [drawn.current[id].labels.layer] : [])]);
+    if (!olLayers.length) return;
+    return attachSwipe(map, olLayers, () => useSwipe.getState().byMap[mapId]?.pos ?? 0.5);
+  }, [swipeLayers, layers, results, showOriginal, resultRasterStyles, order, visible, styles, active, mapCrs, tick, editEpoch, mapId]);
+  const swipePos = useSwipe((s) => s.byMap[mapId]?.pos);
+  useEffect(() => {
+    if (swipePos !== undefined) mapRef.current?.render();
+  }, [swipePos]);
+
   // Selection highlight: the style function reads the sets, so a selection change only redraws.
   useEffect(() => {
     const touched = new Set([...Object.keys(selRef.current), ...Object.keys(selection)]);
@@ -716,6 +734,7 @@ const IDENTIFY_TOLERANCE_PX = 4;
       <MapNotices basemap={basemap} basemapNote={basemapError} basemapInfo={basemapInfo} crsKey={active?.info.crsKey ?? null} offset={active && active.info.basemapOffsetM !== null && active.info.basemapOffsetM > BASEMAP_OFFSET_WARN_M ? active.info.basemapOffsetM : null} />
       <ScriptNotices ids={order} />
       <ScaleBar scale={scaleState?.scale ?? null} />
+      <SwipeDivider mapId={mapId} />
       {identify && <IdentifyPopup result={identify} onClose={() => setIdentify(null)} />}
       {isActive && tool === "measure" && <MeasurePanel />}
       {isActive && nav.navPanel && <NavPanel />}
