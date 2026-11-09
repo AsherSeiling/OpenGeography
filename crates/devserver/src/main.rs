@@ -192,13 +192,14 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             json!({ "layer": layer, "fid": fid })
         }
         "edit_begin" => json!(e.edit_begin(&s(a, "layer")?, &s(a, "mapCrs")?, a["zValue"].as_f64())?),
-        "edit_apply" => json!(e.edit_apply(&s(a, "layer")?, &de::<Vec<engine::edit::EditOp>>(a, "ops")?)?),
+        "edit_apply" => json!(e.edit_apply(&s(a, "layer")?, &s(a, "mapCrs")?, &de::<Vec<engine::edit::EditOp>>(a, "ops")?)?),
         "edit_undo" => json!(e.edit_undo(&s(a, "layer")?)?),
         "edit_redo" => json!(e.edit_redo(&s(a, "layer")?)?),
         "edit_save" => json!(e.edit_save(&s(a, "layer")?)?),
         "edit_discard" => json!(e.edit_discard(&s(a, "layer")?)?),
+        "edit_undo_save" => json!(e.edit_undo_save(&s(a, "layer")?)?),
         "edit_pending" => json!(e.edit_pending(&s(a, "layer")?)?),
-        "edit_features_in" => json!(e.edit_features_in(&s(a, "layer")?, de::<[f64; 4]>(a, "extent")?, a["limit"].as_u64().unwrap_or(5000) as usize)?),
+        "edit_features_in" => json!(e.edit_features_in(&s(a, "layer")?, &s(a, "mapCrs")?, de::<[f64; 4]>(a, "extent")?, a["limit"].as_u64().unwrap_or(5000) as usize)?),
         "edit_history" => json!(e.edit_history(&s(a, "layer")?)?),
         "create_layer" => json!(e.create_layer(&s(a, "name")?, &s(a, "geomType")?, &s(a, "crs")?, &de::<Vec<(String, String)>>(a, "fields")?)?),
         "rows_by_fid" => json!(e.rows_by_fid(&s(a, "id")?, &de::<Vec<i64>>(a, "fids")?)?),

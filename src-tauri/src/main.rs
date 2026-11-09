@@ -115,6 +115,7 @@ fn main() {
             commands::edit_save,
             commands::edit_discard,
             commands::edit_pending,
+            commands::edit_undo_save,
             commands::edit_features_in,
             commands::edit_history,
             commands::create_layer,

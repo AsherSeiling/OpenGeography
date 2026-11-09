@@ -1139,3 +1139,7 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SE-10 | Blocked tools give a readable sentence in a session; non-editable layers say why; new layer fields, id, CRS required, citation names the user; wrong shape kind / bad value / pole refused with a reason; invalid shapes flagged, fixed, reported | `tools_that_would_write_…`, `layers_that_can_not_be_edited_…`, `a_new_layer_has_…`, `invalid_shapes_are_flagged_…` |
 | SE-11 | Tiles of the edited layer leave out features with pending edits; undo restores them | `tiles_leave_out_features_with_pending_edits_…` |
 | SE-12 | WKB round trip with Z/M and every multi type | `wkb_round_trips_z_and_m_…` |
+| SE-13 | Map CRS per call: begin on Web Mercator, apply from UTM and geographic maps, read back on each, a resumed session under another CRS | `every_call_names_the_map_crs_…` |
+| SE-14 | A rejected batch leaves redo, the log and the id counter alone | `a_rejected_batch_leaves_redo_…` |
+| SE-15 | Saving nothing keeps the version (node tree stays cached); insert-then-delete counts nothing | `saving_nothing_keeps_the_version_…` |
+| SE-16 | Undo after Save restores rows, ids and overviews as a new version; refused when the layer moved on or a session is open | `undo_after_save_restores_…` |

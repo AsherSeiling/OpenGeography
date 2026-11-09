@@ -523,8 +523,8 @@ pub async fn edit_begin(engine: Eng<'_>, layer: String, map_crs: String, z_value
 }
 
 #[tauri::command]
-pub async fn edit_apply(engine: Eng<'_>, layer: String, ops: Vec<engine::edit::EditOp>) -> Res<engine::edit::ApplyResult> {
-    blocking(&engine, move |e| e.edit_apply(&layer, &ops)).await
+pub async fn edit_apply(engine: Eng<'_>, layer: String, map_crs: String, ops: Vec<engine::edit::EditOp>) -> Res<engine::edit::ApplyResult> {
+    blocking(&engine, move |e| e.edit_apply(&layer, &map_crs, &ops)).await
 }
 
 #[tauri::command]
@@ -548,13 +548,18 @@ pub async fn edit_discard(engine: Eng<'_>, layer: String) -> Res<LayerInfo> {
 }
 
 #[tauri::command]
+pub async fn edit_undo_save(engine: Eng<'_>, layer: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.edit_undo_save(&layer)).await
+}
+
+#[tauri::command]
 pub async fn edit_pending(engine: Eng<'_>, layer: String) -> Res<engine::edit::EditStatus> {
     blocking(&engine, move |e| e.edit_pending(&layer)).await
 }
 
 #[tauri::command]
-pub async fn edit_features_in(engine: Eng<'_>, layer: String, extent: [f64; 4], limit: Option<usize>) -> Res<engine::edit::EditFeatures> {
-    blocking(&engine, move |e| e.edit_features_in(&layer, extent, limit.unwrap_or(5000))).await
+pub async fn edit_features_in(engine: Eng<'_>, layer: String, map_crs: String, extent: [f64; 4], limit: Option<usize>) -> Res<engine::edit::EditFeatures> {
+    blocking(&engine, move |e| e.edit_features_in(&layer, &map_crs, extent, limit.unwrap_or(5000))).await
 }
 
 #[tauri::command]

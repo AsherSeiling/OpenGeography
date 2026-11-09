@@ -139,6 +139,7 @@ fn save_applies_edits_in_one_step_and_discard_drops_them() {
     let r = e
         .edit_apply(
             &l.id,
+            "EPSG:4326",
             &[
                 op("update", Some(2), Some("POINT(-99.5 30.5)"), Some(json!({"kind": "moved"}))),
                 op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 99, "kind": "new"}))),
@@ -151,7 +152,7 @@ fn save_applies_edits_in_one_step_and_discard_drops_them() {
     assert_eq!(rows_of(&e, &l.id), before);
     assert_eq!(e.layer(&l.id).unwrap().version, v0);
     // The session sees its own edits.
-    let f = e.edit_features_in(&l.id, [-101.0, 29.0, -98.0, 32.0], 100).unwrap();
+    let f = e.edit_features_in(&l.id, "EPSG:4326", [-101.0, 29.0, -98.0, 32.0], 100).unwrap();
     let got: Vec<(i64, Option<String>)> = f.features.iter().map(|f| (f.fid, f.pending.clone())).collect();
     assert!(got.contains(&(2, Some("changed".into()))) && got.contains(&(r.fids[0], Some("inserted".into()))));
     assert!(!f.features.iter().any(|x| x.fid == 4), "a deleted feature is not shown");
@@ -168,6 +169,7 @@ fn save_applies_edits_in_one_step_and_discard_drops_them() {
     let r = e
         .edit_apply(
             &l.id,
+            "EPSG:4326",
             &[op("update", Some(2), Some("POINT(-99.5 30.5)"), Some(json!({"kind": "moved"}))), op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 99, "kind": "new"}))), op("delete", Some(4), None, None)],
         )
         .unwrap();
@@ -198,9 +200,9 @@ fn undo_and_redo_go_step_by_step_and_a_new_edit_drops_the_undone_steps() {
     let (e, _g) = engine();
     let l = points(&e, 3);
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 10})))]).unwrap();
-    e.edit_apply(&l.id, &[op("delete", Some(1), None, None)]).unwrap();
-    let s = e.edit_apply(&l.id, &[op("update", Some(2), Some("POINT(-98 30)"), None)]).unwrap().status;
+    e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 10})))]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(1), None, None)]).unwrap();
+    let s = e.edit_apply(&l.id, "EPSG:4326", &[op("update", Some(2), Some("POINT(-98 30)"), None)]).unwrap().status;
     assert_eq!((s.added, s.changed, s.deleted, s.steps), (1, 1, 1, 3));
     let s = e.edit_undo(&l.id).unwrap();
     assert_eq!((s.added, s.changed, s.deleted, s.can_redo), (1, 0, 1, true));
@@ -209,7 +211,7 @@ fn undo_and_redo_go_step_by_step_and_a_new_edit_drops_the_undone_steps() {
     let s = e.edit_redo(&l.id).unwrap();
     assert_eq!((s.added, s.deleted), (1, 1));
     // A new edit makes the undone step unreachable.
-    let s = e.edit_apply(&l.id, &[op("update", Some(3), Some("POINT(-98 31)"), None)]).unwrap().status;
+    let s = e.edit_apply(&l.id, "EPSG:4326", &[op("update", Some(3), Some("POINT(-98 31)"), None)]).unwrap().status;
     assert!(!s.can_redo);
     assert_eq!(e.edit_redo(&l.id).unwrap_err().to_string(), "Nothing to redo.");
     e.edit_undo(&l.id).unwrap();
@@ -225,21 +227,21 @@ fn feature_ids_of_untouched_rows_never_change_and_new_ids_are_never_reused() {
     let before = fids(&e, &l.id);
     assert_eq!(before, [1, 2, 3, 4, 5, 6]);
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    let r = e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), None), op("delete", Some(2), None, None)]).unwrap();
+    let r = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None), op("delete", Some(2), None, None)]).unwrap();
     assert_eq!(r.fids, [7]);
     e.edit_save(&l.id).unwrap();
     assert_eq!(fids(&e, &l.id), [1, 3, 4, 5, 6, 7], "untouched rows keep their ids; nothing was renumbered");
     // Delete the newest and save; a later session must not hand out 7 again.
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("delete", Some(7), None, None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(7), None, None)]).unwrap();
     e.edit_save(&l.id).unwrap();
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    let r = e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
+    let r = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
     assert_eq!(r.fids, [8]);
     // Ids handed out in a discarded session are not reused either.
     e.edit_discard(&l.id).unwrap();
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    assert_eq!(e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap().fids, [9]);
+    assert_eq!(e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap().fids, [9]);
     e.edit_discard(&l.id).unwrap();
 }
 
@@ -276,13 +278,13 @@ fn moving_one_vertex_leaves_every_other_vertex_identical_including_z_and_m() {
         assert!(orig.has_z && orig.has_m);
         e.edit_begin(&l.id, map_crs, Some(5.0)).unwrap();
         // The map gets the shape in its CRS and sends it back with one vertex moved.
-        let f = e.edit_features_in(&l.id, [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+        let f = e.edit_features_in(&l.id, map_crs, [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
         let mut shown = parse_wkb(&hex_to_vec(f.features[0].geometry.as_ref().unwrap())).unwrap();
         let (dx, dy) = if map_crs == "EPSG:4326" { (0.0001, 0.0001) } else { (50.0, 50.0) };
         shown.parts[0][0][2].x += dx;
         shown.parts[0][0][2].y += dy;
         let moved_hex = bytes_to_hex(&write_wkb(&shown));
-        e.edit_apply(&l.id, &[EditOp { op: "update".into(), fid: Some(1), geometry: Some(moved_hex), ..Default::default() }]).unwrap();
+        e.edit_apply(&l.id, map_crs, &[EditOp { op: "update".into(), fid: Some(1), geometry: Some(moved_hex), ..Default::default() }]).unwrap();
         e.edit_save(&l.id).unwrap();
         let after = stored(&e, &l, 1);
         let (a, b): (Vec<_>, Vec<_>) = (orig.parts[0][0].clone(), after.parts[0][0].clone());
@@ -302,8 +304,8 @@ fn moving_one_vertex_leaves_every_other_vertex_identical_including_z_and_m() {
         }
         // Byte-identical for the whole stored geometry when nothing was moved.
         e.edit_begin(&l.id, map_crs, None).unwrap();
-        let f = e.edit_features_in(&l.id, [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
-        e.edit_apply(&l.id, &[EditOp { op: "update".into(), fid: Some(1), geometry: f.features[0].geometry.clone(), ..Default::default() }]).unwrap();
+        let f = e.edit_features_in(&l.id, map_crs, [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+        e.edit_apply(&l.id, map_crs, &[EditOp { op: "update".into(), fid: Some(1), geometry: f.features[0].geometry.clone(), ..Default::default() }]).unwrap();
         e.edit_save(&l.id).unwrap();
         assert_eq!(write_wkb(&stored(&e, &l, 1)), write_wkb(&after));
     }
@@ -320,7 +322,7 @@ fn a_utm_layer_edited_from_a_web_mercator_map_gets_exact_coordinates() {
     e.edit_begin(&l.id, "EPSG:3857", None).unwrap();
     // Longitude -99° is the central meridian of zone 14: on the equator that is easting 500000, northing 0.
     let x = -99.0 * 20037508.342789244 / 180.0;
-    let r = e.edit_apply(&l.id, &[op("insert", None, Some(&format!("POINT({x} 0)")), Some(json!({"name": "cm"})))]).unwrap();
+    let r = e.edit_apply(&l.id, "EPSG:3857", &[op("insert", None, Some(&format!("POINT({x} 0)")), Some(json!({"name": "cm"})))]).unwrap();
     assert!(r.invalid.is_empty());
     e.edit_save(&l.id).unwrap();
     let t = e.layer(&l.id).unwrap().table;
@@ -329,7 +331,7 @@ fn a_utm_layer_edited_from_a_web_mercator_map_gets_exact_coordinates() {
     assert!(ny.abs() < 1e-6, "northing {ny}");
     // And back out to the map it lands where it was drawn.
     e.edit_begin(&l.id, "EPSG:3857", None).unwrap();
-    let f = e.edit_features_in(&l.id, [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+    let f = e.edit_features_in(&l.id, "EPSG:3857", [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
     let g = parse_wkb(&hex_to_vec(f.features[0].geometry.as_ref().unwrap())).unwrap();
     assert!((g.parts[0][0][0].x - x).abs() < 1e-5);
     e.edit_discard(&l.id).unwrap();
@@ -349,7 +351,7 @@ fn a_save_failing_partway_leaves_the_table_overviews_and_version_unchanged() {
     };
     let before = snap(&e);
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("update", Some(1), Some("POINT(-99.9 30.1)"), None), op("delete", Some(2), None, None), op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("update", Some(1), Some("POINT(-99.9 30.1)"), None), op("delete", Some(2), None, None), op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
     // A value that can't be stored, written straight into the log so it is only found while saving (after the others were applied).
     let lt = format!("__edits_{}", l.id);
     e.with_conn_for_tests(|c| {
@@ -390,7 +392,7 @@ fn pending_edits_are_not_in_node_trees_and_the_tree_reruns_after_save() {
     let l = points(&e, 4);
     assert_eq!(run_rows(&e, &l.id).0, Some(4));
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), None), op("delete", Some(1), None, None), op("delete", Some(2), None, None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None), op("delete", Some(1), None, None), op("delete", Some(2), None, None)]).unwrap();
     let (n, status) = run_rows(&e, &l.id);
     assert_eq!(n, Some(4), "the tree reads saved data");
     assert!(matches!(status, Status::Done | Status::Cached));
@@ -416,7 +418,7 @@ fn a_python_definition_query_runs_again_after_save() {
     e.approve_script(script).unwrap();
     assert_eq!(e.layer(&l.id).unwrap().query_count, Some(2));
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 50, "area": 9.0})))]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 50, "area": 9.0})))]).unwrap();
     assert_eq!(e.layer(&l.id).unwrap().query_count, Some(2), "pending edits don't count");
     e.edit_save(&l.id).unwrap();
     let after = e.layer(&l.id).unwrap();
@@ -467,18 +469,17 @@ fn a_new_layer_has_its_fields_an_id_and_a_citation_naming_the_user() {
     assert_eq!(e.create_layer("Parcels", "polygon", "EPSG:4326", &[("id".into(), "text".into())]).unwrap().fields.len(), 1);
     let author: String = q(&e, &format!("SELECT citation::JSON->>'author' FROM __sources WHERE key = 'user:{}'", l.id));
     assert!(!author.is_empty());
-    let user = std::env::var("USER").or_else(|_| std::env::var("USERNAME")).unwrap_or_else(|_| "the user".into());
-    assert_eq!(author, user);
+    assert_eq!(author, "the user", "the login name is never put into a citation");
     // It can be edited at once, and a shape of the wrong kind is refused.
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    let err = e.edit_apply(&l.id, &[op("insert", None, Some("LINESTRING(-99 31, -98 31)"), None)]).unwrap_err().to_string();
+    let err = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("LINESTRING(-99 31, -98 31)"), None)]).unwrap_err().to_string();
     assert!(err.contains("holds points"), "{err}");
-    let err = e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"depth": "deep"})))]).unwrap_err().to_string();
+    let err = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"depth": "deep"})))]).unwrap_err().to_string();
     assert!(err.contains("does not fit"), "{err}");
-    let err = e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 95)"), None)]).unwrap_err().to_string();
+    let err = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 95)"), None)]).unwrap_err().to_string();
     assert!(err.contains("latitude"), "{err}");
-    assert!(e.edit_apply(&l.id, &[op("update", Some(77), Some("POINT(-99 31)"), None)]).unwrap_err().to_string().contains("does not exist"));
-    assert!(e.edit_apply(&l.id, &[op("insert", None, None, None)]).unwrap_err().to_string().contains("needs a shape"));
+    assert!(e.edit_apply(&l.id, "EPSG:4326", &[op("update", Some(77), Some("POINT(-99 31)"), None)]).unwrap_err().to_string().contains("does not exist"));
+    assert!(e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, None, None)]).unwrap_err().to_string().contains("needs a shape"));
     assert_eq!(e.edit_pending(&l.id).unwrap().steps, 0, "a refused batch writes nothing");
 }
 
@@ -488,12 +489,12 @@ fn invalid_shapes_are_flagged_fixed_on_request_and_reported_at_save() {
     let l = e.create_layer("p", "polygon", "EPSG:4326", &[]).unwrap();
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
     let bow = "POLYGON((0 0, 2 2, 2 0, 0 2, 0 0))";
-    let r = e.edit_apply(&l.id, &[op("insert", None, Some(bow), None)]).unwrap();
+    let r = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some(bow), None)]).unwrap();
     assert_eq!(r.invalid, r.fids);
     assert_eq!(r.status.invalid, r.fids);
     let mut fixed = op("insert", None, Some(bow), None);
     fixed.fix = true;
-    let r2 = e.edit_apply(&l.id, &[fixed]).unwrap();
+    let r2 = e.edit_apply(&l.id, "EPSG:4326", &[fixed]).unwrap();
     assert!(r2.invalid.is_empty());
     let s = e.edit_save(&l.id).unwrap();
     assert_eq!(s.invalid, 1);
@@ -511,7 +512,7 @@ fn edits_survive_a_crash_and_the_next_open_can_resume_or_discard_them() {
     e.save_project(project.path(), "{}").unwrap();
     e.open_project(project.path()).unwrap();
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 77}))), op("delete", Some(1), None, None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), Some(json!({"id": 77}))), op("delete", Some(1), None, None)]).unwrap();
     // The program dies here: no Save, no Discard.
     drop(e);
     let e2 = Engine::new().unwrap();
@@ -531,7 +532,7 @@ fn edits_survive_a_crash_and_the_next_open_can_resume_or_discard_them() {
     assert_eq!((r.added, r.deleted, r.layer.feature_count), (1, 1, 4));
     // And the other way: discard on the next open.
     e2.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e2.edit_apply(&l.id, &[op("delete", Some(2), None, None)]).unwrap();
+    e2.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(2), None, None)]).unwrap();
     e2.save_project(project.path(), "{}").unwrap();
     drop(e2);
     let e3 = Engine::new().unwrap();
@@ -563,7 +564,7 @@ fn an_old_project_without_the_edit_tables_opens_and_can_be_edited() {
     assert!(!again.editing);
     assert_eq!(again.feature_count, 3);
     e2.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e2.edit_apply(&l.id, &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
+    e2.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
     assert_eq!(e2.edit_save(&l.id).unwrap().layer.feature_count, 4);
 }
 
@@ -584,10 +585,159 @@ fn tiles_leave_out_features_with_pending_edits_during_a_session() {
     let full = e.tile(&l.id, 0, 0, 0, &[]).unwrap();
     assert!(!full.is_empty());
     e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
-    e.edit_apply(&l.id, &[op("delete", Some(1), None, None), op("delete", Some(2), None, None), op("delete", Some(3), None, None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(1), None, None), op("delete", Some(2), None, None), op("delete", Some(3), None, None)]).unwrap();
     assert!(e.tile(&l.id, 0, 0, 0, &[]).unwrap().is_empty(), "the edit overlay draws them, the tile doesn't");
     e.edit_undo(&l.id).unwrap();
     assert_eq!(e.tile(&l.id, 0, 0, 0, &[]).unwrap(), full, "undo puts them back in the tile");
     e.edit_discard(&l.id).unwrap();
     assert_eq!(e.tile(&l.id, 0, 0, 0, &[]).unwrap(), full);
+}
+
+// ---------------------------------------------------------------- review fixes
+
+#[test]
+fn every_call_names_the_map_crs_so_two_maps_and_a_resumed_session_can_differ() {
+    let (e, _g) = engine();
+    let l = e.create_layer("p", "point", "EPSG:32614", &[]).unwrap();
+    // Begin on Web Mercator, then edit from a UTM map (the layer's own CRS) and a geographic map.
+    e.edit_begin(&l.id, "EPSG:3857", None).unwrap();
+    let x = -99.0 * 20037508.342789244 / 180.0;
+    e.edit_apply(&l.id, "EPSG:3857", &[op("insert", None, Some(&format!("POINT({x} 0)")), None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:32614", &[op("insert", None, Some("POINT(600000.5 1000.25)"), None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 0)"), None)]).unwrap();
+    // Each map sees every feature in its own coordinates.
+    let utm = e.edit_features_in(&l.id, "EPSG:32614", [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+    let pos: Vec<(f64, f64)> = utm.features.iter().map(|f| { let g = parse_wkb(&hex_to_vec(f.geometry.as_ref().unwrap())).unwrap(); (g.parts[0][0][0].x, g.parts[0][0][0].y) }).collect();
+    assert_eq!(pos[1], (600000.5, 1000.25), "typed in UTM, comes back bit for bit in UTM");
+    assert!((pos[0].0 - 500000.0).abs() < 1e-6 && pos[0].1.abs() < 1e-6, "{:?}", pos[0]);
+    assert!((pos[2].0 - 500000.0).abs() < 1e-6, "{:?}", pos[2]);
+    let geo = e.edit_features_in(&l.id, "EPSG:4326", [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+    let g = parse_wkb(&hex_to_vec(geo.features[2].geometry.as_ref().unwrap())).unwrap();
+    assert_eq!((g.parts[0][0][0].x, g.parts[0][0][0].y), (-99.0, 0.0));
+    // Moving a feature on one map and then reading it back on another keeps the untouched ones exact.
+    let f = e.edit_features_in(&l.id, "EPSG:3857", [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+    let mut g = parse_wkb(&hex_to_vec(f.features[0].geometry.as_ref().unwrap())).unwrap();
+    g.parts[0][0][0].x += 100.0;
+    e.edit_apply(&l.id, "EPSG:3857", &[EditOp { op: "update".into(), fid: Some(f.features[0].fid), geometry: Some(bytes_to_hex(&write_wkb(&g))), ..Default::default() }]).unwrap();
+    e.edit_save(&l.id).unwrap();
+    let t = e.layer(&l.id).unwrap().table;
+    assert_ne!(q::<f64>(&e, &format!("SELECT ST_X(geom) FROM \"{t}\" WHERE __fid = 1")), 500000.0, "the moved one moved");
+    assert_eq!(q::<f64>(&e, &format!("SELECT ST_Y(geom) FROM \"{t}\" WHERE __fid = 2")), 1000.25, "the one not touched kept its stored coordinates");
+
+    // A resumed session (here: begun on one CRS, reopened under another) works in the CRS of each call.
+    let project = tempfile::tempdir().unwrap();
+    e.save_project(project.path(), "{}").unwrap();
+    e.open_project(project.path()).unwrap();
+    e.edit_begin(&l.id, "EPSG:3857", None).unwrap();
+    e.edit_apply(&l.id, "EPSG:3857", &[op("insert", None, Some(&format!("POINT({x} 111325.14)")), None)]).unwrap();
+    drop(e);
+    let e2 = Engine::new().unwrap();
+    e2.open_project(project.path()).unwrap();
+    e2.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    let f = e2.edit_features_in(&l.id, "EPSG:4326", [-180.0, -80.0, 180.0, 80.0], 10).unwrap();
+    let ins = f.features.iter().find(|x| x.pending.as_deref() == Some("inserted")).unwrap();
+    let g = parse_wkb(&hex_to_vec(ins.geometry.as_ref().unwrap())).unwrap();
+    assert!((g.parts[0][0][0].x + 99.0).abs() < 1e-9 && (g.parts[0][0][0].y - 1.0).abs() < 1e-3, "{:?}", g.parts[0][0][0]);
+    e2.edit_discard(&l.id).unwrap();
+}
+
+#[test]
+fn a_rejected_batch_leaves_redo_the_log_and_the_id_counter_alone() {
+    let (e, _g) = engine();
+    let l = points(&e, 3);
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(1), None, None)]).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(2), None, None)]).unwrap();
+    e.edit_undo(&l.id).unwrap();
+    assert!(e.edit_pending(&l.id).unwrap().can_redo);
+    // The second op of the batch is bad; the first (an insert that would take an id) must leave no trace.
+    let bad = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None), op("update", Some(99), Some("POINT(-99 31)"), None)]);
+    assert!(bad.is_err());
+    let s = e.edit_pending(&l.id).unwrap();
+    assert!(s.can_redo, "redo is still there after a rejected batch");
+    assert_eq!((s.added, s.deleted, s.steps), (0, 1, 1));
+    assert_eq!(e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap().fids, [4], "no id was spent by the rejected batch");
+    e.edit_discard(&l.id).unwrap();
+}
+
+#[test]
+fn saving_nothing_keeps_the_version_and_an_insert_then_delete_counts_as_nothing() {
+    let (e, _g) = engine();
+    let l = points(&e, 3);
+    assert_eq!(run_rows(&e, &l.id).0, Some(3));
+    let v0 = e.layer(&l.id).unwrap().version;
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    let r = e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
+    let s = e.edit_apply(&l.id, "EPSG:4326", &[op("delete", Some(r.fids[0]), None, None)]).unwrap().status;
+    assert_eq!((s.added, s.changed, s.deleted), (0, 0, 0), "an insert that was deleted again is nothing");
+    let saved = e.edit_save(&l.id).unwrap();
+    assert_eq!((saved.added, saved.changed, saved.deleted), (0, 0, 0));
+    assert_eq!(saved.layer.version, v0, "no new version, no index rebuild");
+    assert!(!e.layer(&l.id).unwrap().editing);
+    assert!(e.edit_history(&l.id).unwrap().is_empty(), "nothing to record");
+    assert!(matches!(run_rows(&e, &l.id).1, Status::Cached), "the node tree was not invalidated");
+    // An empty session, and a nothing-update, are the same.
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    assert_eq!(e.edit_save(&l.id).unwrap().layer.version, v0);
+    assert!(e.edit_save(&l.id).is_err(), "no session left to save");
+}
+
+#[test]
+fn undo_after_save_restores_features_ids_and_overviews_as_a_new_version_and_refuses_when_the_layer_moved_on() {
+    let (e, _g) = engine();
+    let l = points(&e, 50_100);
+    let t = l.table.clone();
+    let snap = |e: &Engine| -> (i64, i64, Vec<i64>) {
+        let ov: Vec<i64> = l.overviews.iter().map(|z| q::<i64>(e, &format!("SELECT count(*) FROM \"{t}__ov{z}\""))).collect();
+        (q::<i64>(e, &format!("SELECT count(*) FROM \"{t}\"")), q::<i64>(e, &format!("SELECT sum(__fid) FROM \"{t}\"")), ov)
+    };
+    let before = snap(&e);
+    let x_before = q::<f64>(&e, &format!("SELECT ST_X(geom) FROM \"{t}\" WHERE __fid = 1"));
+    let kind_before = q::<String>(&e, &format!("SELECT kind FROM \"{t}\" WHERE __fid = 3"));
+    assert!(!e.edit_pending(&l.id).unwrap().can_undo_save);
+    assert!(e.edit_undo_save(&l.id).unwrap_err().to_string().contains("no saved edit"));
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("update", Some(1), Some("POINT(-99.9 30.1)"), Some(json!({"kind": "z"}))), op("delete", Some(3), None, None), op("insert", None, Some("POINT(-99 31)"), None)]).unwrap();
+    let v0 = e.layer(&l.id).unwrap().version;
+    let saved = e.edit_save(&l.id).unwrap();
+    assert!(e.edit_pending(&l.id).unwrap().can_undo_save);
+    let back = e.edit_undo_save(&l.id).unwrap();
+    assert_eq!(back.version, saved.layer.version + 1, "undoing is a new version, not a rewind");
+    assert!(back.version > v0);
+    assert_eq!(snap(&e), before, "same rows, ids and overview contents");
+    assert_eq!(q::<f64>(&e, &format!("SELECT ST_X(geom) FROM \"{t}\" WHERE __fid = 1")), x_before);
+    assert_eq!(q::<String>(&e, &format!("SELECT kind FROM \"{t}\" WHERE __fid = 3")), kind_before, "a deleted feature is back with its id and values");
+    assert_eq!(q::<i64>(&e, &format!("SELECT count(*) FROM \"{t}\" WHERE __fid = 50101")), 0, "an added one is gone");
+    assert!(!e.edit_pending(&l.id).unwrap().can_undo_save, "only the most recent Save, once");
+    // The id of the removed feature is not handed out again.
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    assert_eq!(e.edit_apply(&l.id, "EPSG:4326", &[op("insert", None, Some("POINT(-99 31)"), None)]).unwrap().fids, [50102]);
+    e.edit_save(&l.id).unwrap();
+    // Refused when the layer changed after the Save.
+    e.update_cell(&l.id, 2, "kind", Some("later")).unwrap();
+    let err = e.edit_undo_save(&l.id).unwrap_err().to_string();
+    assert!(err.contains("has changed since that Save"), "{err}");
+    // And while a session is open.
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    assert!(e.edit_undo_save(&l.id).unwrap_err().to_string().contains("is being edited"));
+    e.edit_discard(&l.id).unwrap();
+}
+
+/// How long Save takes for one moved vertex on a million points with overviews. Run by hand:
+/// `cargo test -p engine --test edit save_timing -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn save_timing_one_vertex_on_a_million_points() {
+    let (e, _g) = engine();
+    let t0 = std::time::Instant::now();
+    let l = points(&e, 1_000_000);
+    println!("import {:?}, overviews {:?}", t0.elapsed(), l.overviews);
+    e.edit_begin(&l.id, "EPSG:4326", None).unwrap();
+    e.edit_apply(&l.id, "EPSG:4326", &[op("update", Some(500_000), Some("POINT(-99.9 30.1)"), None)]).unwrap();
+    let t1 = std::time::Instant::now();
+    e.edit_save(&l.id).unwrap();
+    println!("SAVE one vertex: {:?}", t1.elapsed());
+    let t2 = std::time::Instant::now();
+    e.edit_undo_save(&l.id).unwrap();
+    println!("UNDO save: {:?}", t2.elapsed());
 }

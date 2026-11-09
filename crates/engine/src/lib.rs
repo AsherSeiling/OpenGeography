@@ -171,6 +171,7 @@ impl Engine {
              CREATE TABLE IF NOT EXISTS __label_sets (layer VARCHAR, script VARCHAR, version BIGINT, n BIGINT);
              CREATE TABLE IF NOT EXISTS __edit_sessions (layer VARCHAR PRIMARY KEY, map_crs VARCHAR, z_value DOUBLE, started TIMESTAMP, next_fid BIGINT, base_version BIGINT);
              CREATE TABLE IF NOT EXISTS __edit_fids (layer VARCHAR PRIMARY KEY, max_fid BIGINT);
+             CREATE TABLE IF NOT EXISTS __edit_undo_meta (layer VARCHAR PRIMARY KEY, version BIGINT, inserted VARCHAR, restored VARCHAR);
              CREATE TABLE IF NOT EXISTS __edit_log (layer VARCHAR, saved_at TIMESTAMP, added BIGINT, changed BIGINT, deleted BIGINT);",
         )?;
         sources::init(&conn)?;

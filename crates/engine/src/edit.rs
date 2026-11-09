@@ -305,6 +305,8 @@ pub struct EditStatus {
     pub can_redo: bool,
     /// Pending shapes that are not valid (self-crossing polygons and the like).
     pub invalid: Vec<i64>,
+    /// The most recent Save can be undone (the layer has not changed since).
+    pub can_undo_save: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -359,6 +361,16 @@ struct Session {
     map_crs: String,
     z_value: Option<f64>,
     next_fid: i64,
+}
+
+fn undo_table(layer: &str) -> String {
+    format!("__edits_undo_{layer}")
+}
+
+/// Has the layer stayed exactly as its latest Save left it (so that Save can be undone)?
+fn can_undo_save(conn: &Connection, info: &LayerInfo) -> bool {
+    !info.editing
+        && conn.query_row("SELECT version FROM __edit_undo_meta WHERE layer = ?", [&info.id], |r| r.get::<_, i64>(0)).map(|v| v == info.version as i64).unwrap_or(false)
 }
 
 fn log_table(layer: &str) -> String {
@@ -436,7 +448,8 @@ fn pending(conn: &Connection, layer: &str) -> Result<BTreeMap<i64, Pending>> {
         }
     }
     // An insert that was deleted again leaves nothing behind.
-    m.retain(|_, p| !(p.inserted && p.deleted));
+    // An insert that was deleted again, and an update that changes nothing, leave nothing behind.
+    m.retain(|_, p| !(p.inserted && p.deleted) && (p.inserted || p.deleted || p.wkb.is_some() || !p.attrs.is_empty()));
     Ok(m)
 }
 
@@ -508,7 +521,7 @@ impl Engine {
 
     fn edit_status(&self, conn: &Connection, info: &LayerInfo) -> Result<EditStatus> {
         let Some(s) = session(conn, &info.id)? else {
-            return Ok(EditStatus { layer: info.id.clone(), ..Default::default() });
+            return Ok(EditStatus { layer: info.id.clone(), can_undo_save: can_undo_save(conn, info), ..Default::default() });
         };
         let t = ident(&log_table(&info.id));
         let p = pending(conn, &info.id)?;
@@ -544,23 +557,25 @@ impl Engine {
             can_undo: steps > 0,
             can_redo: undone > 0,
             invalid,
+            can_undo_save: false,
         })
     }
 
     /// Features in and near `extent` ([west, south, east, north] in lon/lat), as the session sees them: saved features with the pending
     /// edits applied, shapes in the map CRS. At most `limit` saved features are loaded; pending ones are always included.
-    pub fn edit_features_in(&self, layer_id: &str, extent: [f64; 4], limit: usize) -> Result<EditFeatures> {
+    pub fn edit_features_in(&self, layer_id: &str, map_crs: &str, extent: [f64; 4], limit: usize) -> Result<EditFeatures> {
         let info = self.layer(layer_id)?;
         let lc = info.crs.clone().ok_or_else(|| anyhow!("\"{}\" has no coordinate system.", info.name))?;
         self.with_conn(|conn| {
-            let s = session(conn, layer_id)?.ok_or_else(|| anyhow!("\"{}\" is not being edited. Start editing first.", info.name))?;
+            session(conn, layer_id)?.ok_or_else(|| anyhow!("\"{}\" is not being edited. Start editing first.", info.name))?;
+            crs::validate(conn, map_crs)?;
             let pend = pending(conn, layer_id)?;
             let props = if info.fields.is_empty() {
                 "'{}'::JSON".to_string()
             } else {
                 format!("to_json({{{}}})", info.fields.iter().map(|f| format!("{}: {}", lit(&f.name), ident(&f.name))).collect::<Vec<_>>().join(", "))
             };
-            let to_map = if lc == s.map_crs { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, true)", lit(&lc), lit(&s.map_crs)) };
+            let to_map = if lc == map_crs { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, true)", lit(&lc), lit(map_crs)) };
             let [w, so, e, n] = extent;
             let (so, n) = (so.clamp(-85.0, 85.0), n.clamp(-85.0, 85.0));
             let q = format!(
@@ -603,7 +618,7 @@ impl Engine {
                     attributes.insert(k.clone(), v.clone());
                 }
                 let wkb = match &st.wkb {
-                    Some(w) => Some(transform_wkb(conn, w, &lc, &s.map_crs)?),
+                    Some(w) => Some(transform_wkb(conn, w, &lc, map_crs)?),
                     None => conn
                         .query_row(&format!("SELECT ST_AsWKB({to_map}) FROM {} WHERE __fid = {fid}", ident(&info.table)), [], |r| r.get::<_, Option<Vec<u8>>>(0))
                         .ok()
@@ -611,25 +626,22 @@ impl Engine {
                 };
                 features.push(EditFeature { fid: *fid, geometry: wkb.map(|b| bytes_to_hex(&b)), attributes, pending: Some(if st.inserted { "inserted" } else { "changed" }.into()) });
             }
-            Ok(EditFeatures { features, truncated, map_crs: s.map_crs })
+            Ok(EditFeatures { features, truncated, map_crs: map_crs.to_string() })
         })
     }
 
     /// One undo step: a batch of inserts, updates and deletes. Shapes arrive in the map CRS.
-    pub fn edit_apply(&self, layer_id: &str, ops: &[EditOp]) -> Result<ApplyResult> {
+    pub fn edit_apply(&self, layer_id: &str, map_crs: &str, ops: &[EditOp]) -> Result<ApplyResult> {
         let info = self.layer(layer_id)?;
         if ops.is_empty() {
             bail!("Nothing to apply.");
         }
         self.with_conn(|conn| {
             let s = session(conn, layer_id)?.ok_or_else(|| anyhow!("\"{}\" is not being edited. Start editing first.", info.name))?;
+            crs::validate(conn, map_crs)?;
             let lc = info.crs.clone().unwrap_or_default();
             let t = ident(&log_table(layer_id));
             let pend = pending(conn, layer_id)?;
-            // Steps undone and not redone are gone once a new edit is made.
-            conn.execute(&format!("DELETE FROM {t} WHERE undone"), [])?;
-            let step: i64 = conn.query_row(&format!("SELECT coalesce(max(step), 0) + 1 FROM {t}"), [], |r| r.get(0))?;
-            let mut seq: i64 = conn.query_row(&format!("SELECT coalesce(max(seq), 0) FROM {t}"), [], |r| r.get(0))?;
             let mut next_fid = s.next_fid;
             let mut fids = vec![];
             let mut invalid = vec![];
@@ -678,7 +690,7 @@ impl Engine {
                 let mut wkb: Option<Vec<u8>> = None;
                 if let Some(mw) = map_wkb {
                     let new_map = parse_wkb(&mw)?;
-                    let new_layer_bytes = transform_wkb(conn, &mw, &s.map_crs, &lc)?;
+                    let new_layer_bytes = transform_wkb(conn, &mw, map_crs, &lc)?;
                     let new_layer = parse_wkb(&new_layer_bytes)?;
                     let (orig_map, orig_layer) = if kind == "update" {
                         let base: Option<Vec<u8>> = match pend.get(&fid).and_then(|p| p.wkb.clone()) {
@@ -690,7 +702,7 @@ impl Engine {
                         };
                         match base {
                             Some(b) => {
-                                let om = parse_wkb(&transform_wkb(conn, &b, &lc, &s.map_crs)?)?;
+                                let om = parse_wkb(&transform_wkb(conn, &b, &lc, map_crs)?)?;
                                 (Some(om), Some(parse_wkb(&b)?))
                             }
                             None => (None, None),
@@ -725,12 +737,28 @@ impl Engine {
                 }
                 rows.push((kind.to_string(), fid, wkb, attrs_json));
             }
-            for (kind, fid, wkb, attrs) in rows {
-                seq += 1;
-                conn.execute(&format!("INSERT INTO {t} VALUES (?, ?, ?, ?, ?, ?, false)"), duckdb::params![seq, step, kind, fid, wkb, attrs])?;
+            // Everything was checked above. Now the writes, together: a failure leaves the log, the redo steps and the id counter as they were.
+            conn.execute_batch("BEGIN TRANSACTION")?;
+            let written = (|| -> Result<()> {
+                // Steps undone and not redone are gone once a new edit is made.
+                conn.execute(&format!("DELETE FROM {t} WHERE undone"), [])?;
+                let step: i64 = conn.query_row(&format!("SELECT coalesce(max(step), 0) + 1 FROM {t}"), [], |r| r.get(0))?;
+                let mut seq: i64 = conn.query_row(&format!("SELECT coalesce(max(seq), 0) FROM {t}"), [], |r| r.get(0))?;
+                for (kind, fid, wkb, attrs) in rows {
+                    seq += 1;
+                    conn.execute(&format!("INSERT INTO {t} VALUES (?, ?, ?, ?, ?, ?, false)"), duckdb::params![seq, step, kind, fid, wkb, attrs])?;
+                }
+                conn.execute("UPDATE __edit_sessions SET next_fid = ?, map_crs = ? WHERE layer = ?", duckdb::params![next_fid, map_crs, layer_id])?;
+                conn.execute("INSERT INTO __edit_fids VALUES (?, ?) ON CONFLICT (layer) DO UPDATE SET max_fid = excluded.max_fid", duckdb::params![layer_id, next_fid - 1])?;
+                Ok(())
+            })();
+            match written {
+                Ok(()) => conn.execute_batch("COMMIT")?,
+                Err(e) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    return Err(e);
+                }
             }
-            conn.execute("UPDATE __edit_sessions SET next_fid = ? WHERE layer = ?", duckdb::params![next_fid, layer_id])?;
-            conn.execute("INSERT INTO __edit_fids VALUES (?, ?) ON CONFLICT (layer) DO UPDATE SET max_fid = excluded.max_fid", duckdb::params![layer_id, next_fid - 1])?;
             self.drop_tiles(layer_id);
             Ok(ApplyResult { status: self.edit_status(conn, &info)?, fids, invalid })
         })
@@ -793,6 +821,15 @@ impl Engine {
     /// run again afterwards.
     pub fn edit_save(&self, layer_id: &str) -> Result<SaveResult> {
         let mut info = self.layer(layer_id)?;
+        // Nothing to save: close the session without touching the data. A new version would re-run every node tree that reads the layer.
+        let effective = self.with_conn(|conn| {
+            session(conn, layer_id)?.ok_or_else(|| anyhow!("\"{}\" is not being edited, so there is nothing to save.", info.name))?;
+            Ok(pending(conn, layer_id)?.len())
+        })?;
+        if effective == 0 {
+            let layer = self.edit_discard(layer_id)?;
+            return Ok(SaveResult { layer, added: 0, changed: 0, deleted: 0, invalid: 0, note: Some("There were no changes to save.".into()) });
+        }
         let task = Task::start(format!("Saving edits to {}", info.name)).cancellable();
         let out = self.with_conn(|conn| {
             let s = session(conn, layer_id)?.ok_or_else(|| anyhow!("\"{}\" is not being edited, so there is nothing to save.", info.name))?;
@@ -806,6 +843,26 @@ impl Engine {
                     conn.execute_batch(&format!("DROP INDEX IF EXISTS {}", ident(&format!("{t}_rtree"))))?;
                 }
                 let main = ident(&info.table);
+                // Before-images of the touched rows, for the most recent Save only (undone by `edit_undo_save`).
+                let touched: Vec<String> = pend.iter().filter(|(_, p)| !p.inserted).map(|(f, _)| f.to_string()).collect();
+                let new_ids: Vec<i64> = pend.iter().filter(|(_, p)| p.inserted).map(|(f, _)| *f).collect();
+                conn.execute_batch(&format!(
+                    "CREATE OR REPLACE TABLE {} AS SELECT * FROM {main} WHERE __fid IN ({})",
+                    ident(&undo_table(layer_id)),
+                    if touched.is_empty() { "NULL".to_string() } else { touched.join(", ") }
+                ))?;
+                for z in &info.overviews {
+                    conn.execute_batch(&format!(
+                        "CREATE OR REPLACE TABLE {} AS SELECT * FROM {} WHERE __fid IN ({})",
+                        ident(&format!("{}__ov{z}", undo_table(layer_id))),
+                        ident(&layers::overview_table(&info.table, *z)),
+                        if touched.is_empty() { "NULL".to_string() } else { touched.join(", ") }
+                    ))?;
+                }
+                conn.execute(
+                    "INSERT OR REPLACE INTO __edit_undo_meta VALUES (?, ?, ?, ?)",
+                    duckdb::params![layer_id, info.version as i64 + 1, serde_json::to_string(&new_ids)?, serde_json::to_string(&touched)?],
+                )?;
                 let (mut added, mut changed, mut deleted) = (0i64, 0i64, 0i64);
                 let mut rewrite: Vec<i64> = vec![];
                 let mut gone: Vec<i64> = vec![];
@@ -872,13 +929,7 @@ impl Engine {
                     conn.execute_batch(&format!("CREATE INDEX {} ON {} USING RTREE (__g)", ident(&format!("{t}_rtree")), ident(t)))?;
                 }
                 layers::refresh_meta(conn, &mut new)?;
-                new.native_extent = conn
-                    .query_row(
-                        &format!("SELECT min(ST_XMin(geom)), min(ST_YMin(geom)), max(ST_XMax(geom)), max(ST_YMax(geom)) FROM {main}"),
-                        [],
-                        |r| Ok(r.get::<_, Option<f64>>(0)?.map(|a| [a, r.get(1).unwrap_or(0.0), r.get(2).unwrap_or(0.0), r.get(3).unwrap_or(0.0)])),
-                    )
-                    .unwrap_or(None);
+                new.native_extent = native_extent(conn, &info.table);
                 let invalid: i64 = conn
                     .query_row(&format!("SELECT count(*) FROM {main} WHERE geom IS NOT NULL AND NOT ST_IsValid(geom) AND __fid IN (SELECT unnest([{}]::BIGINT[]))", if rewrite.is_empty() { "0".to_string() } else { rewrite.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(",") }), [], |r| r.get(0))
                     .unwrap_or(0);
@@ -928,6 +979,72 @@ impl Engine {
             note = Some(format!("{invalid} saved shape(s) are not valid (they cross themselves or are degenerate). They were kept as drawn."));
         }
         Ok(SaveResult { layer: info, added, changed, deleted, invalid, note })
+    }
+
+    /// Undo the most recent Save, as a new version: features it added are removed, features it changed or deleted come back as they
+    /// were with their ids, and the overview levels follow. Refused, with the reason, when the layer has changed since or is being edited.
+    pub fn edit_undo_save(&self, layer_id: &str) -> Result<LayerInfo> {
+        let info = self.layer(layer_id)?;
+        if info.editing {
+            bail!("\"{}\" is being edited. Save or discard those edits before undoing the last Save.", info.name);
+        }
+        let new = self.with_conn(|conn| {
+            let meta: Option<(i64, String, String)> = conn
+                .query_row("SELECT version, inserted, restored FROM __edit_undo_meta WHERE layer = ?", [layer_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .ok();
+            let Some((version, inserted, restored)) = meta else { bail!("There is no saved edit to undo on \"{}\".", info.name) };
+            if version != info.version as i64 {
+                bail!("\"{}\" has changed since that Save, so the Save can't be undone any more. Make the changes again by hand or undo them first.", info.name);
+            }
+            let inserted: Vec<i64> = serde_json::from_str(&inserted)?;
+            let restored: Vec<i64> = serde_json::from_str::<Vec<String>>(&restored)?.iter().filter_map(|x| x.parse().ok()).collect();
+            let all = crate::attrs::tables(&info);
+            let main = ident(&info.table);
+            conn.execute_batch("BEGIN TRANSACTION")?;
+            let res = (|| -> Result<LayerInfo> {
+                let mut new = info.clone();
+                for t in &all {
+                    conn.execute_batch(&format!("DROP INDEX IF EXISTS {}", ident(&format!("{t}_rtree"))))?;
+                }
+                let ids: Vec<String> = inserted.iter().chain(restored.iter()).map(|f| f.to_string()).collect();
+                for chunk in ids.chunks(500) {
+                    for t in &all {
+                        conn.execute_batch(&format!("DELETE FROM {} WHERE __fid IN ({})", ident(t), chunk.join(", ")))?;
+                    }
+                }
+                conn.execute_batch(&format!("INSERT INTO {main} BY NAME SELECT * FROM {}", ident(&undo_table(layer_id))))?;
+                // Overview levels get back exactly the rows they had (their thinned or simplified form), from the before-images.
+                for z in &info.overviews {
+                    let ov = ident(&layers::overview_table(&info.table, *z));
+                    let img = ident(&format!("{}__ov{z}", undo_table(layer_id)));
+                    conn.execute_batch(&format!("INSERT INTO {ov} BY NAME SELECT * FROM {img}"))?;
+                    conn.execute_batch(&format!("DROP TABLE IF EXISTS {img}"))?;
+                }
+                for t in &all {
+                    conn.execute_batch(&format!("CREATE INDEX {} ON {} USING RTREE (__g)", ident(&format!("{t}_rtree")), ident(t)))?;
+                }
+                layers::refresh_meta(conn, &mut new)?;
+                new.native_extent = native_extent(conn, &info.table);
+                new.version += 1;
+                conn.execute("INSERT OR REPLACE INTO __layers VALUES (?, ?)", duckdb::params![new.id, serde_json::to_string(&new)?])?;
+                conn.execute_batch(&format!("DROP TABLE IF EXISTS {}", ident(&undo_table(layer_id))))?;
+                conn.execute("DELETE FROM __edit_undo_meta WHERE layer = ?", [layer_id])?;
+                Ok(new)
+            })();
+            match res {
+                Ok(n) => {
+                    conn.execute_batch("COMMIT")?;
+                    Ok(n)
+                }
+                Err(e) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    Err(e)
+                }
+            }
+        })?;
+        self.with_conn(|conn| self.save_meta(conn, &new))?;
+        self.drop_tiles(layer_id);
+        Ok(new)
     }
 
     /// What Save has recorded for a layer, newest first.
@@ -1003,7 +1120,16 @@ impl Engine {
     }
 }
 
-/// The login name of whoever runs the program, as the author of what they make; "the user" when it can't be told.
+/// The author of what the user makes. The operating system's login name is never read: citations travel in shared projects.
 fn user_name() -> String {
-    ["USER", "USERNAME"].iter().filter_map(|k| std::env::var(k).ok()).find(|v| !v.trim().is_empty()).unwrap_or_else(|| "the user".into())
+    "the user".into()
+}
+
+fn native_extent(conn: &Connection, table: &str) -> Option<[f64; 4]> {
+    conn.query_row(
+        &format!("SELECT min(ST_XMin(geom)), min(ST_YMin(geom)), max(ST_XMax(geom)), max(ST_YMax(geom)) FROM {}", ident(table)),
+        [],
+        |r| Ok(r.get::<_, Option<f64>>(0)?.map(|a| [a, r.get(1).unwrap_or(0.0), r.get(2).unwrap_or(0.0), r.get(3).unwrap_or(0.0)])),
+    )
+    .unwrap_or(None)
 }
