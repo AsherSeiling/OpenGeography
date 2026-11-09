@@ -1,4 +1,4 @@
-// Go To Coordinates (RB4). NOT YET RUN: written while another e2e run was in progress (2026-11-09); the lead runs it before merging.
+// Go To Coordinates (RB4).
 import { test, expect, gis, ribbon } from "./fixtures";
 
 const UTM14 = { id: "EPSG:32614", name: "WGS 84 / UTM zone 14N" };
@@ -21,8 +21,8 @@ test("RB4 typing a position on a UTM map and on a Web Mercator map centres it an
   const panel = app.getByTestId("goto-panel");
   await expect(panel).toBeVisible();
   await panel.getByLabel("Format of the position").selectOption("latlon");
-  await panel.getByLabel("Latitude").fill("35");
-  await panel.getByLabel("Longitude").fill("99 00 00 W");
+  await panel.getByLabel("Latitude", { exact: true }).fill("35");
+  await panel.getByLabel("Longitude", { exact: true }).fill("99 00 00 W");
   // How it was read is shown before going, with the other formats and the datum.
   await expect(app.getByTestId("goto-reading")).toContainText("latitude 35.000000° N, longitude 99.000000° W on WGS 84");
   await expect(panel).toContainText("MGRS (WGS 84)");
@@ -50,8 +50,8 @@ test("RB4 typing a position on a UTM map and on a Web Mercator map centres it an
   await expect(markers(app)).toHaveCount(0);
 
   // Web Mercator: the same panel, another place.
-  await panel.getByLabel("Latitude").fill("34.05");
-  await panel.getByLabel("Longitude").fill("-118.25");
+  await panel.getByLabel("Latitude", { exact: true }).fill("34.05");
+  await panel.getByLabel("Longitude", { exact: true }).fill("-118.25");
   await expect(app.getByTestId("goto-reading")).toContainText("latitude 34.050000° N");
   await app.keyboard.press("Enter");
   await expect(markers(app)).toHaveCount(1);
@@ -69,7 +69,7 @@ test("RB4 typing a position on a UTM map and on a Web Mercator map centres it an
   expect(await gis(app, (g) => g.useApp.getState().dirty)).toBe(dirtyBefore);
 
   // Escape closes the panel.
-  await panel.getByLabel("Latitude").focus();
+  await panel.getByLabel("Latitude", { exact: true }).focus();
   await app.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
 });
@@ -80,24 +80,24 @@ test("RB4 a bad or swapped input shows a sentence and goes nowhere; pasting one 
   const panel = app.getByTestId("goto-panel");
   await panel.getByLabel("Format of the position").selectOption("latlon");
   // Typing a pair with a comma into one box splits it as latitude then longitude.
-  await panel.getByLabel("Latitude").fill("34.05, -118.25");
-  await expect(panel.getByLabel("Latitude")).toHaveValue("34.05");
-  await expect(panel.getByLabel("Longitude")).toHaveValue("-118.25");
+  await panel.getByLabel("Latitude", { exact: true }).fill("34.05, -118.25");
+  await expect(panel.getByLabel("Latitude", { exact: true })).toHaveValue("34.05");
+  await expect(panel.getByLabel("Longitude", { exact: true })).toHaveValue("-118.25");
   // Swapped values are refused, and never swapped for the user.
-  await panel.getByLabel("Latitude").fill("-118.25");
-  await panel.getByLabel("Longitude").fill("34.05");
+  await panel.getByLabel("Latitude", { exact: true }).fill("-118.25");
+  await panel.getByLabel("Longitude", { exact: true }).fill("34.05");
   await expect(app.getByTestId("goto-error")).toContainText("look swapped");
   await expect(panel.getByRole("button", { name: "Go", exact: true })).toBeDisabled();
   await app.keyboard.press("Enter");
   await expect(markers(app)).toHaveCount(0);
-  await expect(panel.getByLabel("Latitude")).toHaveValue("-118.25");
+  await expect(panel.getByLabel("Latitude", { exact: true })).toHaveValue("-118.25");
   // Beyond 90 degrees.
-  await panel.getByLabel("Latitude").fill("95");
-  await panel.getByLabel("Longitude").fill("200");
+  await panel.getByLabel("Latitude", { exact: true }).fill("95");
+  await panel.getByLabel("Longitude", { exact: true }).fill("200");
   await expect(app.getByTestId("goto-error")).toContainText("beyond 90");
   // A place Web Mercator cannot draw: a sentence, no jump.
-  await panel.getByLabel("Latitude").fill("89");
-  await panel.getByLabel("Longitude").fill("10");
+  await panel.getByLabel("Latitude", { exact: true }).fill("89");
+  await panel.getByLabel("Longitude", { exact: true }).fill("10");
   await expect(app.getByTestId("goto-map-message")).toContainText("can only draw");
   await expect(panel.getByRole("button", { name: "Go", exact: true })).toBeDisabled();
   await panel.getByRole("button", { name: "Close", exact: true }).click();

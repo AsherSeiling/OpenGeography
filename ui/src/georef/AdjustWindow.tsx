@@ -183,18 +183,18 @@ function Body() {
             <Button onClick={hide} disabled={busy}>Close</Button>
           </DialogActions>
         </DialogBody>
+        <Dialog open={crsOpen} onOpenChange={(_, d) => !d.open && setCrsOpen(false)}>
+          <DialogSurface className="gr-crs-surface">
+            <DialogBody>
+              <DialogTitle>Coordinate system of the To points</DialogTitle>
+              <DialogContent>
+                <CrsPicker value={cs.targetCrs || null} onChange={(id) => { edit((s) => ({ ...s, targetCrs: id })); setCrsOpen(false); }} />
+              </DialogContent>
+              <DialogActions><Button onClick={() => setCrsOpen(false)}>Cancel</Button></DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
       </DialogSurface>
-      <Dialog open={crsOpen} onOpenChange={(_, d) => !d.open && setCrsOpen(false)}>
-        <DialogSurface className="gr-crs-surface">
-          <DialogBody>
-            <DialogTitle>Coordinate system of the To points</DialogTitle>
-            <DialogContent>
-              <CrsPicker value={cs.targetCrs || null} onChange={(id) => { edit((s) => ({ ...s, targetCrs: id })); setCrsOpen(false); }} />
-            </DialogContent>
-            <DialogActions><Button onClick={() => setCrsOpen(false)}>Cancel</Button></DialogActions>
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
     </Dialog>
   );
 }
