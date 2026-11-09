@@ -515,6 +515,58 @@ pub async fn add_row(engine: Eng<'_>, id: String) -> Res<AddRowResult> {
     .await
 }
 
+// ---- shape editing (SHAPE_EDITING_PLAN E1); the same commands are in crates/devserver ----
+
+#[tauri::command]
+pub async fn edit_begin(engine: Eng<'_>, layer: String, map_crs: String, z_value: Option<f64>) -> Res<engine::edit::EditStatus> {
+    blocking(&engine, move |e| e.edit_begin(&layer, &map_crs, z_value)).await
+}
+
+#[tauri::command]
+pub async fn edit_apply(engine: Eng<'_>, layer: String, ops: Vec<engine::edit::EditOp>) -> Res<engine::edit::ApplyResult> {
+    blocking(&engine, move |e| e.edit_apply(&layer, &ops)).await
+}
+
+#[tauri::command]
+pub async fn edit_undo(engine: Eng<'_>, layer: String) -> Res<engine::edit::EditStatus> {
+    blocking(&engine, move |e| e.edit_undo(&layer)).await
+}
+
+#[tauri::command]
+pub async fn edit_redo(engine: Eng<'_>, layer: String) -> Res<engine::edit::EditStatus> {
+    blocking(&engine, move |e| e.edit_redo(&layer)).await
+}
+
+#[tauri::command]
+pub async fn edit_save(engine: Eng<'_>, layer: String) -> Res<engine::edit::SaveResult> {
+    blocking(&engine, move |e| e.edit_save(&layer)).await
+}
+
+#[tauri::command]
+pub async fn edit_discard(engine: Eng<'_>, layer: String) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.edit_discard(&layer)).await
+}
+
+#[tauri::command]
+pub async fn edit_pending(engine: Eng<'_>, layer: String) -> Res<engine::edit::EditStatus> {
+    blocking(&engine, move |e| e.edit_pending(&layer)).await
+}
+
+#[tauri::command]
+pub async fn edit_features_in(engine: Eng<'_>, layer: String, extent: [f64; 4], limit: Option<usize>) -> Res<engine::edit::EditFeatures> {
+    blocking(&engine, move |e| e.edit_features_in(&layer, extent, limit.unwrap_or(5000))).await
+}
+
+#[tauri::command]
+pub async fn edit_history(engine: Eng<'_>, layer: String) -> Res<Vec<engine::edit::EditLogRow>> {
+    blocking(&engine, move |e| e.edit_history(&layer)).await
+}
+
+#[tauri::command]
+pub async fn create_layer(engine: Eng<'_>, name: String, geom_type: String, crs: String, fields: Vec<(String, String)>) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.create_layer(&name, &geom_type, &crs, &fields)).await
+}
+
 #[tauri::command]
 pub async fn rows_by_fid(engine: Eng<'_>, id: String, fids: Vec<i64>) -> Res<Vec<engine::attrs::RowData>> {
     blocking(&engine, move |e| e.rows_by_fid(&id, &fids)).await
