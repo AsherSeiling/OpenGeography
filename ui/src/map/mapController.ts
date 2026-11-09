@@ -5,11 +5,13 @@
 // Every function takes an optional map id and acts on the ACTIVE map when it is left out, so the status bar, the scale box, the
 // download dialogs ("current view") and the layout "frame from map view" follow whichever map the user is working in.
 import type OlMap from "ol/Map";
+import Overlay from "ol/Overlay";
 import View from "ol/View";
 import type { Projection } from "ol/proj";
 import { api, type CrsDisplayInfo, type Extent } from "../ipc/api";
 import { useApp } from "../store/store";
 import { mapOf } from "../store/maps";
+import { useGoTo } from "../goto/gotoStore";
 import { baseCrsId, displayCrsId, geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
 
 export interface ActiveCrs {
@@ -24,6 +26,8 @@ interface Ctl {
   pending: (() => void) | null;
   cache: ViewCache | null;
   cacheSeq: number;
+  /** The Go To Coordinates marker, drawn in this map's CRS (so it is removed when the CRS changes). */
+  marker: Overlay | null;
 }
 
 const ctls = new Map<string, Ctl>();
@@ -31,7 +35,7 @@ function ctl(mapId?: string): Ctl {
   const id = mapId ?? useApp.getState().activeMapId;
   let c = ctls.get(id);
   if (!c) {
-    c = { map: null, active: null, pending: null, cache: null, cacheSeq: 0 };
+    c = { map: null, active: null, pending: null, cache: null, cacheSeq: 0, marker: null };
     ctls.set(id, c);
   }
   return c;
@@ -64,6 +68,7 @@ export function getActiveCrs(mapId?: string): ActiveCrs | null {
 export function setActiveCrs(c: ActiveCrs, mapId?: string) {
   const k = ctl(mapId);
   k.active = c;
+  clearMarker(mapId);
   const p = k.pending;
   k.pending = null;
   p?.();
@@ -208,6 +213,63 @@ export function zoomToBookmark(resolve: (mapCrs: string) => Promise<[number, num
         .catch(fail);
     }, mapId);
   });
+}
+
+/**
+ * Centre the map on a point in the map's CRS, keeping the current scale unless `scale` (the `1:N` denominator) is given. Waits for
+ * the map to be drawn in its CRS. Does not change the project.
+ */
+export function centerOn(point: [number, number], scale?: number, mapId?: string): Promise<void> {
+  return new Promise((done, fail) => {
+    whenCrsReady(() => {
+      const { map, active } = ctl(mapId);
+      if (!map || !active) return done();
+      const view = map.getView();
+      const move = (resolution?: number) => {
+        view.animate({ center: point, ...(resolution ? { resolution } : {}), duration: 400 }, () => {
+          void refreshViewCache(mapId);
+        });
+        done();
+      };
+      if (scale && Number.isFinite(scale) && scale > 0) {
+        scaleFactorAt(active, point[0], point[1])
+          .then((k) => move(resolutionForScale(scale, active.info.unitM, k)))
+          .catch(fail);
+      } else move();
+    }, mapId);
+  });
+}
+
+/** Drop (or move) the temporary Go To Coordinates marker at a point in the map's CRS. A map has one. Nothing is saved with the project. */
+export function showMarker(point: [number, number], label: string, mapId?: string) {
+  const k = ctl(mapId);
+  if (!k.map) return;
+  clearMarker(mapId);
+  const el = document.createElement("div");
+  el.className = "goto-marker";
+  el.dataset.testid = "goto-marker";
+  el.title = label;
+  el.innerHTML = '<span class="goto-ring"></span><span class="goto-dot"></span>';
+  k.marker = new Overlay({ element: el, position: point, positioning: "center-center", stopEvent: false });
+  k.map.addOverlay(k.marker);
+}
+
+/** Remove the Go To Coordinates marker of a map. */
+export function clearMarker(mapId?: string) {
+  const k = ctl(mapId);
+  if (k.marker) {
+    k.map?.removeOverlay(k.marker);
+    k.marker = null;
+    useGoTo.getState().setMarker(null);
+  }
+}
+
+/** Where the marker is drawn now, in map pixels from the top left (for tests), or null. */
+export function markerPixel(mapId?: string): [number, number] | null {
+  const k = ctl(mapId);
+  const pos = k.marker?.getPosition();
+  const px = pos && k.map ? k.map.getPixelFromCoordinate(pos) : null;
+  return px ? [px[0], px[1]] : null;
 }
 
 /** Set the `1:N` scale about the view centre (engine k). */

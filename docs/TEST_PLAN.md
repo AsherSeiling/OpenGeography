@@ -1237,3 +1237,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T6-3 | Natural neighbour on a plane z = 2x + 3y + 1 | reproduced within 0.01 inside the hull; NoData outside; values within data range on a bumpy surface; degrees and collinear points refused | auto: same file |
 | T6-4 | TIN with breaklines: line at height 7 through a spike of 100; line without height; crossing lines | cells on the line equal 7; reported and skipped; crossing counted | auto: same file |
 | T6-5 | Supervised classification, Random Forest and k-NN: hold-out accuracy, confusion matrix, repeatability with a seed, polygon training areas, one class, single-sample class | accuracy and matrix in the message and raster metadata; same seed same map; 320 samples; readable refusals | auto: same file |
+
+## RB4. Go To Coordinates (`docs/RIBBON_REORGANISATION_PLAN.md`)
+| # | Case | Expected | Check |
+|---|---|---|---|
+| RB4-1 | Latitude/longitude in all four hemispheres (decimal, and degrees minutes seconds with symbols, spaces or letters) | MGRS equals the `mgrs` package values; round trip through USNG and UTM within a metre | auto: `crates/engine/tests/location.rs` |
+| RB4-2 | UTM north and south, zone 15 known reference, polar USNG/MGRS (UPS) | positions within 2 m; UTM zone, hemisphere, easting and northing validated with a sentence each; NAD 83 UTM outside zones 1-23 N refused | auto: same file |
+| RB4-3 | Swapped values (-118.25, 34.05), latitude over 90, longitude over 180 | refused; the swapped case says the values look swapped and that nothing was changed; never swapped silently | auto: same file |
+| RB4-4 | NAD 83 input | moved to WGS 84 through an explicit PROJ transform (equals `transform_point` from EPSG:4269); the reading says so | auto: same file |
+| RB4-5 | Map CRS: Web Mercator, UTM, x/y in the map CRS, x/y in another CRS | position in the map CRS equals the engine transform; input already in the map CRS keeps its own numbers | auto: same file |
+| RB4-6 | A place the map CRS can't show (UTM 15 map at 100 E, Web Mercator at 89 N); a map with no CRS | a readable sentence, no map position, other formats still given | auto: same file |
+| RB4-7 | Pasting "34.05, -118.25", "34.05N 118.25W", "118.25W 34.05N", DMS with letters; ambiguous or three-part strings | latitude then longitude; letters override the order; ambiguity reported, not guessed | auto: `ui/src/goto/split.test.ts` |
+| RB4-8 | UTM map and Web Mercator map: type a position, Enter | view centred on the place, marker on the centre pixel, no layer, project not marked changed, marker removed on a CRS change; Clear removes it; Esc closes the panel; swapped/out-of-range/unshowable input shows its sentence and Go stays disabled | auto: `e2e/goto-coordinates.spec.ts` (not yet run) |

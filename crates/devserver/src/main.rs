@@ -209,6 +209,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "edit_rectangle" => json!(e.edit_rectangle(de::<[f64; 2]>(a, "cornerA")?, de::<[f64; 2]>(a, "cornerB")?)?),
         "edit_destination" => json!(e.edit_destination(&s(a, "mapCrs")?, de::<[f64; 2]>(a, "from")?, a["distanceM"].as_f64().unwrap_or(f64::NAN), a["bearingDeg"].as_f64().unwrap_or(f64::NAN))?),
         "edit_parse_coords" => json!(e.edit_parse_coords(&s(a, "layer")?, &s(a, "mapCrs")?, &s(a, "kind")?, &s(a, "text")?)?),
+        "parse_location" => json!(e.parse_location(a["mapCrs"].as_str(), &de::<engine::location::LocationRequest>(a, "request")?)?),
         "edit_paste" => json!(e.edit_paste(&s(a, "fromLayer")?, &de::<Vec<i64>>(a, "fids")?, &s(a, "toLayer")?)?),
         "create_layer" => json!(e.create_layer(&s(a, "name")?, &s(a, "geomType")?, &s(a, "crs")?, &de::<Vec<(String, String)>>(a, "fields")?)?),
         "rows_by_fid" => json!(e.rows_by_fid(&s(a, "id")?, &de::<Vec<i64>>(a, "fids")?)?),

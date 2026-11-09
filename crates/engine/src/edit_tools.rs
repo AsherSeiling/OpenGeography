@@ -318,13 +318,7 @@ impl Engine {
             let mut out = vec![];
             for (n, line) in text.lines().enumerate().filter(|(_, l)| !l.trim().is_empty()) {
                 let at = |e: anyhow::Error| anyhow!("Line {}: {e}", n + 1);
-                let nums = || -> Result<(f64, f64)> {
-                    let p: Vec<&str> = line.split(|c: char| c == ',' || c == ';' || c.is_whitespace()).filter(|s| !s.is_empty()).collect();
-                    match p.as_slice() {
-                        [a, b] => Ok((a.parse::<f64>().map_err(|_| anyhow!("'{a}' is not a number"))?, b.parse::<f64>().map_err(|_| anyhow!("'{b}' is not a number"))?)),
-                        _ => bail!("expected two numbers (for example 500000, 4000000), found '{}'", line.trim()),
-                    }
-                };
+                let nums = || crate::location::two_numbers(line);
                 let (x, y) = match kind {
                     "xy" => {
                         let (a, b) = nums().map_err(at)?;
@@ -339,13 +333,7 @@ impl Engine {
                         crs::transform_point(conn, lon, lat, crs::WGS84, map_crs).map_err(at)?
                     }
                     "usng" => {
-                        let r = usng::parse(line.trim()).map_err(at)?;
-                        let north = if r.zone == 0 { r.band == 'Y' || r.band == 'Z' } else { r.band >= 'N' };
-                        let code = usng::utm_crs(r.zone, north, usng::Datum::Wgs84);
-                        let to_ll = |e: f64, n: f64, _: bool| crs::transform_point(conn, e, n, &code, crs::WGS84);
-                        let (e, n, _) = if r.zone == 0 { usng::to_ups(&r).map_err(at)? } else { usng::to_utm(&r, &to_ll).map_err(at)? };
-                        let half = r.cell_m() / 2.0;
-                        let (lon, lat) = to_ll(e + half, n + half, north).map_err(at)?;
+                        let (lon, lat, _, _) = crate::location::usng_to_lonlat(conn, line, usng::Datum::Wgs84).map_err(at)?;
                         crs::transform_point(conn, lon, lat, crs::WGS84, map_crs).map_err(at)?
                     }
                     other => bail!("Unknown coordinate kind '{other}' (use xy, lonlat or usng)."),

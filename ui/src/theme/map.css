@@ -80,4 +80,22 @@
 .swipe-divider::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6px; width: 2px; background: var(--overlay-text); box-shadow: 0 0 0 1px var(--ink); }
 .swipe-grip { position: relative; width: 26px; height: 26px; border-radius: 50%; background: var(--overlay-bg); color: var(--overlay-text); border: 1px solid var(--overlay-edge); box-shadow: var(--e-float); display: flex; align-items: center; justify-content: center; font-size: 14px; flex: none; }
 .swipe-divider:focus-visible .swipe-grip { outline: 2px solid var(--link); outline-offset: 1px; }
+/* ---------- Go To Coordinates (RB4) ---------- */
+.goto-panel { position: absolute; z-index: 6; top: 10px; left: 50px; width: 400px; background: var(--surface-1); border: 1px solid var(--rule); box-shadow: var(--e-float); padding: 8px 10px; font: var(--type-body); color: var(--text); display: flex; flex-direction: column; gap: 6px; max-height: calc(100% - 20px); overflow: auto; }
+.goto-row { display: grid; grid-template-columns: 110px 1fr; gap: 6px; align-items: center; }
+.goto-row.narrow input, .goto-row.narrow select { max-width: 160px; }
+.goto-row span { color: var(--text-2); }
+.goto-row input, .goto-row select { font: inherit; height: 24px; min-width: 0; border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); padding: 0 6px; }
+.goto-panel :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.goto-err { color: var(--error); line-height: 1.4; }
+.goto-reading { line-height: 1.4; }
+.goto-result { display: flex; flex-direction: column; gap: 4px; }
+.goto-formats { width: 100%; border-collapse: collapse; }
+.goto-formats th { text-align: left; font-weight: 400; color: var(--text-2); padding: 2px 4px; border-bottom: 1px solid var(--rule-soft); width: 45%; }
+.goto-formats td { padding: 2px 4px; border-bottom: 1px solid var(--rule-soft); overflow-wrap: anywhere; }
+.goto-actions { display: flex; gap: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.goto-marker { position: relative; width: 0; height: 0; pointer-events: none; }
+.goto-marker .goto-ring { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; box-sizing: border-box; border: 2px solid var(--error); border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
+.goto-marker .goto-dot { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--error); }
 .map-hint { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); background: var(--overlay-bg); color: var(--overlay-text); padding: 5px 12px; border: 1px solid var(--overlay-edge); box-shadow: var(--e-float); z-index: 7; font-size: 12px; pointer-events: none; }

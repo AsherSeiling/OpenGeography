@@ -8,6 +8,7 @@ pub const BASEMAP_TILE_PREFIX: &str = "__bm_";
 pub mod attrs;
 pub mod catalog;
 pub mod usng;
+pub mod location;
 pub mod crs;
 pub mod export_table;
 pub mod fonts;

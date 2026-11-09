@@ -38,6 +38,7 @@ import { AdjustWindow } from "./georef/AdjustWindow";
 import { BookmarkNameDialog } from "./map/BookmarkMenu";
 import { useModel, useRun } from "./store/model";
 import { useApp } from "./store/store";
+import { useGoTo } from "./goto/gotoStore";
 import { basemapsInUse } from "./store/maps";
 import { applyThemeMode, dockTheme, fluentDark, fluentLight } from "./theme/fluentTheme";
 
@@ -107,6 +108,10 @@ export function App() {
         e.preventDefault();
         openProject();
         // The other node-editor keys (run, …) live in nodes/keymap.ts and apply only there; undo and redo work everywhere, below.
+      } else if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "g") {
+        // Go To Coordinates (a browser would use Ctrl+G for "find next"; nothing else in the app binds it).
+        e.preventDefault();
+        useGoTo.getState().setOpen(true);
       } else if (e.altKey && e.key.toLowerCase() === "q") {
         e.preventDefault();
         (document.querySelector(".tellme input") as HTMLInputElement | null)?.focus();
