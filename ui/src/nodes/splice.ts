@@ -11,6 +11,15 @@ function box(n: InternalNode<Node> | undefined): Box | null {
   return { x: p.x, y: p.y, w: n.measured.width ?? 200, h: n.measured.height ?? 80 };
 }
 
+/** Where a socket really is (its centre), so the test follows the drawn connection however tall the cards are; null if not measured. */
+function socket(n: InternalNode<Node> | undefined, type: "source" | "target", id?: string | null): { x: number; y: number } | null {
+  const hs = n?.internals.handleBounds?.[type];
+  const h = hs?.find((x) => x.id === id) ?? hs?.[0];
+  if (!n || !h) return null;
+  const p = n.internals.positionAbsolute;
+  return { x: p.x + h.x + h.width / 2, y: p.y + h.y + h.height / 2 };
+}
+
 /** The connection that a free (unconnected) node is sitting on, if any. */
 export function edgeUnder(nodeId: string, getNode: (id: string) => InternalNode<Node> | undefined): Edge | null {
   const { nodes, edges } = useModel.getState();
@@ -26,8 +35,9 @@ export function edgeUnder(nodeId: string, getNode: (id: string) => InternalNode<
     const s = box(getNode(e.source));
     const t = box(getNode(e.target));
     if (!s || !t) continue;
-    // Straight line from the source's right edge to the target's left edge.
-    const [x0, y0, x1, y1] = [s.x + s.w, s.y + 30, t.x, t.y + t.h / 2];
+    // Straight line from the source's socket to the target's socket (card edges when a socket is not measured yet).
+    const a = socket(getNode(e.source), "source", e.sourceHandle), z = socket(getNode(e.target), "target", e.targetHandle);
+    const [x0, y0, x1, y1] = [a?.x ?? s.x + s.w, a?.y ?? s.y + 30, z?.x ?? t.x, z?.y ?? t.y + t.h / 2];
     for (let i = 1; i < 24; i++) {
       const f = i / 24;
       if (inside(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f)) return e;
