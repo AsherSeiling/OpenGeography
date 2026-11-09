@@ -35,6 +35,7 @@ import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { GeoreferenceWindow } from "./georef/GeoreferenceWindow";
 import { AdjustWindow } from "./georef/AdjustWindow";
+import { BookmarkNameDialog } from "./map/BookmarkMenu";
 import { useModel, useRun } from "./store/model";
 import { useApp } from "./store/store";
 import { basemapsInUse } from "./store/maps";
@@ -175,6 +176,7 @@ export function App() {
         <LayerPropertiesWindow />
         <GeoreferenceWindow />
         <AdjustWindow />
+        <BookmarkNameDialog />
         <Dialogs />
         <ScriptApprovalDialog />
         <EditHost />

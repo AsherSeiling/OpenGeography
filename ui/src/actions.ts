@@ -13,6 +13,7 @@ import { approveAuthored } from "./scripts/script";
 import { reportError } from "./errors/store";
 import { api, errorText, type TableExportSpec, type SplitTarget, type LayerInfo } from "./ipc/api";
 import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent } from "./map/mapController";
+import { readBookmarks, useBookmarks, type Bookmark } from "./map/bookmarks";
 import { loadMaps, PROJECT_VERSION, serializeMaps, type LoadedMaps, type SavedMap } from "./store/maps";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
 import { closeLayoutPanels, showPane } from "./panes/panes";
@@ -601,6 +602,8 @@ interface UiState {
   /** Last run's snapshot table per layer then node (B5). Absent in older projects, which kept it in each node's data. */
   lastOutputs?: Record<string, Record<string, string>>;
   dock: unknown;
+  /** Map bookmarks (UX3). Absent in older projects and when there are none. */
+  bookmarks?: Bookmark[];
   // Version 1 only (read, never written):
   order?: string[];
   visible?: Record<string, boolean>;
@@ -634,6 +637,7 @@ function uiState(): UiState {
     ...(savedResultStyles(s.resultRasterStyles) ? { resultRasterStyles: s.resultRasterStyles } : {}),
     trees: m.allTrees(),
     lastOutputs: m.lastOutputs,
+    ...(useBookmarks.getState().items.length ? { bookmarks: useBookmarks.getState().items } : {}),
     dock: dockSerializer?.() ?? null,
   };
 }
@@ -735,6 +739,7 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | n
     dirty: false,
   });
   useModel.getState().load(ui.trees ?? {}, useApp.getState().activeLayer, ui.lastOutputs ?? {});
+  useBookmarks.getState().set(readBookmarks(ui.bookmarks));
   useRun.getState().set({ results: {} });
   // A damaged camera or dock layout must not stop the project from opening.
   try {

@@ -13,6 +13,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn(), open: () => dialogO
 
 import { openProject } from "./actions";
 import { useApp } from "./store/store";
+import { useBookmarks } from "./map/bookmarks";
 
 beforeEach(() => {
   openProjectApi.mockClear();
@@ -51,5 +52,16 @@ describe("openProject", () => {
     expect(s.maps.map((m) => m.name)).toEqual(["Map"]);
     expect(s.mapCrs).toBeNull();
     expect(s.basemap).toBe("osm");
+  });
+
+  it("bookmarks: an older project with none opens with an empty list, a project with some brings them back and drops damaged ones", async () => {
+    useBookmarks.getState().set([{ id: "x", name: "left over", crs: "EPSG:4326", extent: [0, 0, 1, 1] }]);
+    openProjectApi.mockResolvedValueOnce({ uiState: JSON.stringify({ version: 2, maps: [] }), layers: [] });
+    await openProject("/tmp/nobm.gproj");
+    expect(useBookmarks.getState().items).toEqual([]);
+    const saved = [{ id: "b1", name: "Site", crs: "EPSG:26911", extent: [1, 2, 3, 4] }, { name: "", crs: "EPSG:4326", extent: [0, 0, 1, 1] }];
+    openProjectApi.mockResolvedValueOnce({ uiState: JSON.stringify({ version: 2, maps: [], bookmarks: saved }), layers: [] });
+    await openProject("/tmp/bm.gproj");
+    expect(useBookmarks.getState().items).toEqual([saved[0]]);
   });
 });

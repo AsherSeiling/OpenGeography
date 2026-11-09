@@ -1072,6 +1072,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | GR-21 | To points in another CRS are transformed explicitly into the layer's CRS and the output is in the layer's CRS (stated in the notes) | `georef_adjust.rs` |
 | GR-22 | Refusals in words: too few points, no CRS, collinear From or To points, two From points at one place (similarity), geographic longitude span over 180 degrees, a table instead of a layer | `georef_adjust.rs` |
 | GR-23 | The adjusted layer keeps the source's citation and gets an `adjust:` citation with the method and every point | `georef_adjust.rs` |
+| UX-3a | Bookmarks: an older project without any opens with none; a project with some brings them back; damaged entries are dropped without failing the open | `ui/src/openProject.test.ts`, `ui/src/map/bookmarks.test.ts` |
+| UX-3b | A bookmark in one CRS is moved into the map's or frame's CRS through the engine (9 points), the same CRS skips the engine, an unplaceable one is refused in words, names are unique, scale-to-fit takes the larger side | `ui/src/map/bookmarks.test.ts` |
+| UX-3c | By hand: add a bookmark, change the map CRS, go to it (same place); save and reopen; in a layout, Map Frame > Bookmark sets the frame centre and scale | not yet run |
 | GR-17 | By hand in the browser (devserver, 2026-11-09): open an image, set the CRS, five points, RMS and per-point errors update, the preview draws on the reference map, a click on the image and then the map adds a point, Georeference adds the layer, Save set stores it. A browser e2e spec has not been written yet | by hand |
 
 ## UI redesign (`docs/UI_REDESIGN_PLAN.md`)

@@ -10,7 +10,7 @@ import type { Projection } from "ol/proj";
 import { api, type CrsDisplayInfo, type Extent } from "../ipc/api";
 import { useApp } from "../store/store";
 import { mapOf } from "../store/maps";
-import { displayCrsId, geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
+import { baseCrsId, displayCrsId, geographicK, groundPerPixel, PX_PER_M, resolutionForScale, WEB_MERCATOR } from "./crs";
 
 export interface ActiveCrs {
   id: string;
@@ -181,6 +181,33 @@ export function zoomToExtent(ext: Extent | null, maxZoom = 16, mapId?: string) {
       })
       .catch(() => undefined);
   }, mapId);
+}
+
+/** What the map shows now, as a box in the map's own CRS together with that CRS's id (a bookmark stores exactly this). */
+export function getViewExtentInMapCrs(mapId?: string): { crs: string; extent: [number, number, number, number] } | null {
+  const { map, active } = ctl(mapId);
+  const size = map?.getSize();
+  if (!map || !active || !size) return null;
+  const e = map.getView().calculateExtent(size);
+  if (!e.every(Number.isFinite)) return null;
+  return { crs: baseCrsId(active.id), extent: [e[0], e[1], e[2], e[3]] };
+}
+
+/** Fit a bookmark: `resolve` turns the CRS the map is drawn in into the box to show (so a bookmark in another CRS is moved first). */
+export function zoomToBookmark(resolve: (mapCrs: string) => Promise<[number, number, number, number]>, mapId?: string): Promise<void> {
+  return new Promise((done, fail) => {
+    whenCrsReady(() => {
+      const { map, active } = ctl(mapId);
+      if (!map || !active) return done();
+      resolve(baseCrsId(active.id))
+        .then((box) => {
+          const grown = box[2] > box[0] && box[3] > box[1] ? box : [box[0] - 1, box[1] - 1, box[2] + 1, box[3] + 1];
+          map.getView().fit(grown, { padding: [20, 20, 20, 20], duration: 500, size: map.getSize() });
+          done();
+        })
+        .catch(fail);
+    }, mapId);
+  });
 }
 
 /** Set the `1:N` scale about the view centre (engine k). */
