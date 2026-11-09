@@ -177,3 +177,21 @@ fn a_place_the_map_cannot_show_gets_a_sentence_and_no_map_position() {
     let r = e.parse_location(Some("  "), &latlon("34", "-118")).unwrap();
     assert!(r.map_message.is_some());
 }
+
+#[test]
+fn review_fixes_world_view_units_and_hemisphere_letters() {
+    let (e, _g) = engine();
+    // Sydney is outside CONUS Albers: the message says south, with a positive number.
+    let r = e.parse_location(Some("EPSG:5070"), &latlon("-33.8688", "151.2093")).unwrap();
+    let m = r.map_message.as_deref().unwrap();
+    assert!(r.map_x.is_none() && m.contains("33.86880° S") && m.contains("151.20930° E"), "{m}");
+    // London is outside CONUS Albers, but a world view of it can draw London.
+    assert!(e.parse_location(Some("EPSG:5070"), &latlon("51.5", "0")).unwrap().map_x.is_none());
+    let w = e.parse_location(Some("world:EPSG:5070"), &latlon("51.5", "0")).unwrap();
+    assert!(w.map_x.is_some() && w.map_message.is_none(), "{w:?}");
+    // A foot-based CRS is not described as metres.
+    let ft = e.parse_location(None, &LocationRequest { kind: "crs".into(), crs: "EPSG:2229".into(), x: "6500000".into(), y: "1800000".into(), ..Default::default() }).unwrap();
+    assert!(!ft.reading.contains("metres") && ft.reading.to_lowercase().contains("foot"), "{}", ft.reading);
+    // Degrees typed against a geographic CRS are range-checked like the latitude and longitude boxes.
+    assert!(e.parse_location(None, &LocationRequest { kind: "crs".into(), crs: "EPSG:4326".into(), x: "10".into(), y: "95".into(), ..Default::default() }).is_err());
+}

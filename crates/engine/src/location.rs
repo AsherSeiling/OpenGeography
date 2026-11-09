@@ -236,14 +236,18 @@ fn utm_text(conn: &Connection, lon: f64, lat: f64, datum: usng::Datum) -> Result
 /// the same place (a transverse projection far from its central meridian, a Mercator map at the pole).
 fn shown_on_map(conn: &Connection, map_crs: &str, lon: f64, lat: f64) -> Result<(f64, f64), String> {
     let info = crs::info(map_crs).map_err(|_| format!("The map's coordinate system ({map_crs}) can't be read, so the position can't be placed on it."))?;
-    if let Some([w, s, e, n]) = info.area_of_use {
+    // A world view is drawn past the CRS's area of use, so only the round-trip check below applies to it.
+    let world_view = map_crs.trim_start().starts_with(crate::display::WORLD_PREFIX);
+    if let (false, Some([w, s, e, n])) = (world_view, info.area_of_use) {
         let in_lon = if w <= e { lon >= w - 6.0 && lon <= e + 6.0 } else { lon >= w - 6.0 || lon <= e + 6.0 };
         if !in_lon || lat < s - 0.5 || lat > n + 0.5 {
-            let which = if lon >= 0.0 { "E" } else { "W" };
             return Err(format!(
-                "{} can only draw places from {s:.1}° to {n:.1}° latitude and {w:.1}° to {e:.1}° longitude, and this place ({lat:.5}° N, {:.5}° {which}) is outside that. Change the map's coordinate system (Map, Coordinate System), or go to a place inside that area.",
+                "{} can only draw places from {s:.1}° to {n:.1}° latitude and {w:.1}° to {e:.1}° longitude, and this place ({:.5}° {}, {:.5}° {}) is outside that. Change the map's coordinate system (Map, Coordinate System), or go to a place inside that area.",
                 info.name,
-                lon.abs()
+                lat.abs(),
+                hemi_letter(lat, 'N', 'S'),
+                lon.abs(),
+                hemi_letter(lon, 'E', 'W')
             ));
         }
     }
@@ -298,12 +302,15 @@ impl Engine {
                     crs::validate(conn, &from)?;
                     let (x, y) = (number(&req.x, "x (easting)")?, number(&req.y, "y (northing)")?);
                     let info = crs::info(&from)?;
+                    if info.geographic {
+                        check_lat_lon(y, x)?;
+                    }
                     let (lo, la) = crs::transform_point(conn, x, y, &from, crs::WGS84).map_err(|e| anyhow!("{x}, {y} can't be converted from {}: {e}", info.name))?;
                     if !(lo.is_finite() && la.is_finite()) || la.abs() > 90.0 || lo.abs() > 360.0 {
                         bail!("{x}, {y} is not a place on Earth in {}. Check the numbers and the coordinate system.", info.name);
                     }
                     let note = crs::datum_change_note(&from, crs::WGS84).unwrap_or_default();
-                    let unit = if info.geographic { "degrees" } else { "metres" };
+                    let unit = if info.geographic { "degrees".to_string() } else { format!("in {}", info.unit) };
                     (lo, la, format!("Read as x {x}, y {y} ({unit}) in {} ({}), moved to WGS 84 by an explicit PROJ transform. {note}", info.name, info.code.clone().unwrap_or_else(|| "custom".into())).trim().to_string(), Some((x, y, from)), usng::Datum::Wgs84)
                 }
                 "utm" => {
