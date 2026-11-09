@@ -765,6 +765,7 @@ export const api = {
   // ---- shape editing (the map's CRS goes with every call that carries shapes) ----
   editBegin: (layer: string, mapCrs: string, zValue: number | null) => invoke<EditStatus>("edit_begin", { layer, mapCrs, zValue }),
   editApply: (layer: string, mapCrs: string, ops: EditOp[]) => invoke<{ status: EditStatus; fids: number[]; invalid: number[] }>("edit_apply", { layer, mapCrs, ops }),
+  snapFeaturesIn: (layer: string, mapCrs: string, extent: [number, number, number, number], limit?: number) => invoke<string[]>("snap_features_in", { layer, mapCrs, extent, limit }),
   editUndo: (layer: string) => invoke<EditStatus>("edit_undo", { layer }),
   editRedo: (layer: string) => invoke<EditStatus>("edit_redo", { layer }),
   editSave: (layer: string) => invoke<{ layer: LayerInfo; added: number; changed: number; deleted: number; invalid: number; note: string | null }>("edit_save", { layer }),

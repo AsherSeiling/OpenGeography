@@ -110,6 +110,7 @@ fn main() {
             commands::rows_by_fid,
             commands::edit_begin,
             commands::edit_apply,
+            commands::snap_features_in,
             commands::edit_undo,
             commands::edit_redo,
             commands::edit_save,

@@ -528,6 +528,11 @@ pub async fn edit_apply(engine: Eng<'_>, layer: String, map_crs: String, ops: Ve
 }
 
 #[tauri::command]
+pub async fn snap_features_in(engine: Eng<'_>, layer: String, map_crs: String, extent: [f64; 4], limit: Option<usize>) -> Res<Vec<String>> {
+    blocking(&engine, move |e| e.snap_features_in(&layer, &map_crs, extent, limit.unwrap_or(2000))).await
+}
+
+#[tauri::command]
 pub async fn edit_undo(engine: Eng<'_>, layer: String) -> Res<engine::edit::EditStatus> {
     blocking(&engine, move |e| e.edit_undo(&layer)).await
 }

@@ -197,6 +197,13 @@ pub fn write_wkb(g: &Geom) -> Vec<u8> {
     out
 }
 
+/// Does a shape in geographic coordinates have a segment spanning more than half the world in longitude (it crosses the antimeridian)?
+pub fn crosses_antimeridian(g: &Geom) -> bool {
+    g.parts.iter().flatten().any(|ring| ring.windows(2).any(|w| (w[1].x - w[0].x).abs() > 180.0))
+}
+
+const ANTIMERIDIAN: &str = "That shape crosses the antimeridian (180° longitude). Shapes crossing it aren't handled in this version; draw it in two parts.";
+
 impl Geom {
     fn coords(&self) -> impl Iterator<Item = &Coord> {
         self.parts.iter().flatten().flatten()
@@ -647,6 +654,31 @@ impl Engine {
         })
     }
 
+    /// Shapes of any layer in and near `extent` ([west, south, east, north] in lon/lat) as hex WKB in the map CRS, for snapping to the
+    /// vertices of other layers. Never changes anything. At most `limit` features.
+    pub fn snap_features_in(&self, layer_id: &str, map_crs: &str, extent: [f64; 4], limit: usize) -> Result<Vec<String>> {
+        let info = self.layer(layer_id)?;
+        let lc = info.crs.clone().ok_or_else(|| anyhow!("\"{}\" has no coordinate system.", info.name))?;
+        if !info.has_geometry() {
+            return Ok(vec![]);
+        }
+        self.with_conn(|conn| {
+            crs::validate(conn, map_crs)?;
+            let to_map = if lc == map_crs { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, true)", lit(&lc), lit(map_crs)) };
+            let [w, so, e, n] = extent;
+            let (so, n) = (so.clamp(-85.0, 85.0), n.clamp(-85.0, 85.0));
+            let mut stmt = conn.prepare(&format!(
+                "SELECT ST_AsWKB({to_map}) FROM {t} WHERE geom IS NOT NULL AND ST_Intersects(__g, ST_Transform(ST_MakeEnvelope({w}, {so}, {e}, {n}), {wgs}, {wm}, true)){d} LIMIT {limit}",
+                t = ident(&info.table),
+                wgs = lit(crs::WGS84),
+                wm = lit(crs::WEB_MERCATOR),
+                d = info.def_and()
+            ))?;
+            let rows = stmt.query_map([], |r| r.get::<_, Vec<u8>>(0))?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?.iter().map(|b| bytes_to_hex(b)).collect())
+        })
+    }
+
     /// One undo step: a batch of inserts, updates and deletes. Shapes arrive in the map CRS.
     pub fn edit_apply(&self, layer_id: &str, map_crs: &str, ops: &[EditOp]) -> Result<ApplyResult> {
         let info = self.layer(layer_id)?;
@@ -711,6 +743,9 @@ impl Engine {
                     } else {
                     let mw = map_wkb.clone().unwrap();
                     let new_map = parse_wkb(&mw)?;
+                    if crs::is_geographic(map_crs) && crosses_antimeridian(&new_map) {
+                        bail!("{ANTIMERIDIAN}");
+                    }
                     let new_layer_bytes = transform_wkb(conn, &mw, map_crs, &lc)?;
                     let new_layer = parse_wkb(&new_layer_bytes)?;
                     let (orig_map, orig_layer) = if kind == "update" {
@@ -733,6 +768,9 @@ impl Engine {
                     };
                     reconcile(&new_map, &new_layer, orig_map.as_ref(), orig_layer.as_ref(), s.z_value)?
                     };
+                    if crs::is_geographic(&lc) && crosses_antimeridian(&g) {
+                        bail!("{ANTIMERIDIAN}");
+                    }
                     match info.geom_type.as_str() {
                         "Point" if g.dimension() != 0 => bail!("\"{}\" holds points; a line or polygon can't be added to it.", info.name),
                         "Line" if g.dimension() != 1 => bail!("\"{}\" holds lines; a point or polygon can't be added to it.", info.name),

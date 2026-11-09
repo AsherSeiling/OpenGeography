@@ -742,3 +742,21 @@ fn save_timing_one_vertex_on_a_million_points() {
     e.edit_undo_save(&l.id).unwrap();
     println!("UNDO save: {:?}", t2.elapsed());
 }
+
+#[test]
+fn shapes_crossing_the_antimeridian_are_refused_in_any_geographic_crs() {
+    let (e, _g) = engine();
+    for crs in ["EPSG:4326", "EPSG:4269"] {
+        let l = e.create_layer("l", "line", crs, &[]).unwrap();
+        e.edit_begin(&l.id, crs, None).unwrap();
+        let err = e.edit_apply(&l.id, crs, &[op("insert", None, Some("LINESTRING(179 10, -179 10)"), None)]).unwrap_err().to_string();
+        assert!(err.contains("antimeridian"), "{crs}: {err}");
+        assert_eq!(e.edit_pending(&l.id).unwrap().steps, 0);
+        e.edit_apply(&l.id, crs, &[op("insert", None, Some("LINESTRING(170 10, 179 10)"), None)]).unwrap();
+        e.edit_discard(&l.id).unwrap();
+    }
+    // A projected map is not affected by the rule (its x values are metres).
+    let l = e.create_layer("p", "line", "EPSG:32614", &[]).unwrap();
+    e.edit_begin(&l.id, "EPSG:32614", None).unwrap();
+    e.edit_apply(&l.id, "EPSG:32614", &[op("insert", None, Some("LINESTRING(100000 0, 900000 0)"), None)]).unwrap();
+}

@@ -59,6 +59,8 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
   const selected = useEdit((s) => s.selected);
   const shows = useApp((s) => !!layerId && !!mapOf(s, mapId)?.order.includes(layerId));
   const source = useRef<VectorSource | null>(null);
+  /** Shapes of the map's other visible layers, for snapping to their vertices (never drawn, never edited). */
+  const snapSource = useRef<VectorSource | null>(null);
   const seq = useRef(0);
 
   // The vector layer and the features: reloaded after every change, and when the map moves (only features in and near the view are loaded).
@@ -69,6 +71,8 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
     const layer = new VectorLayer({ source: src, style: (f) => styleFor(f), zIndex: 9000, updateWhileInteracting: true });
     map.addLayer(layer);
     source.current = src;
+    const snapSrc = new VectorSource();
+    snapSource.current = snapSrc;
     const load = async () => {
       const crs = getActiveCrs(mapId);
       if (!crs) return;
@@ -83,7 +87,13 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
         const ok = ll.filter((p): p is [number, number] => !!p);
         const extent: [number, number, number, number] = ok.length ? [Math.min(...ok.map((p) => p[0])), Math.min(...ok.map((p) => p[1])), Math.max(...ok.map((p) => p[0])), Math.max(...ok.map((p) => p[1]))] : [-180, -85, 180, 85];
         const r = await api.editFeaturesIn(layerId, crs.id, extent);
+        const st = useApp.getState();
+        const doc = mapOf(st, mapId);
+        const others = (doc?.order ?? []).filter((x) => x !== layerId && doc?.visible[x] && st.layers[x]?.crs && st.layers[x].geomType !== "Raster" && st.layers[x].geomType !== "Table");
+        const snapHex = (await Promise.all(others.map((x) => api.snapFeaturesIn(x, crs.id, extent).catch(() => [] as string[])))).flat();
         if (my !== seq.current) return;
+        snapSrc.clear();
+        for (const h of snapHex) snapSrc.addFeature(new Feature({ geometry: fmt.readGeometry(h) as Geometry }));
         src.clear();
         for (const f of r.features) {
           if (!f.geometry) continue;
@@ -103,6 +113,7 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
       map.un("moveend", onMove);
       map.removeLayer(layer);
       source.current = null;
+      snapSource.current = null;
     };
   }, [mapRef, ready, layerId, shows, mapId, epoch]);
 
@@ -243,7 +254,10 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
       interactions.push(draw);
       el.style.cursor = "crosshair";
     }
-    if (snapping) interactions.push(new Snap({ source: src, pixelTolerance: TOLERANCE_PX }));
+    if (snapping) {
+      interactions.push(new Snap({ source: src, pixelTolerance: TOLERANCE_PX }));
+      if (snapSource.current) interactions.push(new Snap({ source: snapSource.current, pixelTolerance: TOLERANCE_PX }));
+    }
     interactions.forEach((i) => map.addInteraction(i));
     return () => {
       interactions.forEach((i) => map.removeInteraction(i));
