@@ -132,7 +132,8 @@ test("plain words: cut finds Clip and not Execute-like words; merge finds Union,
   await app.keyboard.press("Shift+A");
   await search(app).fill("cut");
   expect(await names(app)).toContain("Clip");
-  await expect(app.locator(".toolmenu [role=option]").first().locator(".tm-hit")).toHaveText(/cut/i);
+  // Tools with "cut" in their own name (Cut and Fill) rank above Clip, which is found by its keyword.
+  await expect(app.locator(".toolmenu [role=option]").filter({ hasText: /^Clip/ }).first().locator(".tm-hit")).toHaveText(/cut/i);
   await search(app).fill("merge");
   const found = await names(app);
   for (const n of ["Union", "Merge", "Mosaic Rasters"]) expect(found).toContain(n);

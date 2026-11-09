@@ -126,7 +126,8 @@ async function settleInner(page: Page) {
     if (!open) break;
     const dlg = page.locator("[role=dialog]:visible, [role=alertdialog]:visible").last();
     if (await dlg.count()) {
-      const b = dlg.getByRole("button", { name: /^(Cancel|Close|Dismiss|OK|Done|Not now)$/i }).first();
+      // Enabled buttons only: a dialog's OK is disabled until its form is filled, and Cancel comes after it.
+      const b = dlg.getByRole("button", { name: /^(Cancel|Close|Close Georeference|Dismiss|OK|Done|Not now)$/i, disabled: false }).first();
       if (await b.count()) { await b.click({ timeout: 2000 }).catch(() => undefined); continue; }
     }
     await page.keyboard.press("Escape");

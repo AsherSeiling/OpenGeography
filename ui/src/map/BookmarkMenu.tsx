@@ -126,6 +126,8 @@ export function BookmarkNameDialog() {
 function AskBody({ ask }: { ask: Ask }) {
   const hide = useNameAsk((s) => s.hide);
   const [name, setName] = useState(ask.initial);
+  const [typed, setTyped] = useState(false); // no error on a dialog that has only just opened
+  const empty = typed && !name.trim();
   const ok = () => {
     if (!name.trim()) return;
     ask.onOk(name.trim());
@@ -137,8 +139,8 @@ function AskBody({ ask }: { ask: Ask }) {
         <DialogBody>
           <DialogTitle>{ask.title}</DialogTitle>
           <DialogContent>
-            <Field label="Name" validationMessage={name.trim() ? undefined : "Give the bookmark a name."} validationState={name.trim() ? "none" : "error"}>
-              <Input autoFocus value={name} onChange={(_, d) => setName(d.value)} onKeyDown={(e) => e.key === "Enter" && ok()} />
+            <Field label="Name" validationMessage={empty ? "Give the bookmark a name." : undefined} validationState={empty ? "error" : "none"}>
+              <Input autoFocus value={name} onChange={(_, d) => { setName(d.value); setTyped(true); }} onKeyDown={(e) => e.key === "Enter" && ok()} />
             </Field>
           </DialogContent>
           <DialogActions>
