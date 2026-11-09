@@ -75,6 +75,29 @@ impl ControlSet {
     }
 }
 
+/// Warning for a fit with no spare points: the unknowns are exactly determined, so every residual is about zero whatever the picking.
+pub(crate) fn exact_fit_warning(enabled: usize, min: usize) -> Option<String> {
+    (enabled == min).then(|| format!("This fit has no spare points: {enabled} enabled points is exactly what the method needs, so it passes through all of them and shows about zero error however carelessly they were picked. That zero says nothing about accuracy. Add more points, or turn some off and read them as check points."))
+}
+
+/// A geographic target whose enabled points span more than 180° of longitude (or straddle the antimeridian) can't be fitted: refuse.
+pub(crate) fn longitude_span_ok(points: &[&ControlPoint]) -> Result<()> {
+    let (lo, hi) = points.iter().fold((f64::MAX, f64::MIN), |(l, h), p| (l.min(p.x), h.max(p.x)));
+    if hi - lo > 180.0 {
+        bail!("The enabled control points span {:.0}° of longitude ({lo:.1}° to {hi:.1}°). A fit in degrees is meaningless that far apart or across the 180° meridian. Use a projected coordinate system as the target (for example UTM or a local projection) and enter the points in it.", hi - lo);
+    }
+    Ok(())
+}
+
+/// Geodesic metres between two (x = longitude, y = latitude) positions. A latitude beyond ±90° (a wild fit) is clamped to the pole;
+/// the flag says it was, and the figure is then a lower bound. Never NaN.
+pub(crate) fn geodesic_m(g: &geographiclib_rs::Geodesic, stated: (f64, f64), placed: (f64, f64)) -> (f64, bool) {
+    use geographiclib_rs::InverseGeodesic;
+    let off = placed.1.abs() > 90.0 || stated.1.abs() > 90.0;
+    let m: f64 = g.inverse(stated.1.clamp(-90.0, 90.0), stated.0, placed.1.clamp(-90.0, 90.0), placed.0);
+    (if m.is_finite() { m } else { 0.0 }, off)
+}
+
 pub(crate) fn short_crs(crs: &str) -> String {
     let one: String = crs.split_whitespace().collect::<Vec<_>>().join(" ");
     if one.chars().count() > 60 {
@@ -133,6 +156,12 @@ fn parse_num(v: &str, what: &str, line_no: usize) -> Result<f64> {
 /// Read a control point file: GIS Studio CSV or QGIS `.points`. The CRS is returned exactly as the file states it (or `None`);
 /// nothing is converted or assumed here.
 pub fn parse_control_file(text: &str) -> Result<ParsedControlFile> {
+    parse_control_file_for(text, None)
+}
+
+/// As [`parse_control_file`], with the image's (width, height) in pixels when known: a QGIS file whose image positions fall outside
+/// the image is refused, because it then holds map coordinates (made on an already georeferenced raster), not pixels.
+pub fn parse_control_file_for(text: &str, image: Option<(f64, f64)>) -> Result<ParsedControlFile> {
     let text = text.trim_start_matches('\u{feff}');
     let mut crs: Option<String> = None;
     let mut header: Option<Vec<String>> = None;
@@ -188,7 +217,12 @@ pub fn parse_control_file(text: &str) -> Result<ParsedControlFile> {
         if any_positive_y {
             bail!("This QGIS file has positive sourceY values. QGIS writes the image row as a negative number (sourceY = -line), so positive values mean the points are not image positions measured from the top-left corner. Nothing was imported.");
         }
-        let notes = vec!["QGIS file: image row (line) = -sourceY, measured from the top-left corner of the image like GDAL. The residual columns are ignored; errors are recomputed.".to_string()];
+        if let Some((w, h)) = image {
+            if let Some(p) = points.iter().find(|p| p.pixel < -0.5 || p.pixel > w + 0.5 || p.line < -0.5 || p.line > h + 0.5) {
+                bail!("QGIS point {} is at pixel {}, line {}, outside this {} by {} pixel image. In a .points file made on an already georeferenced raster, sourceX and sourceY hold map coordinates, not image pixels, and can't be imported here. Nothing was imported.", p.id, p.pixel, p.line, w, h);
+            }
+        }
+        let notes = vec!["QGIS file: sourceX and sourceY are read as image pixels (line = -sourceY, measured from the top-left corner like GDAL). A .points file made on an already georeferenced raster holds map coordinates there and must not be imported. The residual columns are ignored; errors are recomputed.".to_string()];
         Ok(ParsedControlFile { format: "qgis".into(), crs, points, notes })
     } else if let (Some(ci), Some(cp), Some(cl), Some(cx), Some(cy)) = (col(&["id"]), col(&["pixel"]), col(&["line"]), col(&["x"]), col(&["y"])) {
         let en = col(&["enabled"]);
@@ -300,8 +334,9 @@ impl Engine {
         })
     }
 
-    pub fn read_control_file(&self, path: &std::path::Path) -> Result<ParsedControlFile> {
+    /// `image` is the (width, height) of the image the points are for, when one is open: used to refuse QGIS positions outside it.
+    pub fn read_control_file(&self, path: &std::path::Path, image: Option<(f64, f64)>) -> Result<ParsedControlFile> {
         let text = std::fs::read_to_string(path).map_err(|e| anyhow!("Could not read {}: {e}", path.display()))?;
-        parse_control_file(&text)
+        parse_control_file_for(&text, image)
     }
 }

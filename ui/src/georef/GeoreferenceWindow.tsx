@@ -287,7 +287,7 @@ function GeorefBody() {
     const path = await openFile({ title: "Import control points", filters: [{ name: "Control points (CSV or QGIS .points)", extensions: ["csv", "points", "txt"] }, { name: "All files", extensions: ["*"] }] });
     if (typeof path !== "string") return;
     try {
-      const parsed = await api.readControlFile(path);
+      const parsed = await api.readControlFile(path, g.image ? [g.image.info.width, g.image.info.height] : null);
       setImporting({ parsed, crs: parsed.crs });
     } catch (e) {
       setNotice({ intent: "error", text: errorText(e) });
@@ -450,10 +450,10 @@ function GeorefBody() {
                 <th>Line</th>
                 <th title="Easting or longitude in the target coordinate system">X</th>
                 <th title="Northing or latitude in the target coordinate system">Y</th>
-                <th title="Where the transform puts the point, minus where you said it is (target units)">dX{unitLabel}</th>
+                <th title="Where the transform puts the point, minus where you said it is (target units). Ground errors (dX, dY, metres) come from the forward fit, image to ground. Pixel errors come from the separately fitted reverse fit, ground to image, which is what moves the pixels.">dX{unitLabel}</th>
                 <th>dY{unitLabel}</th>
                 <th title={report?.metresKind === "geodesic" ? "Geodesic distance on the ellipsoid" : "Grid distance in metres (not corrected for the projection's scale)"}>Error (m)</th>
-                <th title="Error measured back in the source image">Error (px)</th>
+                <th title="Error measured back in the source image, from the reverse fit (ground to image) that moves the pixels; the ground columns come from the forward fit">Error (px)</th>
                 <th />
               </tr>
             </thead>

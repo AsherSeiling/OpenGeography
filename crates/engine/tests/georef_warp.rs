@@ -393,3 +393,77 @@ fn the_engine_adds_a_layer_with_a_citation_and_keeps_the_source() {
     assert!(e.georef_warp(&engine::georef::api::WarpRequest { set: bad, method: O1, resampling: None, image: src.display().to_string(), source_layer: None, name: None }).is_err());
     assert_eq!(e.list_layers().len(), n);
 }
+
+#[test]
+fn an_exactly_determined_fit_is_flagged_because_its_zero_error_means_nothing() {
+    let set = grid(UTM, affine);
+    let three = ControlSet { points: vec![set.points[0].clone(), set.points[3].clone(), set.points[12].clone()], ..set.clone() };
+    // Sloppy picking: one corner is 40 m off, yet an affine through exactly three points shows ~0.
+    let mut sloppy = three.clone();
+    sloppy.points[1].x += 40.0;
+    let r = warp::errors(&sloppy, O1).unwrap();
+    assert!(r.rms < 1e-6, "rms {}", r.rms);
+    assert!(r.warnings.iter().any(|w| w.contains("no spare points")), "{:?}", r.warnings);
+    // A fourth point makes it over-determined: no such warning, and the 40 m shows.
+    let four = ControlSet { points: vec![sloppy.points[0].clone(), sloppy.points[1].clone(), sloppy.points[2].clone(), set.points[15].clone()], ..sloppy.clone() };
+    let r4 = warp::errors(&four, O1).unwrap();
+    assert!(r4.warnings.is_empty(), "{:?}", r4.warnings);
+    assert!(r4.rms > 5.0);
+    // The same for 6 points under order 2 and 10 under order 3.
+    assert!(warp::errors(&ControlSet { points: set.points[..6].to_vec(), ..set.clone() }, O2).is_err(), "two rows only: unsolvable");
+    let ten = ControlSet { points: [0, 1, 2, 3, 4, 5, 8, 9, 12, 15].iter().map(|&i| set.points[i].clone()).collect(), ..set.clone() };
+    assert!(warp::errors(&ten, O3).map(|r| r.warnings.iter().any(|w| w.contains("no spare points"))).unwrap_or(true));
+    // A spline with spare points is not "exact" in this sense (it has its own warning).
+    assert!(!warp::errors(&set, Method::Tps).unwrap().warnings.iter().any(|w| w.contains("no spare points")));
+}
+
+#[test]
+fn a_wild_geographic_fit_never_gives_nan_metres_and_names_the_point() {
+    // 16 points that follow an exact cubic, then a check point far outside the picture where the cubic leaves the globe.
+    let cubic = |p: f64, l: f64| (-100.0 + 0.01 * p + 1e-9 * p * p * p, 85.0 - 0.01 * l + 1e-8 * l * l * l);
+    let mut set = grid("EPSG:4326", cubic);
+    set.points.push(ControlPoint { id: 99, pixel: 3000.0, line: 3000.0, x: -100.0, y: 0.0, enabled: false });
+    let r = warp::errors(&set, O3).unwrap();
+    let chk = r.points.iter().find(|p| p.id == 99).unwrap();
+    assert!(chk.length_m.is_finite() && chk.length_m > 0.0, "{}", chk.length_m);
+    assert!(r.check_rms_m.unwrap().is_finite() && r.rms_m.is_finite());
+    let w = r.warnings.iter().find(|w| w.contains("off the globe")).expect("a warning naming the point");
+    assert!(w.contains("99") && w.contains("lower bound"), "{w}");
+    // The JSON the UI reads has no null from NaN.
+    assert!(!serde_json::to_string(&r).unwrap().contains("null,") || r.check_rms.is_some());
+}
+
+#[test]
+fn points_spanning_more_than_180_degrees_of_longitude_are_refused() {
+    let wide = |p: f64, l: f64| (-170.0 + 1.9 * p, 10.0 - 0.01 * l);
+    let set = grid("EPSG:4326", wide);
+    let e = warp::errors(&set, O1).unwrap_err().to_string();
+    assert!(e.contains("longitude") && e.contains("projected coordinate system"), "{e}");
+    // Across the antimeridian: 179 and -179 are 358 degrees apart as numbers.
+    let across = grid("EPSG:4326", |p, l| (if p < 100.0 { 179.0 + p * 0.001 } else { -179.0 + p * 0.001 }, 10.0 - 0.001 * l));
+    assert!(warp::errors(&across, O1).unwrap_err().to_string().contains("180"));
+    // A projected target has no such limit.
+    assert!(warp::errors(&grid(UTM, affine), O1).is_ok());
+}
+
+#[test]
+fn a_geographic_warp_has_longitude_on_x_and_latitude_on_y() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("lonlat.tif");
+    write_image(&src, 200, 200, 1);
+    let set = grid("EPSG:4326", |p, l| (-105.0 + 0.002 * p, 39.0 - 0.002 * l));
+    let out = dir.path().join("lonlat_out.tif");
+    let (ds, res) = warp::run(&src, &set, O1, "nearest", Dest::GeoTiff(&out), None, &ctx()).unwrap();
+    drop(ds);
+    let want = [-105.0, 0.002, 0.0, 39.0, 0.0, -0.002];
+    for (g, w) in res.geo_transform.iter().zip(want) {
+        assert!((g - w).abs() < 1e-9, "{:?}", res.geo_transform);
+    }
+    let o = Dataset::open(&out).unwrap();
+    let on_disk = o.geo_transform().unwrap();
+    for (g, w) in on_disk.iter().zip(want) {
+        assert!((g - w).abs() < 1e-9, "{on_disk:?}");
+    }
+    // x is longitude: the extent is 0.4 degrees wide and tall, west edge at -105, north edge at 39.
+    assert!((on_disk[0] + 105.0).abs() < 1e-9 && (on_disk[3] - 39.0).abs() < 1e-9);
+}

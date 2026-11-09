@@ -1,10 +1,13 @@
 //! Raster georeferencing (GR2): fit control points with GDAL's own GCP polynomial or thin plate spline transformer, report the
 //! errors from that fit, and warp the image with it.
 //!
-//! There is one transformer. [`fit`] builds it (a GDAL "GenImgProj" transformer on a VRT that carries the enabled points as GCPs,
-//! with `METHOD=GCP_POLYNOMIAL` and `MAX_GCP_ORDER` or `METHOD=GCP_TPS`) and computes every error figure by calling that transformer
-//! forward (image to ground) and backward (ground to image). The warp then uses the same transformer object as its pixel mapping and
-//! its output-extent suggestion, so the figures shown are the transform that moves the pixels. No fitting maths is written here.
+//! There is one transformer object. [`fit`] builds it (a GDAL "GenImgProj" transformer on a VRT that carries the enabled points as
+//! GCPs, with `METHOD=GCP_POLYNOMIAL` and `MAX_GCP_ORDER` or `METHOD=GCP_TPS`). The ground figures (dx, dy, length, metres, RMS) are
+//! computed by calling it forward (image to ground); that forward fit also fixes the output extent and cell size. The pixels are moved
+//! through the *reverse* direction (ground to image), which GDAL fits as a separate polynomial of the same order (for a spline, a
+//! separate spline); `dpixel`, `dline` and `length_px` measure that reverse fit and nothing else. The warp sets its output grid on this
+//! same object, so the figures come from the transformer the warp uses, but the ground errors describe the forward fit and the pixel
+//! errors the reverse fit. No fitting maths is written here.
 //!
 //! The source image is opened read-only with GDAL's PAM sidecar writing switched off for this thread, so no `.aux.xml` or other file
 //! appears beside it. All working files are in GDAL's in-memory file system or the output location.
@@ -153,13 +156,16 @@ fn usable<'a>(set: &'a ControlSet, method: Method) -> Result<Vec<&'a ControlPoin
     if pts.len() < need {
         bail!("A {} needs at least {need} enabled control points; this set has {}. Add {} more (or turn some back on).", method.label(), pts.len(), need - pts.len());
     }
+    if crate::crs::is_geographic(&set.target_crs) {
+        super::longitude_span_ok(&pts)?;
+    }
     let img: Vec<(f64, f64)> = pts.iter().map(|p| (p.pixel, p.line)).collect();
     let gnd: Vec<(f64, f64)> = pts.iter().map(|p| (p.x, p.y)).collect();
     if collinear(&img) {
         bail!("The enabled control points all lie on one straight line in the image, so they can't fix a position across the picture. Spread them over the image, especially near the corners.");
     }
     if collinear(&gnd) {
-        bail!("The enabled control points all lie on one straight line on the ground (in the target coordinates), so they can't fix a position across the picture. Check the coordinates, and spread the points over the area.");
+        bail!("The enabled control points all lie on one straight line on the ground (in the target coordinates), so they can't fix a position across the picture. Check the coordinates (one point may be very far from the others), and spread the points over the area.");
     }
     for (i, a) in img.iter().enumerate() {
         if let Some(j) = img[..i].iter().position(|b| (b.0 - a.0).abs() < 1e-9 && (b.1 - a.1).abs() < 1e-9) {
@@ -290,11 +296,18 @@ fn fit(src: &Dataset, set: &ControlSet, method: Method, extra_translate: &[&str]
     let mut back: Vec<(f64, f64)> = set.points.iter().map(|p| (p.x, p.y)).collect();
     t.backward(&mut back)?;
     let mut points = Vec::with_capacity(set.points.len());
+    let mut off_globe: Vec<u32> = Vec::new();
     for (i, p) in set.points.iter().enumerate() {
         let (dx, dy) = (fwd[i].0 - p.x, fwd[i].1 - p.y);
         let length = dx.hypot(dy);
         let length_m = match &units.geod {
-            Some(g) => g.inverse(p.y, p.x, fwd[i].1, fwd[i].0),
+            Some(g) => {
+                let (m, off) = super::geodesic_m(g, (p.x, p.y), fwd[i]);
+                if off {
+                    off_globe.push(p.id);
+                }
+                m
+            }
             None => length * units.metres_per_unit,
         };
         let (dpixel, dline) = (back[i].0 - p.pixel, back[i].1 - p.line);
@@ -305,6 +318,13 @@ fn fit(src: &Dataset, set: &ControlSet, method: Method, extra_translate: &[&str]
     let mut warnings = Vec::new();
     if method == Method::Tps {
         warnings.push(spline_warning());
+    }
+    if let Some(w) = super::exact_fit_warning(pts.len(), method.min_points()) {
+        warnings.push(w);
+    }
+    if !off_globe.is_empty() {
+        let ids: Vec<String> = off_globe.iter().map(|i| i.to_string()).collect();
+        warnings.push(format!("The fit puts control point{} {} off the globe (a latitude beyond 90°). Its metre figure is a lower bound, measured to the pole. Check that point, or use a lower order.", if off_globe.len() == 1 { "" } else { "s" }, ids.join(", ")));
     }
     if method == Method::Tps && off().next().is_none() {
         warnings.push("No check points yet: every point is in the fit, so no honest accuracy figure exists.".into());

@@ -86,7 +86,7 @@ fn csv_states_the_crs_and_round_trips() {
     let path = dir.path().join("pts.csv");
     let e = Engine::new().unwrap();
     e.export_control_set(&s, &path).unwrap();
-    assert_eq!(e.read_control_file(&path).unwrap().points, s.points);
+    assert_eq!(e.read_control_file(&path, None).unwrap().points, s.points);
     assert!(!dir.path().join("pts.csv.saving").exists());
 }
 
@@ -114,6 +114,19 @@ fn qgis_points_are_converted_explicitly() {
     assert_eq!(p.crs, None);
     // Positive sourceY is not QGIS's image convention: refused rather than flipped silently.
     assert!(parse_control_file("#CRS: EPSG:4326\nmapX,mapY,sourceX,sourceY,enable\n1,2,3,4,1\n").unwrap_err().to_string().contains("positive sourceY"));
+}
+
+#[test]
+fn a_qgis_file_with_positions_outside_the_image_is_refused() {
+    // Made on an already georeferenced raster: sourceX/sourceY hold map coordinates (southern hemisphere: sourceY is negative too).
+    let text = "#CRS: EPSG:32614\nmapX,mapY,sourceX,sourceY,enable,dX,dY,residual\n600100,3900100,600000,-3900000,1,0,0,0\n";
+    assert!(parse_control_file(text).is_ok(), "no image size known: the note warns instead");
+    let p = engine::georef::parse_control_file_for(text, Some((800.0, 600.0)));
+    let e = p.unwrap_err().to_string();
+    assert!(e.contains("map coordinates") && e.contains("800 by 600"), "{e}");
+    assert!(engine::georef::parse_control_file_for("mapX,mapY,sourceX,sourceY,enable\n1,2,10,-20,1\n", Some((800.0, 600.0))).is_ok());
+    let note = &parse_control_file(text).unwrap().notes[0];
+    assert!(note.contains("already georeferenced raster") && note.contains("image pixels"), "{note}");
 }
 
 #[test]

@@ -501,7 +501,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "save_control_set" => json!(e.save_control_set(&de(a, "set")?)?),
         "delete_control_set" => json!(e.delete_control_set(&s(a, "id")?)?),
         "export_control_set" => json!(e.export_control_set(&de(a, "set")?, &PathBuf::from(s(a, "path")?))?),
-        "read_control_file" => json!(e.read_control_file(&PathBuf::from(s(a, "path")?))?),
+        "read_control_file" => json!(e.read_control_file(&PathBuf::from(s(a, "path")?), a["imageSize"].as_array().and_then(|v| Some((v.first()?.as_f64()?, v.get(1)?.as_f64()?))))?),
         "georef_errors" => json!(e.georef_errors(&de(a, "set")?, de(a, "method")?)?),
         "georef_image_info" => json!(e.georef_image_info(&PathBuf::from(s(a, "path")?))?),
         "georef_image_region" => json!(e.georef_image_region(&PathBuf::from(s(a, "path")?), f(a, "x0")?, f(a, "y0")?, f(a, "w")?, f(a, "h")?, f(a, "outW")? as usize, f(a, "outH")? as usize)?),

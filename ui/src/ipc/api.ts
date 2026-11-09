@@ -881,7 +881,7 @@ export const api = {
   /** CSV whose header states the set's CRS. */
   exportControlSet: (set: ControlSet, path: string) => invoke<void>("export_control_set", { set, path }),
   /** GIS Studio CSV or QGIS `.points`; `crs` is null when the file names none (ask the user). */
-  readControlFile: (path: string) => invoke<ParsedControlFile>("read_control_file", { path }),
+  readControlFile: (path: string, imageSize?: [number, number] | null) => invoke<ParsedControlFile>("read_control_file", { path, imageSize: imageSize ?? null }),
   /** The same points expressed in another CRS through an explicit PROJ transform. */
   reprojectControlSet: (set: ControlSet, toCrs: string) => invoke<ControlSet>("reproject_control_set", { set, toCrs }),
   /** Per-point errors and RMS from GDAL's own transform (GR2). Rejects, in words, when the points can't make the transform. */

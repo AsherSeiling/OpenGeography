@@ -975,8 +975,8 @@ pub async fn export_control_set(engine: Eng<'_>, set: engine::georef::ControlSet
 }
 
 #[tauri::command]
-pub async fn read_control_file(engine: Eng<'_>, path: String) -> Res<engine::georef::ParsedControlFile> {
-    blocking(&engine, move |e| e.read_control_file(std::path::Path::new(&path))).await
+pub async fn read_control_file(engine: Eng<'_>, path: String, image_size: Option<(f64, f64)>) -> Res<engine::georef::ParsedControlFile> {
+    blocking(&engine, move |e| e.read_control_file(std::path::Path::new(&path), image_size)).await
 }
 
 #[tauri::command]
