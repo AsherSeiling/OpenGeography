@@ -2,7 +2,7 @@
 # Browser end-to-end suite (docs/TEST_PLAN.md §14 cases a browser can do).
 #
 #   scripts/e2e.sh <out-dir>        writes <out-dir>/e2e.md; exit 1 if any test fails
-#   scripts/e2e.sh <out-dir> --quick  everything except the control audit: about 8 min instead of 46.
+#   scripts/e2e.sh <out-dir> --quick  everything except the control audit: about 8 min instead of about 30 (the audit alone is about 20; it was 38).
 #                                   Use it between merges. Run the full suite before a merge into main, an app rebuild or a push.
 #
 # Builds the release devserver, starts it and vite on free ports, runs Playwright

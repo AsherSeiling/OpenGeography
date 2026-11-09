@@ -16,10 +16,14 @@ import type { Locator, Page } from "@playwright/test";
 import { test, expect, gis } from "./fixtures";
 
 type Result = "ok" | "menu" | "dead" | "threw" | "disabled" | "gone";
-interface Rec { ctx: string; area: string; name: string; result: Result; changed?: string; note?: string }
+interface Rec { ctx: string; area: string; name: string; result: Result; changed?: string; note?: string; ms?: number }
 const REPORT: Rec[] = [];
 const STUBBED: { type: string; message: string; control: string }[] = [];
 let currentControl = "";
+// Where the time goes (printed with the totals): each record carries the milliseconds since the previous one, and the waits are summed by kind.
+const TIME: Record<string, number[]> = { build: [0, 0], effect: [0, 0], settle: [0, 0], ensure: [0, 0] };
+let lastRecordAt = Date.now();
+const timed = async <T,>(k: string, f: () => Promise<T>): Promise<T> => { const t = Date.now(); try { return await f(); } finally { const a = (TIME[k] ??= [0, 0]); a[0] += Date.now() - t; a[1]++; } };
 
 /** A control that legitimately changes nothing in its context, with the reason. Everything else that changes nothing is a failure. */
 const NO_CHANGE_OK: { match: RegExp; ctx?: RegExp; why: string }[] = [
@@ -114,6 +118,9 @@ const diff = (a: Record<string, string>, b: Record<string, string>) => Object.ke
 
 /** Close whatever is open: error pop-ups, dialogs, menus, the tool menu. */
 async function settle(page: Page) {
+  return timed("settle", () => settleInner(page));
+}
+async function settleInner(page: Page) {
   for (let i = 0; i < 6; i++) {
     const open = await page.locator("[role=dialog]:visible, [role=alertdialog]:visible, [role=menu]:visible, [role=listbox]:visible, .toolmenu:visible, .ctxmenu:visible").count();
     if (!open) break;
@@ -168,8 +175,17 @@ const WANT: Record<Ctx, string> = {
 };
 
 async function build(page: Page, ctx: Ctx) {
+  return timed("build", async () => {
+    try { return await buildInner(page, ctx); }
+    catch (e) { // once: a build can lose a race with the page's own start-up; a second failure is real
+      process.stderr.write(`AUDIT-BUILD-RETRY ${ctx}: ${String(e).split("\n")[0]}\n`);
+      return buildInner(page, ctx);
+    }
+  });
+}
+async function buildInner(page: Page, ctx: Ctx) {
   await settle(page);
-  await hardReset(page);
+  await timed("b.hardReset", () => hardReset(page));
   if (ctx === "map-empty") return;
   if (ctx === "map-run") {
     // A real import (so there is a citation for the Sources pane), a Buffer node, and a finished run (so Preview on map and Save as new layer are live).
@@ -207,14 +223,16 @@ async function build(page: Page, ctx: Ctx) {
     await page.waitForFunction(() => (window as any).__gis.useModel.getState().nodes.length >= 3, undefined, { timeout: 8000 }).catch(() => undefined);
     return;
   }
-  await gis(page, async (g) => { g.useApp.getState().setMapCrs({ id: "EPSG:26914", name: "NAD83 / UTM zone 14N" }); const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
-  await page.locator(".layout-page").waitFor();
-  await page.getByTestId("start-gallery").locator('[data-start="blank"]').click();
+  await timed("b.newLayout", async () => { await gis(page, async (g) => { g.useApp.getState().setMapCrs({ id: "EPSG:26914", name: "NAD83 / UTM zone 14N" }); const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
+  await page.locator(".layout-page").waitFor(); });
+  await timed("b.gallery", async () => { await page.getByTestId("start-gallery").locator('[data-start="blank"]').click(); });
+  await timed("b.rail", async () => {
   await page.locator(".rail-btn", { hasText: /^Text$/ }).click();
-  await page.locator(".rail-btn", { hasText: /^Legend$/ }).click().catch(() => undefined);
+  // Legend is disabled until a map frame exists, so this has always been skipped: look instead of waiting out the click timeout (6 s per build).
+  { const lg = page.locator(".rail-btn", { hasText: /^Legend$/ }); if ((await lg.count()) && (await lg.first().isEnabled())) await lg.first().click().catch(() => undefined); }
   await page.locator(".rail-btn", { hasText: /^Map Frame/ }).click();
   const menu = page.getByRole("menuitem").first();
-  if (await menu.isVisible().catch(() => false)) await menu.click();
+  if (await menu.isVisible().catch(() => false)) await menu.click(); });
   await selectKind(page, ctx === "layout-text" ? "text" : ctx === "layout-frame" ? "map_frame" : ctx === "layout-multi" ? "ALL" : null);
 }
 
@@ -228,6 +246,9 @@ async function selectKind(page: Page, kind: string | null) {
 }
 
 async function ensure(page: Page, ctx: Ctx) {
+  return timed("ensure", () => ensureInner(page, ctx));
+}
+async function ensureInner(page: Page, ctx: Ctx) {
   await ensureContext(page, ctx);
   // The status line starts each control from the same text, so a refusal that repeats the previous message still shows as "said something".
   await gis(page, (g) => g.useApp.getState().setStatus("Ready")).catch(() => undefined);
@@ -305,6 +326,9 @@ async function act(page: Page, loc: Locator, kind: string): Promise<void> {
 }
 
 async function effect(page: Page, before: Record<string, string>, errors: string[], errs0: number): Promise<{ changed: string[]; threw: string[] }> {
+  return timed("effect", () => effectInner(page, before, errors, errs0));
+}
+async function effectInner(page: Page, before: Record<string, string>, errors: string[], errs0: number): Promise<{ changed: string[]; threw: string[] }> {
   const deadline = Date.now() + 1800;
   let changed: string[] = [];
   do {
@@ -317,7 +341,9 @@ async function effect(page: Page, before: Record<string, string>, errors: string
 const allowed = (name: string, ctx: string) => NO_CHANGE_OK.find((a) => a.match.test(name) && (!a.ctx || a.ctx.test(ctx)));
 
 function record(r: Rec) {
-  REPORT.push(r);
+  const now = Date.now();
+  REPORT.push({ ...r, ms: now - lastRecordAt });
+  lastRecordAt = now;
 }
 
 interface Env { page: Page; errors: string[]; ctx: Ctx; /** Start every control from a freshly built context (panes keep state, like an expanded tree or a picked table, that the invariants cannot see). */ fresh?: boolean }
@@ -429,7 +455,7 @@ async function sweep(env: Env, area: string, scope: string, reveal: () => Promis
 async function ribbonTabs(page: Page): Promise<string[]> {
   return page.locator(".ribbon-tabs [role=tab]").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()));
 }
-const gotoTab = (page: Page, name: string) => async () => { await settle(page); await page.locator(".ribbon-tabs [role=tab]", { hasText: new RegExp(`^${name}$`) }).first().click(); await page.waitForTimeout(120); };
+const gotoTab = (page: Page, name: string) => async () => { await settle(page); await page.mouse.move(1, 1); /* a tooltip left over from the last hover can cover the tab */ await page.locator(".ribbon-tabs [role=tab]", { hasText: new RegExp(`^${name}$`) }).first().click(); await page.waitForTimeout(120); };
 
 /** Every tab of the ribbon in this context: each tab itself, then each control of its band. */
 async function ribbonSweep(env: Env) {
@@ -455,6 +481,7 @@ test.beforeEach(async ({ app, errors }) => {
   await app.setViewportSize({ width: 2560, height: 1300 });
 });
 test.afterEach(async ({}, testInfo) => {
+  process.stderr.write(`AUDIT-TIME ${testInfo.title.slice(0, 40)} ${JSON.stringify(TIME)}\n`);
   writeFileSync(`${process.env.E2E_AUDIT_PARTIAL ?? "/tmp/audit-partial"}-${testInfo.title.replace(/\W+/g, "_").slice(0, 40)}.json`, JSON.stringify({ report: REPORT, stubbed: STUBBED }));
 });
 
@@ -642,6 +669,20 @@ test("audit: controls that need more state (several items selected, a finished r
   }
 });
 
+test("audit: a control that does nothing is caught (the audit's own check)", async ({ app }) => {
+  const env = await mk(app, "map-empty");
+  await ensure(env.page, "map-empty");
+  await gotoTab(env.page, "Map")();
+  // A button that is clickable but wired to nothing, next to a working one.
+  await env.page.evaluate(() => { const b = document.createElement("button"); b.className = "rbtn"; b.textContent = "Planted dead control"; document.querySelector(".ribbon-body")!.appendChild(b); });
+  const n0 = REPORT.length;
+  const c = (await listControls(env.page, ".ribbon-body")).find((x) => x.name === "Planted dead control")!;
+  expect(c).toBeTruthy();
+  await exerciseControl(env, "planted", ".ribbon-body", c, async () => undefined);
+  const got = REPORT.splice(n0);
+  expect(got.map((r) => `${r.name}: ${r.result}`)).toEqual(["Planted dead control: dead"]);
+});
+
 test("audit: totals; no control is dead, throws, or stays disabled in every context", async ({}, testInfo) => {
   const total = REPORT.length;
   if (!total) test.skip(true, "run the whole file: this test summarises the others");
@@ -654,6 +695,7 @@ test("audit: totals; no control is dead, throws, or stays disabled in every cont
   const stoppedAtDialog = [...new Set(STUBBED.filter((d) => d.type === "prompt").map((d) => d.control))];
   const summary = { notExercised, stoppedAtDialog, clicked: total - by("disabled") - by("gone"), ok: by("ok"), menus: by("menu"), dead: by("dead"), threw: by("threw"), gone: by("gone"), disabledInContext: by("disabled"), neverUsable, stubbedDialogs: STUBBED };
   console.log("AUDIT TOTALS", JSON.stringify({ ...summary, stubbedDialogs: STUBBED.length }));
+  console.log("AUDIT TIME (ms, count)", JSON.stringify(TIME), "slowest", JSON.stringify([...REPORT].sort((a, b) => (b.ms ?? 0) - (a.ms ?? 0)).slice(0, 15).map((r) => `${r.ctx} › ${r.area} › ${r.name}: ${r.ms}`)));
   const out = JSON.stringify({ summary, report: REPORT }, null, 1);
   writeFileSync(testInfo.outputPath("audit.json"), out);
   if (process.env.E2E_AUDIT_JSON) writeFileSync(process.env.E2E_AUDIT_JSON, out);
