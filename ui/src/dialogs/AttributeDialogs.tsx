@@ -1,5 +1,7 @@
 // Field tools for the attribute table: Add Field, Calculate Field,
 // Calculate Geometry, Rename Field.
+import { BlocksEditor } from "../scripts/BlocksEditor";
+import { blocksFromScript, blocksScript, type BlockJson } from "../scripts/blocks";
 import {
   Button,
   Checkbox,
@@ -127,8 +129,9 @@ const SNIPPETS: [string, string][] = [
 export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: string; owner: string; field?: string; onClose: () => void }) {
   const info = useLayer(layer);
   const [target, setTarget] = useState(field ?? "");
-  const [language, setLanguage] = useState<"python" | "sql">("python");
+  const [language, setLanguage] = useState<"python" | "blocks" | "sql">("python");
   const [expr, setExpr] = useState("");
+  const [blocksRoot, setBlocksRoot] = useState<BlockJson | null>(null);
   const [skip, setSkip] = useState(false);
   const [ty, setTy] = useState<FieldType | "auto">("auto");
   const [onlySel, setOnlySel] = useState(false);
@@ -147,7 +150,7 @@ export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: 
     try {
       const fids = onlySel ? (useApp.getState().selection[owner] ?? []) : null;
       let r: { layer: LayerInfo; count: number; note?: string | null };
-      if (language === "python") {
+      if (language === "python" || language === "blocks") {
         // A script written here is approved on this computer; the engine checks every row's result strictly and stops, changing nothing, if any fails.
         await approveAuthored(expr);
         r = await api.calculateFieldPython(layer, target.trim(), expr, isNew && ty !== "auto" ? ty : null, fids, skip);
@@ -177,19 +180,33 @@ export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: 
       )}
       <Field label="Language">
         <Dropdown
-          value={language === "python" ? "Python" : "SQL"}
+          value={language === "python" ? "Python" : language === "blocks" ? "Blocks" : "SQL"}
           onOptionSelect={(_, d) => {
-            const next = d.optionValue as "python" | "sql";
+            const next = d.optionValue as "python" | "blocks" | "sql";
             if (next === "python" && !expr.trim()) setExpr(valueTemplate(info.fields));
             if (next === "sql" && expr === valueTemplate(info.fields)) setExpr("");
+            if (next === "blocks") setBlocksRoot(blocksFromScript(expr));
             setLanguage(next);
           }}
         >
           <Option value="python">Python</Option>
+          <Option value="blocks">Blocks</Option>
           <Option value="sql">SQL</Option>
         </Dropdown>
       </Field>
-      <div>
+      {language === "blocks" && (
+        <BlocksEditor
+          fields={info.fields}
+          kind="value"
+          initial={blocksRoot}
+          onChange={(root, error) => {
+            setBlocksRoot(root);
+            // Blocks make the Python script; a program that is not finished leaves the expression empty (and the dialog says why).
+            setExpr(root && !error ? blocksScript(root) : "");
+          }}
+        />
+      )}
+      {language !== "blocks" && <div>
         <div className="muted small">Fields (click to insert):</div>
         <div className="field-chips">
           {info.fields.map((f) => (
@@ -206,14 +223,14 @@ export function CalculateFieldDialog({ layer, owner, field, onClose }: { layer: 
             </div>
           </>
         )}
-      </div>
-      <Field
+      </div>}
+      {language !== "blocks" && <Field
         label={language === "python" ? `${target.trim() || "Field"} = the value  def calculate(row)  returns` : `${target.trim() || "Field"} =`}
         hint={language === "python" ? "Return the value for each feature; None leaves the field empty. Text, whole or decimal numbers, True/False and dates are kept as they are, and a value that does not fit the field is an error for that row. Attributes only." : "SQL expression. Text values go in single quotes: 'TX'."}
       >
         <Textarea value={expr} onChange={(_, d) => setExpr(d.value)} rows={language === "python" ? 6 : 4} className="mono" placeholder={language === "python" ? valueTemplate(info.fields) : "POP2020 / AREA_SQMI"} data-testid="calc-expression" />
-      </Field>
-      {language === "python" && (
+      </Field>}
+      {(language === "python" || language === "blocks") && (
         <Checkbox checked={skip} onChange={(_, d) => setSkip(!!d.checked)} label="If a row fails, keep its old value and report it (otherwise nothing is changed)" />
       )}
       <OnlySelected owner={owner} value={onlySel} onChange={setOnlySel} />

@@ -12,7 +12,7 @@ test("the Definition Query editor opens on Python; a Python query filters the la
   await ribbon(app, "Feature Layer", /^Definition Query$/);
   const qe = app.locator(".qe");
   await expect(qe.getByRole("tab", { name: "Python" })).toHaveAttribute("aria-selected", "true");
-  expect(await qe.getByRole("tab").allInnerTexts().then((t) => t.map((x) => x.trim().replace(/(.+)\1/, "$1")))).toEqual(["Python", "Builder", "SQL"]);
+  expect(await qe.getByRole("tab").allInnerTexts().then((t) => t.map((x) => x.trim().replace(/(.+)\1/, "$1")))).toEqual(["Python", "Blocks", "Builder", "SQL"]);
   await qe.getByTestId("qe-python").fill('def calculate(row):\n    return row["value"] > 50\n');
   await expect(qe.getByTestId("qe-preview")).toContainText(/Python|SQL/);
   await app.getByRole("button", { name: "Apply" }).click();
@@ -101,4 +101,27 @@ test("a label expression waits for approval too; the Labels panel offers a Pytho
   await app.getByTestId("script-approval").getByRole("button", { name: /Approve and run/ }).click();
   await expect(app.getByTestId("script-waiting-notice")).toHaveCount(0);
   expect(await gis(app, (g, id) => g.useApp.getState().layers[id].labelError ?? null, layer.id)).toBeNull();
+});
+
+test("UR-22: the Blocks tab makes the Python function, filters the layer, and the script opens as text with its blocks kept", async ({ app }) => {
+  const layer = await addTestLayer(app, "points", 40, [-100, 30, -95, 35]);
+  await ribbon(app, "Feature Layer", /^Definition Query$/);
+  const qe = app.locator(".qe");
+  await qe.getByRole("tab", { name: "Blocks" }).first().click();
+  await expect(qe.getByTestId("blocks-editor").locator("svg.blocklySvg")).toBeVisible();
+  // The starter program is a comparison on the first field; its Python is shown and is what runs.
+  await expect(qe.getByTestId("blocks-python")).toContainText("def calculate(row):");
+  await expect(qe.getByTestId("blocks-python")).toContainText(/return \(row\["[^"]+"\] (>|==)/);
+  await app.getByRole("button", { name: "Apply" }).click();
+  await expect.poll(() => gis(app, (g, id) => g.useApp.getState().layers[id].definitionPython, layer.id)).toContain("# gis-blocks: ");
+  const script = await gis(app, (g, id) => g.useApp.getState().layers[id].definitionPython, layer.id);
+  expect(script).toMatch(/^def calculate\(row\):\n    return /);
+  // The engine ran it (a comparison on the first field: none, some or all rows, never an error).
+  expect(await gis(app, (g, id) => g.useApp.getState().layers[id].definitionError ?? null, layer.id)).toBeNull();
+  // On the Python tab the same script is plain text (blocks kept in its last line); editing the text means Blocks starts over rather than lie.
+  await qe.getByRole("tab", { name: "Python" }).first().click();
+  await expect(qe.getByTestId("qe-python")).toHaveValue(script);
+  await qe.getByTestId("qe-python").fill(script.replace("def calculate", "# edited\ndef calculate"));
+  await qe.getByRole("tab", { name: "Blocks" }).first().click();
+  await expect(qe.getByTestId("blocks-python")).not.toContainText("# edited");
 });

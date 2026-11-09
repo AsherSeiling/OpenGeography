@@ -1,14 +1,16 @@
 // Build a filter three ways: a Python function (the default, run by CPython), a point-and-click Builder, or SQL. Reports the text to run
 // (SQL, or a Python script) with its language, or an error, via onChange. A query saved before Python was the default is SQL and opens as SQL.
+import { BlocksEditor } from "../scripts/BlocksEditor";
+import { blocksFromScript, blocksScript, type BlockJson } from "../scripts/blocks";
 import { Button, Tab, TabList, Textarea } from "@fluentui/react-components";
 import { AddRegular, DeleteRegular } from "@fluentui/react-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Field } from "../ipc/api";
 import { builderToSql, needsValue, opsFor, type Clause } from "./builder";
 import { fieldRef, filterTemplate } from "../scripts/script";
 import { pySubsetSql } from "./pySubset";
 
-export type QueryMode = "builder" | "python" | "sql";
+export type QueryMode = "builder" | "python" | "blocks" | "sql";
 export type QueryLanguage = "sql" | "python";
 
 /** Fields with more distinct values than this get a type-ahead box instead of a full list. */
@@ -86,6 +88,9 @@ export function QueryEditor({
   const firstField = (fields.find((f) => !/^(OGC_FID|OBJECTID|OID|FID|fid|id)$/.test(f.name)) ?? fields[0])?.name;
   const [clauses, setClauses] = useState<Clause[]>([newClause(firstField)]);
   const [python, setPython] = useState(initialPython ?? "");
+  // Hand-written Python that was open when the Blocks tab was chosen: kept unless the blocks are actually edited.
+  const kept = useRef<{ python: string; first: string | null } | null>(null);
+  const [blocks, setBlocks] = useState<{ root: BlockJson | null; error: string | null }>({ root: null, error: null });
   const [sql, setSql] = useState(initialSql ?? "");
   const [values, setValues] = useState<Record<string, string[]>>({});
 
@@ -93,6 +98,7 @@ export function QueryEditor({
   const result = useMemo((): [string, string | null] => {
     try {
       if (mode === "builder") return [builderToSql(clauses, fields), null];
+      if (mode === "blocks") return blocks.error || !blocks.root ? ["", blocks.error ?? "Start with a return block."] : [blocksScript(blocks.root), null];
       if (mode === "python") {
         if (!python.trim()) return ["", null];
         return /def\s+calculate\s*\(\s*row\s*\)/.test(python) ? [python, null] : ["", "Write a function:  def calculate(row):  that returns True to keep a feature, False to drop it."];
@@ -101,8 +107,8 @@ export function QueryEditor({
     } catch (e) {
       return ["", (e as Error).message];
     }
-  }, [mode, clauses, python, sql, fields]);
-  useEffect(() => onChange(result[0], result[1], mode === "python" ? "python" : "sql"), [result]);
+  }, [mode, clauses, python, sql, fields, blocks]);
+  useEffect(() => onChange(result[0], result[1], mode === "python" || mode === "blocks" ? "python" : "sql"), [result]);
   // A short filter can also be answered by SQL with exactly the same rows (nulls and all): say so. Everything else runs in Python.
   const simple = useMemo(() => (mode === "python" && python.trim() ? pySubsetSql(python, fields.map((f) => ({ name: f.name, type: f.type }))) : null), [mode, python, fields]);
   useEffect(() => {
@@ -130,6 +136,17 @@ export function QueryEditor({
     // Carry the expression forward where it can be represented (a Python filter that is plain SQL carries over as that SQL).
     if (m === "sql" && mode === "builder" && result[0]) setSql(result[0]);
     if (m === "sql" && mode === "python" && simple) setSql(simple);
+    // Blocks carry into the Python tab as the script they made; text opens as blocks only while it still equals what its blocks generate.
+    if (m === "python" && mode === "blocks" && blocks.root && !blocks.error) {
+      const untouched = kept.current && kept.current.first !== null && kept.current.first === JSON.stringify(blocks.root);
+      if (!untouched) setPython(blocksScript(blocks.root));
+      kept.current = null;
+    }
+    if (m === "blocks") {
+      const root = blocksFromScript(python);
+      kept.current = root || !python.trim() ? null : { python, first: null };
+      setBlocks({ root, error: null });
+    }
     setMode(m);
   };
 
@@ -137,6 +154,7 @@ export function QueryEditor({
     <div className="qe">
       <TabList size="small" selectedValue={mode} onTabSelect={(_, d) => switchTo(d.value as QueryMode)}>
         <Tab value="python">Python</Tab>
+        <Tab value="blocks">Blocks</Tab>
         <Tab value="builder">Builder</Tab>
         <Tab value="sql">SQL</Tab>
       </TabList>
@@ -202,6 +220,13 @@ export function QueryEditor({
             Return <code>True</code> to keep a feature, <code>False</code> to drop it — nothing else (not 1, not None). A field with no value is <code>None</code>. Attributes only, no geometry. The script runs in Python on this computer, once, not every time the map draws.
           </div>
         </div>
+      )}
+
+      {mode === "blocks" && (
+        <BlocksEditor fields={fields} kind="filter" initial={blocks.root} onChange={(root, error) => {
+            if (kept.current && kept.current.first === null && root) kept.current.first = JSON.stringify(root);
+            setBlocks({ root, error });
+          }} />
       )}
 
       {mode === "sql" && (
