@@ -226,6 +226,10 @@ fn rel(a: f64, b: f64) -> f64 {
 /// say (whitebox_tools.rs, gdal_tools.rs); the analysis tools state their CRS handling in the description and are tested against hand
 /// calculations in projected and geographic CRSs (textbook_tools.rs). They are not shape tools for this matrix.
 const WAVE1_RASTER: &[&str] = &[
+    "shortest_route",
+    "service_area",
+    "closest_facility",
+    "od_matrix",
     "kernel_density",
     "mean_centre",
     "standard_distance",

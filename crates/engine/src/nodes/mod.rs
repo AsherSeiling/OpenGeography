@@ -33,6 +33,7 @@ mod kernel_density;
 mod tabulate_area;
 mod cut_fill;
 mod profile_line;
+mod network_tools;
 mod lane_b;
 mod remote_sensing_tools;
 mod project;

@@ -12,6 +12,7 @@ pub fn tools() -> Vec<Box<dyn Tool>> {
     v.extend(tabulate_area::tools());
     v.extend(cut_fill::tools());
     v.extend(profile_line::tools());
+    v.extend(network_tools::tools());
     v
 }
 
@@ -25,6 +26,7 @@ pub fn keywords(id: &str) -> &'static [&'static str] {
         tabulate_area::keywords(id),
         cut_fill::keywords(id),
         profile_line::keywords(id),
+        network_tools::keywords(id),
     ] {
         if !k.is_empty() {
             return k;

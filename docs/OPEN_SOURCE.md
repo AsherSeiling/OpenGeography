@@ -106,6 +106,7 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | Tabulate area (cell-centre assignment, scan-line polygon fill) and true cell areas on the ellipsoid (authalic area of a longitude/latitude cell) | Snyder 1987, "Map Projections: A Working Manual", eq. 3-12; even-odd scan-line fill (standard) | `nodes/tabulate_area.rs`, `geomkit.rs` |
 | Profile along a line: geodesic stationing, bilinear sampling at cell centres | Karney 2013 (`geographiclib-rs`); bilinear interpolation (standard) | `nodes/profile_line.rs` |
 | Cut and fill: sum of (after - before) times true cell area, separately for negative and positive differences | Easa 1988 (grid volume computation); ArcGIS Cut Fill definition (names only) | `nodes/cut_fill.rs` |
+| Network analysis: Dijkstra's shortest-path algorithm with a binary heap, union-find connected components, snapping to the nearest point of the nearest segment, geodesic lengths (no graph library) | Dijkstra 1959, "A note on two problems in connexion with graphs", Numerische Mathematik 1:269-271; Tarjan 1975 (union-find); Karney 2013 through `geographiclib-rs` (already linked); `petgraph` and `fast_paths` (both MIT/Apache-2.0) were considered and not added (see docs/DECISIONS.md, Wave 1 Lane B) | `network.rs`, `nodes/network_tools.rs` |
 
 ## 6. Considered and not used
 

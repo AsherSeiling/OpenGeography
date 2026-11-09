@@ -1177,3 +1177,14 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T4-7 | Tabulate area: cell-centre rule, no-data row, class areas; geographic cell areas against the spherical formula and 12 308.8 km2 at the equator; decimal raster refused | 5000 / 1000 / 3900 / 100 m2 | auto: same file |
 | T4-8 | Cut and fill: 4 x 4 block (fill 1200, cut 600, net 600 m3), no-data cell reported, feet, different grids refused, geographic cell area | exact | auto: same file |
 | T4-9 | Profile along a line: spacing, bilinear on a plane, outside-the-raster stations reported, geographic DEM with a UTM line, points refused | within 1e-3 / 0.01 | auto: same file |
+
+## T5. Network analysis (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T5-1 | Shortest route on a hand network (square with a pulled-in corner, a one-way, a disconnected piece): by length through the short side; the way back refuses the one-way; by travel time (60 and 5 km/h) through the fast side | 395.3 m via D; 443.8 m via B only with the one-way field; (AB + BC) / 1000 min | auto: `crates/engine/tests/network_tools.rs` |
+| T5-2 | Unreachable legs, stops beyond the snap distance, stops on a disconnected piece, a speed missing on a line | rows kept with a status; notes name the stops and row numbers | auto: same file |
+| T5-3 | Snapping into the middle of a segment: 20 m and 22 m off, route between two mid-segment stops | snap distances reported; cost = half + half of the two segments | auto: same file, `network.rs` unit tests |
+| T5-4 | OD matrix: costs, path lengths, unreachable pairs, cutoff | (S, B) = AB; (S, T) via D; unreachable pairs have a status | auto: same file |
+| T5-5 | Service area: reachable stretches within 300 m (full and partial segments, one-way respected), minutes cutoff, polygon variant | fractions (300 - AB) / BC and (300 - AD) / DC; valid polygon around the facility | auto: same file |
+| T5-6 | Closest facility: ranks, count 2, incident that reaches nothing, travel from the facility | FB then FC; a 'no facility reachable' row; C to S goes through B | auto: same file |
+| T5-7 | Refusals: time without a speed field, points as the network, one stop | readable sentences | auto: same file |
