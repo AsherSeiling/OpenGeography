@@ -138,13 +138,13 @@ export function QueryEditor({
     if (m === "sql" && mode === "python" && simple) setSql(simple);
     // Blocks carry into the Python tab as the script they made; text opens as blocks only while it still equals what its blocks generate.
     if (m === "python" && mode === "blocks" && blocks.root && !blocks.error) {
-      const untouched = kept.current && kept.current.first !== null && kept.current.first === JSON.stringify(blocks.root);
-      if (!untouched) setPython(blocksScript(blocks.root));
+      // What the Blocks tab shows is what runs, so the Python tab shows it too.
+      setPython(blocksScript(blocks.root));
       kept.current = null;
     }
     if (m === "blocks") {
       const root = blocksFromScript(python);
-      kept.current = root || !python.trim() ? null : { python, first: null };
+      kept.current = root || !python.trim() || python === filterTemplate(fields) ? null : { python, first: null };
       setBlocks({ root, error: null });
     }
     setMode(m);
@@ -223,10 +223,13 @@ export function QueryEditor({
       )}
 
       {mode === "blocks" && (
-        <BlocksEditor fields={fields} kind="filter" initial={blocks.root} onChange={(root, error) => {
+        <>
+          {kept.current && <div className="muted small" data-testid="blocks-replaces">The Python you wrote is not made of blocks, so it is not shown here. Going back to the Python tab shows the blocks' script instead.</div>}
+          <BlocksEditor fields={fields} kind="filter" initial={blocks.root} onChange={(root, error) => {
             if (kept.current && kept.current.first === null && root) kept.current.first = JSON.stringify(root);
             setBlocks({ root, error });
           }} />
+        </>
       )}
 
       {mode === "sql" && (
