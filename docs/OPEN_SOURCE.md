@@ -124,6 +124,10 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | PDAL | BSD | candidate for LiDAR (LAS/LAZ to DEM); not needed yet |
 | `smartcore`, `linfa` | Apache-2.0 / MIT | candidates for supervised classification (waits for the training-area design) |
 | the `kriging` crate (0.0.1) | MIT | too immature; kriging written directly |
+| `@fluentui/react-color-picker` | MIT | planned for the built-in colour picker (`docs/COLOUR_AND_OUTLINE_PLAN.md`); already installed with Fluent UI, not yet used |
+| `statrs`, `nalgebra` | check at ST0 | candidates for distributions and matrices in the statistics workspace (`docs/STATISTICS_WORKSPACE_PLAN.md`); licences to be confirmed before use |
+| NIST Statistical Reference Datasets | US public domain | planned as expected values in statistics tests; not shipped |
+| R | GPL-2 or later | planned only as a source of expected numbers in statistics tests; never shipped, linked or copied |
 
 ## 7. Keeping this current
 

@@ -21,12 +21,25 @@ Run one wave at a time. Effort is in focused sessions, from `MASTER_PLAN.md`. St
 
 Lane B's only shared files are `nodes/mod.rs`, `nodes/keywords.rs`, `docs/OPEN_SOURCE.md` and `THIRD_PARTY_NOTICES.md`. Those are add-a-line conflicts, so you resolve them at merge.
 
+### Colour picker: about 2 sessions, one lane, alone
+
+After Wave 1 is merged and before Wave 2, because it edits files both Wave 2 lanes own. CP1, CP2, CP3 (`docs/COLOUR_AND_OUTLINE_PLAN.md`).
+
 ### Wave 2: about 7.5 sessions
 
 | Lane | Packages, in order | Owns |
 |---|---|---|
 | **A: node editor** | UX6, UX7, UX8, UX5, UX12 | `ui/src/nodes/`, `store/model.ts`, `graph.rs` |
-| **B: app shell, then tools** | UX1, UX2, UX13, UX9, UX11, UX15, then T2, T7, T8 | `App.tsx`, project save and open, ribbon search, Settings, then new `nodes/` files |
+| **B: app shell, then tools** | UX1, UX2, UX13, UX9, UX11, UX15, then T2, T8 | `App.tsx`, project save and open, ribbon search, Settings, then new `nodes/` files |
+
+### Statistics workspace: about 11 sessions
+
+After Wave 2. You do ST0 first, then Lane A builds ST1 alone (stop for review), then both lanes (`docs/STATISTICS_WORKSPACE_PLAN.md`). T7 is part of ST6.
+
+| Lane | Packages, in order | Owns |
+|---|---|---|
+| **A: UI** | ST1, ST3, ST7 | `ui/src/stats/`, `crates/engine/src/stats/chart.rs`, ribbon |
+| **B: engine** | ST2, ST4, ST5, ST6 | `crates/engine/src/stats/`, new `nodes/` files |
 
 ### Wave 3: start only when the user says to
 
@@ -71,9 +84,9 @@ Find the cause before fixing. Don't merge a fix you can't show works: reproduce 
 
 ## Review (keep it lean)
 
-Check each report against its diff with `git diff --stat`. Read closely only: every CRS transform and error figure in GR, statistics methods in T4 and T7, licences before T1 and T2, project format changes (UX1 especially), running scripts, secrets, and Census correctness (GEOID, years, margins of error). Grep the rest.
+Check each report against its diff with `git diff --stat`. Read closely only: every CRS transform and error figure in GR, statistics methods in T4 and ST4–ST6, licences before T1 and T2, project format changes (UX1 especially), running scripts, secrets, and Census correctness (GEOID, years, margins of error). Grep the rest.
 
-Agents stop for your review at: GR2, T2 (licence and packaging first), UX1, and C4.
+Agents stop for your review at: GR2, T2 (licence and packaging first), UX1, ST1, ST4, ST5, ST6, and C4.
 
 ## Keep usage low
 

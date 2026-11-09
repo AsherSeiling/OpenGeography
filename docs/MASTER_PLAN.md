@@ -40,6 +40,8 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 - `docs/CENSUS_TABLES_PLAN.md` — Census tables importer and custom table generator (user, 2026-11-06); after the user-requests list, before server connections and planetary (user, 2026-11-06). Lead prompt `docs/prompts/census-tables-lead.md`.
 - `docs/PUBLIC_DATA_NODE_PLAN.md` — Public Data node: public datasets as cached model inputs (user, 2026-11-06); built with the Census importer, after its fetch engine (C3).
 - `docs/SHAPE_EDITING_PLAN.md` — shape editing mode: edit a layer's shapes or make a new layer and draw (user, 2026-11-06); after the user-requests list, before the Census importer (user, 2026-11-06).
+- `docs/COLOUR_AND_OUTLINE_PLAN.md` — built-in colour picker with transparency, outline opacity (user, 2026-11-09); Phase CP.
+- `docs/STATISTICS_WORKSPACE_PLAN.md` — a separate statistics workspace (user, 2026-11-09); Phase ST.
 - `docs/TOOL_SOURCES.md` — candidate open-source code for more tools, by tier and licence (2026-11-06); a list, not in the order yet.
 
 ---
@@ -91,6 +93,8 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | Census tables + Public Data node | Planned 2026-11-06, not built | C0–C8 in `CENSUS_TABLES_PLAN.md`, N1–N2 in `PUBLIC_DATA_NODE_PLAN.md` |
 | Every USGS service | Planned 2026-11-06, not built | U0–U2 in `SERVER_CONNECTIONS_PLAN.md` §4a, after S2–S3 |
 | T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; after shape editing, before Census (user, 2026-11-06) |
+| CP. Colour picker and outline opacity | Planned 2026-11-09, not built | CP1–CP3 below |
+| ST. Statistics workspace | Planned 2026-11-09, not built | ST0–ST7 below |
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
 
@@ -291,6 +295,41 @@ Sources, licences and packaging cost: `docs/TOOL_SOURCES.md`. GPL tools may ship
 | T8 | 1 | Sonnet | **Point clouds:** `las` / `laz` reading plus WhiteboxTools LiDAR tools (3DEP lidar) |
 
 **Total:** about 9–11 sessions. T1, T3 and T4 are the cheapest per tool.
+
+T7 moves into Phase ST (package ST6), so its statistics get the workspace's charts (2026-11-09).
+
+### Phase CP — Colour picker and outline opacity (user, 2026-11-09)
+
+**Order:** alone, after Wave 1 is merged and before Wave 2, because it edits files both Wave 2 lanes own. This is the lead's placement.
+
+Design: `docs/COLOUR_AND_OUTLINE_PLAN.md`.
+
+| Task | Effort | Model | What |
+|---|---|---|---|
+| CP1 | 0.5 | Sonnet | **The picker:** one colour control drawn by the app, with alpha, hex, RGB, recent and project colours |
+| CP2 | 0.5–1 | Sonnet | **Rendering:** `#rrggbbaa` on the map and in PNG and PDF; outline opacity on polygons, classes and stroke stacks; a settable point outline |
+| CP3 | 0.5 | Sonnet | **Rollout:** every colour control replaced; Outline opacity field added |
+
+**Total:** about 1.5–2 sessions.
+
+### Phase ST — Statistics workspace (user, 2026-11-09)
+
+**Order:** after Wave 2 and before the Census importer. This is the lead's placement.
+
+Design: `docs/STATISTICS_WORKSPACE_PLAN.md`.
+
+| Task | Effort | Model | What |
+|---|---|---|---|
+| ST0 | 0.5 | Opus | **Spike:** libraries and licences, result format, chart hit-testing |
+| ST1 | 1.5 | Sonnet (Opus reviews the project format) | **Workspace shell:** statistics sheets saved in the project, enter and leave, ribbon, Data pane, cards |
+| ST2 | 1 | Sonnet | **Describe:** descriptive statistics, frequency tables, cross-tabulations |
+| ST3 | 1.5 | Sonnet | **Charts:** histogram, box, scatter, Q–Q and more, linked to the map selection |
+| ST4 | 1.5 | Sonnet (Opus checks the statistics) | **Tests:** t, ANOVA, chi-square, rank tests, normality, correlation |
+| ST5 | 1.5 | Sonnet (Opus checks the statistics) | **Regression:** OLS and logistic with diagnostics; residuals saved as a new layer |
+| ST6 | 2.5 | Sonnet (Opus checks the statistics) | **Spatial statistics:** weights manager, charts for existing tools, and T7 (LISA, GWR / MGWR, spatial lag and error) |
+| ST7 | 1 | Sonnet | **Share:** to layouts, CSV, PNG, SVG, a sheet report |
+
+**Total:** about 11 sessions, including 1.5 moved from T7.
 
 ---
 
