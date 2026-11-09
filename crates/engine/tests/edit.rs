@@ -93,6 +93,7 @@ fn op(kind: &str, fid: Option<i64>, wkt: Option<&str>, attrs: Option<Value>) -> 
         geometry: wkt.map(|w| bytes_to_hex(&hex_wkb(w))),
         attributes: attrs.map(|a| a.as_object().cloned().unwrap_or_else(Map::new)),
         fix: false,
+        layer_wkb: None,
     }
 }
 
