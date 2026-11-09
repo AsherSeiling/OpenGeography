@@ -568,6 +568,41 @@ pub async fn edit_history(engine: Eng<'_>, layer: String) -> Res<Vec<engine::edi
 }
 
 #[tauri::command]
+pub async fn edit_reshape(engine: Eng<'_>, layer: String, map_crs: String, op: engine::edit_tools::Reshape) -> Res<engine::edit::ApplyResult> {
+    blocking(&engine, move |e| e.edit_reshape(&layer, &map_crs, &op)).await
+}
+
+#[tauri::command]
+pub async fn edit_circle(engine: Eng<'_>, map_crs: String, center: [f64; 2], radius_m: f64, vertices: usize) -> Res<engine::edit_tools::Shape> {
+    blocking(&engine, move |e| e.edit_circle(&map_crs, center, radius_m, vertices)).await
+}
+
+#[tauri::command]
+pub async fn edit_distance(engine: Eng<'_>, map_crs: String, a: [f64; 2], b: [f64; 2]) -> Res<f64> {
+    blocking(&engine, move |e| e.edit_distance(&map_crs, a, b)).await
+}
+
+#[tauri::command]
+pub async fn edit_rectangle(engine: Eng<'_>, corner_a: [f64; 2], corner_b: [f64; 2]) -> Res<engine::edit_tools::Shape> {
+    blocking(&engine, move |e| e.edit_rectangle(corner_a, corner_b)).await
+}
+
+#[tauri::command]
+pub async fn edit_destination(engine: Eng<'_>, map_crs: String, from: [f64; 2], distance_m: f64, bearing_deg: f64) -> Res<[f64; 2]> {
+    blocking(&engine, move |e| e.edit_destination(&map_crs, from, distance_m, bearing_deg)).await
+}
+
+#[tauri::command]
+pub async fn edit_parse_coords(engine: Eng<'_>, layer: String, map_crs: String, kind: String, text: String) -> Res<Vec<[f64; 2]>> {
+    blocking(&engine, move |e| e.edit_parse_coords(&layer, &map_crs, &kind, &text)).await
+}
+
+#[tauri::command]
+pub async fn edit_paste(engine: Eng<'_>, from_layer: String, fids: Vec<i64>, to_layer: String) -> Res<engine::edit_tools::PasteResult> {
+    blocking(&engine, move |e| e.edit_paste(&from_layer, &fids, &to_layer)).await
+}
+
+#[tauri::command]
 pub async fn create_layer(engine: Eng<'_>, name: String, geom_type: String, crs: String, fields: Vec<(String, String)>) -> Res<LayerInfo> {
     blocking(&engine, move |e| e.create_layer(&name, &geom_type, &crs, &fields)).await
 }

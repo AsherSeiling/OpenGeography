@@ -288,6 +288,9 @@ pub struct EditOp {
     pub attributes: Option<Map<String, Value>>,
     /// Repair an invalid shape (ST_MakeValid) instead of keeping it as drawn.
     pub fix: bool,
+    /// A shape already in the LAYER's CRS (built by the engine's reshape and paste tools): used as it is, no map CRS involved.
+    #[serde(skip)]
+    pub layer_wkb: Option<Vec<u8>>,
 }
 
 #[derive(Serialize, Clone, Debug, Default)]
@@ -360,10 +363,10 @@ pub struct EditLogRow {
     pub deleted: i64,
 }
 
-struct Session {
-    map_crs: String,
-    z_value: Option<f64>,
-    next_fid: i64,
+pub(crate) struct Session {
+    pub(crate) map_crs: String,
+    pub(crate) z_value: Option<f64>,
+    pub(crate) next_fid: i64,
 }
 
 fn undo_table(layer: &str) -> String {
@@ -376,11 +379,11 @@ fn can_undo_save(conn: &Connection, info: &LayerInfo) -> bool {
         && conn.query_row("SELECT version FROM __edit_undo_meta WHERE layer = ?", [&info.id], |r| r.get::<_, i64>(0)).map(|v| v == info.version as i64).unwrap_or(false)
 }
 
-fn log_table(layer: &str) -> String {
+pub(crate) fn log_table(layer: &str) -> String {
     format!("__edits_{layer}")
 }
 
-fn hex_to_bytes(h: &str) -> Result<Vec<u8>> {
+pub(crate) fn hex_to_bytes(h: &str) -> Result<Vec<u8>> {
     let h = h.trim();
     if h.len() % 2 != 0 || !h.bytes().all(|c| c.is_ascii_hexdigit()) {
         bail!("The geometry is not hexadecimal WKB.");
@@ -399,7 +402,7 @@ pub fn bytes_to_hex(b: &[u8]) -> String {
 }
 
 /// Transform WKB between CRSs with PROJ (the same call for sending shapes out and taking them back).
-fn transform_wkb(conn: &Connection, wkb: &[u8], from: &str, to: &str) -> Result<Vec<u8>> {
+pub(crate) fn transform_wkb(conn: &Connection, wkb: &[u8], from: &str, to: &str) -> Result<Vec<u8>> {
     if from == to {
         return Ok(wkb.to_vec());
     }
@@ -407,7 +410,7 @@ fn transform_wkb(conn: &Connection, wkb: &[u8], from: &str, to: &str) -> Result<
         .map_err(|e| anyhow!("Could not move the shape between coordinate systems ({from} → {to}): {e}"))
 }
 
-fn session(conn: &Connection, layer: &str) -> Result<Option<Session>> {
+pub(crate) fn session(conn: &Connection, layer: &str) -> Result<Option<Session>> {
     let mut s = conn.prepare("SELECT map_crs, z_value, next_fid FROM __edit_sessions WHERE layer = ?")?;
     let mut rows = s.query([layer])?;
     Ok(match rows.next()? {
@@ -418,14 +421,14 @@ fn session(conn: &Connection, layer: &str) -> Result<Option<Session>> {
 
 /// A feature's pending state, from the non-undone log rows in order.
 #[derive(Default, Clone)]
-struct Pending {
-    inserted: bool,
-    deleted: bool,
-    wkb: Option<Vec<u8>>,
-    attrs: Map<String, Value>,
+pub(crate) struct Pending {
+    pub(crate) inserted: bool,
+    pub(crate) deleted: bool,
+    pub(crate) wkb: Option<Vec<u8>>,
+    pub(crate) attrs: Map<String, Value>,
 }
 
-fn pending(conn: &Connection, layer: &str) -> Result<BTreeMap<i64, Pending>> {
+pub(crate) fn pending(conn: &Connection, layer: &str) -> Result<BTreeMap<i64, Pending>> {
     let mut s = conn.prepare(&format!("SELECT op, fid, wkb, attrs FROM {} WHERE NOT undone ORDER BY seq", ident(&log_table(layer))))?;
     let rows = s.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<Vec<u8>>>(2)?, r.get::<_, Option<String>>(3)?)))?;
     let mut m: BTreeMap<i64, Pending> = BTreeMap::new();
@@ -456,7 +459,7 @@ fn pending(conn: &Connection, layer: &str) -> Result<BTreeMap<i64, Pending>> {
     Ok(m)
 }
 
-fn json_text(v: &Value) -> Option<String> {
+pub(crate) fn json_text(v: &Value) -> Option<String> {
     match v {
         Value::Null => None,
         Value::String(s) => Some(s.clone()),
@@ -702,7 +705,11 @@ impl Engine {
                 };
                 touched.insert(fid);
                 let mut wkb: Option<Vec<u8>> = None;
-                if let Some(mw) = map_wkb {
+                if map_wkb.is_some() || op.layer_wkb.is_some() {
+                    let g = if let Some(lw) = &op.layer_wkb {
+                        parse_wkb(lw)?
+                    } else {
+                    let mw = map_wkb.clone().unwrap();
                     let new_map = parse_wkb(&mw)?;
                     let new_layer_bytes = transform_wkb(conn, &mw, map_crs, &lc)?;
                     let new_layer = parse_wkb(&new_layer_bytes)?;
@@ -724,7 +731,8 @@ impl Engine {
                     } else {
                         (None, None)
                     };
-                    let g = reconcile(&new_map, &new_layer, orig_map.as_ref(), orig_layer.as_ref(), s.z_value)?;
+                    reconcile(&new_map, &new_layer, orig_map.as_ref(), orig_layer.as_ref(), s.z_value)?
+                    };
                     match info.geom_type.as_str() {
                         "Point" if g.dimension() != 0 => bail!("\"{}\" holds points; a line or polygon can't be added to it.", info.name),
                         "Line" if g.dimension() != 1 => bail!("\"{}\" holds lines; a point or polygon can't be added to it.", info.name),

@@ -201,6 +201,13 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "edit_pending" => json!(e.edit_pending(&s(a, "layer")?)?),
         "edit_features_in" => json!(e.edit_features_in(&s(a, "layer")?, &s(a, "mapCrs")?, de::<[f64; 4]>(a, "extent")?, a["limit"].as_u64().unwrap_or(5000) as usize)?),
         "edit_history" => json!(e.edit_history(&s(a, "layer")?)?),
+        "edit_reshape" => json!(e.edit_reshape(&s(a, "layer")?, &s(a, "mapCrs")?, &de::<engine::edit_tools::Reshape>(a, "op")?)?),
+        "edit_circle" => json!(e.edit_circle(&s(a, "mapCrs")?, de::<[f64; 2]>(a, "center")?, a["radiusM"].as_f64().unwrap_or(0.0), a["vertices"].as_u64().unwrap_or(0) as usize)?),
+        "edit_distance" => json!(e.edit_distance(&s(a, "mapCrs")?, de::<[f64; 2]>(a, "a")?, de::<[f64; 2]>(a, "b")?)?),
+        "edit_rectangle" => json!(e.edit_rectangle(de::<[f64; 2]>(a, "cornerA")?, de::<[f64; 2]>(a, "cornerB")?)?),
+        "edit_destination" => json!(e.edit_destination(&s(a, "mapCrs")?, de::<[f64; 2]>(a, "from")?, a["distanceM"].as_f64().unwrap_or(f64::NAN), a["bearingDeg"].as_f64().unwrap_or(f64::NAN))?),
+        "edit_parse_coords" => json!(e.edit_parse_coords(&s(a, "layer")?, &s(a, "mapCrs")?, &s(a, "kind")?, &s(a, "text")?)?),
+        "edit_paste" => json!(e.edit_paste(&s(a, "fromLayer")?, &de::<Vec<i64>>(a, "fids")?, &s(a, "toLayer")?)?),
         "create_layer" => json!(e.create_layer(&s(a, "name")?, &s(a, "geomType")?, &s(a, "crs")?, &de::<Vec<(String, String)>>(a, "fields")?)?),
         "rows_by_fid" => json!(e.rows_by_fid(&s(a, "id")?, &de::<Vec<i64>>(a, "fids")?)?),
         "restore_rows" => {

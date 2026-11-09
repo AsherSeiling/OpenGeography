@@ -31,6 +31,7 @@ pub mod world;
 pub mod db;
 pub mod display;
 pub mod edit;
+pub mod edit_tools;
 pub mod graph;
 pub mod history;
 pub mod layers;
