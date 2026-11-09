@@ -59,7 +59,7 @@ pub fn build_tile_display(conn: &Connection, info: &LayerInfo, entry: &Entry, gr
     }
     let env = format!("ST_MakeEnvelope({x0}, {y0}, {x1}, {y1})");
     let t = ident(&entry.source(z));
-    let d = info.def_and();
+    let d = format!("{}{}", info.def_and(), info.edit_hide());
     // Attributes (and the definition query) live in the layer table; join to
     // it only when the tile needs them.
     let needed: Vec<&String> = fields.iter().filter(|f| info.fields.iter().any(|x| &x.name == *f)).collect();

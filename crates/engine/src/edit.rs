@@ -307,6 +307,9 @@ pub struct EditStatus {
     pub invalid: Vec<i64>,
     /// The most recent Save can be undone (the layer has not changed since).
     pub can_undo_save: bool,
+    /// The layer's shapes have Z (or M) values: the session's Z choice for new vertices matters.
+    pub layer_has_z: bool,
+    pub layer_has_m: bool,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -494,7 +497,10 @@ impl Engine {
         check_editable(&info)?;
         self.with_conn(|conn| {
             crs::validate(conn, map_crs)?;
-            if session(conn, layer_id)?.is_none() {
+            if session(conn, layer_id)?.is_some() {
+                // Resuming: the map and the Z choice of this call apply.
+                conn.execute("UPDATE __edit_sessions SET map_crs = ?, z_value = ? WHERE layer = ?", duckdb::params![map_crs, z_value, layer_id])?;
+            } else {
                 let recorded: i64 = conn.query_row("SELECT coalesce(max(max_fid), 0) FROM __edit_fids WHERE layer = ?", [layer_id], |r| r.get(0))?;
                 let top: i64 = conn.query_row(&format!("SELECT coalesce(max(__fid), 0) FROM {}", ident(&info.table)), [], |r| r.get(0))?;
                 conn.execute_batch(&format!(
@@ -543,6 +549,12 @@ impl Engine {
                 }
             }
         }
+        let zm = conn
+            .query_row(&format!("SELECT ST_AsWKB(geom) FROM {} WHERE geom IS NOT NULL LIMIT 1", ident(&info.table)), [], |r| r.get::<_, Vec<u8>>(0))
+            .ok()
+            .and_then(|b| parse_wkb(&b).ok())
+            .map(|g| (g.has_z, g.has_m))
+            .unwrap_or((false, false));
         let steps: i64 = conn.query_row(&format!("SELECT count(DISTINCT step) FROM {t} WHERE NOT undone"), [], |r| r.get(0))?;
         let undone: i64 = conn.query_row(&format!("SELECT count(DISTINCT step) FROM {t} WHERE undone"), [], |r| r.get(0))?;
         Ok(EditStatus {
@@ -558,6 +570,8 @@ impl Engine {
             can_redo: undone > 0,
             invalid,
             can_undo_save: false,
+            layer_has_z: zm.0,
+            layer_has_m: zm.1,
         })
     }
 
