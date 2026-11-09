@@ -81,6 +81,23 @@ Tracing along another layer's edges is left for later.
 - **Pending edits** go in a per-layer `__edits_<layer>` table. Save runs in one transaction, bumps `version` and invalidates dependent caches.
 - **Feature ids** (`__fid`) stay stable for edited features, and new features get fresh ids.
 
+## E0 design check (Opus, 2026-11-09)
+
+Checked against the code. The user asked for decisions to be made while away; these can all be changed.
+
+1. **Untouched vertices must not move.** Drawing happens in the map CRS, so a modified polygon comes back with every vertex reprojected, and layer → map → layer drifts (more with datum shifts). `edit_apply` gets each geometry with the map-CRS coordinates the engine sent out for it. A vertex that comes back unchanged keeps its stored layer-CRS coordinate and its Z and M exactly; only changed or new vertices are transformed. The UI sends map-CRS coordinates and the engine does every transform with PROJ; proj4 stays pixels-only (M-D5).
+2. **Feature ids.** `refresh_display` renumbers `__fid` with `row_number()`, so Save must not call it. New features take ids above the highest ever used in the layer. Anything that would run `refresh_display` (Define Projection and the like) is blocked during a session, through the existing `editable()` guard.
+3. **Pending edits are an ordered log**, `__edits_<layer>` (seq, step, op, fid, geometry WKB in layer CRS, attributes JSON, undone flag). The current state is the last op per fid that isn't undone; undo and redo flip whole steps. Cell edits in the attribute table during a session go into this log rather than writing through.
+4. **Only the edit session sees pending edits.** Node trees, exports, layouts and the saved table read saved data. For drawing, tiles for the layer being edited leave out the touched fids, and the edit overlay draws those.
+5. **Save** runs in one transaction on one connection: deletes and inserts of touched rows only, across the main table, `__g`, bbox columns and every overview table (`tables(info)`). New or changed shapes go into every overview level; overviews are approximate and are rebuilt on the next full refresh. `version` is bumped inside the transaction; the in-memory layer is updated only after commit; then Python definition and label sets re-run (`ensure_definition`, `ensure_labels`). If DuckDB's RTREE refuses this in a transaction, drop and rebuild the index inside it.
+6. **Crash recovery.** An opened project writes straight to `project.duckdb`, so the log survives a crash and the next open offers resume or discard. **A new project that has never been saved is in memory, so its edits can't survive a crash.** Start Editing there shows a one-line notice to save the project first; it doesn't block. UX1 autosave can close this later.
+7. **Undo after Save** uses before-images of the touched rows, kept for the most recent Save only (`__edits_undo_<layer>`), and applies as a new version.
+8. **History.** Node snapshots already follow `version`, so diffs work. Save also writes one row to `__edit_log` (layer, time, counts added, changed, deleted).
+9. **Big layers.** A new `edit_features_in(extent)` loads only what's in and near the view.
+10. **OpenLayers** Draw, Modify and Snap work in the view's projection, so they suit any map CRS, with a tolerance in screen pixels. E2 tests on a UTM and a geographic map as well as Web Mercator. Shapes crossing the antimeridian aren't handled in this version; say so in the UI when one is attempted.
+
+No project format change: the new tables are hidden, created when first needed, and old projects open as they are.
+
 ## Work packages
 
 | Id | Who | What | Done when |
