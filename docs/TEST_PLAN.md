@@ -1127,3 +1127,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | PY-14 | The dev server refuses a foreign Origin or Host (it can approve and run Python) and echoes only local origins; the script's stdin/fd 1/subprocesses cannot corrupt the protocol; cancel returns when a script left a background child | `crates/devserver/tests/origin.rs`, `engine/tests/python_scripts.rs` |
 
 | PY-15 | UR-22 Blocks: block program generates `def calculate(row)`; blocks kept in a last comment line; edited text opens as text | `blocks.test.ts` (10 unit tests pass); e2e `python-scripts.spec.ts` "UR-22" (Blocks tab makes the script; Python tab shows the same text; edited text starts Blocks over) passes |
+| SE-1 | E1 edit session: save and discard (counts, version +1, history row, citation note); discard restores exactly | `crates/engine/tests/edit.rs` `save_applies_edits_in_one_step_and_discard_drops_them` |
+| SE-2 | Undo/redo by step; a new edit drops undone steps | `undo_and_redo_go_step_by_step_…` |
+| SE-3 | Fids of untouched rows never change; new fids never reused (also across a discarded session) | `feature_ids_of_untouched_rows_never_change_…` |
+| SE-4 | Moving one vertex leaves every other vertex bit-identical incl. Z and M (UTM on Web Mercator; British National Grid on WGS 84, a datum shift) | `moving_one_vertex_leaves_every_other_vertex_identical_…` |
+| SE-5 | A UTM layer edited from a Web Mercator map gets exact coordinates | `a_utm_layer_edited_from_a_web_mercator_map_…` |
+| SE-6 | A save failing partway leaves table, overviews and version unchanged; the session stays open | `a_save_failing_partway_…` (50,100-point layer with overviews) |
+| SE-7 | Pending edits not in node trees, copies, table pages; tree re-runs after save; Python definition query re-runs after save | `pending_edits_are_not_in_node_trees_…`, `a_python_definition_query_runs_again_after_save` |
+| SE-8 | Crash recovery: reopen with a pending log; resume or discard | `edits_survive_a_crash_…` |
+| SE-9 | Old projects (no edit tables, no `editing` key) open and can be edited | `an_old_project_without_the_edit_tables_…` |
+| SE-10 | Blocked tools give a readable sentence in a session; non-editable layers say why; new layer fields, id, CRS required, citation names the user; wrong shape kind / bad value / pole refused with a reason; invalid shapes flagged, fixed, reported | `tools_that_would_write_…`, `layers_that_can_not_be_edited_…`, `a_new_layer_has_…`, `invalid_shapes_are_flagged_…` |
+| SE-11 | Tiles of the edited layer leave out features with pending edits; undo restores them | `tiles_leave_out_features_with_pending_edits_…` |
+| SE-12 | WKB round trip with Z/M and every multi type | `wkb_round_trips_z_and_m_…` |

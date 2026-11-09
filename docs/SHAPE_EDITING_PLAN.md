@@ -1,6 +1,6 @@
 # Shape editing: plan
 
-Status: planned 2026-11-06, nothing built. Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list, before the Census importer.
+Status: planned 2026-11-06; E1 (engine) built 2026-11-09, UI not built. Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list, before the Census importer.
 
 ## What the user asked for
 
