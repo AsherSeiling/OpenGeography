@@ -51,7 +51,7 @@ pub fn check_chart(kind: &str, agg: &str) -> Result<()> {
 }
 
 fn where_def(info: &LayerInfo) -> String {
-    info.definition_query.as_deref().filter(|q| !q.trim().is_empty()).map_or(String::new(), |q| format!(" WHERE ({q})"))
+    info.def_where()
 }
 
 fn is_numeric(ty: &str) -> bool {

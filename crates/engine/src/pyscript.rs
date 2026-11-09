@@ -685,6 +685,32 @@ pub struct Evaluated {
     pub total: u64,
     pub failures: Failures,
     pub python_version: String,
+    /// Row numbers (`__rn`) of the rows that failed (non-empty only when the caller chose to skip failed rows).
+    pub failed_rns: Vec<i64>,
+}
+
+/// Run `script` over the attributes of a layer's features (not its geometry): optionally only `fids`, and optionally only the features that
+/// pass the layer's own definition query. `__rn` rows map back to features through the snapshot's `__fid` column.
+pub fn evaluate_layer(conn: &Connection, info: &crate::layers::LayerInfo, script: &str, mode: Mode, out_type: OutType, skip_failed: bool, fids: Option<&[i64]>, respect_definition: bool) -> Result<Evaluated> {
+    use crate::db::ident;
+    let cols: Vec<String> = {
+        let mut st = conn.prepare(&format!("DESCRIBE SELECT * FROM {}", ident(&info.table)))?;
+        let v = st.query_map([], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+        v.into_iter().filter(|c| (c != "geom" && !crate::layers::HIDDEN_COLS.contains(&c.as_str())) || c == "__fid").collect()
+    };
+    let mut cond: Vec<String> = vec![];
+    if respect_definition {
+        cond.extend(info.def_condition());
+    }
+    if let Some(f) = fids {
+        cond.push(if f.is_empty() { "FALSE".into() } else { format!("__fid IN ({})", f.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")) });
+    }
+    let w = if cond.is_empty() { String::new() } else { format!(" WHERE {}", cond.join(" AND ")) };
+    let view = format!("__pyview_{}_{}", std::process::id(), progress_seq());
+    conn.execute_batch(&format!("CREATE OR REPLACE TEMP VIEW {} AS SELECT {} FROM {}{w} ORDER BY __fid", ident(&view), cols.iter().map(|c| ident(c)).collect::<Vec<_>>().join(", "), ident(&info.table)))?;
+    let r = evaluate(conn, &view, script, mode, out_type, skip_failed);
+    let _ = conn.execute_batch(&format!("DROP VIEW IF EXISTS {}", ident(&view)));
+    r
 }
 
 /// Run `script` over every row of `table` (attributes only). Creates the two scratch tables named in the result; on error nothing is left behind.
@@ -817,7 +843,8 @@ fn evaluate_inner(conn: &Connection, table: &str, script: &str, mode: Mode, out_
         }
         ap.flush()?;
     }
-    Ok(Evaluated { snapshot: snapshot.to_string(), staging: staging.to_string(), out_type: target, total, failures, python_version: std::mem::take(&mut ran.python_version) })
+    let failed_rns: Vec<i64> = ran.results.iter().enumerate().filter(|(_, r)| matches!(r, Res::Failed) || fit(r).is_some()).map(|(i, _)| i as i64 + 1).collect();
+    Ok(Evaluated { snapshot: snapshot.to_string(), staging: staging.to_string(), out_type: target, total, failures, python_version: std::mem::take(&mut ran.python_version), failed_rns })
 }
 
 /// A table with no attribute columns: run the script on empty rows.

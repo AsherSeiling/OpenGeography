@@ -30,7 +30,7 @@ pub struct RowsPage {
 
 fn where_clause(info: &LayerInfo, filter: &Option<String>, fids: &Option<Vec<i64>>) -> String {
     let mut parts = Vec::new();
-    if let Some(q) = info.definition_query.as_ref().filter(|q| !q.trim().is_empty()) {
+    if let Some(q) = info.def_condition() {
         parts.push(format!("({q})"));
     }
     if let Some(f) = filter.as_ref().filter(|f| !f.trim().is_empty()) {
@@ -82,6 +82,20 @@ pub fn select_where(conn: &Connection, info: &LayerInfo, filter: &str) -> Result
     let mut stmt = conn.prepare(&format!("SELECT __fid FROM {} {w} ORDER BY __fid", ident(&info.table)))?;
     let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
+}
+
+/// Ids of the features (that pass the layer's definition query) for which the Python script `def calculate(row): return True/False` returns
+/// True. Any failed row stops it with the report; nothing is returned partially.
+pub fn select_python(conn: &Connection, info: &LayerInfo, script: &str) -> Result<Vec<i64>> {
+    use crate::pyscript::{self, Mode, OutType};
+    let ev = pyscript::evaluate_layer(conn, info, script, Mode::Filter, OutType::Boolean, false, None, true)?;
+    let ids = (|| -> Result<Vec<i64>> {
+        let mut st = conn.prepare(&format!("SELECT s.__fid FROM {} s WHERE s.__rn IN (SELECT __rn FROM {}) ORDER BY s.__fid", ident(&ev.snapshot), ident(&ev.staging)))?;
+        let v = st.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+        Ok(v)
+    })();
+    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS {}; DROP TABLE IF EXISTS {}", ident(&ev.snapshot), ident(&ev.staging)));
+    ids
 }
 
 /// SQL expression for a map-CRS ring carried into the layers' stored CRS (Web Mercator):

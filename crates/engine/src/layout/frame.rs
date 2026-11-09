@@ -462,7 +462,7 @@ fn clip_shape(conn: &Connection, _body: &Body, crs: &FrameCrs, f: &FrameInput, c
             let g = if src == dst { "geom".to_string() } else { format!("ST_Transform(geom, {}, {}, true)", lit(&src), lit(&dst)) };
             let _ = crs;
             let wkt: Option<String> = conn
-                .query_row(&format!("SELECT ST_AsText(ST_Union_Agg(ST_SimplifyPreserveTopology({g}, {tol}))) FROM {t}{def}", t = ident(&info.table), def = info.definition_query.as_deref().filter(|q| !q.trim().is_empty()).map_or(String::new(), |q| format!(" WHERE ({q})"))), [], |r| r.get(0))
+                .query_row(&format!("SELECT ST_AsText(ST_Union_Agg(ST_SimplifyPreserveTopology({g}, {tol}))) FROM {t}{def}", t = ident(&info.table), def = info.def_where()), [], |r| r.get(0))
                 .map_err(|e| anyhow!("{e}"))?;
             let d = wkt.map(|w| wkt_path(&w, m)).unwrap_or_default();
             if d.is_empty() {

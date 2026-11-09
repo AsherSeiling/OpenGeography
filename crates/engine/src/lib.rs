@@ -163,7 +163,9 @@ impl Engine {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS __layers (id VARCHAR PRIMARY KEY, info JSON);
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);
-             CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);",
+             CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);
+             CREATE TABLE IF NOT EXISTS __defq_fids (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT);
+             CREATE TABLE IF NOT EXISTS __defq_sets (layer VARCHAR, script VARCHAR, version BIGINT, kept BIGINT);",
         )?;
         sources::init(&conn)?;
         display::init(&conn)?;
@@ -194,9 +196,19 @@ impl Engine {
         }
         self.next_id.store(max_id + 1, Ordering::SeqCst);
         display::sweep(&conn, &layers.iter().map(|(k, v)| (k.clone(), v.version)).collect());
+        drop(layers);
         let mut stmt = conn.prepare("SELECT node, layer FROM __model_layers")?;
         let nl: Vec<(String, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
         *self.node_layers.lock() = nl.into_iter().collect();
+        drop(stmt);
+        // Python definition queries of an opened project: sets that came with the project are never trusted (a shared project could carry a
+        // forged one): they are dropped, scripts this computer approved run again now, and the others wait for approval.
+        conn.execute_batch("DELETE FROM __defq_fids; DELETE FROM __defq_sets;")?;
+        let pending: Vec<LayerInfo> = self.layers.read().values().filter(|l| l.definition_python.is_some()).cloned().collect();
+        for mut info in pending {
+            let _ = self.ensure_definition(&conn, &mut info);
+            self.layers.write().insert(info.id.clone(), info);
+        }
         Ok(())
     }
 
@@ -220,6 +232,9 @@ impl Engine {
         // A raster inside the project folder is stored relative to it, so the
         // project can move between folders and machines.
         let mut stored = info.clone();
+        // New data: a Python definition query's fid set is for the old version, so it runs again (if its script is approved).
+        self.ensure_definition(conn, &mut stored)?;
+        let info = &stored.clone();
         if let (Some(r), Some(dir)) = (stored.raster.as_mut(), self.project_dir()) {
             if let Ok(rel) = Path::new(&r.path).strip_prefix(&dir) {
                 r.path = rel.to_string_lossy().replace('\\', "/");
@@ -461,6 +476,19 @@ impl Engine {
 
     pub fn calculate_field(&self, id: &str, field: &str, expr: &str, new_type: Option<&str>, fids: Option<&[i64]>) -> Result<(LayerInfo, i64)> {
         self.edit(id, |c, i| attrs::calculate(c, i, field, expr, new_type, fids))
+    }
+
+    /// The field calculator with a Python script (see `attrs::calculate_python`). Returns the layer, the rows written and, when failed rows
+    /// were skipped, the note to show.
+    pub fn calculate_field_python(&self, id: &str, field: &str, script: &str, new_type: Option<&str>, fids: Option<&[i64]>, skip_failed: bool) -> Result<(LayerInfo, i64, Option<String>)> {
+        let (info, (n, note)) = self.edit(id, |c, i| attrs::calculate_python(c, i, field, script, new_type, fids, skip_failed))?;
+        Ok((info, n, note))
+    }
+
+    /// Select by attributes with a Python script (`def calculate(row): return True`).
+    pub fn select_python(&self, id: &str, script: &str) -> Result<Vec<i64>> {
+        let info = self.layer(id)?;
+        self.with_conn(|c| table::select_python(c, &info, script))
     }
 
     pub fn calculate_geometry(&self, id: &str, field: &str, property: &str, area_units: &str, length_units: &str, fids: Option<&[i64]>) -> Result<(LayerInfo, i64)> {
@@ -858,10 +886,93 @@ impl Engine {
                 None => None,
             };
             info.definition_query = q;
+            info.definition_python = None;
+            info.definition_error = None;
+            conn.execute("DELETE FROM __defq_fids WHERE layer = ?", [&info.id])?;
+            conn.execute("DELETE FROM __defq_sets WHERE layer = ?", [&info.id])?;
             info.version += 1;
             self.save_meta(conn, &info)?;
             Ok(info)
         })
+    }
+
+    /// Set or clear a layer's Python definition query (`def calculate(row): return True` keeps a feature). The script runs once, here and
+    /// whenever the layer's data changes, never at draw time: the ids of the features it keeps are stored apart from the layer, and the
+    /// layer has no features until the script is approved and has run (see `LayerInfo::def_condition`). A failing script (any row) leaves
+    /// the layer empty with the reason in `definition_error`. Replaces a SQL definition query.
+    pub fn set_definition_python(&self, id: &str, script: Option<&str>) -> Result<LayerInfo> {
+        let script = script.filter(|s| !s.trim().is_empty()).map(String::from);
+        let mut info = self.layer(id)?;
+        self.with_conn(|conn| {
+            conn.execute("DELETE FROM __defq_fids WHERE layer = ?", [&info.id])?;
+            conn.execute("DELETE FROM __defq_sets WHERE layer = ?", [&info.id])?;
+            info.definition_query = None;
+            info.definition_python = script;
+            info.definition_error = None;
+            info.query_count = None;
+            info.version += 1;
+            self.save_meta(conn, &info)?;
+            self.layer(&info.id)
+        })
+    }
+
+    /// The user approved this script on this computer: record it, and run the layers' Python definition queries that were waiting for it.
+    pub fn approve_script(&self, script: &str) -> Result<pyscript::TrustInfo> {
+        pyscript::approve(script)?;
+        let hash = pyscript::script_hash(script);
+        let waiting: Vec<LayerInfo> = self.layers.read().values().filter(|l| l.definition_python.as_deref().is_some_and(|s| pyscript::script_hash(s) == hash)).cloned().collect();
+        self.with_conn(|conn| {
+            for mut info in waiting {
+                info.version += 1; // tiles and tables drawn from the empty result are stale now
+                self.save_meta(conn, &info)?;
+            }
+            Ok(())
+        })?;
+        Ok(pyscript::trust_info(script))
+    }
+
+    /// Make sure a Python definition query has its fid set for the layer's current data version: run the script when it is approved and
+    /// not yet run for this (layer, script, version). Nothing here ever lets the layer through unfiltered: until the set exists the
+    /// condition `def_condition` builds selects no features.
+    fn ensure_definition(&self, conn: &Connection, info: &mut LayerInfo) -> Result<()> {
+        let Some(script) = info.definition_python.clone().filter(|s| !s.trim().is_empty()) else { return Ok(()) };
+        let hash = pyscript::script_hash(&script);
+        let done: i64 = conn.query_row("SELECT count(*) FROM __defq_sets WHERE layer = ? AND script = ? AND version = ?", duckdb::params![info.id, hash, info.version as i64], |r| r.get(0))?;
+        if done > 0 || !pyscript::is_approved(&script) {
+            return Ok(());
+        }
+        // The script sees attributes only (and every feature: the definition query being defined is not applied to itself).
+        let run = pyscript::evaluate_layer(conn, info, &script, pyscript::Mode::Filter, pyscript::OutType::Boolean, false, None, false);
+        conn.execute("DELETE FROM __defq_fids WHERE layer = ?", [&info.id])?;
+        conn.execute("DELETE FROM __defq_sets WHERE layer = ?", [&info.id])?;
+        match run {
+            Ok(ev) => {
+                conn.execute(
+                    &format!(
+                        "INSERT INTO __defq_fids SELECT ?, ?, ?, s.__fid FROM {} s WHERE s.__rn IN (SELECT __rn FROM {})",
+                        ident(&ev.snapshot),
+                        ident(&ev.staging)
+                    ),
+                    duckdb::params![info.id, hash, info.version as i64],
+                )?;
+                let kept: i64 = conn.query_row("SELECT count(*) FROM __defq_fids WHERE layer = ?", [&info.id], |r| r.get(0))?;
+                conn.execute("INSERT INTO __defq_sets VALUES (?, ?, ?, ?)", duckdb::params![info.id, hash, info.version as i64, kept])?;
+                let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS {}; DROP TABLE IF EXISTS {}", ident(&ev.snapshot), ident(&ev.staging)));
+                info.query_count = Some(kept);
+                info.definition_error = None;
+            }
+            Err(e) => {
+                if progress::is_cancelled(&e) {
+                    info.definition_error = Some("The script was cancelled; the layer shows no features until it runs.".into());
+                } else {
+                    info.definition_error = Some(format!("{e:#}"));
+                }
+                // The marker records that this version was tried, so a failing script is not rerun on every save; a data change retries.
+                conn.execute("INSERT INTO __defq_sets VALUES (?, ?, ?, 0)", duckdb::params![info.id, hash, info.version as i64])?;
+                info.query_count = Some(0);
+            }
+        }
+        Ok(())
     }
 
     /// Copy a layer (typically a node-tree result) into a new, independent

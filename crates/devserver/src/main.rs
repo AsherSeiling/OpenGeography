@@ -220,11 +220,14 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "get_settings" => json!(engine::settings::load()),
         "set_settings" => json!(engine::settings::save(&de::<engine::settings::Settings>(a, "settings")?)?),
         "script_trust_info" => json!(engine::pyscript::trust_info(&s(a, "script")?)),
-        "approve_script" => {
-            let script = s(a, "script")?;
-            engine::pyscript::approve(&script)?;
-            json!(engine::pyscript::trust_info(&script))
+        "approve_script" => json!(e.approve_script(&s(a, "script")?)?),
+        "set_definition_python" => json!(e.set_definition_python(&s(a, "id")?, a["script"].as_str())?),
+        "calculate_field_python" => {
+            let fids: Option<Vec<i64>> = de(a, "fids")?;
+            let (layer, count, note) = e.calculate_field_python(&s(a, "id")?, &s(a, "field")?, &s(a, "script")?, a["ty"].as_str(), fids.as_deref(), a["skipFailed"].as_bool().unwrap_or(false))?;
+            json!({ "layer": layer, "count": count, "note": note })
         }
+        "select_python" => json!(e.select_python(&s(a, "id")?, &s(a, "script")?)?),
         "python_status" => json!(engine::pyscript::python_status()),
         "progress" => json!(engine::progress::snapshot()),
         "select_by_location" => {

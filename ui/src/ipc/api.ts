@@ -488,6 +488,10 @@ export interface LayerInfo {
   /** Set on a layer's node-tree result: the layer it is drawn in place of. */
   resultOf?: string | null;
   definitionQuery?: string | null;
+  /** A Python definition query; the layer has no features until it is approved on this computer. */
+  definitionPython?: string | null;
+  /** Why the Python definition query gave nothing (failed rows, cancelled). */
+  definitionError?: string | null;
   overviews: number[];
   raster?: RasterInfo | null;
   queryCount?: number | null;
@@ -705,6 +709,11 @@ export const api = {
   splitGroups: (id: string, field: string) => invoke<SplitGroup[]>("split_groups", { id, field }),
   splitByAttribute: (id: string, field: string, target: SplitTarget, confirmed: boolean) => invoke<SplitResult>("split_by_attribute", { id, field, target, confirmed }),
   setDefinitionQuery: (id: string, query: string | null) => invoke<LayerInfo>("set_definition_query", { id, query }),
+  /** A Python definition query (`def calculate(row): return True`): runs once, not at draw time; the layer shows nothing until the script is approved. */
+  setDefinitionPython: (id: string, script: string | null) => invoke<LayerInfo>("set_definition_python", { id, script }),
+  calculateFieldPython: (id: string, field: string, script: string, ty: FieldType | null, fids: number[] | null, skipFailed: boolean) =>
+    invoke<{ layer: LayerInfo; count: number; note: string | null }>("calculate_field_python", { id, field, script, ty, fids, skipFailed }),
+  selectPython: (id: string, script: string) => invoke<number[]>("select_python", { id, script }),
   addField: (id: string, name: string, ty: FieldType) => invoke<LayerInfo>("add_field", { id, name, ty }),
   deleteField: (id: string, name: string) => invoke<LayerInfo>("delete_field", { id, name }),
   renameField: (id: string, old: string, newName: string) => invoke<LayerInfo>("rename_field", { id, old, new: newName }),

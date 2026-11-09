@@ -199,6 +199,80 @@ pub fn calculate(conn: &Connection, info: &mut LayerInfo, column: &str, expr: &s
     Ok(n as i64)
 }
 
+/// Calculate a field with a Python script (`def calculate(row): return value`) over the attributes of every feature (or of `fids`). The
+/// script is approved first (`pyscript::is_approved`) and runs before anything is changed, so a failure leaves the table as it was. Values
+/// must fit the field (a new field's type comes from `new_type`, or from what the script returns): a row that raises or returns something that
+/// doesn't fit is a failed row. By default any failed row stops the whole calculation; with `skip_failed` those rows keep their old value and
+/// are reported in the returned note. `None` writes a real NULL. Returns the number of rows written and that note.
+pub fn calculate_python(conn: &Connection, info: &mut LayerInfo, column: &str, script: &str, new_type: Option<&str>, fids: Option<&[i64]>, skip_failed: bool) -> Result<(i64, Option<String>)> {
+    use crate::pyscript::{self, Mode, OutType};
+    editable(info)?;
+    let column = column.trim();
+    let existing = info.fields.iter().find(|f| f.name == column).map(|f| f.ty.clone());
+    let want = match &existing {
+        Some(ty) => match ty.to_ascii_uppercase().as_str() {
+            "BIGINT" | "INTEGER" | "SMALLINT" | "TINYINT" | "HUGEINT" => OutType::Integer,
+            "DOUBLE" | "FLOAT" | "REAL" => OutType::Double,
+            t if t.starts_with("DECIMAL") => OutType::Double,
+            "VARCHAR" => OutType::Text,
+            "BOOLEAN" => OutType::Boolean,
+            "DATE" => OutType::Date,
+            "TIMESTAMP" => OutType::Timestamp,
+            other => bail!("The field '{column}' is {other}, which a Python script can't write. Choose another field or a new one."),
+        },
+        None => match new_type.map(|t| sql_type(t)).transpose()? {
+            Some("BIGINT") => OutType::Integer,
+            Some("DOUBLE") => OutType::Double,
+            Some("VARCHAR") => OutType::Text,
+            Some("BOOLEAN") => OutType::Boolean,
+            Some("DATE") => OutType::Date,
+            Some("TIMESTAMP") => OutType::Timestamp,
+            Some(other) => bail!("A Python script can't fill a {other} field"),
+            None => OutType::Auto,
+        },
+    };
+    if matches!(fids, Some([])) {
+        return Ok((0, None));
+    }
+    if existing.is_none() {
+        check_name(info, column, false)?;
+    }
+    let ev = pyscript::evaluate_layer(conn, info, script, Mode::Field, want, skip_failed, fids, true)?;
+    let sql_ty = match (&existing, ev.out_type) {
+        (Some(t), _) => t.clone(),
+        (None, OutType::Integer) => "BIGINT".into(),
+        (None, OutType::Double) => "DOUBLE".into(),
+        (None, OutType::Text | OutType::Auto) => "VARCHAR".into(),
+        (None, OutType::Boolean) => "BOOLEAN".into(),
+        (None, OutType::Date) => "DATE".into(),
+        (None, OutType::Timestamp) => "TIMESTAMP".into(),
+    };
+    let result = (|| -> Result<(i64, Option<String>)> {
+        if existing.is_none() {
+            alter(conn, info, |table| format!("ALTER TABLE {} ADD COLUMN {} {sql_ty}", ident(table), ident(column)))?;
+            layers::refresh_meta(conn, info)?;
+        }
+        let skip_failed_rows = if ev.failed_rns.is_empty() { String::new() } else { format!(" WHERE s.__rn NOT IN ({})", ev.failed_rns.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",")) };
+        let n = conn.execute(
+            &format!(
+                "UPDATE {t} SET {c} = CAST(m.v AS {sql_ty}) FROM (SELECT s.__fid AS fid, {value} AS v FROM {snap} s LEFT JOIN {stage} o USING (__rn){skip_failed_rows}) m WHERE {t}.__fid = m.fid",
+                t = ident(&info.table),
+                c = ident(column),
+                value = ev.out_type.value_sql("o"),
+                snap = ident(&ev.snapshot),
+                stage = ident(&ev.staging),
+            ),
+            [],
+        )?;
+        sync_overviews(conn, info, column)?;
+        touch(conn, info)?;
+        let note = (ev.failures.count > 0).then(|| format!("{}. Those rows keep their old value.", ev.failures.report(ev.total)));
+        Ok((n as i64, note))
+    })();
+    let _ = conn.execute_batch(&format!("DROP TABLE IF EXISTS {}; DROP TABLE IF EXISTS {}", ident(&ev.snapshot), ident(&ev.staging)));
+    result
+}
+
 /// Calculate a geodesic geometry property into a field (created if needed).
 pub fn calculate_geometry(conn: &Connection, info: &mut LayerInfo, column: &str, property: &str, area_units: &str, length_units: &str, fids: Option<&[i64]>) -> Result<i64> {
     let crs = info.crs.clone().ok_or_else(|| anyhow!("The layer has no coordinate system. Use Define Projection first."))?;

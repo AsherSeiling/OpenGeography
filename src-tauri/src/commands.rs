@@ -441,6 +441,14 @@ pub struct EditResult {
 }
 
 #[derive(Serialize)]
+pub struct PythonEditResult {
+    layer: LayerInfo,
+    count: i64,
+    /// When failed rows were skipped: how many and which.
+    note: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct AddRowResult {
     layer: LayerInfo,
     fid: i64,
@@ -580,12 +588,38 @@ pub async fn script_trust_info(script: String) -> Res<engine::pyscript::TrustInf
     Ok(engine::pyscript::trust_info(&script))
 }
 
-/// Record the user's approval of this exact script (their click in the approval dialog, or a script they wrote here). Kept in the
-/// per-user app-data folder, never in a project.
+/// Record the user's approval of this exact script (their click in the approval dialog, or a script they wrote here), kept in the
+/// per-user app-data folder, never in a project; layers whose Python definition query was waiting for it run now.
 #[tauri::command]
-pub async fn approve_script(script: String) -> Res<engine::pyscript::TrustInfo> {
-    engine::pyscript::approve(&script).map_err(|e| format!("{e:#}"))?;
-    Ok(engine::pyscript::trust_info(&script))
+pub async fn approve_script(engine: Eng<'_>, script: String) -> Res<engine::pyscript::TrustInfo> {
+    let info = blocking(&engine, move |e| e.approve_script(&script)).await?;
+    let ids: Vec<String> = engine.list_layers().into_iter().filter(|l| l.definition_python.is_some()).map(|l| l.id).collect();
+    prewarm(&engine, ids);
+    Ok(info)
+}
+
+/// Set or clear a layer's Python definition query. It runs once now (if approved) and again when the data changes, never at draw time.
+#[tauri::command]
+pub async fn set_definition_python(engine: Eng<'_>, id: String, script: Option<String>) -> Res<LayerInfo> {
+    let info = blocking(&engine, move |e| e.set_definition_python(&id, script.as_deref())).await?;
+    prewarm(&engine, vec![info.id.clone()]);
+    Ok(info)
+}
+
+/// The field calculator with a Python script.
+#[tauri::command]
+pub async fn calculate_field_python(engine: Eng<'_>, id: String, field: String, script: String, ty: Option<String>, fids: Option<Vec<i64>>, skip_failed: bool) -> Res<PythonEditResult> {
+    blocking(&engine, move |e| {
+        let (layer, count, note) = e.calculate_field_python(&id, &field, &script, ty.as_deref(), fids.as_deref(), skip_failed)?;
+        Ok(PythonEditResult { layer, count, note })
+    })
+    .await
+}
+
+/// Select by attributes with a Python script.
+#[tauri::command]
+pub async fn select_python(engine: Eng<'_>, id: String, script: String) -> Res<Vec<i64>> {
+    blocking(&engine, move |e| e.select_python(&id, &script)).await
 }
 
 /// Whether Python scripts can run on this computer (the Python shipped with the app was found).

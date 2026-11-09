@@ -52,6 +52,14 @@ pub struct LayerInfo {
     /// (on the map, in the table, for selection, export and tools).
     #[serde(default)]
     pub definition_query: Option<String>,
+    /// A Python definition query (`def calculate(row): return True/False`), instead of `definition_query`. Never run at draw time: its
+    /// result is a set of feature ids kept apart from the layer (`__defq_fids`, keyed by layer, script hash and data version) that
+    /// every consumer filters on, and until the script is approved and has run the layer has no features, never unfiltered ones.
+    #[serde(default)]
+    pub definition_python: Option<String>,
+    /// Why the Python definition query has no result (it failed on some rows, or could not run), for the layer's notice.
+    #[serde(default)]
+    pub definition_error: Option<String>,
     /// Number of features passing the definition query.
     #[serde(default)]
     pub query_count: Option<i64>,
@@ -70,12 +78,30 @@ impl LayerInfo {
         self.raster.is_some()
     }
 
+    /// The definition query as an SQL condition on the layer table, or None when the layer has none. Every place that reads a layer's
+    /// features goes through this (or `def_and`), so an unapproved or not yet computed Python query yields the stored fid set, which is
+    /// empty until it has run: such a layer produces no features anywhere (map, table, export, layout), never unfiltered ones.
+    pub fn def_condition(&self) -> Option<String> {
+        if let Some(script) = self.definition_python.as_deref().filter(|s| !s.trim().is_empty()) {
+            use crate::db::lit;
+            return Some(format!(
+                "__fid IN (SELECT __fid FROM __defq_fids WHERE layer = {} AND script = {} AND version = {})",
+                lit(&self.id),
+                lit(&crate::pyscript::script_hash(script)),
+                self.version
+            ));
+        }
+        self.definition_query.as_deref().map(str::trim).filter(|q| !q.is_empty()).map(|q| format!("({q})"))
+    }
+
     /// `AND (<definition query>)`, or empty when the layer has none.
     pub fn def_and(&self) -> String {
-        match self.definition_query.as_deref().map(str::trim) {
-            Some(q) if !q.is_empty() => format!(" AND ({q})"),
-            _ => String::new(),
-        }
+        self.def_condition().map_or(String::new(), |c| format!(" AND ({c})"))
+    }
+
+    /// ` WHERE (<definition query>)`, or empty.
+    pub fn def_where(&self) -> String {
+        self.def_condition().map_or(String::new(), |c| format!(" WHERE ({c})"))
     }
 }
 
@@ -269,6 +295,8 @@ pub fn build_layer(conn: &Connection, id: &str, src: &ImportSource) -> Result<La
         overviews: vec![],
         result_of: None,
         definition_query: None,
+        definition_python: None,
+        definition_error: None,
         query_count: None,
         raster: None,
     };
@@ -541,6 +569,8 @@ pub fn raster_layer(id: &str, name: &str, path: &std::path::Path, source: Option
         overviews: vec![],
         result_of: None,
         definition_query: None,
+        definition_python: None,
+        definition_error: None,
         query_count: None,
         raster: Some(r),
     })
