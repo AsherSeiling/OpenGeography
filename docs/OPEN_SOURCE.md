@@ -76,6 +76,8 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | Method | Reference | Where |
 |---|---|---|
 | Raster renderers and stretches (Singleband gray, Singleband pseudocolor; ArcGIS Pro Stretch/Classify): names and settings only | QGIS (GPL) and ArcGIS Pro documentation, ideas only; no code or assets | `raster_style.rs` |
+| Georeferencing from control points: GCP polynomial transformer (order 1–3, least squares) and thin plate spline transformer, GenImgProj/GCP/TPS warping and suggested output extent. We call GDAL's own `GDALCreateGenImgProjTransformer2` (`METHOD=GCP_POLYNOMIAL` / `GCP_TPS`), `GDALSuggestedWarpOutput` and the warp operation (GDAL, MIT/X); the maths is GDAL's (`gdal_crs.cpp`, `gdal_tps.cpp`); Bookstein 1989 for thin plate splines | GDAL documentation "gdaltransform / GCP transformers"; Bookstein, F. L. 1989, IEEE TPAMI 11(6) | `georef/warp.rs` |
+| QGIS `.points` control point file (read only): the layout of the file (mapX, mapY, sourceX, sourceY, enable, residual columns; image row written as a negative number) | QGIS Georeferencer documentation (format only; no QGIS code or assets) | `georef/mod.rs` |
 | Moran's I, randomisation variance | Moran 1950; Cliff & Ord 1981 | `spatial_stats.rs` |
 | Getis-Ord Gi* | Ord & Getis 1995 | `spatial_stats.rs` |
 | Ordinary kriging and variogram models | Matheron 1963; Isaaks & Srivastava 1989 | `kriging.rs` |

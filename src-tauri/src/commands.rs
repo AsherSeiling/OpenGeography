@@ -952,6 +952,66 @@ pub async fn delete_layout(engine: Eng<'_>, id: String) -> Res<()> {
     blocking(&engine, move |e| e.delete_layout(&id)).await
 }
 
+// ---------- georeferencing: control points (GR1) ----------
+
+#[tauri::command]
+pub async fn list_control_sets(engine: Eng<'_>) -> Res<Vec<engine::georef::ControlSet>> {
+    blocking(&engine, |e| e.list_control_sets()).await
+}
+
+#[tauri::command]
+pub async fn save_control_set(engine: Eng<'_>, set: engine::georef::ControlSet) -> Res<()> {
+    blocking(&engine, move |e| e.save_control_set(&set)).await
+}
+
+#[tauri::command]
+pub async fn delete_control_set(engine: Eng<'_>, id: String) -> Res<()> {
+    blocking(&engine, move |e| e.delete_control_set(&id)).await
+}
+
+#[tauri::command]
+pub async fn export_control_set(engine: Eng<'_>, set: engine::georef::ControlSet, path: String) -> Res<()> {
+    blocking(&engine, move |e| e.export_control_set(&set, std::path::Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn read_control_file(engine: Eng<'_>, path: String) -> Res<engine::georef::ParsedControlFile> {
+    blocking(&engine, move |e| e.read_control_file(std::path::Path::new(&path))).await
+}
+
+#[tauri::command]
+pub async fn reproject_control_set(engine: Eng<'_>, set: engine::georef::ControlSet, to_crs: String) -> Res<engine::georef::ControlSet> {
+    blocking(&engine, move |e| e.reproject_control_set(&set, &to_crs)).await
+}
+
+// ---------- georeferencing: raster warp (GR2) ----------
+
+#[tauri::command]
+pub async fn georef_errors(engine: Eng<'_>, set: engine::georef::ControlSet, method: engine::georef::warp::Method) -> Res<engine::georef::warp::ErrorReport> {
+    blocking(&engine, move |e| e.georef_errors(&set, method)).await
+}
+
+#[tauri::command]
+pub async fn georef_image_info(engine: Eng<'_>, path: String) -> Res<engine::georef::warp::ImageInfo> {
+    blocking(&engine, move |e| e.georef_image_info(std::path::Path::new(&path))).await
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn georef_image_region(engine: Eng<'_>, path: String, x0: f64, y0: f64, w: f64, h: f64, out_w: usize, out_h: usize) -> Res<String> {
+    blocking(&engine, move |e| e.georef_image_region(std::path::Path::new(&path), x0, y0, w, h, out_w, out_h)).await
+}
+
+#[tauri::command]
+pub async fn georef_preview(engine: Eng<'_>, image: String, set: engine::georef::ControlSet, method: engine::georef::warp::Method, resampling: String, max_side: usize) -> Res<engine::georef::warp::Preview> {
+    blocking(&engine, move |e| e.georef_preview(std::path::Path::new(&image), &set, method, &resampling, max_side)).await
+}
+
+#[tauri::command]
+pub async fn georef_warp(engine: Eng<'_>, req: engine::georef::api::WarpRequest) -> Res<LayerInfo> {
+    blocking(&engine, move |e| e.georef_warp(&req)).await
+}
+
 #[tauri::command]
 pub async fn render_layout_preview(engine: Eng<'_>, req: engine::layout::model::RenderRequest, dpi: f64) -> Res<engine::layout::LayoutPreview> {
     blocking(&engine, move |e| e.render_layout_preview(&req, dpi)).await

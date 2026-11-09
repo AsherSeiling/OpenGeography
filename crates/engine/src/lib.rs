@@ -32,6 +32,7 @@ pub mod db;
 pub mod display;
 pub mod edit;
 pub mod edit_tools;
+pub mod georef;
 pub mod graph;
 pub mod history;
 pub mod layers;
@@ -166,6 +167,7 @@ impl Engine {
             "CREATE TABLE IF NOT EXISTS __layers (id VARCHAR PRIMARY KEY, info JSON);
              CREATE TABLE IF NOT EXISTS __model_layers (node VARCHAR PRIMARY KEY, layer VARCHAR);
              CREATE TABLE IF NOT EXISTS __layouts (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);
+             CREATE TABLE IF NOT EXISTS __control_sets (id VARCHAR PRIMARY KEY, json JSON, updated TIMESTAMP);
              CREATE TABLE IF NOT EXISTS __defq_fids (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT);
              CREATE TABLE IF NOT EXISTS __defq_sets (layer VARCHAR, script VARCHAR, version BIGINT, kept BIGINT);
              CREATE TABLE IF NOT EXISTS __label_vals (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT, text VARCHAR);
