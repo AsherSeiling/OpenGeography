@@ -109,6 +109,7 @@ fn main() {
             commands::add_row,
             commands::rows_by_fid,
             commands::edit_begin,
+            commands::edit_set_z,
             commands::edit_apply,
             commands::snap_features_in,
             commands::edit_undo,

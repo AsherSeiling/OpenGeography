@@ -220,3 +220,73 @@ fn reshape_edge_replaces_the_shorter_stretch_of_edge_with_the_line() {
     assert!(e.edit_reshape(&l.id, G, &Reshape::ReshapeEdge { fid: 1, line: bytes_to_hex(&wkb("POINT(1 1)")) }).unwrap_err().to_string().contains("at least two"));
     e.edit_discard(&l.id).unwrap();
 }
+
+/// A UTM 14N elevation raster: 20 × 20 cells of 100 m from (500000, 4000000); the cell in column c holds c + 0.5, except one NoData cell.
+fn dem_file(dir: &std::path::Path) -> std::path::PathBuf {
+    let path = dir.join("dem.tif");
+    let drv = gdal::DriverManager::get_driver_by_name("GTiff").unwrap();
+    let mut ds = drv.create_with_band_type::<f32, _>(&path, 20, 20, 1).unwrap();
+    ds.set_geo_transform(&[500000.0, 100.0, 0.0, 4000000.0, 0.0, -100.0]).unwrap();
+    ds.set_spatial_ref(&gdal::spatial_ref::SpatialRef::from_epsg(32614).unwrap()).unwrap();
+    let data: Vec<f32> = (0..400).map(|i| if i == 5 * 20 + 5 { -9999.0 } else { (i % 20) as f32 + 0.5 }).collect();
+    let mut band = ds.rasterband(1).unwrap();
+    band.set_no_data_value(Some(-9999.0)).unwrap();
+    band.write((0, 0), (20, 20), &mut gdal::raster::Buffer::new((20, 20), data)).unwrap();
+    path
+}
+
+fn utm_to_ll(e: &Engine, x: f64, y: f64) -> (f64, f64) {
+    e.with_conn_for_tests(|c| {
+        Ok(c.query_row("SELECT ST_X(g), ST_Y(g) FROM (SELECT ST_Transform(ST_Point(?, ?), 'EPSG:32614', 'EPSG:4326', true) AS g)", [x, y], |r| Ok((r.get::<_, f64>(0)?, r.get::<_, f64>(1)?)))?)
+    })
+    .unwrap()
+}
+
+fn tri(e: &Engine, p: [(f64, f64); 3]) -> String {
+    let v: Vec<(f64, f64)> = p.iter().map(|&(x, y)| utm_to_ll(e, x, y)).collect();
+    format!("POLYGON(({} {}, {} {}, {} {}, {} {}))", v[0].0, v[0].1, v[1].0, v[1].1, v[2].0, v[2].1, v[0].0, v[0].1)
+}
+
+fn zs(e: &Engine, l: &engine::layers::LayerInfo, fid: i64) -> Vec<f64> {
+    let f = e.edit_features_in(&l.id, G, [-180.0, -85.0, 180.0, 85.0], 100).unwrap();
+    let g = f.features.iter().find(|x| x.fid == fid).unwrap().geometry.clone().unwrap();
+    let b: Vec<u8> = (0..g.len()).step_by(2).map(|i| u8::from_str_radix(&g[i..i + 2], 16).unwrap()).collect();
+    parse_wkb(&b).unwrap().coords().map(|c| c.z).collect()
+}
+
+#[test]
+fn new_vertices_take_z_from_a_dem_in_another_crs_and_missing_ones_are_reported_not_filled() {
+    let (e, _g) = engine();
+    let dir = tempfile::tempdir().unwrap();
+    let dem = e.import_raster(&dem_file(dir.path()), Some("dem")).unwrap();
+    let l = e.create_layer("zp", "polygon", G, &[("name".into(), "text".into())]).unwrap();
+    e.edit_begin(&l.id, G, None).unwrap();
+    // Refused: a layer that is not a raster.
+    assert!(e.edit_set_z(&l.id, None, Some(&l.id)).unwrap_err().to_string().contains("not a raster"));
+    let st = e.edit_set_z(&l.id, Some(5.0), Some(&dem.id)).unwrap();
+    assert_eq!((st.z_dem.as_deref(), st.z_value), (Some(dem.id.as_str()), None), "the raster wins over a fixed value, and the status says so");
+    // All three vertices inside the raster: Z is the value of the cell each falls in (column index + 0.5), looked up in the raster's own CRS.
+    let a = tri(&e, [(500250.0, 3999750.0), (501650.0, 3999750.0), (501650.0, 3998350.0)]);
+    let r = e.edit_apply(&l.id, G, &[ins(&a, "a")]).unwrap();
+    assert!(r.z_note.is_none(), "{:?}", r.z_note);
+    assert_eq!(zs(&e, &l, r.fids[0]), vec![2.5, 16.5, 16.5, 2.5]);
+    // One vertex outside the raster and one on the NoData cell: reported, and left without Z.
+    let b = tri(&e, [(503000.0, 3999750.0), (500550.0, 3999450.0), (501250.0, 3998350.0)]);
+    let r = e.edit_apply(&l.id, G, &[ins(&b, "b")]).unwrap();
+    let note = r.z_note.expect("missing Z is reported");
+    assert!(note.contains("2 new vertices") && note.contains("1 outside \"dem\"") && note.contains("1 on NoData"), "{note}");
+    let z = zs(&e, &l, r.fids[0]);
+    assert!(z[0].is_nan() && z[1].is_nan() && z[2] == 12.5 && z[3].is_nan(), "no value was made up: {z:?}");
+    // Adding a vertex to b later does not count its stored vertices again: only the new one is looked up.
+    let p = [(503000.0, 3999750.0), (500550.0, 3999450.0), (501250.0, 3998350.0), (501850.0, 3998950.0)].map(|(x, y)| utm_to_ll(&e, x, y));
+    let w = format!("POLYGON(({} {}, {} {}, {} {}, {} {}, {} {}))", p[0].0, p[0].1, p[1].0, p[1].1, p[2].0, p[2].1, p[3].0, p[3].1, p[0].0, p[0].1);
+    let r2 = e.edit_apply(&l.id, G, &[EditOp { op: "update".into(), fid: Some(r.fids[0]), geometry: Some(bytes_to_hex(&wkb(&w))), ..Default::default() }]).unwrap();
+    assert!(r2.z_note.is_none(), "{:?}", r2.z_note);
+    assert_eq!(zs(&e, &l, r.fids[0]).iter().filter(|v| v.is_finite()).count(), 2);
+    // Back to a fixed value: new vertices get it; the raster is no longer used.
+    let st = e.edit_set_z(&l.id, Some(7.0), None).unwrap();
+    assert_eq!((st.z_dem, st.z_value), (None, Some(7.0)));
+    let c = e.edit_apply(&l.id, G, &[ins("POLYGON((1 1, 2 1, 2 2, 1 1))", "c")]).unwrap();
+    assert_eq!(zs(&e, &l, c.fids[0]), vec![7.0; 4]);
+    e.edit_discard(&l.id).unwrap();
+}

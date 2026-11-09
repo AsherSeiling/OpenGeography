@@ -1,6 +1,6 @@
 # Shape editing: plan
 
-Status: planned 2026-11-06; E1, E2 and E3 built 2026-11-09 (not built: reshape edge, Z from DEM). Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list, before the Census importer.
+Status: planned 2026-11-06; E1, E2 and E3 built 2026-11-09, including Reshape Edge and Z from a DEM (not built: tracing, freehand). Requested by the user on 2026-11-06. Order (user, 2026-11-06): after the user-requests list, before the Census importer.
 
 ## What the user asked for
 

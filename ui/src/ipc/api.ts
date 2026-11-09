@@ -483,6 +483,8 @@ export interface EditStatus {
   editing: boolean;
   mapCrs: string | null;
   zValue: number | null;
+  /** The elevation raster new vertices take Z from (wins over zValue), or null. */
+  zDem: string | null;
   added: number;
   changed: number;
   deleted: number;
@@ -763,8 +765,9 @@ export const api = {
   createTable: (name: string, fields: [string, string][]) => invoke<LayerInfo>("create_table", { name, fields }),
   addRow: (id: string) => invoke<{ layer: LayerInfo; fid: number }>("add_row", { id }),
   // ---- shape editing (the map's CRS goes with every call that carries shapes) ----
+  editSetZ: (layer: string, zValue: number | null, zDem: string | null) => invoke<EditStatus>("edit_set_z", { layer, zValue, zDem }),
   editBegin: (layer: string, mapCrs: string, zValue: number | null) => invoke<EditStatus>("edit_begin", { layer, mapCrs, zValue }),
-  editApply: (layer: string, mapCrs: string, ops: EditOp[]) => invoke<{ status: EditStatus; fids: number[]; invalid: number[] }>("edit_apply", { layer, mapCrs, ops }),
+  editApply: (layer: string, mapCrs: string, ops: EditOp[]) => invoke<{ status: EditStatus; fids: number[]; invalid: number[]; zNote: string | null }>("edit_apply", { layer, mapCrs, ops }),
   snapFeaturesIn: (layer: string, mapCrs: string, extent: [number, number, number, number], limit?: number) => invoke<string[]>("snap_features_in", { layer, mapCrs, extent, limit }),
   editUndo: (layer: string) => invoke<EditStatus>("edit_undo", { layer }),
   editRedo: (layer: string) => invoke<EditStatus>("edit_redo", { layer }),
@@ -774,7 +777,7 @@ export const api = {
   editUndoSave: (layer: string) => invoke<LayerInfo>("edit_undo_save", { layer }),
   editFeaturesIn: (layer: string, mapCrs: string, extent: [number, number, number, number], limit?: number) =>
     invoke<{ features: EditFeature[]; truncated: boolean; mapCrs: string }>("edit_features_in", { layer, mapCrs, extent, limit }),
-  editReshape: (layer: string, mapCrs: string, op: Record<string, unknown>) => invoke<{ status: EditStatus; fids: number[]; invalid: number[] }>("edit_reshape", { layer, mapCrs, op }),
+  editReshape: (layer: string, mapCrs: string, op: Record<string, unknown>) => invoke<{ status: EditStatus; fids: number[]; invalid: number[]; zNote: string | null }>("edit_reshape", { layer, mapCrs, op }),
   editCircle: (mapCrs: string, center: [number, number], radiusM: number, vertices: number) => invoke<{ geometry: string; note: string }>("edit_circle", { mapCrs, center, radiusM, vertices }),
   editRectangle: (cornerA: [number, number], cornerB: [number, number]) => invoke<{ geometry: string; note: string }>("edit_rectangle", { cornerA, cornerB }),
   editDistance: (mapCrs: string, a: [number, number], b: [number, number]) => invoke<number>("edit_distance", { mapCrs, a, b }),

@@ -518,6 +518,11 @@ pub async fn add_row(engine: Eng<'_>, id: String) -> Res<AddRowResult> {
 // ---- shape editing (SHAPE_EDITING_PLAN E1); the same commands are in crates/devserver ----
 
 #[tauri::command]
+pub async fn edit_set_z(engine: Eng<'_>, layer: String, z_value: Option<f64>, z_dem: Option<String>) -> Res<engine::edit::EditStatus> {
+    blocking(&engine, move |e| e.edit_set_z(&layer, z_value, z_dem.as_deref())).await
+}
+
+#[tauri::command]
 pub async fn edit_begin(engine: Eng<'_>, layer: String, map_crs: String, z_value: Option<f64>) -> Res<engine::edit::EditStatus> {
     blocking(&engine, move |e| e.edit_begin(&layer, &map_crs, z_value)).await
 }

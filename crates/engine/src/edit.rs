@@ -205,7 +205,7 @@ pub fn crosses_antimeridian(g: &Geom) -> bool {
 const ANTIMERIDIAN: &str = "That shape crosses the antimeridian (180° longitude). Shapes crossing it aren't handled in this version; draw it in two parts.";
 
 impl Geom {
-    fn coords(&self) -> impl Iterator<Item = &Coord> {
+    pub fn coords(&self) -> impl Iterator<Item = &Coord> {
         self.parts.iter().flatten().flatten()
     }
     fn coords_mut(&mut self) -> impl Iterator<Item = &mut Coord> {
@@ -307,6 +307,8 @@ pub struct EditStatus {
     pub editing: bool,
     pub map_crs: Option<String>,
     pub z_value: Option<f64>,
+    /// The id of the elevation raster new vertices take Z from, when the session uses one.
+    pub z_dem: Option<String>,
     pub added: i64,
     pub changed: i64,
     pub deleted: i64,
@@ -329,6 +331,8 @@ pub struct ApplyResult {
     /// The id of each insert, in the order of the inserts in the batch.
     pub fids: Vec<i64>,
     pub invalid: Vec<i64>,
+    /// A sentence when new vertices could not get a Z from the elevation raster (they are left without Z, never filled).
+    pub z_note: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -374,6 +378,8 @@ pub(crate) struct Session {
     pub(crate) map_crs: String,
     pub(crate) z_value: Option<f64>,
     pub(crate) next_fid: i64,
+    /// The elevation raster new vertices take their Z from (instead of the fixed value).
+    pub(crate) z_dem: Option<String>,
 }
 
 fn undo_table(layer: &str) -> String {
@@ -418,10 +424,10 @@ pub(crate) fn transform_wkb(conn: &Connection, wkb: &[u8], from: &str, to: &str)
 }
 
 pub(crate) fn session(conn: &Connection, layer: &str) -> Result<Option<Session>> {
-    let mut s = conn.prepare("SELECT map_crs, z_value, next_fid FROM __edit_sessions WHERE layer = ?")?;
+    let mut s = conn.prepare("SELECT map_crs, z_value, next_fid, z_dem FROM __edit_sessions WHERE layer = ?")?;
     let mut rows = s.query([layer])?;
     Ok(match rows.next()? {
-        Some(r) => Some(Session { map_crs: r.get(0)?, z_value: r.get(1)?, next_fid: r.get(2)? }),
+        Some(r) => Some(Session { map_crs: r.get(0)?, z_value: r.get(1)?, next_fid: r.get(2)?, z_dem: r.get(3)? }),
         None => None,
     })
 }
@@ -518,13 +524,36 @@ impl Engine {
                     t = ident(&log_table(layer_id))
                 ))?;
                 conn.execute(
-                    "INSERT INTO __edit_sessions VALUES (?, ?, ?, now(), ?, ?)",
+                    "INSERT INTO __edit_sessions (layer, map_crs, z_value, started, next_fid, base_version) VALUES (?, ?, ?, now(), ?, ?)",
                     duckdb::params![layer_id, map_crs, z_value, recorded.max(top) + 1, info.version as i64],
                 )?;
             }
             info.editing = true;
             self.save_meta(conn, &info)?;
             self.drop_tiles(layer_id);
+            self.edit_status(conn, &info)
+        })
+    }
+
+    /// Change where new vertices get their Z: a fixed value (`z_value`, None for no Z), or an elevation raster of the project (`z_dem`,
+    /// which wins). Applies to edits made from now on; Z already written stays.
+    pub fn edit_set_z(&self, layer_id: &str, z_value: Option<f64>, z_dem: Option<&str>) -> Result<EditStatus> {
+        let info = self.layer(layer_id)?;
+        if let Some(id) = z_dem {
+            let r = self.layer(id).map_err(|_| anyhow!("That elevation raster is not in the project."))?;
+            if r.raster.is_none() {
+                bail!("\"{}\" is not a raster, so it can't give Z values.", r.name);
+            }
+            if r.raster.as_ref().is_some_and(|x| x.empty) {
+                bail!("\"{}\" has no data in it (every cell is NoData).", r.name);
+            }
+        }
+        self.with_conn(|conn| {
+            if session(conn, layer_id)?.is_none() {
+                bail!("\"{}\" is not being edited.", info.name);
+            }
+            let (zv, zd) = if z_dem.is_some() { (None, z_dem) } else { (z_value, None) };
+            conn.execute("UPDATE __edit_sessions SET z_value = ?, z_dem = ? WHERE layer = ?", duckdb::params![zv, zd, layer_id])?;
             self.edit_status(conn, &info)
         })
     }
@@ -572,6 +601,7 @@ impl Engine {
             editing: true,
             map_crs: Some(s.map_crs),
             z_value: s.z_value,
+            z_dem: s.z_dem.clone(),
             added,
             changed,
             deleted,
@@ -696,6 +726,16 @@ impl Engine {
             let mut invalid = vec![];
             let mut rows: Vec<(String, i64, Option<Vec<u8>>, Option<String>)> = vec![];
             let mut touched: std::collections::HashSet<i64> = Default::default();
+            // New vertices take Z from the session's elevation raster, through an explicit transform from the layer CRS to the raster's.
+            let (dem, dem_name) = match &s.z_dem {
+                Some(id) => {
+                    let ri = self.layer(id).map_err(|_| anyhow!("The elevation raster chosen for Z is no longer in the project. Choose another, or a fixed Z value."))?;
+                    let r = ri.raster.as_ref().ok_or_else(|| anyhow!("\"{}\" is not a raster, so it can't give Z values.", ri.name))?;
+                    (Some(crate::raster::Sampler::new(r, &lc)?), Some(ri.name.clone()))
+                }
+                None => (None, None),
+            };
+            let (mut z_outside, mut z_nodata) = (0usize, 0usize);
             for op in ops {
                 // Validate everything first; nothing is written unless the whole batch is good.
                 let attrs_json = match &op.attributes {
@@ -768,6 +808,44 @@ impl Engine {
                     };
                     reconcile(&new_map, &new_layer, orig_map.as_ref(), orig_layer.as_ref(), s.z_value)?
                     };
+                    let mut g = g;
+                    if let Some(d) = &dem {
+                        // Vertices that are not in the stored shape and carry no Z are new: they get the raster's value at that place.
+                        let stored: std::collections::HashSet<(u64, u64)> = if kind == "update" {
+                            let b = match pend.get(&fid).and_then(|p| p.wkb.clone()) {
+                                Some(w) => Some(w),
+                                None => conn.query_row(&format!("SELECT ST_AsWKB(geom) FROM {} WHERE __fid = {fid}", ident(&info.table)), [], |r| r.get::<_, Option<Vec<u8>>>(0)).ok().flatten(),
+                            };
+                            match b {
+                                Some(b) => parse_wkb(&b)?.coords().map(|c| (c.x.to_bits(), c.y.to_bits())).collect(),
+                                None => Default::default(),
+                            }
+                        } else {
+                            Default::default()
+                        };
+                        g.has_z = true;
+                        // A ring's closing vertex is the same place as its first: each place is looked up (and reported) once.
+                        let mut looked: HashMap<(u64, u64), crate::raster::Sample> = HashMap::new();
+                        for c in g.coords_mut() {
+                            let key = (c.x.to_bits(), c.y.to_bits());
+                            if c.z.is_nan() && !stored.contains(&key) {
+                                let first = !looked.contains_key(&key);
+                                let smp = match looked.get(&key) {
+                                    Some(v) => *v,
+                                    None => {
+                                        let v = d.at(c.x, c.y)?;
+                                        looked.insert(key, v);
+                                        v
+                                    }
+                                };
+                                match smp {
+                                    crate::raster::Sample::Value(v) => c.z = v,
+                                    crate::raster::Sample::Outside => z_outside += first as usize,
+                                    crate::raster::Sample::NoData => z_nodata += first as usize,
+                                }
+                            }
+                        }
+                    }
                     if crs::is_geographic(&lc) && crosses_antimeridian(&g) {
                         bail!("{ANTIMERIDIAN}");
                     }
@@ -820,7 +898,20 @@ impl Engine {
                 }
             }
             self.drop_tiles(layer_id);
-            Ok(ApplyResult { status: self.edit_status(conn, &info)?, fids, invalid })
+            let z_note = if z_outside + z_nodata > 0 {
+                let name = dem_name.unwrap_or_default();
+                let mut parts = vec![];
+                if z_outside > 0 {
+                    parts.push(format!("{z_outside} outside \"{name}\""));
+                }
+                if z_nodata > 0 {
+                    parts.push(format!("{z_nodata} on NoData cells of \"{name}\""));
+                }
+                Some(format!("{} new vertices got no Z from the elevation raster ({}). They were left without a Z value, not filled in.", z_outside + z_nodata, parts.join(", ")))
+            } else {
+                None
+            };
+            Ok(ApplyResult { status: self.edit_status(conn, &info)?, fids, invalid, z_note })
         })
     }
 

@@ -191,6 +191,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             let (layer, fid) = e.add_row(&s(a, "id")?)?;
             json!({ "layer": layer, "fid": fid })
         }
+        "edit_set_z" => json!(e.edit_set_z(&s(a, "layer")?, a["zValue"].as_f64(), a["zDem"].as_str())?),
         "edit_begin" => json!(e.edit_begin(&s(a, "layer")?, &s(a, "mapCrs")?, a["zValue"].as_f64())?),
         "edit_apply" => json!(e.edit_apply(&s(a, "layer")?, &s(a, "mapCrs")?, &de::<Vec<engine::edit::EditOp>>(a, "ops")?)?),
         "snap_features_in" => json!(e.snap_features_in(&s(a, "layer")?, &s(a, "mapCrs")?, de::<[f64; 4]>(a, "extent")?, a["limit"].as_u64().unwrap_or(2000) as usize)?),

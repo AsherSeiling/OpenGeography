@@ -1,5 +1,9 @@
 // Shape editing, E2: draw, move, delete, undo/redo, save and discard on the map; on a UTM map and with two maps in different CRSs.
 import { addTestLayer, expect, gis, test } from "./fixtures";
+import { writeAsc } from "./pixels";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const UTM14 = { id: "EPSG:26914", name: "NAD83 / UTM zone 14N" };
 
@@ -218,14 +222,14 @@ async function storedRing(app: any, id: string, crs: string): Promise<number[][]
 }
 
 /** A UTM polygon layer on a Web Mercator map with one saved polygon, the view fitted to it. */
-async function utmPolygon(app: any, name = "Parcels") {
+async function utmPolygon(app: any, name = "Parcels", z: number | null = null) {
   const m = (await gis(app, (g) => g.useApp.getState().maps[0])) as { id: string };
   await gis(app, (g, a: any) => g.useApp.getState().setMapCrs(a.crs, a.id), { crs: M3857, id: m.id });
   await expect.poll(() => gis(app, (g, id: string) => g.mapController.getActiveCrs(id)?.id, m.id)).toBe("EPSG:3857");
   const layer = (await gis(app, async (g, n: string) => { const l = await g.api.createLayer(n, "polygon", "EPSG:32614", []); g.useApp.getState().updateLayer(l); g.useApp.getState().addToMap([l.id]); g.useApp.getState().setActiveLayer(l.id); return l; }, name)) as any;
   const x0 = -11020000, y0 = 4300000;
   const ring = [[x0, y0], [x0 + 3000, y0 + 200], [x0 + 2800, y0 + 2500], [x0 + 100, y0 + 2300], [x0, y0]];
-  await gis(app, async (g, a: any) => { await g.api.editBegin(a.id, "EPSG:3857", null); await g.api.editApply(a.id, "EPSG:3857", [{ op: "insert", geometry: a.hex }]); await g.api.editSave(a.id); }, { id: layer.id, hex: polyHex(ring) });
+  await gis(app, async (g, a: any) => { await g.api.editBegin(a.id, "EPSG:3857", a.z); await g.api.editApply(a.id, "EPSG:3857", [{ op: "insert", geometry: a.hex }]); await g.api.editSave(a.id); }, { id: layer.id, hex: polyHex(ring), z });
   await gis(app, (g, e: number[]) => g.getMap().getView().fit(e, { padding: [120, 120, 120, 120], duration: 0 }), [x0, y0, x0 + 3000, y0 + 2500]);
   await app.waitForFunction(() => !(window as any).__gis.getMap().getView().getAnimating());
   return { layer, ring, mapId: m.id };
@@ -346,4 +350,58 @@ test("reshape edge by drawing: the new edge replaces the shorter stretch, every 
   expect(after.length).toBeGreaterThan(before.length);
   for (const v of before.slice(0, 4)) expect(after.some((w) => w[0] === v[0] && w[1] === v[1])).toBe(true);
   expect(await tableCount(app, layer.id)).toBe(1);
+});
+
+/** The x/y/z of a polygon's first ring from hex WKB with Z (ISO type 1003). */
+const readRingZ = (hex: string): number[][] => {
+  const b = Buffer.from(hex, "hex");
+  expect(b.readUInt32LE(1), "a polygon with Z").toBe(1003);
+  const n = b.readUInt32LE(9);
+  return Array.from({ length: n }, (_, i) => [b.readDoubleLE(13 + i * 24), b.readDoubleLE(21 + i * 24), b.readDoubleLE(29 + i * 24)]);
+};
+const lonOf = (x: number) => (x / 6378137) * (180 / Math.PI);
+const latOf = (y: number) => (2 * Math.atan(Math.exp(y / 6378137)) - Math.PI / 2) * (180 / Math.PI);
+
+test("Z from a DEM: new vertices take the DEM's value where they fall, a vertex outside it is reported and left without Z, and the choice is stated", async ({ app }) => {
+  const { layer } = await utmPolygon(app, "Parcels Z", 100);
+  const x0 = -11020000, y0 = 4300000;
+  // A 2 × 2 cell DEM in EPSG:4326 (the layer is UTM and the map Web Mercator): value = 10 × column + row (row 0 on top).
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zdem-"));
+  const lon0 = lonOf(x0 + 300), lat0 = latOf(y0 + 300), cell = 0.01;
+  writeAsc(path.join(dir, "zdem.asc"), 2, 2, lon0, lat0, cell, (c, r) => 10 * c + r);
+  const dem = (await gis(app, async (g, f: string) => { const [l] = await g.api.importFiles([f]); g.useApp.getState().addLayers([l]); return l; }, path.join(dir, "zdem.asc"))) as any;
+  await gis(app, (g, id: string) => g.edit.startEditing(id), layer.id);
+  await app.locator(".rtab", { hasText: /^Edit$/ }).click();
+  await expect(app.getByTestId("edit-z-state")).toContainText("No Z");
+  await app.getByTestId("edit-z-dem").click();
+  await app.getByRole("option", { name: /zdem/ }).click();
+  await expect(app.getByTestId("edit-z-state")).toContainText('from "zdem"');
+  expect(((await stateOf(app)) as any).zDem).toBe(dem.id);
+  await gis(app, (g) => { g.edit.setEditTool("polygon"); g.edit.toggleSnapping(); });
+  await loaded(app);
+  const at = (dx: number, dy: number) => pixelOfCoord(app, [x0 + dx, y0 + dy]);
+  const [p1, p2, p3] = await Promise.all([at(1000, 800), at(2000, 800), at(1500, 1800)]);
+  await app.mouse.click(p1[0], p1[1]);
+  await app.mouse.click(p2[0], p2[1]);
+  await app.mouse.dblclick(p3[0], p3[1]);
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(1);
+  const ringOf = async () => readRingZ((await gis(app, async (g, id: string) => (await g.api.editFeaturesIn(id, "EPSG:4326", [-180, -85, 180, 85])).features.find((x: any) => x.pending === "inserted").geometry, layer.id)) as string);
+  // The value the DEM holds where each vertex is (looked up here from the file's definition, in lon/lat).
+  const want = (lon: number, lat: number) => 10 * Math.floor((lon - lon0) / cell) + (1 - Math.floor((lat - lat0) / cell));
+  const ring = await ringOf();
+  expect(ring.length).toBe(4);
+  for (const [lon, lat, z] of ring) expect(z, `Z at ${lon}, ${lat}`).toBe(want(lon, lat));
+  expect(new Set(ring.map((r) => r[2])).size, "the vertices fall in different cells").toBeGreaterThan(1);
+  await expect(app.getByTestId("edit-banner")).not.toContainText("got no Z");
+  // A polygon with one vertex east of the DEM: reported in the banner, that vertex has no Z (NaN), the others have theirs.
+  const [q1, q2, q3] = await Promise.all([at(1000, 800), at(2000, 800), at(2900, 800)]);
+  await app.mouse.click(q1[0], q1[1]);
+  await app.mouse.click(q2[0], q2[1]);
+  await app.mouse.dblclick(q3[0], q3[1] + 60);
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(2);
+  await expect(app.getByTestId("edit-banner")).toContainText(/1 new vertices got no Z .*outside "zdem"/);
+  const f2 = readRingZ((await gis(app, async (g, id: string) => (await g.api.editFeaturesIn(id, "EPSG:4326", [-180, -85, 180, 85])).features.filter((x: any) => x.pending === "inserted").pop().geometry, layer.id)) as string);
+  expect(f2.filter((v) => Number.isNaN(v[2])).length, "only the vertex outside the DEM has no Z").toBe(1);
+  expect(f2.filter((v) => Number.isFinite(v[2])).length, "the other three (the ring's closing copy included) have theirs").toBe(3);
+  await gis(app, (g) => g.edit.discardEdits());
 });

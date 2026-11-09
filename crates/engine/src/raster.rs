@@ -561,6 +561,53 @@ pub fn sample(info: &RasterInfo, lon: f64, lat: f64) -> Result<Option<f64>> {
     Ok(if info.nodata.map(|nd| (v - nd).abs() < 1e-9).unwrap_or(false) { None } else { Some(v) })
 }
 
+/// What a raster holds at one place.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Sample {
+    Value(f64),
+    /// The place is outside the raster (or has no position in its coordinate system).
+    Outside,
+    /// The cell is NoData.
+    NoData,
+}
+
+/// Samples band 1 at many places given in one coordinate system, with one explicit transform from that CRS to the raster's own
+/// (no detour through longitude/latitude). The cell is the one the place falls in (no interpolation).
+pub struct Sampler {
+    ds: Dataset,
+    tr: gdal::spatial_ref::CoordTransform,
+    gt: [f64; 6],
+    size: (usize, usize),
+    nodata: Option<f64>,
+}
+
+impl Sampler {
+    pub fn new(info: &RasterInfo, from_crs: &str) -> Result<Sampler> {
+        let ds = Dataset::open(&info.path)?;
+        let src = crate::crs::srs(from_crs)?;
+        let mut dst = ds.spatial_ref().map_err(|_| anyhow!("The elevation raster has no coordinate system, so its values can't be placed. Define its projection first."))?;
+        dst.set_axis_mapping_strategy(gdal::spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+        let tr = gdal::spatial_ref::CoordTransform::new(&src, &dst)?;
+        let gt = ds.geo_transform()?;
+        let size = ds.raster_size();
+        Ok(Sampler { ds, tr, gt, size, nodata: info.nodata })
+    }
+
+    pub fn at(&self, x: f64, y: f64) -> Result<Sample> {
+        let (mut xs, mut ys) = ([x], [y]);
+        if self.tr.transform_coords(&mut xs, &mut ys, &mut []).is_err() || !xs[0].is_finite() || !ys[0].is_finite() {
+            return Ok(Sample::Outside);
+        }
+        let col = ((xs[0] - self.gt[0]) / self.gt[1]).floor();
+        let row = ((ys[0] - self.gt[3]) / self.gt[5]).floor();
+        if col < 0.0 || row < 0.0 || col >= self.size.0 as f64 || row >= self.size.1 as f64 {
+            return Ok(Sample::Outside);
+        }
+        let v = self.ds.rasterband(1)?.read_as::<f64>((col as isize, row as isize), (1, 1), (1, 1), None)?.data()[0];
+        Ok(if v.is_nan() || self.nodata.is_some_and(|nd| (v - nd).abs() < 1e-9) { Sample::NoData } else { Sample::Value(v) })
+    }
+}
+
 // ---------- processing ----------
 
 /// Contour lines (gdal_contour) written to a GeoPackage; returns its path.

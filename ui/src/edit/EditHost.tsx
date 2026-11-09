@@ -19,13 +19,23 @@ function ZChoice() {
   const layerId = useEdit((s) => s.layerId);
   const z = useEdit((s) => s.zValue);
   const [text, setText] = useState(z === null ? "" : String(z));
+  const layers = useApp((s) => s.layers);
   if (!layerId || !st?.layerHasZ) return null;
+  const dems = Object.values(layers).filter((l) => l.raster && !l.raster.empty);
+  const dem = st.zDem ? layers[st.zDem] : undefined;
   const apply = async () => {
+    if (text === (z === null ? "" : String(z))) return; // unchanged: leaves a chosen DEM alone
     const v = text.trim() === "" ? null : Number(text);
     if (v !== null && !Number.isFinite(v)) return useApp.getState().setStatus("The Z value must be a number, or empty for none.");
     useEdit.getState().set({ zValue: v });
-    const crs = getActiveCrs(useApp.getState().activeMapId);
-    if (crs) useEdit.getState().bump(await api.editBegin(layerId, crs.id, v));
+    useEdit.getState().bump(await api.editSetZ(layerId, v, null));
+  };
+  const pickDem = async (id: string | null) => {
+    try {
+      useEdit.getState().bump(await api.editSetZ(layerId, null, id));
+    } catch (err) {
+      useEdit.getState().set({ notice: errorText(err) });
+    }
   };
   return (
     <div className="stack" style={{ padding: "0 8px", fontSize: 12 }} data-testid="edit-z">
@@ -33,7 +43,18 @@ function ZChoice() {
         New vertex Z{" "}
         <Input size="small" aria-label="New vertex Z" value={text} placeholder="none" onChange={(_, d) => setText(d.value)} onBlur={() => void apply()} style={{ width: 80 }} />
       </label>
-      <span className="muted">{z === null ? "No Z: stored as NaN" : `New vertices get Z = ${z}`}</span>
+      <label>
+        or from a DEM{" "}
+        <Dropdown size="small" aria-label="Z from a DEM" data-testid="edit-z-dem" value={dem?.name ?? "none"} selectedOptions={[st.zDem ?? ""]} onOptionSelect={(_, d) => void pickDem(d.optionValue ? d.optionValue : null)} style={{ minWidth: 120 }}>
+          <Option value="">none</Option>
+          {dems.map((l) => (
+            <Option key={l.id} value={l.id}>{l.name}</Option>
+          ))}
+        </Dropdown>
+      </label>
+      <span className="muted" data-testid="edit-z-state">
+        {dem ? `New vertices get Z from "${dem.name}" (its own values and units; none where it has no data)` : z === null ? "No Z: stored as NaN" : `New vertices get Z = ${z}`}
+      </span>
     </div>
   );
 }

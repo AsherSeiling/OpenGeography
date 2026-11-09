@@ -135,7 +135,7 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
         const r = await api.editApply(layerId, id, ops);
         useEdit.getState().bump(r.status);
         if (r.invalid.length) useEdit.getState().set({ notice: `${r.invalid.length} shape(s) are not valid (they cross themselves or are degenerate). Save keeps them as drawn; use Fix on the Edit tab to repair.` });
-        else useEdit.getState().set({ notice: null });
+        else useEdit.getState().set({ notice: r.zNote });
       } catch (err) {
         useEdit.getState().set({ notice: errorText(err) });
         useEdit.getState().bump();
@@ -146,7 +146,7 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
       if (!id) return;
       try {
         const r = await api.editReshape(layerId, id, op);
-        useEdit.getState().set({ selected: [], notice: null });
+        useEdit.getState().set({ selected: [], notice: r.zNote });
         useEdit.getState().bump(r.status);
       } catch (err) {
         useEdit.getState().set({ notice: errorText(err) });
