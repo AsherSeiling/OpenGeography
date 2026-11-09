@@ -36,6 +36,9 @@ GIS Studio is MIT OR Apache-2.0. Only permissive code (MIT, Apache-2.0, BSD, ISC
 | `mgrs` | MIT | MGRS coordinates | status bar |
 | `fontdb` (a dependency of `resvg`/`usvg`, used directly) | MIT | lists the fonts installed on the computer (macOS, Windows, Linux system font folders) and copies the families a layout names into its render database | `fonts.rs`, `layout/export.rs` |
 | `zustand`, `zundo`, `@tanstack/react-virtual` | MIT | state, undo, long lists | `ui/src` |
+| `h3o` | BSD-3-Clause | Uber H3 hexagonal grid (pure Rust port) for Hex Bins | `nodes/hex_bin.rs` |
+| `spade` | MIT OR Apache-2.0 | Delaunay and constrained Delaunay triangulation, natural neighbour interpolation | `nodes/tin_interpolation.rs` |
+| `smartcore` | Apache-2.0 | Random Forest and k-nearest-neighbour classifiers (pure Rust, no BLAS) | `nodes/classify_supervised.rs` |
 
 Build and test tooling (not shipped): Vite (MIT), Vitest (MIT), TypeScript (Apache-2.0), `@vitejs/plugin-react` (MIT), Playwright (Apache-2.0), `@tauri-apps/cli` (Apache-2.0 OR MIT), `@types/*` (MIT).
 
@@ -107,6 +110,10 @@ U.S. Census TIGER/Line, ACS and 2020 Census (public domain, API key by the user)
 | Profile along a line: geodesic stationing, bilinear sampling at cell centres | Karney 2013 (`geographiclib-rs`); bilinear interpolation (standard) | `nodes/profile_line.rs` |
 | Cut and fill: sum of (after - before) times true cell area, separately for negative and positive differences | Easa 1988 (grid volume computation); ArcGIS Cut Fill definition (names only) | `nodes/cut_fill.rs` |
 | Network analysis: Dijkstra's shortest-path algorithm with a binary heap, union-find connected components, snapping to the nearest point of the nearest segment, geodesic lengths (no graph library) | Dijkstra 1959, "A note on two problems in connexion with graphs", Numerische Mathematik 1:269-271; Tarjan 1975 (union-find); Karney 2013 through `geographiclib-rs` (already linked); `petgraph` and `fast_paths` (both MIT/Apache-2.0) were considered and not added (see docs/DECISIONS.md, Wave 1 Lane B) | `network.rs`, `nodes/network_tools.rs` |
+| Hex bins on the H3 grid, cell area on the ellipsoid (geodesic polygon area of the cell outline) | Uber H3 through `h3o`; Karney 2013 through `geographiclib-rs` | `nodes/hex_bin.rs` |
+| Natural neighbour (Sibson) interpolation; constrained Delaunay TIN with breaklines and linear (barycentric) interpolation | Sibson 1981, "A brief description of natural neighbour interpolation"; Chew 1989, constrained Delaunay triangulations; `spade` | `nodes/tin_interpolation.rs` |
+| DBSCAN with geodesic neighbourhoods (written from the paper) | Ester, Kriegel, Sander and Xu 1996, KDD-96 | `nodes/dbscan.rs` |
+| Supervised classification: Random Forest and k-nearest neighbours with a seeded stratified hold-out and confusion matrix | Breiman 2001, Machine Learning 45:5-32; Cover and Hart 1967; `smartcore` | `nodes/classify_supervised.rs` |
 
 ## 6. Considered and not used
 

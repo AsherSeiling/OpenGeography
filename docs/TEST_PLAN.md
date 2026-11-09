@@ -1188,3 +1188,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T5-5 | Service area: reachable stretches within 300 m (full and partial segments, one-way respected), minutes cutoff, polygon variant | fractions (300 - AB) / BC and (300 - AD) / DC; valid polygon around the facility | auto: same file |
 | T5-6 | Closest facility: ranks, count 2, incident that reaches nothing, travel from the facility | FB then FC; a 'no facility reachable' row; C to S goes through B | auto: same file |
 | T5-7 | Refusals: time without a speed field, points as the network, one stop | readable sentences | auto: same file |
+
+## T6. Modelling tools (Wave 1, Lane B)
+| # | Case | Expected | Check |
+|---|---|---|---|
+| T6-1 | Hex Bins: three points in one cell and one far away, field sum/mean; UTM input; resolution 16 | count 3, sum 9, mean 3; cell id equals h3o's; area within 1 % of H3's; same cell from UTM; refusal sentence | auto: `crates/engine/tests/modelling_tools.rs` |
+| T6-2 | DBSCAN: two lines of 5 points, a border point, two noise points; geographic pair at 60 N and at the equator with eps 60 km | clusters 1 and 2, border joins 1, noise 0 and counted; only the 60 N pair joins | auto: same file |
+| T6-3 | Natural neighbour on a plane z = 2x + 3y + 1 | reproduced within 0.01 inside the hull; NoData outside; values within data range on a bumpy surface; degrees and collinear points refused | auto: same file |
+| T6-4 | TIN with breaklines: line at height 7 through a spike of 100; line without height; crossing lines | cells on the line equal 7; reported and skipped; crossing counted | auto: same file |
+| T6-5 | Supervised classification, Random Forest and k-NN: hold-out accuracy, confusion matrix, repeatability with a seed, polygon training areas, one class, single-sample class | accuracy and matrix in the message and raster metadata; same seed same map; 320 samples; readable refusals | auto: same file |

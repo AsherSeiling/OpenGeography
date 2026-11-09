@@ -13,6 +13,10 @@ pub fn tools() -> Vec<Box<dyn Tool>> {
     v.extend(cut_fill::tools());
     v.extend(profile_line::tools());
     v.extend(network_tools::tools());
+    v.extend(hex_bin::tools());
+    v.extend(dbscan::tools());
+    v.extend(tin_interpolation::tools());
+    v.extend(classify_supervised::tools());
     v
 }
 
@@ -27,6 +31,10 @@ pub fn keywords(id: &str) -> &'static [&'static str] {
         cut_fill::keywords(id),
         profile_line::keywords(id),
         network_tools::keywords(id),
+        hex_bin::keywords(id),
+        dbscan::keywords(id),
+        tin_interpolation::keywords(id),
+        classify_supervised::keywords(id),
     ] {
         if !k.is_empty() {
             return k;
