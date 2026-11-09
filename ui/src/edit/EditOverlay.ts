@@ -101,6 +101,7 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
           feat.setId(f.fid);
           src.addFeature(feat);
         }
+        if (mapId === useEdit.getState().mapId) useEdit.getState().set({ loaded: r.features.length });
         if (r.truncated) useEdit.getState().set({ notice: "Only part of this layer is loaded for editing (the features in and near the view). Zoom in to edit the rest." });
       } catch (err) {
         useApp.getState().setStatus(errorText(err));

@@ -16,6 +16,8 @@ interface EditState {
   status: EditStatus | null;
   /** The Z for new vertices on a layer with Z (null: none, stored as NaN). */
   zValue: number | null;
+  /** How many shapes the edit overlay of the editing map has loaded from the engine (-1 until the first load finishes). */
+  loaded: number;
   /** Bumped after every change so map overlays and tiles reload. */
   epoch: number;
   /** A sentence for the status line / notice (refusals, antimeridian). */
@@ -34,10 +36,11 @@ export const useEdit = create<EditState>((set) => ({
   status: null,
   zValue: null,
   epoch: 0,
+  loaded: -1,
   notice: null,
   set: (p) => set(p),
   bump: (status) => set((s) => ({ epoch: s.epoch + 1, status: status === undefined ? s.status : status })),
-  clear: () => set((s) => ({ layerId: null, mapId: null, status: null, notice: null, selected: [], tool: "modify", epoch: s.epoch + 1 })),
+  clear: () => set((s) => ({ layerId: null, mapId: null, status: null, notice: null, selected: [], loaded: -1, tool: "modify", epoch: s.epoch + 1 })),
 }));
 
 /** Features copied for Paste: the layer they came from and their ids. */
