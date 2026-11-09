@@ -36,7 +36,8 @@ pub fn build_tile(conn: &Connection, info: &LayerInfo, z: u32, x: u32, y: u32, f
     }
     let t = ident(&layers::tile_source(info, z));
     let env = tile_envelope_sql(z, x, y);
-    let d = info.def_and();
+    // While the layer is being edited, features with pending edits are left out: the edit overlay draws them.
+    let d = format!("{}{}", info.def_and(), info.edit_hide());
     mvt(
         conn,
         info,

@@ -28,6 +28,9 @@ pub fn sql_type(ty: &str) -> Result<&'static str> {
 }
 
 fn editable(info: &LayerInfo) -> Result<()> {
+    if info.editing {
+        bail!("\"{}\" is being edited. Save or discard the shape edits first, then change its attributes or fields.", info.name);
+    }
     if info.result_of.is_some() {
         bail!("This is a node-tree result, which is rebuilt on every run. Edit the original layer, or Save as new layer first.");
     }
@@ -55,7 +58,7 @@ fn field<'a>(info: &'a LayerInfo, name: &str) -> Result<&'a Field> {
 }
 
 /// The base table plus its overview tables.
-fn tables(info: &LayerInfo) -> Vec<String> {
+pub(crate) fn tables(info: &LayerInfo) -> Vec<String> {
     let mut t = vec![info.table.clone()];
     t.extend(info.overviews.iter().map(|z| layers::overview_table(&info.table, *z)));
     t

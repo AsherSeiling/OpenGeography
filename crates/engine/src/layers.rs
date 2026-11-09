@@ -74,6 +74,9 @@ pub struct LayerInfo {
     /// Set for raster layers (geom_type "Raster").
     #[serde(default)]
     pub raster: Option<crate::raster::RasterInfo>,
+    /// True while a shape-edit session is open on this layer (`edit.rs`). Recomputed from the pending-edits record when a project opens.
+    #[serde(default)]
+    pub editing: bool,
 }
 
 impl LayerInfo {
@@ -100,6 +103,16 @@ impl LayerInfo {
             ));
         }
         self.definition_query.as_deref().map(str::trim).filter(|q| !q.is_empty()).map(|q| format!("({q})"))
+    }
+
+    /// While a shape-edit session is open: `AND` a condition leaving out the features with pending edits (tiles only; they are drawn by
+    /// the edit overlay). Empty otherwise.
+    pub fn edit_hide(&self) -> String {
+        if self.editing {
+            format!(" AND __fid NOT IN (SELECT fid FROM {} WHERE NOT undone)", crate::db::ident(&format!("__edits_{}", self.id)))
+        } else {
+            String::new()
+        }
     }
 
     /// `AND (<definition query>)`, or empty when the layer has none.
@@ -325,6 +338,7 @@ pub fn build_layer(conn: &Connection, id: &str, src: &ImportSource) -> Result<La
         label_error: None,
         query_count: None,
         raster: None,
+        editing: false,
     };
     refresh_display(conn, &mut info)?;
     Ok(info)
@@ -601,5 +615,6 @@ pub fn raster_layer(id: &str, name: &str, path: &std::path::Path, source: Option
         label_error: None,
         query_count: None,
         raster: Some(r),
+        editing: false,
     })
 }

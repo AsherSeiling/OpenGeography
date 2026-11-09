@@ -30,6 +30,7 @@ pub mod tissot;
 pub mod world;
 pub mod db;
 pub mod display;
+pub mod edit;
 pub mod graph;
 pub mod history;
 pub mod layers;
@@ -167,7 +168,10 @@ impl Engine {
              CREATE TABLE IF NOT EXISTS __defq_fids (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT);
              CREATE TABLE IF NOT EXISTS __defq_sets (layer VARCHAR, script VARCHAR, version BIGINT, kept BIGINT);
              CREATE TABLE IF NOT EXISTS __label_vals (layer VARCHAR, script VARCHAR, version BIGINT, __fid BIGINT, text VARCHAR);
-             CREATE TABLE IF NOT EXISTS __label_sets (layer VARCHAR, script VARCHAR, version BIGINT, n BIGINT);",
+             CREATE TABLE IF NOT EXISTS __label_sets (layer VARCHAR, script VARCHAR, version BIGINT, n BIGINT);
+             CREATE TABLE IF NOT EXISTS __edit_sessions (layer VARCHAR PRIMARY KEY, map_crs VARCHAR, z_value DOUBLE, started TIMESTAMP, next_fid BIGINT, base_version BIGINT);
+             CREATE TABLE IF NOT EXISTS __edit_fids (layer VARCHAR PRIMARY KEY, max_fid BIGINT);
+             CREATE TABLE IF NOT EXISTS __edit_log (layer VARCHAR, saved_at TIMESTAMP, added BIGINT, changed BIGINT, deleted BIGINT);",
         )?;
         sources::init(&conn)?;
         display::init(&conn)?;
@@ -197,6 +201,14 @@ impl Engine {
             layers.insert(info.id.clone(), info);
         }
         self.next_id.store(max_id + 1, Ordering::SeqCst);
+        // A shape-edit session left open (a crash, or the project closed while editing) is still pending: the layer is marked as being edited.
+        let open_sessions: Vec<String> = match conn.prepare("SELECT layer FROM __edit_sessions") {
+            Ok(mut s) => s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?,
+            Err(_) => vec![],
+        };
+        for info in layers.values_mut() {
+            info.editing = open_sessions.contains(&info.id);
+        }
         display::sweep(&conn, &layers.iter().map(|(k, v)| (k.clone(), v.version)).collect());
         drop(layers);
         let mut stmt = conn.prepare("SELECT node, layer FROM __model_layers")?;
@@ -1088,6 +1100,9 @@ impl Engine {
     /// Set the CRS of a layer whose CRS is missing or wrong (no reprojection;
     /// coordinates are reinterpreted). Use the Project tool to reproject.
     pub fn define_projection(&self, id: &str, crs: &str, crs_name: Option<String>) -> Result<LayerInfo> {
+        if self.layer(id)?.editing {
+            anyhow::bail!("This layer is being edited. Save or discard the shape edits first; changing its coordinate system would renumber its features.");
+        }
         let mut info = self.layer(id)?;
         let pool = self.pool.read();
         let conn = pool.get()?;
