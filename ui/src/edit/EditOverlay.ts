@@ -6,6 +6,8 @@ import type OlMap from "ol/Map";
 import Feature from "ol/Feature";
 import WKB from "ol/format/WKB";
 import { Draw, Modify, Snap } from "ol/interaction";
+import { createBox } from "ol/interaction/Draw";
+import { Circle as CircleGeom } from "ol/geom";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import { Circle as CircleStyle, Fill, Stroke, Style } from "ol/style";
@@ -22,11 +24,12 @@ const TOLERANCE_PX = 10;
 const stroke = (color: string, w = 2) => new Stroke({ color, width: w });
 const styleFor = (f: { get(k: string): unknown }) => {
   const pending = f.get("pending");
-  const c = pending ? "#e08a00" : "#1f6fd0";
+  const picked = useEdit.getState().selected.includes(f.get("fid") as number);
+  const c = picked ? "#c2185b" : pending ? "#e08a00" : "#1f6fd0";
   return new Style({
     stroke: stroke(c, 2.5),
     fill: new Fill({ color: pending ? "rgba(224,138,0,0.18)" : "rgba(31,111,208,0.14)" }),
-    image: new CircleStyle({ radius: 5, fill: new Fill({ color: c }), stroke: stroke("#ffffff", 1.5) }),
+    image: new CircleStyle({ radius: picked ? 7 : 5, fill: new Fill({ color: c }), stroke: stroke("#ffffff", 1.5) }),
   });
 };
 
@@ -53,6 +56,7 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
   const tool = useEdit((s) => s.tool);
   const snapping = useEdit((s) => s.snapping);
   const epoch = useEdit((s) => s.epoch);
+  const selected = useEdit((s) => s.selected);
   const shows = useApp((s) => !!layerId && !!mapOf(s, mapId)?.order.includes(layerId));
   const source = useRef<VectorSource | null>(null);
   const seq = useRef(0);
@@ -102,6 +106,10 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
     };
   }, [mapRef, ready, layerId, shows, mapId, epoch]);
 
+  useEffect(() => {
+    source.current?.changed();
+  }, [selected]);
+
   // The tools, on the map being edited only.
   useEffect(() => {
     const map = mapRef.current;
@@ -121,7 +129,20 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
         useEdit.getState().bump();
       }
     };
+    const reshape = async (op: Record<string, unknown>) => {
+      const id = crsId();
+      if (!id) return;
+      try {
+        const r = await api.editReshape(layerId, id, op);
+        useEdit.getState().set({ selected: [], notice: null });
+        useEdit.getState().bump(r.status);
+      } catch (err) {
+        useEdit.getState().set({ notice: errorText(err) });
+        useEdit.getState().bump();
+      }
+    };
     const interactions: import("ol/interaction/Interaction").default[] = [];
+    const cleanups: (() => void)[] = [];
     const el = map.getTargetElement() as HTMLElement;
     const onClick = (e: { pixel: number[] }) => {
       const f = map.forEachFeatureAtPixel(e.pixel, (x) => x as Feature, { layerFilter: (l) => (l as VectorLayer<VectorSource>).getSource() === src, hitTolerance: 6 });
@@ -152,6 +173,66 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
     } else if (tool === "delete") {
       map.on("click", onClick);
       el.style.cursor = "crosshair";
+    } else if (tool === "select") {
+      const pick = (e: { pixel: number[]; originalEvent: MouseEvent }) => {
+        const f = map.forEachFeatureAtPixel(e.pixel, (x) => x as Feature, { layerFilter: (l) => (l as VectorLayer<VectorSource>).getSource() === src, hitTolerance: 6 });
+        const cur = useEdit.getState().selected;
+        const fid = f?.get("fid") as number | undefined;
+        if (fid === undefined) return useEdit.getState().set({ selected: e.originalEvent.shiftKey ? cur : [] });
+        useEdit.getState().set({ selected: e.originalEvent.shiftKey ? (cur.includes(fid) ? cur.filter((x) => x !== fid) : [...cur, fid]) : [fid] });
+      };
+      map.on("click", pick as never);
+      el.style.cursor = "pointer";
+      cleanups.push(() => map.un("click", pick as never));
+    } else if (tool === "split" || tool === "hole") {
+      const draw = new Draw({ type: tool === "split" ? "LineString" : "Polygon" });
+      draw.on("drawend", (e) => {
+        const g = e.feature.getGeometry();
+        const sel = useEdit.getState().selected;
+        if (!g) return;
+        if (sel.length !== 1) return void useEdit.getState().set({ notice: tool === "split" ? "Select the one polygon to split first (Select tool), then draw the cutting line across it." : "Select the one polygon to cut a hole in first (Select tool), then draw the hole inside it." });
+        void reshape(tool === "split" ? { kind: "split", fid: sel[0], line: fmt.writeGeometry(g) as string } : { kind: "cut_hole", fid: sel[0], hole: fmt.writeGeometry(g) as string });
+      });
+      interactions.push(draw);
+      el.style.cursor = "crosshair";
+    } else if (tool === "rect") {
+      const draw = new Draw({ type: "Circle", geometryFunction: createBox() });
+      draw.on("drawend", (e) => {
+        const ex = e.feature.getGeometry()?.getExtent();
+        if (!ex) return;
+        void (async () => {
+          try {
+            const r = await api.editRectangle([ex[0], ex[1]], [ex[2], ex[3]]);
+            await apply([{ op: "insert", geometry: r.geometry }]);
+          } catch (err) {
+            useEdit.getState().set({ notice: errorText(err) });
+          }
+        })();
+      });
+      interactions.push(draw);
+      el.style.cursor = "crosshair";
+    } else if (tool === "circle") {
+      const draw = new Draw({ type: "Circle" });
+      draw.on("drawend", (e) => {
+        const g = e.feature.getGeometry() as CircleGeom | null;
+        const id = crsId();
+        if (!g || !id) return;
+        const [cx, cy] = g.getCenter();
+        const r = g.getRadius();
+        void (async () => {
+          try {
+            // The radius is ground metres on the ellipsoid, measured by the engine, and the circle is drawn by it with 48 vertices.
+            const metres = await api.editDistance(id, [cx, cy], [cx + r, cy]);
+            const c = await api.editCircle(id, [cx, cy], metres, 48);
+            await apply([{ op: "insert", geometry: c.geometry }]);
+            useEdit.getState().set({ notice: c.note });
+          } catch (err) {
+            useEdit.getState().set({ notice: errorText(err) });
+          }
+        })();
+      });
+      interactions.push(draw);
+      el.style.cursor = "crosshair";
     } else {
       const type = tool === "point" ? "Point" : tool === "line" ? "LineString" : "Polygon";
       const draw = new Draw({ type });
@@ -166,6 +247,7 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
     interactions.forEach((i) => map.addInteraction(i));
     return () => {
       interactions.forEach((i) => map.removeInteraction(i));
+      cleanups.forEach((f) => f());
       map.un("click", onClick);
       el.style.cursor = "";
     };

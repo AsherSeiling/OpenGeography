@@ -773,6 +773,14 @@ export const api = {
   editUndoSave: (layer: string) => invoke<LayerInfo>("edit_undo_save", { layer }),
   editFeaturesIn: (layer: string, mapCrs: string, extent: [number, number, number, number], limit?: number) =>
     invoke<{ features: EditFeature[]; truncated: boolean; mapCrs: string }>("edit_features_in", { layer, mapCrs, extent, limit }),
+  editReshape: (layer: string, mapCrs: string, op: Record<string, unknown>) => invoke<{ status: EditStatus; fids: number[]; invalid: number[] }>("edit_reshape", { layer, mapCrs, op }),
+  editCircle: (mapCrs: string, center: [number, number], radiusM: number, vertices: number) => invoke<{ geometry: string; note: string }>("edit_circle", { mapCrs, center, radiusM, vertices }),
+  editRectangle: (cornerA: [number, number], cornerB: [number, number]) => invoke<{ geometry: string; note: string }>("edit_rectangle", { cornerA, cornerB }),
+  editDistance: (mapCrs: string, a: [number, number], b: [number, number]) => invoke<number>("edit_distance", { mapCrs, a, b }),
+  editDestination: (mapCrs: string, from: [number, number], distanceM: number, bearingDeg: number) => invoke<[number, number]>("edit_destination", { mapCrs, from, distanceM, bearingDeg }),
+  editParseCoords: (layer: string, mapCrs: string, kind: "xy" | "lonlat" | "usng", text: string) => invoke<[number, number][]>("edit_parse_coords", { layer, mapCrs, kind, text }),
+  editPaste: (fromLayer: string, fids: number[], toLayer: string) =>
+    invoke<{ pasted: number; unmatchedFields: string[]; failedValues: number; apply: { status: EditStatus } }>("edit_paste", { fromLayer, fids, toLayer }),
   createLayer: (name: string, geomType: string, crs: string, fields: [string, string][]) => invoke<LayerInfo>("create_layer", { name, geomType, crs, fields }),
   /** The rows with these ids as text, fields in the layer's order (to put back after a delete). */
   rowsByFid: (id: string, fids: number[]) => invoke<{ fid: number; values: (string | null)[] }[]>("rows_by_fid", { id, fids }),

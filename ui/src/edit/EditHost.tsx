@@ -9,7 +9,7 @@ import { useApp } from "../store/store";
 import { mapOf } from "../store/maps";
 import { TABLE_FIELD_TYPES, tableProblem } from "../dialogs/NewTableDialog";
 import { useDialog } from "../actions";
-import { discardEdits, editRedo, editUndo, newLayer, offerResume, resumeEditing, saveEdits, startEditing, useEditDialogs } from "./editActions";
+import { addByCoordinates, discardEdits, editRedo, editUndo, newLayer, offerResume, resumeEditing, saveEdits, startEditing, useEditDialogs } from "./editActions";
 import { EDIT_GROUPS } from "../ribbon/tabsDef";
 import { useEdit } from "./editStore";
 
@@ -57,6 +57,48 @@ function FinishDialog() {
             <Button appearance="secondary" disabled={busy} onClick={close}>Cancel</Button>
             <Button disabled={busy} onClick={async () => { setBusy(true); if (await discardEdits()) close(); setBusy(false); }}>Discard edits</Button>
             <Button appearance="primary" disabled={busy} onClick={async () => { setBusy(true); if (await saveEdits()) close(); setBusy(false); }}>Save edits</Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  );
+}
+
+const COORD_KINDS: [string, string, string][] = [
+  ["xy", "x, y in the layer's coordinate system", "500000, 4000000"],
+  ["lonlat", "Longitude, latitude (degrees)", "-99.25, 36.1"],
+  ["usng", "USNG / MGRS reference", "14S MV 00000 00000"],
+  ["bearing", "Bearing and distance (geodesic)", "500000, 4000000\n45, 120.5\n135, 80"],
+];
+
+function CoordsDialog() {
+  const open = useEditDialogs((s) => s.coords);
+  const [kind, setKind] = useState("xy");
+  const [text, setText] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!open) return null;
+  const close = () => useEditDialogs.getState().setCoords(false);
+  const k = COORD_KINDS.find((c) => c[0] === kind)!;
+  return (
+    <Dialog open onOpenChange={(_, d) => !d.open && !busy && close()}>
+      <DialogSurface style={{ maxWidth: 520 }}>
+        <DialogBody>
+          <DialogTitle>Enter coordinates</DialogTitle>
+          <DialogContent className="stack">
+            <Field label="Coordinates are">
+              <Dropdown aria-label="Coordinates are" value={k[1]} selectedOptions={[kind]} onOptionSelect={(_, d) => setKind(d.optionValue!)}>
+                {COORD_KINDS.map(([v, l]) => <Option key={v} value={v}>{l}</Option>)}
+              </Dropdown>
+            </Field>
+            <Field label="One position per line" hint={kind === "bearing" ? "First line: start x, y in the layer's coordinate system. Then bearing (degrees clockwise from north) and distance (metres) per line, measured on the ellipsoid." : "A point layer takes one line; a line layer two or more; a polygon layer three or more."}>
+              <textarea aria-label="Coordinates" className="mono" rows={6} value={text} placeholder={k[2]} onChange={(e) => setText(e.target.value)} style={{ width: "100%" }} />
+            </Field>
+            {err && <div className="field-error" role="alert">{err}</div>}
+          </DialogContent>
+          <DialogActions>
+            <Button appearance="secondary" disabled={busy} onClick={close}>Cancel</Button>
+            <Button appearance="primary" disabled={busy || !text.trim()} onClick={async () => { setBusy(true); setErr(null); try { await addByCoordinates(kind as "xy", text); close(); } catch (e) { setErr(errorText(e)); } setBusy(false); }}>Add</Button>
           </DialogActions>
         </DialogBody>
       </DialogSurface>
@@ -198,6 +240,7 @@ export function EditHost() {
       <FinishDialog />
       <ResumeDialog />
       <NewLayerDialog />
+      <CoordsDialog />
     </>
   );
 }

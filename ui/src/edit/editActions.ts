@@ -4,23 +4,27 @@ import { create } from "zustand";
 import { api, errorText, type EditOp, type LayerInfo } from "../ipc/api";
 import { getActiveCrs } from "../map/mapController";
 import { useApp } from "../store/store";
-import { useEdit, type EditTool } from "./editStore";
+import { useClip, useEdit, type EditTool } from "./editStore";
 
 /** Dialogs of the edit mode (kept here so the global dialog list stays as it was). */
 interface EditDialogs {
   finish: boolean;
   newLayer: boolean;
+  coords: boolean;
   resume: string | null;
   setFinish: (v: boolean) => void;
   setNewLayer: (v: boolean) => void;
+  setCoords: (v: boolean) => void;
   setResume: (v: string | null) => void;
 }
 export const useEditDialogs = create<EditDialogs>((set) => ({
   finish: false,
   newLayer: false,
+  coords: false,
   resume: null,
   setFinish: (finish) => set({ finish }),
   setNewLayer: (newLayer) => set({ newLayer }),
+  setCoords: (coords) => set({ coords }),
   setResume: (resume) => set({ resume }),
 }));
 
@@ -171,4 +175,87 @@ export async function newLayer(name: string, geomType: string, crs: string, fiel
   s.addToMap([l.id], s.activeMapId);
   s.setActiveLayer(l.id);
   await startEditing(l.id);
+}
+
+// ---- reshape, copy and paste, typed coordinates (E3) ----
+
+const mapCrsId = () => getActiveCrs(useEdit.getState().mapId ?? useApp.getState().activeMapId)?.id;
+
+/** Run a reshape of the selected features (merge, explode, make multipart, fill holes); the engine does it as one undo step. */
+export async function reshapeSelected(kind: "merge" | "explode" | "make_multipart" | "fill_holes"): Promise<void> {
+  const e = useEdit.getState();
+  const id = e.layerId;
+  const crs = mapCrsId();
+  if (!id || !crs) return;
+  const sel = e.selected;
+  const need = kind === "merge" || kind === "make_multipart" ? 2 : 1;
+  if (sel.length < need) {
+    const msg = kind === "merge" ? "Select two or more features first (Select tool; Shift-click adds)." : kind === "make_multipart" ? "Select two or more features of the same shape type first (Select tool; Shift-click adds)." : "Select a feature first (Select tool).";
+    useEdit.getState().set({ notice: msg });
+    return;
+  }
+  const op = kind === "explode" ? { kind, fid: sel[0] } : { kind, fids: sel };
+  const r = await run(() => api.editReshape(id, crs, op));
+  if (r) {
+    useEdit.getState().set({ selected: [], notice: null });
+    useEdit.getState().bump(r.status);
+  }
+}
+
+/** Copy the active layer's selected features (the map selection) for Paste into the layer being edited. */
+export function copySelected(): void {
+  const s = useApp.getState();
+  const id = s.activeLayer;
+  const sel = id ? s.selection[id] ?? [] : [];
+  const picked = useEdit.getState().selected;
+  const from = useEdit.getState().layerId && picked.length ? useEdit.getState().layerId! : id;
+  const fids = useEdit.getState().layerId && picked.length ? picked : sel;
+  if (!from || !fids.length) return void status("Select features to copy first (on the map or in the Attribute Table).");
+  useClip.getState().set({ layer: from, fids });
+  status(`Copied ${fids.length} feature(s). Paste puts them into the layer being edited.`);
+}
+
+export async function pasteCopied(): Promise<void> {
+  const clip = useClip.getState().clip;
+  const to = useEdit.getState().layerId;
+  if (!to) return status("Start editing a layer first; Paste puts the copied features into it.");
+  if (!clip) return status("Copy features first.");
+  const r = await run(() => api.editPaste(clip.layer, clip.fids, to));
+  if (!r) return;
+  useEdit.getState().bump(r.apply.status);
+  const bits = [`Pasted ${r.pasted} feature(s), moved into this layer's coordinate system.`];
+  if (r.unmatchedFields.length) bits.push(`Fields with no match by name were left behind: ${r.unmatchedFields.join(", ")}.`);
+  if (r.failedValues) bits.push(`${r.failedValues} value(s) did not fit their field and were pasted empty.`);
+  useEdit.getState().set({ notice: bits.join(" ") });
+}
+
+/** Add one feature from typed coordinates. `kind`: x/y in the layer's CRS, lon/lat, USNG/MGRS, or bearing and distance (geodesic) from a first position. */
+export async function addByCoordinates(kind: "xy" | "lonlat" | "usng" | "bearing", text: string): Promise<void> {
+  const e = useEdit.getState();
+  const id = e.layerId;
+  const crs = mapCrsId();
+  const layer = id ? useApp.getState().layers[id] : undefined;
+  if (!id || !crs || !layer) return;
+  let pts: [number, number][];
+  if (kind === "bearing") {
+    // First line: a position as x, y in the layer's CRS. Each next line: "bearing, distance" (degrees clockwise from north, metres).
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 1) throw new Error("Type a start position, then one bearing and distance per line.");
+    pts = [(await api.editParseCoords(id, crs, "xy", lines[0]))[0]];
+    for (const [i, l] of lines.slice(1).entries()) {
+      const [b, d] = l.split(/[,;\s]+/).map(Number);
+      if (!Number.isFinite(b) || !Number.isFinite(d)) throw new Error(`Line ${i + 2}: expected a bearing and a distance, for example 45, 120.5`);
+      pts.push(await api.editDestination(crs, pts[pts.length - 1], d, b));
+    }
+  } else {
+    pts = await api.editParseCoords(id, crs, kind, text);
+  }
+  const { Point, LineString, Polygon } = await import("ol/geom");
+  const WKB = (await import("ol/format/WKB")).default;
+  const geom = layer.geomType === "Point" ? (pts.length === 1 ? new Point(pts[0]) : null) : layer.geomType === "Line" ? new LineString(pts) : new Polygon([[...pts, pts[0]]]);
+  if (!geom) throw new Error("A point layer takes one position at a time.");
+  if (layer.geomType === "Line" && pts.length < 2) throw new Error("A line needs at least two positions.");
+  if (layer.geomType === "Polygon" && pts.length < 3) throw new Error("A polygon needs at least three positions.");
+  const r = await api.editApply(id, crs, [{ op: "insert", geometry: new WKB({ hex: true }).writeGeometry(geom) as string }]);
+  useEdit.getState().bump(r.status);
 }

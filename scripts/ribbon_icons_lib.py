@@ -289,3 +289,23 @@ def _(): return [P('M6 22L10 8l14 3 3 12z', 'rl'), LN('M8 10l17 11M25 10L8 21', 
 def _(): return [P('M16 4l13 6.5L16 17 3 10.5z', 'g'), P('M3 15.5l13 6.5 13-6.5', 'n'), P('M3 20.5l13 6.5 4-2', 'n'), PLUS(24, 24, 'a', 6)]
 @icon('undo-save')
 def _(): return [P('M5 4h14l4 4v10H5z', 'b'), R(9, 4, 9, 6, 'p', 1), THICK('M10 25h11a4 4 0 0 0 0-8h-3M14 21l-4 4 4 4', 'a', 2)]
+@icon('edit-select')
+def _(): return [P('M6 22L9 9l15 4 2 11z', 'bl'), C(9, 9, 2.4, 'b'), CURSOR(6, 4)]
+@icon('edit-merge')
+def _(): return [P('M3 10h12v14H3z', 'bl'), P('M17 10h12v14H17z', 'gl'), THICK('M13 17h6M16.5 14l3 3-3 3', 'a', 1.8)]
+@icon('edit-split')
+def _(): return [P('M5 7h22v18H5z', 'bl'), LN('M19 4L13 28', ' stroke-dasharray="2.5 2"', w=2.2, color='r')]
+@icon('edit-hole')
+def _(): return [P('M4 6h24v20H4z', 'bl'), R(11, 11, 10, 10, 'p', 1)]
+@icon('edit-explode')
+def _(): return [P('M3 4h11v11H3z', 'bl'), P('M18 4h11v11H18z', 'gl'), P('M10 19h12v9H10z', 'al')]
+@icon('edit-rect')
+def _(): return [R(5, 8, 22, 16, 'bl', 1), C(5, 8, 2.4, 'b'), C(27, 8, 2.4, 'b'), C(27, 24, 2.4, 'b'), C(5, 24, 2.4, 'b')]
+@icon('edit-circle')
+def _(): return [C(16, 16, 11, 'bl'), C(16, 16, 2.2, 'b'), LN('M16 16h11', w=2), D(LN('M5 16h1M16 5v1'))]
+@icon('edit-coords')
+def _(): return [R(4, 6, 24, 20, 'p', 2), LN('M10 12h12M10 17h12M10 22h7'), C(23, 22, 3, 'a')]
+@icon('edit-copy')
+def _(): return [R(10, 4, 17, 20, 'bl', 1.5), R(4, 9, 17, 20, 'p', 1.5), D(TXT(16, 8, 17) + TXT(20, 8, 17))]
+@icon('edit-paste')
+def _(): return [R(6, 6, 20, 22, 'al', 2), R(11, 3, 10, 6, 'b', 1.5), R(10, 14, 12, 11, 'p', 1)]

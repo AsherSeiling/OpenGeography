@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { EditStatus } from "../ipc/api";
 
-export type EditTool = "modify" | "point" | "line" | "polygon" | "delete";
+export type EditTool = "modify" | "select" | "point" | "line" | "polygon" | "rect" | "circle" | "split" | "hole" | "delete";
 
 interface EditState {
   /** The layer in an edit session, and the map the tools work on (other maps showing it draw the pending shapes read-only). */
@@ -11,6 +11,8 @@ interface EditState {
   mapId: string | null;
   tool: EditTool;
   snapping: boolean;
+  /** Features picked with the Select tool (for the reshape commands). */
+  selected: number[];
   status: EditStatus | null;
   /** The Z for new vertices on a layer with Z (null: none, stored as NaN). */
   zValue: number | null;
@@ -28,11 +30,15 @@ export const useEdit = create<EditState>((set) => ({
   mapId: null,
   tool: "modify",
   snapping: true,
+  selected: [],
   status: null,
   zValue: null,
   epoch: 0,
   notice: null,
   set: (p) => set(p),
   bump: (status) => set((s) => ({ epoch: s.epoch + 1, status: status === undefined ? s.status : status })),
-  clear: () => set((s) => ({ layerId: null, mapId: null, status: null, notice: null, tool: "modify", epoch: s.epoch + 1 })),
+  clear: () => set((s) => ({ layerId: null, mapId: null, status: null, notice: null, selected: [], tool: "modify", epoch: s.epoch + 1 })),
 }));
+
+/** Features copied for Paste: the layer they came from and their ids. */
+export const useClip = create<{ clip: { layer: string; fids: number[] } | null; set: (c: { layer: string; fids: number[] } | null) => void }>((set) => ({ clip: null, set: (clip) => set({ clip }) }));

@@ -133,3 +133,51 @@ test("New Layer: name, shape type, coordinate system; the empty layer opens in e
   expect(l.fields.map((f: any) => f.name)).toContain("id");
   await gis(app, (g) => g.edit.discardEdits());
 });
+
+test("E3: typed coordinates (lon/lat, bearing and distance), merge and explode, copy and paste with unmatched fields reported", async ({ app }) => {
+  await gis(app, (g) => g.edit.newLayer("Parcels", "polygon", "EPSG:4326", [["owner", "text"]]));
+  const id = (await gis(app, (g) => g.edit.useEdit.getState().layerId)) as string;
+  await app.locator(".rtab", { hasText: /^Edit$/ }).click();
+  const enter = async (kind: RegExp, text: string) => {
+    await app.getByRole("button", { name: /^Enter Coordinates$/ }).first().click();
+    const dlg = app.getByRole("dialog", { name: /Enter coordinates/ });
+    await dlg.getByRole("combobox", { name: "Coordinates are" }).click();
+    await app.getByRole("option", { name: kind }).click();
+    await dlg.getByLabel("Coordinates", { exact: true }).fill(text);
+    await dlg.getByRole("button", { name: "Add" }).click();
+    await expect(dlg).toHaveCount(0);
+  };
+  await enter(/Longitude, latitude/, "-99, 36\n-98.9, 36\n-98.9, 36.1\n-99, 36.1");
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(1);
+  // Bearing and distance: a start, then legs measured on the ellipsoid (1 km east, 1 km south, 1 km west).
+  await enter(/Bearing and distance/, "-98.5, 36\n90, 1000\n180, 1000\n270, 1000");
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(2);
+  // A refusal reads as a sentence in the dialog and writes nothing.
+  await app.getByRole("button", { name: /^Enter Coordinates$/ }).first().click();
+  const dlg = app.getByRole("dialog", { name: /Enter coordinates/ });
+  await dlg.getByLabel("Coordinates", { exact: true }).fill("not numbers");
+  await dlg.getByRole("button", { name: "Add" }).click();
+  await expect(dlg.getByRole("alert")).toContainText(/Line 1/);
+  await dlg.getByRole("button", { name: "Cancel" }).click();
+  expect((await stateOf(app))?.added).toBe(2);
+
+  // Merge the two (select them, click Merge): one feature, one undo step.
+  const fids = (await gis(app, async (g, a: any) => (await g.api.editFeaturesIn(a.id, "EPSG:4326", [-180, -85, 180, 85])).features.map((f: any) => f.fid), { id })) as number[];
+  await gis(app, (g, f: number[]) => g.edit.useEdit.getState().set({ selected: f }), fids);
+  await app.getByRole("button", { name: /^Merge$/ }).first().click();
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(1);
+  await app.getByRole("button", { name: /^Undo$/ }).last().click();
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(2);
+  await gis(app, (g) => g.edit.saveEdits());
+  expect(await tableCount(app, id)).toBe(2);
+
+  // Copy a saved feature into another layer being edited: unmatched fields are reported.
+  const other = (await gis(app, (g) => g.api.createLayer("Other", "polygon", "EPSG:32614", [["name", "text"]]))) as any;
+  await gis(app, (g, o: any) => { g.useApp.getState().updateLayer(o); g.useApp.getState().addToMap([o.id]); }, other);
+  await gis(app, (g, o: any) => g.edit.startEditing(o.id), other);
+  await gis(app, (g, a: any) => g.edit.useClip?.getState?.().set({ layer: a.id, fids: [1] }), { id });
+  await gis(app, async (g) => { await g.edit.pasteCopied(); });
+  await expect.poll(async () => (await stateOf(app))?.added).toBe(1);
+  await expect(app.getByTestId("edit-banner")).toContainText(/Fields with no match by name were left behind: owner/);
+  await gis(app, (g) => g.edit.discardEdits());
+});
