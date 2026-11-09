@@ -16,7 +16,7 @@ use super::{ControlPoint, ControlSet};
 use crate::progress::{self, TaskHandle};
 use anyhow::{anyhow, bail, Context, Result};
 use gdal::Dataset;
-use geographiclib_rs::{Geodesic, InverseGeodesic};
+use geographiclib_rs::Geodesic;
 use serde::{Deserialize, Serialize};
 use std::ffi::{c_int, c_void, CString};
 use std::path::Path;
@@ -113,11 +113,11 @@ pub struct ErrorReport {
 
 pub const RMS_FORMULA: &str = "RMS = sqrt( sum(dx² + dy²) / n ) over the n enabled points, where (dx, dy) is where the fitted transform puts a control point minus where you said it is, in the target coordinate system. Points turned off are not in the sum; their errors are shown as check points.";
 
-fn spline_warning() -> String {
+pub(crate) fn spline_warning() -> String {
     "A thin plate spline passes exactly through every enabled control point, so their error is zero whatever the quality of the picking. That figure says nothing about accuracy at those points. Turn a few points off and read them as check points: that is the honest error.".into()
 }
 
-fn rms(v: impl Iterator<Item = f64>) -> Option<f64> {
+pub(crate) fn rms(v: impl Iterator<Item = f64>) -> Option<f64> {
     let (mut s, mut n) = (0.0, 0usize);
     for x in v {
         s += x * x;
@@ -127,7 +127,7 @@ fn rms(v: impl Iterator<Item = f64>) -> Option<f64> {
 }
 
 /// True when the (x, y) positions all lie on one straight line (or one point): the smaller spread is a negligible part of the larger.
-fn collinear(p: &[(f64, f64)]) -> bool {
+pub(crate) fn collinear(p: &[(f64, f64)]) -> bool {
     let n = p.len() as f64;
     let (mx, my) = (p.iter().map(|q| q.0).sum::<f64>() / n, p.iter().map(|q| q.1).sum::<f64>() / n);
     let (mut sxx, mut syy, mut sxy) = (0.0, 0.0, 0.0);
@@ -267,14 +267,14 @@ impl Transformer {
 }
 
 /// Ellipsoid (a, f) and unit of a CRS for the metre figures.
-struct Units {
-    geographic: bool,
-    unit: String,
-    metres_per_unit: f64,
-    geod: Option<Geodesic>,
+pub(crate) struct Units {
+    pub geographic: bool,
+    pub unit: String,
+    pub metres_per_unit: f64,
+    pub geod: Option<Geodesic>,
 }
 
-fn units_of(crs: &str) -> Result<Units> {
+pub(crate) fn units_of(crs: &str) -> Result<Units> {
     let info = crate::crs::info(crs)?;
     let s = crate::crs::srs(&crate::crs::resolve(crs))?;
     if info.geographic {

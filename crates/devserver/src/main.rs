@@ -506,6 +506,8 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "georef_image_info" => json!(e.georef_image_info(&PathBuf::from(s(a, "path")?))?),
         "georef_image_region" => json!(e.georef_image_region(&PathBuf::from(s(a, "path")?), f(a, "x0")?, f(a, "y0")?, f(a, "w")?, f(a, "h")?, f(a, "outW")? as usize, f(a, "outH")? as usize)?),
         "georef_preview" => json!(e.georef_preview(&PathBuf::from(s(a, "image")?), &de(a, "set")?, de(a, "method")?, &s(a, "resampling")?, f(a, "maxSide")? as usize)?),
+        "adjust_errors" => json!(e.adjust_errors(&s(a, "layer")?, &de(a, "set")?, de(a, "method")?)?),
+        "adjust_layer" => json!(e.adjust_layer(&de(a, "req")?)?),
         "georef_warp" => json!(e.georef_warp(&de(a, "req")?)?),
         "reproject_control_set" => json!(e.reproject_control_set(&de(a, "set")?, &s(a, "toCrs")?)?),
         "render_layout_preview" => json!(e.render_layout_preview(&de(a, "req")?, f(a, "dpi")?)?),

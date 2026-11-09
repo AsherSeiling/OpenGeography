@@ -32,7 +32,7 @@ export function GeoreferenceWindow() {
 }
 
 /** A table cell holding a number: edited as text, applied when it is a number, otherwise put back. */
-function NumCell({ value, onCommit, width = 92 }: { value: number; onCommit: (v: number) => void; width?: number }) {
+export function NumCell({ value, onCommit, width = 92 }: { value: number; onCommit: (v: number) => void; width?: number }) {
   const [text, setText] = useState<string | null>(null);
   const shown = text ?? String(value);
   const done = () => {

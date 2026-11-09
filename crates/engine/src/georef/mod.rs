@@ -9,6 +9,7 @@
 //!
 //! Sets are saved in the project database (`__control_sets`), so old projects (which lack the table) open unchanged.
 
+pub mod adjust;
 pub mod api;
 pub mod warp;
 

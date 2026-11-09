@@ -1012,6 +1012,18 @@ pub async fn georef_warp(engine: Eng<'_>, req: engine::georef::api::WarpRequest)
     blocking(&engine, move |e| e.georef_warp(&req)).await
 }
 
+// ---------- georeferencing: vector adjustment (GR3) ----------
+
+#[tauri::command]
+pub async fn adjust_errors(engine: Eng<'_>, layer: String, set: engine::georef::ControlSet, method: engine::georef::adjust::AdjustMethod) -> Res<engine::georef::adjust::AdjustReport> {
+    blocking(&engine, move |e| e.adjust_errors(&layer, &set, method)).await
+}
+
+#[tauri::command]
+pub async fn adjust_layer(engine: Eng<'_>, req: engine::georef::adjust::AdjustRequest) -> Res<engine::georef::adjust::AdjustResult> {
+    blocking(&engine, move |e| e.adjust_layer(&req)).await
+}
+
 #[tauri::command]
 pub async fn render_layout_preview(engine: Eng<'_>, req: engine::layout::model::RenderRequest, dpi: f64) -> Res<engine::layout::LayoutPreview> {
     blocking(&engine, move |e| e.render_layout_preview(&req, dpi)).await

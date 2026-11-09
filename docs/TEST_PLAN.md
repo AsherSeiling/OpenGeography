@@ -1066,6 +1066,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | GR-14 | `georef_warp` adds a raster layer in the target CRS with the source's citation and a `georef:` citation naming method, resampling, points and check points; a bad request makes no layer | `georef_warp.rs` |
 | GR-15 | Preview is a small PNG with the right extent and writes nothing beside the image | `georef_warp.rs` |
 | GR-16 | UI: point edits, fit key, cell parsing, marker positions (image y is -line), pending half-point | `ui/src/georef/store.test.ts` |
+| GR-18 | Spatial adjustment: a known affine (rotation, scale, shift) and a known similarity are recovered vertex for vertex; scale and rotation reported; attributes identical; the source layer unchanged | `crates/engine/tests/georef_adjust.rs` |
+| GR-19 | Rubber sheet: control points land exactly (error ~0 at enabled points, non-zero at a check point), with the zero-error warning; a similarity of 2 points and an affine of 3 carry the "no spare points" warning | `georef_adjust.rs` |
+| GR-20 | Features pushed past the poles, or folded into an invalid shape, are dropped and reported by feature id with the reason; the rest are kept; Z values carried through | `georef_adjust.rs` |
+| GR-21 | To points in another CRS are transformed explicitly into the layer's CRS and the output is in the layer's CRS (stated in the notes) | `georef_adjust.rs` |
+| GR-22 | Refusals in words: too few points, no CRS, collinear From or To points, two From points at one place (similarity), geographic longitude span over 180 degrees, a table instead of a layer | `georef_adjust.rs` |
+| GR-23 | The adjusted layer keeps the source's citation and gets an `adjust:` citation with the method and every point | `georef_adjust.rs` |
 | GR-17 | By hand in the browser (devserver, 2026-11-09): open an image, set the CRS, five points, RMS and per-point errors update, the preview draws on the reference map, a click on the image and then the map adds a point, Georeference adds the layer, Save set stores it. A browser e2e spec has not been written yet | by hand |
 
 ## UI redesign (`docs/UI_REDESIGN_PLAN.md`)

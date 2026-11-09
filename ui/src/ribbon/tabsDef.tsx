@@ -18,7 +18,7 @@ export const TABS: Record<string, Group[]> = {
     { label: "Land Nav", items: [{ cmd: "resection" }, { cmd: "intersection" }, { cmd: "usngGrid" }] },
     { label: "Coordinate System", items: [{ cmd: "mapCrs" }, { cmd: "datumGrids" }, { cmd: "projectionBuilder" }, { cmd: "tissot" }, { cmd: "responsibleUse" }] },
     { label: "World", items: [{ cmd: "worldView" }, { cmd: "worldGraticule" }, { cmd: "worldOutline" }] },
-    { label: "Georeference", items: [{ cmd: "georeference" }] },
+    { label: "Georeference", items: [{ cmd: "georeference" }, { cmd: "adjustShapes" }] },
   ],
   Insert: [
     { label: "Layouts", items: [{ custom: <NewLayoutGallery />, covers: ["newLayout"] }] },

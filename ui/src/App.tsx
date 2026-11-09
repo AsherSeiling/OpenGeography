@@ -34,6 +34,7 @@ import { followActivePanel, layoutPanelClosed } from "./layout/actions";
 import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { GeoreferenceWindow } from "./georef/GeoreferenceWindow";
+import { AdjustWindow } from "./georef/AdjustWindow";
 import { useModel, useRun } from "./store/model";
 import { useApp } from "./store/store";
 import { basemapsInUse } from "./store/maps";
@@ -173,6 +174,7 @@ export function App() {
         <StatusBar />
         <LayerPropertiesWindow />
         <GeoreferenceWindow />
+        <AdjustWindow />
         <Dialogs />
         <ScriptApprovalDialog />
         <EditHost />

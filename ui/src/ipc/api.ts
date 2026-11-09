@@ -3,7 +3,7 @@ import type { RasterStyle } from "../store/store";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { track } from "../progress/progress";
 import type { Layout, LayoutPreview, RenderRequest } from "../layout/types";
-import type { ControlSet, ErrorReport, ImageInfo, ParsedControlFile, Resampling, WarpMethod, WarpPreview, WarpRequest } from "../georef/types";
+import type { AdjustMethod, AdjustReport, AdjustRequest, AdjustResult, ControlSet, ErrorReport, ImageInfo, ParsedControlFile, Resampling, WarpMethod, WarpPreview, WarpRequest } from "../georef/types";
 
 /** True inside the desktop app; false when the UI runs in a browser against `cargo run -p devserver`. */
 export const IN_TAURI = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -894,6 +894,10 @@ export const api = {
   georefPreview: (image: string, set: ControlSet, method: WarpMethod, resampling: Resampling, maxSide: number) =>
     invoke<WarpPreview>("georef_preview", { image, set, method, resampling, maxSide }),
   /** Warp into a new GeoTIFF layer. Cancellable (progress task). */
+  /** Error table for adjusting a vector layer with control points (GR3); nothing is changed. */
+  adjustErrors: (layer: string, set: ControlSet, method: AdjustMethod) => invoke<AdjustReport>("adjust_errors", { layer, set, method }),
+  /** Adjust a layer's shapes into a new layer in the layer's own CRS; features that can't be adjusted are left out and listed. Cancellable. */
+  adjustLayer: (req: AdjustRequest) => track(invoke<AdjustResult>("adjust_layer", { req })),
   georefWarp: (req: WarpRequest) => track(invoke<LayerInfo>("georef_warp", { req })),
   /** A PNG of the page (base64) at `dpi`, plus the render's warnings. */
   renderLayoutPreview: (req: RenderRequest, dpi: number) => invoke<LayoutPreview>("render_layout_preview", { req, dpi }),

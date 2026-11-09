@@ -152,6 +152,8 @@ fn main() {
             commands::georef_image_region,
             commands::georef_preview,
             commands::georef_warp,
+            commands::adjust_errors,
+            commands::adjust_layer,
             commands::render_layout_preview,
             commands::export_layout,
             commands::sources,

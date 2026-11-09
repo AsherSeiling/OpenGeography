@@ -103,6 +103,52 @@ export interface WarpPreview {
   report: ErrorReport;
 }
 
+// ---------- vector adjustment (GR3); mirrors crates/engine/src/georef/adjust.rs ----------
+// In a control point used for adjustment, pixel/line hold the FROM position (x, y in the layer's CRS) and x/y the TO position in
+// the set's target CRS.
+
+export type AdjustMethod = "affine" | "similarity" | "rubberSheet";
+
+export const ADJUST_METHODS: { id: AdjustMethod; label: string; min: number }[] = [
+  { id: "affine", label: "Affine (3+ points)", min: 3 },
+  { id: "similarity", label: "Similarity: scale, rotation, shift (2+ points)", min: 2 },
+  { id: "rubberSheet", label: "Rubber sheet: thin plate spline (3+ points)", min: 3 },
+];
+
+export interface AdjustReport {
+  method: AdjustMethod;
+  methodLabel: string;
+  minPoints: number;
+  enabledCount: number;
+  points: PointError[];
+  rms: number;
+  rmsM: number;
+  checkRms: number | null;
+  checkRmsM: number | null;
+  unit: string;
+  metresKind: "geodesic" | "grid";
+  formula: string;
+  warnings: string[];
+  outputCrs: string;
+  scale: number | null;
+  rotationDeg: number | null;
+}
+
+export interface AdjustRequest {
+  layer: string;
+  set: ControlSet;
+  method: AdjustMethod;
+  name?: string | null;
+}
+
+export interface AdjustResult {
+  layer: import("../ipc/api").LayerInfo;
+  dropped: { fid: number; reason: string }[];
+  moved: number;
+  report: AdjustReport;
+  notes: string[];
+}
+
 export interface WarpRequest {
   set: ControlSet;
   method: WarpMethod;

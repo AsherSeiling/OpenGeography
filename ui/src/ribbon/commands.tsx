@@ -8,6 +8,7 @@ import { toggleAppearance, useAppearance } from "../theme/appearance";
 import { addToolFromUi, focusPublicData } from "./addTool";
 import { RIcon } from "./icons/RIcon";
 import { useGeoref } from "../georef/store";
+import { useAdjustWindow } from "../georef/AdjustWindow";
 import { editCommandList } from "../edit/editCommands";
 import { resetStartupLayout, saveStartupLayout, useSettings } from "../store/settings";
 import type { ReactElement } from "react";
@@ -108,6 +109,7 @@ const list: Command[] = [
   { id: "datumGrids", label: "Datum Grids", icon: <RIcon name="datum-grids" />, run: () => useDialog.getState().show({ kind: "datumGrids" }), tip: "See which datum-shift grids are installed (they make coordinate conversions between datums accurate), and download more" },
   { id: "responsibleUse", label: "Limits & Responsible Use", icon: <RIcon name="info" />, run: () => useDialog.getState().show({ kind: "responsibleUse" }), tip: "What this program can and cannot be relied on for: datum accuracy, heights, distortion, estimates, sensitive coordinates" },
   { id: "georeference", label: "Georeference", icon: <RIcon name="coordinate-system" />, run: () => useGeoref.getState().show(), tip: "Fit a scanned map or photo to the ground with control points, and write a new georeferenced GeoTIFF (the image file is not changed)" },
+  { id: "adjustShapes", label: "Adjust Shapes", icon: <RIcon name="coordinate-system" />, run: () => useAdjustWindow.getState().show(), enabled: () => Object.values(app().layers).some((l) => l.geomType !== "Table" && l.geomType !== "Raster"), tip: "Move a vector layer's shapes with control points: affine, similarity (scale, rotation, shift) or rubber sheet. Makes a new layer; the layer is not changed" },
   { id: "mapCrs", label: "Coordinate System", icon: <RIcon name="coordinate-system" />, run: pickMapCrs, tip: "Set the map's coordinate system (used for coordinates, measurements and layouts)" },
 
   // Data tab
