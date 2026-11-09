@@ -196,14 +196,14 @@ export function useEditOverlay(mapRef: { current: OlMap | null }, ready: unknown
       map.on("click", pick as never);
       el.style.cursor = "pointer";
       cleanups.push(() => map.un("click", pick as never));
-    } else if (tool === "split" || tool === "hole") {
-      const draw = new Draw({ type: tool === "split" ? "LineString" : "Polygon" });
+    } else if (tool === "split" || tool === "hole" || tool === "reshape") {
+      const draw = new Draw({ type: tool === "hole" ? "Polygon" : "LineString" });
       draw.on("drawend", (e) => {
         const g = e.feature.getGeometry();
         const sel = useEdit.getState().selected;
         if (!g) return;
-        if (sel.length !== 1) return void useEdit.getState().set({ notice: tool === "split" ? "Select the one polygon to split first (Select tool), then draw the cutting line across it." : "Select the one polygon to cut a hole in first (Select tool), then draw the hole inside it." });
-        void reshape(tool === "split" ? { kind: "split", fid: sel[0], line: fmt.writeGeometry(g) as string } : { kind: "cut_hole", fid: sel[0], hole: fmt.writeGeometry(g) as string });
+        if (sel.length !== 1) return void useEdit.getState().set({ notice: tool === "reshape" ? "Select the one polygon to reshape first (Select tool), then draw the new edge from one place on its edge to another." : tool === "split" ? "Select the one polygon to split first (Select tool), then draw the cutting line across it." : "Select the one polygon to cut a hole in first (Select tool), then draw the hole inside it." });
+        void reshape(tool === "reshape" ? { kind: "reshape_edge", fid: sel[0], line: fmt.writeGeometry(g) as string } : tool === "split" ? { kind: "split", fid: sel[0], line: fmt.writeGeometry(g) as string } : { kind: "cut_hole", fid: sel[0], hole: fmt.writeGeometry(g) as string });
       });
       interactions.push(draw);
       el.style.cursor = "crosshair";

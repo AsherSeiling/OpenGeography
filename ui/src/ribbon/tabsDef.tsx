@@ -102,7 +102,7 @@ export const EDIT_GROUPS: Group[] = [
   { label: "Session", items: [{ cmd: "editSave" }, { cmd: "editDiscard" }, { cmd: "editUndo", size: "small" }, { cmd: "editRedo", size: "small" }, { cmd: "editFinish", size: "small" }] },
   { label: "Create", items: [{ cmd: "editPoint" }, { cmd: "editLine" }, { cmd: "editPolygon" }, { cmd: "editRect", size: "small" }, { cmd: "editCircle", size: "small" }, { cmd: "editCoords", size: "small" }] },
   { label: "Modify", items: [{ cmd: "editSelect" }, { cmd: "editModify" }, { cmd: "editDelete" }, { cmd: "editFix" }] },
-  { label: "Reshape", items: [{ cmd: "editMerge" }, { cmd: "editSplit" }, { cmd: "editHole" }, { cmd: "editFillHoles", size: "small" }, { cmd: "editExplode", size: "small" }, { cmd: "editMulti", size: "small" }] },
+  { label: "Reshape", items: [{ cmd: "editMerge" }, { cmd: "editSplit" }, { cmd: "editReshape" }, { cmd: "editHole" }, { cmd: "editFillHoles", size: "small" }, { cmd: "editExplode", size: "small" }, { cmd: "editMulti", size: "small" }] },
   { label: "Clipboard", items: [{ cmd: "editCopy" }, { cmd: "editPaste" }] },
   { label: "Snapping", items: [{ cmd: "editSnap" }] },
 ];

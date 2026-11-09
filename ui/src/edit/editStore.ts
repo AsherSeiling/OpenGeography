@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import type { EditStatus } from "../ipc/api";
 
-export type EditTool = "modify" | "select" | "point" | "line" | "polygon" | "rect" | "circle" | "split" | "hole" | "delete";
+export type EditTool = "modify" | "select" | "point" | "line" | "polygon" | "rect" | "circle" | "split" | "hole" | "reshape" | "delete";
 
 interface EditState {
   /** The layer in an edit session, and the map the tools work on (other maps showing it draw the pending shapes read-only). */

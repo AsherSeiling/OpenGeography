@@ -188,3 +188,35 @@ fn paste_moves_shapes_into_the_target_crs_matches_fields_by_name_and_reports_the
     assert!(e.edit_paste(&src.id, &[1], &dst.id).unwrap_err().to_string().contains("not being edited"));
     let _ = EditOp::default();
 }
+
+#[test]
+fn reshape_edge_replaces_the_shorter_stretch_of_edge_with_the_line() {
+    let (e, _g) = engine();
+    let l = layer(&e, &[("POLYGON((0 0, 10 0, 10 10, 0 10, 0 0))", "a")]);
+    // A bump below the bottom edge: its ends (2, 0.3) and (8, 0.2) are off the edge and are moved onto it.
+    let line = bytes_to_hex(&wkb("LINESTRING(2 0.3, 3 -3, 7 -3, 8 0.2)"));
+    let r = e.edit_reshape(&l.id, G, &Reshape::ReshapeEdge { fid: 1, line }).unwrap();
+    assert_eq!((r.status.changed, r.status.steps), (1, 1));
+    let w = pending_wkt(&e, &l).remove(0).1;
+    assert!(w.contains("3 -3") && w.contains("7 -3"), "{w}");
+    // The untouched corners and the rest of the edge are exactly as they were.
+    assert!(w.contains("10 0") && w.contains("10 10") && w.contains("0 10"), "{w}");
+    e.edit_save(&l.id).unwrap();
+    let t = e.layer(&l.id).unwrap().table;
+    let area: f64 = q(&e, &format!("SELECT ST_Area(geom) FROM \"{t}\""));
+    // The bump is a trapezoid of 15 square units (bases 6 and 4, height 3) on the 100-unit square.
+    assert!((area - 115.0).abs() < 1e-6, "bulged outward by the drawn area: {area}");
+    assert!(q::<bool>(&e, &format!("SELECT ST_IsValid(geom) FROM \"{t}\"")));
+    // A stretch that runs through the ring's start point (the corner at 0 0) is replaced too: cutting that corner off leaves 99.
+    let corner = bytes_to_hex(&wkb("LINESTRING(1 0, 1 1, 0 1)"));
+    e.edit_begin(&l.id, G, None).unwrap();
+    e.edit_reshape(&l.id, G, &Reshape::ReshapeEdge { fid: 1, line: corner }).unwrap();
+    e.edit_save(&l.id).unwrap();
+    let a2: f64 = q(&e, &format!("SELECT ST_Area(geom) FROM \"{t}\""));
+    assert!((a2 - 114.0).abs() < 1e-6, "corner cut off the bumped square: {a2}");
+    // A line that comes back to the same place is refused with a sentence; a one-point line too.
+    e.edit_begin(&l.id, G, None).unwrap();
+    assert!(e.edit_reshape(&l.id, G, &Reshape::ReshapeEdge { fid: 1, line: bytes_to_hex(&wkb("LINESTRING(5 0, 5 -2, 5 0)")) }).unwrap_err().to_string().contains("same place"));
+    assert!(e.edit_reshape(&l.id, G, &Reshape::ReshapeEdge { fid: 1, line: bytes_to_hex(&wkb("POINT(1 1)")) }).unwrap_err().to_string().contains("at least two"));
+    e.edit_discard(&l.id).unwrap();
+}

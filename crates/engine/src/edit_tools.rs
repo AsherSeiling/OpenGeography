@@ -29,6 +29,9 @@ pub enum Reshape {
     FillHoles { fids: Vec<i64> },
     /// Cut a hole: `hole` is a polygon (hex WKB, map CRS) that lies inside the feature.
     CutHole { fid: i64, hole: String },
+    /// Reshape an edge: `line` (hex WKB, map CRS) starts and ends at the polygon's edge (its ends are moved onto the nearest points of the
+    /// edge); the shorter stretch of edge between them is replaced by the line.
+    ReshapeEdge { fid: i64, line: String },
     /// Split a polygon by a line (hex WKB, map CRS) that crosses it from edge to edge; the first piece keeps the id.
     Split { fid: i64, line: String },
 }
@@ -207,6 +210,19 @@ impl Engine {
                         bail!("A hole must lie completely inside the polygon. Draw it smaller, or use Split.");
                     }
                     ops.push(layer_op("update", Some(*fid), Some(out), None));
+                }
+                Reshape::ReshapeEdge { fid, line } => {
+                    let g = parse_wkb(&current_wkb(conn, &info, &pend, *fid)?)?;
+                    if g.kind != 3 {
+                        bail!("Reshape edge works on a single polygon (not a multipart one). Explode it first.");
+                    }
+                    let l = parse_wkb(&transform_wkb(conn, &hex_to_bytes(line)?, map_crs, &lc)?)?;
+                    if l.kind != 2 || l.parts[0][0].len() < 2 {
+                        bail!("Draw a line with at least two points for the new edge.");
+                    }
+                    let z = session(conn, layer_id)?.and_then(|s| s.z_value);
+                    let out = reshape_edge(&g, &l.parts[0][0], z)?;
+                    ops.push(layer_op("update", Some(*fid), Some(write_wkb(&out)), None));
                 }
                 Reshape::Split { fid, line } => {
                     let poly = current_wkb(conn, &info, &pend, *fid)?;
@@ -398,4 +414,70 @@ impl Engine {
         let apply = self.edit_apply(to_layer, to.crs.as_deref().unwrap_or(crs::WGS84), &ops)?;
         Ok(PasteResult { pasted: n, unmatched_fields: unmatched, failed_values: failed, apply })
     }
+}
+
+/// The closest point of a closed ring to `p`: (distance along the ring, point, segment index).
+fn locate(ring: &[Coord], p: &Coord) -> (f64, Coord, usize) {
+    let (mut best, mut along, mut walked) = (f64::INFINITY, (0.0, *p, 0usize), 0.0);
+    for (i, w) in ring.windows(2).enumerate() {
+        let (dx, dy) = (w[1].x - w[0].x, w[1].y - w[0].y);
+        let len2 = dx * dx + dy * dy;
+        let t = if len2 == 0.0 { 0.0 } else { (((p.x - w[0].x) * dx + (p.y - w[0].y) * dy) / len2).clamp(0.0, 1.0) };
+        let q = Coord { x: w[0].x + t * dx, y: w[0].y + t * dy, z: f64::NAN, m: f64::NAN };
+        let d = (p.x - q.x).hypot(p.y - q.y);
+        if d < best {
+            best = d;
+            along = (walked + t * len2.sqrt(), q, i);
+        }
+        walked += len2.sqrt();
+    }
+    along
+}
+
+/// Replace the shorter stretch of the polygon's outer edge between the line's two ends by the line.
+fn reshape_edge(g: &Geom, line: &[Coord], z: Option<f64>) -> Result<Geom> {
+    let ring = &g.parts[0][0];
+    let total: f64 = ring.windows(2).map(|w| (w[1].x - w[0].x).hypot(w[1].y - w[0].y)).sum();
+    let (mut s1, mut p1, mut i1) = locate(ring, &line[0]);
+    let (mut s2, mut p2, mut i2) = locate(ring, &line[line.len() - 1]);
+    let mut path: Vec<Coord> = line.to_vec();
+    if s1 > s2 {
+        std::mem::swap(&mut s1, &mut s2);
+        std::mem::swap(&mut p1, &mut p2);
+        std::mem::swap(&mut i1, &mut i2);
+        path.reverse();
+    }
+    if (s2 - s1).abs() < total * 1e-9 {
+        bail!("Both ends of the line are at the same place on the edge. Start and end it at different places on the polygon's edge.");
+    }
+    let new_z = z.unwrap_or(f64::NAN);
+    let mid: Vec<Coord> = path[1..path.len() - 1].iter().map(|c| Coord { z: if c.z.is_nan() { new_z } else { c.z }, ..*c }).collect();
+    // The edge as a closed walk S → … → E (forward, `a`) and E → … → S (the rest, `b`).
+    let mut a = vec![p1];
+    a.extend(ring[i1 + 1..=i2].iter().copied());
+    a.push(p2);
+    let mut b = vec![p2];
+    b.extend(ring[i2 + 1..ring.len() - 1].iter().copied());
+    b.extend(ring[..=i1].iter().copied());
+    b.push(p1);
+    let len = |v: &[Coord]| v.windows(2).map(|w| (w[1].x - w[0].x).hypot(w[1].y - w[0].y)).sum::<f64>();
+    // The line goes S → E. Replace the shorter stretch: `a` (then the ring is line S→E followed by `b`) or `b` (then `a` followed by the line E→S).
+    let mut out: Vec<Coord> = vec![];
+    if len(&a) <= len(&b) {
+        out.push(p1);
+        out.extend(mid.iter().copied());
+        out.extend(b.iter().copied());
+    } else {
+        out.extend(a.iter().copied());
+        out.extend(mid.iter().rev().copied());
+        out.push(p1);
+    }
+    // Drop the doubled points where the walks join.
+    out.dedup_by(|x, y| x.x == y.x && x.y == y.y);
+    if out.first().map(|c| (c.x, c.y)) != out.last().map(|c| (c.x, c.y)) {
+        out.push(out[0]);
+    }
+    let mut rings = g.parts[0].clone();
+    rings[0] = out;
+    Ok(Geom { kind: 3, has_z: g.has_z || z.is_some(), has_m: g.has_m, parts: vec![rings] })
 }

@@ -322,3 +322,28 @@ test("split by drawing: select a polygon, draw a line across it, one polygon bec
   await gis(app, (g) => g.edit.saveEdits());
   expect(await tableCount(app, layer.id)).toBe(2);
 });
+
+test("reshape edge by drawing: the new edge replaces the shorter stretch, every untouched corner stays bit-identical", async ({ app }) => {
+  const { layer, ring } = await utmPolygon(app);
+  const before = await storedRing(app, layer.id, "EPSG:32614");
+  await gis(app, (g, id: string) => g.edit.startEditing(id), layer.id);
+  await gis(app, (g) => g.edit.setEditTool("select"));
+  const px = await Promise.all(ring.map((c) => pixelOfCoord(app, c)));
+  await loaded(app);
+  await app.mouse.click((px[0][0] + px[2][0]) / 2, (px[0][1] + px[2][1]) / 2);
+  await expect.poll(async () => (await gis(app, (g) => g.edit.useEdit.getState().selected.length)) as number).toBe(1);
+  await gis(app, (g) => g.edit.setEditTool("reshape"));
+  // A bump below the bottom edge (map y points up, so "below" is smaller y): from 30 % along the edge, out, across, and back to 70 %.
+  const on = (t: number, dy: number) => [ring[0][0] + t * (ring[1][0] - ring[0][0]), ring[0][1] + t * (ring[1][1] - ring[0][1]) + dy];
+  const [a, b, c, d] = await Promise.all([on(0.3, 0), on(0.3, -500), on(0.7, -500), on(0.7, 0)].map((p) => pixelOfCoord(app, p)));
+  await app.mouse.click(a[0], a[1]);
+  await app.mouse.click(b[0], b[1]);
+  await app.mouse.click(c[0], c[1]);
+  await app.mouse.dblclick(d[0], d[1]);
+  await expect.poll(async () => (await stateOf(app))?.changed).toBe(1);
+  await gis(app, (g) => g.edit.saveEdits());
+  const after = await storedRing(app, layer.id, "EPSG:32614");
+  expect(after.length).toBeGreaterThan(before.length);
+  for (const v of before.slice(0, 4)) expect(after.some((w) => w[0] === v[0] && w[1] === v[1])).toBe(true);
+  expect(await tableCount(app, layer.id)).toBe(1);
+});

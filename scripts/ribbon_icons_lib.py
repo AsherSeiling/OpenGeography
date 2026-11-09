@@ -295,6 +295,8 @@ def _(): return [P('M6 22L9 9l15 4 2 11z', 'bl'), C(9, 9, 2.4, 'b'), CURSOR(6, 4
 def _(): return [P('M3 10h12v14H3z', 'bl'), P('M17 10h12v14H17z', 'gl'), THICK('M13 17h6M16.5 14l3 3-3 3', 'a', 1.8)]
 @icon('edit-split')
 def _(): return [P('M5 7h22v18H5z', 'bl'), LN('M19 4L13 28', ' stroke-dasharray="2.5 2"', w=2.2, color='r')]
+@icon('edit-reshape')
+def _(): return [P('M5 9h22v14H5z', 'bl'), LN('M9 9C11 2 21 2 23 9', w=2.4, color='r')]
 @icon('edit-hole')
 def _(): return [P('M4 6h24v20H4z', 'bl'), R(11, 11, 10, 10, 'p', 1)]
 @icon('edit-explode')
