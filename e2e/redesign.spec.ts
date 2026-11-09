@@ -38,6 +38,7 @@ const NEVER_USABLE_OK: RegExp[] = [
   /No templates of yours yet$/, // placeholder row while there are no templates
   /already on this map$/, // placeholder row when every layer is on the map
   /\|Ungroup$/, // recorded as "Ungroup (after Group)" once a group exists
+  /\|Undo Last Save$/, // live only after a shape-edit Save, which this audit does not make (engine-tested: SE-16)
   /\|Redo \(/, // needs an undo first; the Redo button runs after one in the map-model context
   /\|Export Series/, // needs a map series: not exercised by this audit
   /\|Preview on map$/, // needs a node result on the selected node: not exercised by this audit
