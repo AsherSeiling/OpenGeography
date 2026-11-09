@@ -59,8 +59,10 @@ test("M-11 attribute table: edit, cancel, Tab, sort, filter, fields and errors",
   // Calculate Field: a bad expression shows its error in the dialog; a good one fills the table
   await app.locator(".attr-bar").getByRole("button", { name: "Calculate Field" }).click();
   const dlg = app.getByRole("dialog");
-  await dlg.getByRole("combobox").first().click().catch(() => {});
   await dlg.locator("input").first().fill("score");
+  // Python is the default language now (UR-20); this case is about SQL expressions, so choose SQL.
+  await dlg.getByRole("combobox", { name: /Language/ }).click();
+  await app.getByRole("option", { name: "SQL" }).click();
   await dlg.locator("textarea").fill("nonexistent_col * 2");
   await dlg.getByRole("button", { name: "Calculate" }).click();
   await expect(dlg.locator(".fui-MessageBar, [role=group]").first()).toBeVisible();
