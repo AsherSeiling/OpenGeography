@@ -1143,3 +1143,8 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SE-14 | A rejected batch leaves redo, the log and the id counter alone | `a_rejected_batch_leaves_redo_…` |
 | SE-15 | Saving nothing keeps the version (node tree stays cached); insert-then-delete counts nothing | `saving_nothing_keeps_the_version_…` |
 | SE-16 | Undo after Save restores rows, ids and overviews as a new version; refused when the layer moved on or a session is open | `undo_after_save_restores_…` |
+| SE-17 | E2 UI e2e: draw a point, undo/redo, save, delete, discard; the Edit tab; never-saved notice; layers that can't be edited say why; New Layer dialog | `e2e/edit.spec.ts` |
+| SE-18 | E2: a point drawn on a UTM map is stored in the layer's CRS where it was clicked; two maps in different CRSs each ask in their own CRS | `e2e/edit.spec.ts` |
+| SE-19 | E3 engine: merge, explode, make multipart (one undo step each), cut hole inside only, fill holes, split, circle radius on the ellipsoid (geographic and UTM maps), rectangle, distance and bearing, typed coordinates (x/y, lon/lat, USNG), paste with unmatched fields and failed values | `crates/engine/tests/edit_tools.rs` |
+| SE-20 | E3 UI e2e: Enter Coordinates (lon/lat, bearing and distance, refusal sentence), Merge and Undo, Copy and Paste reports unmatched fields | `e2e/edit.spec.ts` |
+| SE-21 | Manual / not covered: drag-drawing Circle and Rectangle with the mouse, Split and Cut Hole by drawing, snapping behaviour, Modify drags (the engine side of each is tested) | by hand |
