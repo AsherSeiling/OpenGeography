@@ -80,7 +80,7 @@ pub fn keywords(id: &str) -> &'static [&'static str] {
         "sample_raster" => &["extract values", "read elevation at points", "point values", "values to points"],
         "zonal_statistics" => &["average in polygon", "mean by zone", "raster stats by area", "summarize raster"],
         "export" => &["save", "save as", "write file", "download", "shapefile", "geopackage", "geojson"],
-        _ => &[],
+        _ => super::whitebox_tools::keywords(id),
     }
 }
 

@@ -1150,3 +1150,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | SE-21 | Manual / not covered: drag-drawing Circle and Rectangle with the mouse, Cut Hole by drawing, Modify drags other than one vertex (the engine side of each is tested; draw, vertex drag, snap and split are in `e2e/edit.spec.ts`) | by hand |
 | SE-23 | Z from a DEM: new vertices take the cell value where they fall, looked up through an explicit layer-CRS → DEM-CRS transform (UTM or geographic layer, other-CRS DEM); outside the DEM or on NoData is reported and left NaN, never filled; stored vertices are not looked up again; switching back to a fixed value; a vector layer is refused as a DEM. e2e: choose the DEM in the Edit tab (the choice is stated), draw, the Z values and the banner note | `new_vertices_take_z_from_a_dem_…`, `e2e/edit.spec.ts` |
 | SE-22 | Reshape Edge: the line's ends move onto the nearest points of the edge, the shorter stretch (also one through the ring's start) is replaced, untouched corners stay bit-identical, same-place and one-point lines refused with a sentence; e2e draws the new edge with the mouse | `reshape_edge_replaces_…`, `e2e/edit.spec.ts` |
+
+## T1. WhiteboxTools nodes (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T1-1 | Euclidean distance of a 3-4-5 offset on 10 m cells; allocation of two targets | 50 m; each cell takes the nearer target's value | auto: `crates/engine/tests/whitebox_tools.rs` |
+| T1-2 | Tools that need metres (distance, curvature, geomorphons, cost, viewshed, FD8 area) on a raster in degrees | refused with a sentence telling the user to project first; FD8 in cells still runs | auto: same file |
+| T1-3 | Focal mean, TPI, focal max, focal range against a hand-computed plane and single peak; a zero window | 33; 0; 8 and -1; 9; a readable refusal | auto: same file |
+| T1-4 | Viewshed behind a 100 m wall; observers given in WGS 84 on a UTM DEM; an observer outside the DEM | cell in front visible, cell behind hidden; outside observer reported in the result message | auto: same file |
+| T1-5 | Cost distance over uniform cost 2 on 10 m cells; zero cost refused; least-cost path | 80 along a row; sentence; path along the row | auto: same file |
+| T1-6 | Strahler, Shreve, topological order and link ids on a hand-made network with three headwaters | Strahler 2 / Shreve 3 below the second junction; topological 3; links numbered apart | auto: same file |
+| T1-7 | Curvature of a bowl z = a(x^2 + y^2) | profile curvature magnitude 2a | auto: same file |
+| T1-8 | Every T1 tool is registered with a category, a description and keywords | | auto: same file |

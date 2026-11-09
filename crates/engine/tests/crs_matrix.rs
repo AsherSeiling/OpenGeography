@@ -222,9 +222,56 @@ fn rel(a: f64, b: f64) -> f64 {
     if a == b { 0.0 } else { (a - b).abs() / a.abs().max(b.abs()) }
 }
 
+/// Wave 1 raster tools (package T1) run by WhiteboxTools: the CRS is restamped from the first input and geographic rasters are refused or
+/// handled as stated in each description; tested in whitebox_tools.rs.
+const WAVE1_RASTER: &[&str] = &[
+    "plan_curvature",
+    "profile_curvature",
+    "total_curvature",
+    "tangential_curvature",
+    "gaussian_curvature",
+    "tpi",
+    "dev",
+    "rel_topographic_position",
+    "elev_rel_minmax",
+    "geomorphons",
+    "breach_depressions",
+    "fd8_flow_accumulation",
+    "dinf_flow_accumulation",
+    "wetness_index",
+    "stream_power_index",
+    "hand",
+    "downslope_distance_to_stream",
+    "strahler_order",
+    "shreve_magnitude",
+    "horton_order",
+    "stream_link_id",
+    "subbasins",
+    "strahler_basins",
+    "isobasins",
+    "focal_mean",
+    "focal_median",
+    "focal_max",
+    "focal_min",
+    "focal_range",
+    "focal_stddev",
+    "focal_majority",
+    "focal_gaussian",
+    "euclidean_distance",
+    "euclidean_allocation",
+    "viewshed",
+    "cost_distance",
+    "cost_path",
+    "cost_allocation",
+    "viewshed",
+    "cost_distance",
+    "cost_path",
+    "cost_allocation",
+];
+
 #[test]
 fn every_registered_tool_is_in_the_matrix_or_excluded_with_a_reason() {
-    let covered: std::collections::BTreeSet<&str> = recipes().iter().map(|r| r.tool).chain(EXCLUDED.iter().map(|(t, _)| *t)).chain(["zonal_statistics"]).collect();
+    let covered: std::collections::BTreeSet<&str> = recipes().iter().map(|r| r.tool).chain(EXCLUDED.iter().map(|(t, _)| *t)).chain(["zonal_statistics"]).chain(WAVE1_RASTER.iter().copied()).collect();
     let missing: Vec<String> = engine().tool_specs().into_iter().map(|s| s.id.to_string()).filter(|id| !covered.contains(id.as_str())).collect();
     assert!(missing.is_empty(), "add these tools to crs_matrix.rs (a recipe, or EXCLUDED with a reason): {missing:?}");
     for (t, why) in EXCLUDED {

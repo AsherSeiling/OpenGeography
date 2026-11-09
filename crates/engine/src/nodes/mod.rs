@@ -25,6 +25,7 @@ mod qgis_raster;
 mod raster_ops_tools;
 mod stats_tools;
 mod hydrology_tools;
+pub mod whitebox_tools;
 mod remote_sensing_tools;
 mod project;
 mod spatial_join;
@@ -519,7 +520,7 @@ impl std::ops::Deref for SpecOut {
 }
 
 pub fn registry() -> Vec<Box<dyn Tool>> {
-    vec![
+    let mut tools: Vec<Box<dyn Tool>> = vec![
         Box::new(input_layer::InputLayer),
         Box::new(filter::Filter),
         Box::new(buffer::Buffer),
@@ -599,7 +600,9 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(layer_output::LayerOutput),
         Box::new(add_to_map::AddToMap),
         Box::new(export::Export),
-    ]
+    ];
+    tools.extend(whitebox_tools::tools());
+    tools
 }
 
 /// Linear units → meters.
