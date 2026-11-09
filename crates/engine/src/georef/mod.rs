@@ -11,6 +11,7 @@
 
 pub mod adjust;
 pub mod api;
+pub mod tools;
 pub mod warp;
 
 use crate::Engine;
@@ -174,7 +175,7 @@ pub fn parse_control_file_for(text: &str, image: Option<(f64, f64)>) -> Result<P
         }
         if let Some(rest) = line.strip_prefix('#') {
             let rest = rest.trim();
-            if rest.len() >= 4 && rest.is_char_boundary(4) && rest[..4].eq_ignore_ascii_case("crs:") {
+            if rest.len() >= 4 && rest.is_char_boundary(4) && rest[..4].to_ascii_lowercase() == "crs:" {
                 let v = rest[4..].trim();
                 if !v.is_empty() {
                     crs = Some(v.to_string());
@@ -252,6 +253,34 @@ pub fn parse_control_file_for(text: &str, image: Option<(f64, f64)>) -> Result<P
     }
 }
 
+/// Every control point set in the project, by name.
+pub(crate) fn sets_in(c: &duckdb::Connection) -> Result<Vec<ControlSet>> {
+    let mut stmt = c.prepare("SELECT json::VARCHAR FROM __control_sets")?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(serde_json::from_str::<ControlSet>(&r?)?);
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.id.cmp(&b.id)));
+    Ok(out)
+}
+
+/// The set with this name (ignoring case), or a readable error naming the sets that exist (a Model node reads it this way).
+pub(crate) fn set_named(c: &duckdb::Connection, name: &str) -> Result<ControlSet> {
+    if name.trim().is_empty() {
+        bail!("Choose a control point set: type the name of one saved in this project.");
+    }
+    let all = sets_in(c)?;
+    let want = name.trim().to_lowercase();
+    if let Some(s) = all.iter().find(|s| s.name.trim().to_lowercase() == want) {
+        return Ok(s.clone());
+    }
+    if all.is_empty() {
+        bail!("There is no control point set named '{}': this project has none yet. Make one in Georeference.", name.trim());
+    }
+    bail!("There is no control point set named '{}'. Sets in this project: {}.", name.trim(), all.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", "))
+}
+
 impl Engine {
     /// Express a set's target positions in another CRS through an explicit PROJ transform, and label the set with the new CRS.
     pub fn reproject_control_set(&self, set: &ControlSet, to_crs: &str) -> Result<ControlSet> {
@@ -278,29 +307,12 @@ impl Engine {
 
     /// Saved control point sets, by name.
     pub fn list_control_sets(&self) -> Result<Vec<ControlSet>> {
-        self.with_conn(|c| {
-            let mut stmt = c.prepare("SELECT json::VARCHAR FROM __control_sets")?;
-            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-            let mut out = Vec::new();
-            for r in rows {
-                out.push(serde_json::from_str::<ControlSet>(&r?)?);
-            }
-            out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.id.cmp(&b.id)));
-            Ok(out)
-        })
+        self.with_conn(sets_in)
     }
 
     /// The set with this name (ignoring case), or a readable error naming the sets that exist.
     pub fn control_set_by_name(&self, name: &str) -> Result<ControlSet> {
-        let all = self.list_control_sets()?;
-        let want = name.trim().to_lowercase();
-        if let Some(s) = all.iter().find(|s| s.name.trim().to_lowercase() == want) {
-            return Ok(s.clone());
-        }
-        if all.is_empty() {
-            bail!("There is no control point set named '{}': this project has none yet. Make one in Georeference.", name.trim());
-        }
-        bail!("There is no control point set named '{}'. Sets in this project: {}.", name.trim(), all.iter().map(|s| s.name.as_str()).collect::<Vec<_>>().join(", "))
+        self.with_conn(|c| set_named(c, name))
     }
 
     /// Validate and store a set (insert or replace). A name already used by another set is refused.

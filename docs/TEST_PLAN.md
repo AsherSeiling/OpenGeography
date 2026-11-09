@@ -1081,6 +1081,9 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | UX-10b | By hand: a table of thousands of rows, click a feature on the map: the table scrolls to its row and shades it; click a row header: the map highlights it and the table does not jump; Zoom To Selection | not yet run |
 | UX-14a | Coordinate format: saved value read back, unknown or missing falls back to decimal degrees; exactly one format is shown; map E/N on a degrees map falls back to degrees and says why; no MGRS near the poles; the engine keeps only the four known format names | `ui/src/statusbar/coordFormat.test.ts`, `crates/engine/tests/settings.rs` |
 | UX-14b | By hand: pick each format with the pointer over a projected map and a degrees map, restart the app (the choice is kept); start two imports and open Jobs (2): each has its own bar and Cancel | not yet run (`e2e/map.spec.ts` M-7 updated for the menu, not yet run) |
+| GR-24 | Adjust Shapes node: the named set (any letter case) moves the shapes, attributes and CRS kept, scratch tables gone; editing the set re-runs the node (an unchanged one is cached) | `crates/engine/tests/georef_tools.rs` |
+| GR-25 | A missing, empty or unusable set (none yet, other sets named, too few points) and a bad method are readable errors in the node | `georef_tools.rs` |
+| GR-26 | Georeference Image node warps with the named set to the expected origin and cell size in the set's CRS; "georeference" finds the new tools and no longer Reproject Raster | `georef_tools.rs`, `nodes/keywords.rs` tests |
 | GR-17 | By hand in the browser (devserver, 2026-11-09): open an image, set the CRS, five points, RMS and per-point errors update, the preview draws on the reference map, a click on the image and then the map adds a point, Georeference adds the layer, Save set stores it. A browser e2e spec has not been written yet | by hand |
 
 ## UI redesign (`docs/UI_REDESIGN_PLAN.md`)

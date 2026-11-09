@@ -78,7 +78,7 @@ enum Kind {
     Similarity { re: f64, im: f64 },
 }
 
-struct Fitted {
+pub(crate) struct Fitted {
     kind: Kind,
     from_c: (f64, f64),
     to_c: (f64, f64),
@@ -191,15 +191,15 @@ impl Fitted {
     }
 }
 
-struct Prepared {
-    fitted: Fitted,
-    report: AdjustReport,
-    notes: Vec<String>,
+pub(crate) struct Prepared {
+    pub(crate) fitted: Fitted,
+    pub(crate) report: AdjustReport,
+    pub(crate) notes: Vec<String>,
 }
 
 /// Fit the points for a layer in `layer_crs`: validate, express the to points in the layer's CRS (explicit PROJ transform), fit, and
 /// compute the error table from that same fit.
-fn prepare(conn: &Connection, layer_crs: &str, set: &ControlSet, method: AdjustMethod) -> Result<Prepared> {
+pub(crate) fn prepare(conn: &Connection, layer_crs: &str, set: &ControlSet, method: AdjustMethod) -> Result<Prepared> {
     set.validate()?;
     let crs = layer_crs.trim();
     if crs.is_empty() {
@@ -340,6 +340,63 @@ pub struct AdjustResult {
 
 const BATCH: usize = 5000;
 
+/// Move every shape of `t` (a quoted table name with a `geom` column and a unique integer column `key`) with the fitted transform into
+/// the scratch table `scratch` (fid, wkb, bad), 5000 at a time, checking for Cancel between batches. Returns the features that
+/// could not be adjusted, with the reason, and how many shapes were read. `def` is an extra ` AND ...` condition on `t`.
+pub(crate) fn move_shapes(conn: &Connection, task: &Task, fitted: &Fitted, crs: &str, scratch: &str, t: &str, key: &str, def: &str) -> Result<(Vec<Dropped>, i64)> {
+        let geographic = crate::crs::is_geographic(crs);
+        let total: i64 = conn.query_row(&format!("SELECT count(*) FROM {t} WHERE geom IS NOT NULL{def}"), [], |r| r.get(0))?;
+        let mut last = i64::MIN;
+        let mut done = 0i64;
+        loop {
+            task.check()?;
+            let rows: Vec<(i64, Vec<u8>)> = {
+                let mut stmt = conn.prepare(&format!("SELECT {key}, ST_AsWKB(geom) FROM {t} WHERE geom IS NOT NULL AND {key} > ?{def} ORDER BY {key} LIMIT {BATCH}"))?;
+                let v = stmt.query_map([last], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+                v
+            };
+            if rows.is_empty() {
+                break;
+            }
+            last = rows.last().unwrap().0;
+            let mut app = conn.appender(scratch)?;
+            for (fid, wkb) in &rows {
+                let (out, bad): (Option<Vec<u8>>, Option<String>) = match parse_wkb(wkb) {
+                    Err(_) => (None, Some("its geometry type (a collection or curve) can't be adjusted".into())),
+                    Ok(mut g) => {
+                        let mut xy: Vec<(f64, f64)> = g.coords().map(|c| (c.x, c.y)).collect();
+                        let ok = fitted.apply(&mut xy);
+                        if ok.iter().any(|o| !o) {
+                            (None, Some("a vertex could not be moved by the transform".into()))
+                        } else if geographic && xy.iter().any(|p| p.1.abs() > 90.0) {
+                            (None, Some("a vertex moved beyond the poles (latitude over 90°)".into()))
+                        } else {
+                            for (c, p) in g.coords_mut().zip(xy) {
+                                c.x = p.0;
+                                c.y = p.1;
+                            }
+                            (Some(write_wkb(&g)), None)
+                        }
+                    }
+                };
+                app.append_row(duckdb::params![*fid, out, bad])?;
+            }
+            app.flush()?;
+            done += rows.len() as i64;
+            task.set(done as f64 / total.max(1) as f64 * 0.8, Some(format!("{done} of {total} features")));
+        }
+        // Shapes that were valid and no longer are, or that came out empty, are left out (and counted below).
+        task.detail("Checking the moved shapes");
+        conn.execute_batch(&format!(
+            "UPDATE {s} SET bad = r.reason FROM (SELECT s.fid, CASE WHEN ST_IsEmpty(ST_GeomFromWKB(s.wkb)) THEN 'the shape came out empty' WHEN ST_IsValid(t.geom) AND NOT ST_IsValid(ST_GeomFromWKB(s.wkb)) THEN 'the shape became invalid (it crosses itself or collapsed)' END AS reason FROM {s} s JOIN {t} t ON t.{key} = s.fid WHERE s.bad IS NULL) r WHERE {s}.fid = r.fid AND r.reason IS NOT NULL",
+            s = ident(scratch)
+        ))?;
+        task.check()?;
+        let mut stmt = conn.prepare(&format!("SELECT fid, bad FROM {} WHERE bad IS NOT NULL ORDER BY fid", ident(scratch)))?;
+        let dropped = stmt.query_map([], |r| Ok(Dropped { fid: r.get(0)?, reason: r.get(1)? }))?.collect::<Result<Vec<_>, _>>()?;
+        Ok((dropped, total))
+}
+
 impl Engine {
     /// The error table for adjusting `layer` with `set` and `method` (nothing is changed).
     pub fn adjust_errors(&self, layer: &str, set: &ControlSet, method: AdjustMethod) -> Result<AdjustReport> {
@@ -367,59 +424,7 @@ impl Engine {
             let t = ident(&info.table);
             let def = info.def_and();
             conn.execute_batch(&format!("CREATE OR REPLACE TEMP TABLE {} (fid BIGINT, wkb BLOB, bad VARCHAR)", ident(&scratch)))?;
-            let run = (|| -> Result<(Vec<Dropped>, i64)> {
-                let geographic = crate::crs::is_geographic(&crs);
-                let total: i64 = conn.query_row(&format!("SELECT count(*) FROM {t} WHERE geom IS NOT NULL{def}"), [], |r| r.get(0))?;
-                let mut last = i64::MIN;
-                let mut done = 0i64;
-                loop {
-                    task.check()?;
-                    let rows: Vec<(i64, Vec<u8>)> = {
-                        let mut stmt = conn.prepare(&format!("SELECT __fid, ST_AsWKB(geom) FROM {t} WHERE geom IS NOT NULL AND __fid > ?{def} ORDER BY __fid LIMIT {BATCH}"))?;
-                        let v = stmt.query_map([last], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
-                        v
-                    };
-                    if rows.is_empty() {
-                        break;
-                    }
-                    last = rows.last().unwrap().0;
-                    let mut app = conn.appender(&scratch)?;
-                    for (fid, wkb) in &rows {
-                        let (out, bad): (Option<Vec<u8>>, Option<String>) = match parse_wkb(wkb) {
-                            Err(_) => (None, Some("its geometry type (a collection or curve) can't be adjusted".into())),
-                            Ok(mut g) => {
-                                let mut xy: Vec<(f64, f64)> = g.coords().map(|c| (c.x, c.y)).collect();
-                                let ok = prep.fitted.apply(&mut xy);
-                                if ok.iter().any(|o| !o) {
-                                    (None, Some("a vertex could not be moved by the transform".into()))
-                                } else if geographic && xy.iter().any(|p| p.1.abs() > 90.0) {
-                                    (None, Some("a vertex moved beyond the poles (latitude over 90°)".into()))
-                                } else {
-                                    for (c, p) in g.coords_mut().zip(xy) {
-                                        c.x = p.0;
-                                        c.y = p.1;
-                                    }
-                                    (Some(write_wkb(&g)), None)
-                                }
-                            }
-                        };
-                        app.append_row(duckdb::params![*fid, out, bad])?;
-                    }
-                    app.flush()?;
-                    done += rows.len() as i64;
-                    task.set(done as f64 / total.max(1) as f64 * 0.8, Some(format!("{done} of {total} features")));
-                }
-                // Shapes that were valid and no longer are, or that came out empty, are left out (and counted below).
-                task.detail("Checking the moved shapes");
-                conn.execute_batch(&format!(
-                    "UPDATE {s} SET bad = r.reason FROM (SELECT s.fid, CASE WHEN ST_IsEmpty(ST_GeomFromWKB(s.wkb)) THEN 'the shape came out empty' WHEN ST_IsValid(t.geom) AND NOT ST_IsValid(ST_GeomFromWKB(s.wkb)) THEN 'the shape became invalid (it crosses itself or collapsed)' END AS reason FROM {s} s JOIN {t} t ON t.__fid = s.fid WHERE s.bad IS NULL) r WHERE {s}.fid = r.fid AND r.reason IS NOT NULL",
-                    s = ident(&scratch)
-                ))?;
-                task.check()?;
-                let mut stmt = conn.prepare(&format!("SELECT fid, bad FROM {} WHERE bad IS NOT NULL ORDER BY fid", ident(&scratch)))?;
-                let dropped = stmt.query_map([], |r| Ok(Dropped { fid: r.get(0)?, reason: r.get(1)? }))?.collect::<Result<Vec<_>, _>>()?;
-                Ok((dropped, total))
-            })();
+            let run = move_shapes(conn, &task, &prep.fitted, &crs, &scratch, &t, "__fid", &def);
             let (dropped, total) = match run {
                 Ok(v) => v,
                 Err(e) => {

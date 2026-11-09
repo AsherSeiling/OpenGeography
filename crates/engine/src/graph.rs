@@ -382,6 +382,12 @@ pub fn run(
         for h in &input_hashes {
             hasher.update(h.as_bytes());
         }
+        // The georeferencing tools name a control point set; editing that set must not return a stale cached result.
+        if matches!(spec.id, "georef_image" | "adjust_shapes") {
+            if let Some(set) = node.params.get("set").and_then(|v| v.as_str()).and_then(|n| crate::georef::set_named(conn, n).ok()) {
+                hasher.update(serde_json::to_string(&set)?.as_bytes());
+            }
+        }
         if spec.id == "input_layer" {
             if let Some(info) = node.params.get("layer").and_then(|v| v.as_str()).and_then(|l| layers.get(l)) {
                 hasher.update(format!("{}:{}:{:?}", info.id, info.version, info.crs).as_bytes());
