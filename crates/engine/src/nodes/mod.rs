@@ -26,6 +26,7 @@ mod raster_ops_tools;
 mod stats_tools;
 mod hydrology_tools;
 pub mod whitebox_tools;
+pub mod gdal_tools;
 mod remote_sensing_tools;
 mod project;
 mod spatial_join;
@@ -602,6 +603,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(export::Export),
     ];
     tools.extend(whitebox_tools::tools());
+    tools.extend(gdal_tools::tools());
     tools
 }
 

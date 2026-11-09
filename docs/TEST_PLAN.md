@@ -1162,3 +1162,5 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T1-6 | Strahler, Shreve, topological order and link ids on a hand-made network with three headwaters | Strahler 2 / Shreve 3 below the second junction; topological 3; links numbered apart | auto: same file |
 | T1-7 | Curvature of a bowl z = a(x^2 + y^2) | profile curvature magnitude 2a | auto: same file |
 | T1-8 | Every T1 tool is registered with a category, a description and keywords | | auto: same file |
+| T3-1 | Proximity: 3-4-5 offset on 10 m cells; 60 m limit leaves far cells no data and says how many; target values list; raster in degrees refused; non-numeric list refused | 50 m; no data and a note; 40 m; "Project" sentence | auto: `crates/engine/tests/gdal_tools.rs` |
+| T3-2 | Sieve: 2-cell patch merged at minimum 4, 6-cell patch kept, 2 of 100 cells reported changed; 4 vs 8 connectedness on a diagonal pair; float raster and minimum 0 refused | | auto: same file |

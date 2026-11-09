@@ -225,6 +225,8 @@ fn rel(a: f64, b: f64) -> f64 {
 /// Wave 1 raster tools (package T1) run by WhiteboxTools: the CRS is restamped from the first input and geographic rasters are refused or
 /// handled as stated in each description; tested in whitebox_tools.rs.
 const WAVE1_RASTER: &[&str] = &[
+    "proximity",
+    "sieve",
     "plan_curvature",
     "profile_curvature",
     "total_curvature",
