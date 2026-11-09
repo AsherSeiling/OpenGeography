@@ -92,6 +92,7 @@ async function partsInPage(page: Page): Promise<Record<string, string>> {
     const a = g.useApp.getState();
     const L = g.useLayouts.getState();
     const d = (await import("/src/panes/panes.ts")).getDock();
+    const swipe = (await import("/src/map/swipe.ts")).useSwipe.getState().byMap; // which layers are compared only shows on the canvas
     const clone = document.body.cloneNode(true) as HTMLElement;
     // Open menus and lists are left out of everything below: choosing an item always closes its menu, which must not count as the item doing something.
     clone.querySelectorAll("[role=tooltip], [role=menu], [role=listbox], script, style, canvas, .ol-viewport, .react-flow__edges").forEach((e) => e.remove());
@@ -107,6 +108,7 @@ async function partsInPage(page: Page): Promise<Record<string, string>> {
       dock: (d?.panels ?? []).map((p) => `${p.id}${p.api.isActive ? "*" : ""}${p.group.api.width | 0}x${p.group.api.height | 0}`).join(","),
       app: JSON.stringify({ s: a.status, t: a.tool, al: a.activeLayer, sel: a.selection, ly: Object.keys(a.layers), st: a.styles, maps: a.maps, am: a.activeMapId, dark: a.dark, fps: a.showFps }),
       layout: JSON.stringify({ id: L.id, doc: L.doc, sel: L.selected }),
+      swipe: JSON.stringify(swipe),
       model: JSON.stringify({ n: g.useModel.getState().nodes?.length, e: g.useModel.getState().edges?.length }),
       view: view ? `${view.getCenter()}|${view.getResolution()}` : "",
       net: String((window as any).__netCalls.filter((u: string) => /\/invoke\//.test(u) && !/progress|list_|_list|tile|extent|layer_info|get_|specs|describe|transform_point|map_scale_factor|\/sources$/.test(u)).length),
