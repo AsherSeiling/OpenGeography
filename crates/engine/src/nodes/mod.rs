@@ -27,6 +27,13 @@ mod stats_tools;
 mod hydrology_tools;
 pub mod whitebox_tools;
 pub mod gdal_tools;
+mod centrography;
+mod point_patterns;
+mod kernel_density;
+mod tabulate_area;
+mod cut_fill;
+mod profile_line;
+mod lane_b;
 mod remote_sensing_tools;
 mod project;
 mod spatial_join;
@@ -602,8 +609,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(add_to_map::AddToMap),
         Box::new(export::Export),
     ];
-    tools.extend(whitebox_tools::tools());
-    tools.extend(gdal_tools::tools());
+    tools.extend(lane_b::tools());
     tools
 }
 

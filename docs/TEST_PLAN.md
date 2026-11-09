@@ -1164,3 +1164,16 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T1-8 | Every T1 tool is registered with a category, a description and keywords | | auto: same file |
 | T3-1 | Proximity: 3-4-5 offset on 10 m cells; 60 m limit leaves far cells no data and says how many; target values list; raster in degrees refused; non-numeric list refused | 50 m; no data and a note; 40 m; "Project" sentence | auto: `crates/engine/tests/gdal_tools.rs` |
 | T3-2 | Sieve: 2-cell patch merged at minimum 4, 6-cell patch kept, 2 of 100 cells reported changed; 4 vs 8 connectedness on a diagonal pair; float raster and minimum 0 refused | | auto: same file |
+
+## T4. Textbook analysis tools (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T4-1 | Mean centre: weighted plane mean; two points at 60 N on opposite meridians; 179 and -179 degrees; three points against PROJ's geocentric (EPSG:4978) mean; negative weight | x = 4.5; the pole; 180; agrees to 1e-9 degrees; refused | auto: `crates/engine/tests/textbook_tools.rs` |
+| T4-2 | Standard distance: planar unweighted (3) and weighted (sqrt 6.75); geographic N/E/S/W points 10 km out | 3; 2.598; 10 000 m within 1 m | auto: same file |
+| T4-3 | Directional distribution of a rotated lattice with known sigma (projected, and geographic through the azimuthal equidistant plane); 2 SD; collinear points | semi-axes sqrt(2) sigma and azimuth to 1e-6 (projected) / 2e-3 (geographic); doubled; refused | auto: same file |
+| T4-4 | Average nearest neighbour: four corners of a 10 x 10 area; area required; geographic geodesic distances and ellipsoidal area | 10, 2.5, ratio 4, z = 7.5 / 0.6534; refused without area; within 1e-6 m / 1 % | auto: same file |
+| T4-5 | Ripley's K: three collinear points (none and border correction); seeded CSR pattern; clustered pattern; same seed repeats, other seed differs; degrees refused | K = 33.3, 66.7, 100; CSR inside envelope; clustered flagged at every distance | auto: same file |
+| T4-6 | Kernel density: sum of density x cell area equals the total weight (weighted and unweighted); peak 3 / (pi h^2); extent = points + bandwidth; degrees refused | within 0.2 % | auto: same file |
+| T4-7 | Tabulate area: cell-centre rule, no-data row, class areas; geographic cell areas against the spherical formula and 12 308.8 km2 at the equator; decimal raster refused | 5000 / 1000 / 3900 / 100 m2 | auto: same file |
+| T4-8 | Cut and fill: 4 x 4 block (fill 1200, cut 600, net 600 m3), no-data cell reported, feet, different grids refused, geographic cell area | exact | auto: same file |
+| T4-9 | Profile along a line: spacing, bilinear on a plane, outside-the-raster stations reported, geographic DEM with a UTM line, points refused | within 1e-3 / 0.01 | auto: same file |

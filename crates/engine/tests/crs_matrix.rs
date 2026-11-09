@@ -222,9 +222,19 @@ fn rel(a: f64, b: f64) -> f64 {
     if a == b { 0.0 } else { (a - b).abs() / a.abs().max(b.abs()) }
 }
 
-/// Wave 1 raster tools (package T1) run by WhiteboxTools: the CRS is restamped from the first input and geographic rasters are refused or
-/// handled as stated in each description; tested in whitebox_tools.rs.
+/// Wave 1 tools (Lane B): raster tools restamp the CRS from the first input and refuse or handle geographic rasters as their descriptions
+/// say (whitebox_tools.rs, gdal_tools.rs); the analysis tools state their CRS handling in the description and are tested against hand
+/// calculations in projected and geographic CRSs (textbook_tools.rs). They are not shape tools for this matrix.
 const WAVE1_RASTER: &[&str] = &[
+    "kernel_density",
+    "mean_centre",
+    "standard_distance",
+    "directional_distribution",
+    "average_nearest_neighbour",
+    "ripleys_k",
+    "tabulate_area",
+    "profile_line",
+    "cut_fill",
     "proximity",
     "sieve",
     "plan_curvature",

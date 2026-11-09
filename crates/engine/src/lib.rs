@@ -38,6 +38,7 @@ pub mod layers;
 pub mod layout;
 pub mod measure;
 pub mod nodes;
+pub mod geomkit;
 pub mod progress;
 pub mod pyscript;
 pub mod raster;
