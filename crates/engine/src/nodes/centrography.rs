@@ -84,7 +84,7 @@ pub(super) fn read_pts(ctx: &Ctx, rel: &Rel, weight: Option<&str>, tool: &str) -
 }
 
 /// Weighted mean centre in CRS coordinates: on the ellipsoid for a geographic CRS, in the plane otherwise.
-pub(super) fn mean_centre(m: &Metric, p: &PtSet) -> (f64, f64) {
+pub(super) fn mean_centre(m: &Metric, p: &PtSet) -> Result<(f64, f64)> {
     let sw: f64 = p.w.iter().sum();
     if m.geographic {
         let mut v = [0.0; 3];
@@ -94,9 +94,13 @@ pub(super) fn mean_centre(m: &Metric, p: &PtSet) -> (f64, f64) {
                 v[k] += w * e[k];
             }
         }
-        m.from_ecef([v[0] / sw, v[1] / sw, v[2] / sw])
+        let mv = [v[0] / sw, v[1] / sw, v[2] / sw];
+        if (mv[0] * mv[0] + mv[1] * mv[1] + mv[2] * mv[2]).sqrt() < 0.01 * m.a {
+            bail!("These features surround the Earth (their Earth-centred mean lies almost at its centre), so they have no meaningful mean centre. Use a subset of the features, or a projected coordinate system for a region.");
+        }
+        Ok(m.from_ecef(mv))
     } else {
-        (p.xy.iter().zip(&p.w).map(|(q, w)| q.0 * w).sum::<f64>() / sw, p.xy.iter().zip(&p.w).map(|(q, w)| q.1 * w).sum::<f64>() / sw)
+        Ok((p.xy.iter().zip(&p.w).map(|(q, w)| q.0 * w).sum::<f64>() / sw, p.xy.iter().zip(&p.w).map(|(q, w)| q.1 * w).sum::<f64>() / sw))
     }
 }
 
@@ -127,7 +131,7 @@ impl Tool for MeanCentre {
         let crs = need_crs(i)?;
         let m = geomkit::metric(crs)?;
         let pts = read_pts(ctx, i, weight_of(p).as_deref(), "Mean Centre")?;
-        let (x, y) = mean_centre(&m, &pts);
+        let (x, y) = mean_centre(&m, &pts)?;
         let method = if m.geographic { "mean of Earth-centred positions on the ellipsoid" } else { "weighted mean in the plane of the layer's projection" };
         Ok(Output::Select {
             sql: format!("SELECT {} AS n, {} AS weight_sum, {} AS method, {} AS geom", pts.xy.len(), sqlnum(pts.w.iter().sum()), lit(method), point_wkt(x, y)),
@@ -174,7 +178,7 @@ impl Tool for StandardDistance {
         let i = &inputs["in"];
         let m = geomkit::metric(need_crs(i)?)?;
         let pts = read_pts(ctx, i, weight_of(p).as_deref(), "Standard Distance")?;
-        let (cx, cy) = mean_centre(&m, &pts);
+        let (cx, cy) = mean_centre(&m, &pts)?;
         let sw: f64 = pts.w.iter().sum();
         let mut acc = 0.0;
         if m.geographic {
@@ -260,7 +264,7 @@ impl Tool for DirectionalDistribution {
         let k: f64 = match p.str("sd").as_deref() { Some("2") => 2.0, Some("3") => 3.0, _ => 1.0 };
         // The plane the moments are taken in, and the way back to the layer's coordinates.
         let (plane, back, projection): (Vec<(f64, f64)>, Option<geomkit::Tx>, String) = if m.geographic {
-            let (lon0, lat0) = mean_centre(&m, &pts);
+            let (lon0, lat0) = mean_centre(&m, &pts)?;
             let def = format!("+proj=aeqd +lat_0={lat0:?} +lon_0={lon0:?} +a={:?} +b={:?} +units=m +no_defs", m.a, m.a * (1.0 - m.f));
             let fwd = geomkit::tx(crs, &def)?;
             let mut v = Vec::with_capacity(pts.xy.len());

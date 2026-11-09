@@ -100,6 +100,16 @@ fn ecef_mean_via_proj(pts: &[(f64, f64)]) -> (f64, f64) {
 }
 
 #[test]
+fn t4_features_that_surround_the_earth_have_no_mean_centre() {
+    let (e, dir) = (Engine::new().unwrap(), tempfile::tempdir().unwrap());
+    let g = points(&e, dir.path(), "anti", "EPSG:4326", &[(10.0, 20.0, 1.0), (-170.0, -20.0, 1.0), (50.0, 5.0, 1.0), (-130.0, -5.0, 1.0)]);
+    for t in ["mean_centre", "standard_distance", "directional_distribution"] {
+        let r = try_tool(&e, t, json!({}), &[("in", &g)]);
+        assert!(matches!(r.status, Status::Error) && r.error.unwrap().contains("surround the Earth"), "{t}");
+    }
+}
+
+#[test]
 fn t4_mean_centre_is_weighted_in_a_plane_and_on_the_ellipsoid_in_degrees() {
     let (e, dir) = (Engine::new().unwrap(), tempfile::tempdir().unwrap());
     // Planar weighted mean: (0, 0) with weight 1 and (6, 0) with weight 3 gives x = 4.5.
