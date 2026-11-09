@@ -1,7 +1,5 @@
-//! BUGS.md: after a project is reopened its R-tree indexes are bound lazily by the first query that could use them; tile threads
-//! doing that at once on one table crashed the process. `Engine::init_schema` now binds them all before anything can draw.
+//! BUGS.md RT-1: concurrent first tile queries on a reopened project (a race was suspected; it never reproduced, the real cause is the next test).
 //! This test reopens a project with several layers (with overviews and display tables) many times and hits tiles from many threads at once.
-//! `GIS_STUDIO_SKIP_RTREE_BIND=1 cargo test -p engine --test reopen_tiles -- --nocapture` runs it without the fix.
 use engine::Engine;
 use std::sync::{Arc, Barrier};
 
@@ -76,45 +74,66 @@ fn reopened_project_survives_concurrent_first_tiles() {
     println!("{cycles} open cycles × {THREADS} threads: {:?}", t0.elapsed());
 }
 
-/// Open time and first-tile time of a reopened project with a million points (overviews, display table). Run by hand, with and without
-/// `GIS_STUDIO_SKIP_RTREE_BIND=1`: the binding cost moves from the first tile into the open.
-/// `cargo test -p engine --test reopen_tiles bind_timing -- --ignored --nocapture`
+/// RT-1, the real cause: opening the project file that is already open in the engine (the app does this after Save As) made a second DuckDB
+/// instance on one file; asking for a tile afterwards killed the process (SIGBUS in the R-tree). A display table built after the save is the
+/// case that mattered: its index is only in the write-ahead log. With and without display tables, and tiles asked for straight after.
 #[test]
-#[ignore]
-fn bind_timing_on_a_million_points() {
+fn reopening_the_project_that_is_already_open_keeps_working() {
     let data = tempfile::tempdir().unwrap();
     std::env::set_var("GIS_STUDIO_DATA", data.path());
-    let proj = data.path().join("big.gproj");
-    let skip = std::env::var_os("GIS_STUDIO_SKIP_RTREE_BIND");
-    std::env::remove_var("GIS_STUDIO_SKIP_RTREE_BIND");
-    let (id, key);
-    {
+    for with_display in [false, true] {
+        for i in 0..5 {
+            let e = Engine::new().unwrap();
+            let l = e.generate_test_layer("points", 5, [-100.0, 30.0, -90.0, 40.0]).unwrap();
+            let dir = data.path().join(format!("p{with_display}{i}.gproj"));
+            e.save_project(&dir, "{}").unwrap();
+            if with_display {
+                e.build_display_blocking(&l.id, "EPSG:4326").unwrap(); // written into the open project file after the save
+            }
+            e.open_project(&dir).unwrap(); // the same file, still open in this engine
+            let di = e.crs_display_info("EPSG:4326", None).unwrap();
+            e.tile(&l.id, 3, 1, 2, &[]).unwrap();
+            if with_display {
+                assert!(e.display_status(&l.id, "EPSG:4326").unwrap().ready, "the display table written after the save is still there");
+                e.tile_in_crs(&l.id, &di.crs_key, 3, 1, 2, &[]).unwrap();
+            }
+            assert_eq!(e.layer(&l.id).unwrap().feature_count, 5);
+        }
+    }
+}
+
+/// Projects saved by earlier builds open and draw. By hand, on throwaway copies:
+/// `OLD_PROJECTS="/path/a.gproj:/path/b.gproj" cargo test -p engine --test reopen_tiles old_projects -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn old_projects_open_and_draw_from_copies() {
+    let list = std::env::var("OLD_PROJECTS").expect("OLD_PROJECTS");
+    for src in list.split(':').filter(|s| !s.is_empty()) {
+        let tmp = tempfile::tempdir().unwrap();
+        let dst = tmp.path().join("copy.gproj");
+        std::fs::create_dir_all(&dst).unwrap();
+        for f in std::fs::read_dir(src).unwrap().flatten() {
+            if f.path().is_file() {
+                std::fs::copy(f.path(), dst.join(f.file_name())).unwrap();
+            }
+        }
+        std::env::set_var("GIS_STUDIO_DATA", tmp.path());
         let e = Engine::new().unwrap();
-        let p = data.path().join("big.gpkg");
-        let c = engine::duckdb::Connection::open_in_memory().unwrap();
-        engine::db::load_spatial(&c).unwrap();
-        c.execute_batch(&format!("COPY (SELECT i::INTEGER AS id, ST_Point(-100.0 + (i % 1000) * 0.001, 30.0 + (i // 1000) * 0.001) AS geom FROM range(1, 1000001) t(i)) TO '{}' (FORMAT GDAL, DRIVER 'GPKG', SRS 'EPSG:4326', USE_TMP_FILE false)", p.display())).unwrap();
-        let l = e.import(&p).unwrap().remove(0);
-        e.build_display_blocking(&l.id, "EPSG:26914").unwrap();
-        key = e.crs_display_info("EPSG:26914", None).unwrap().crs_key;
-        id = l.id;
-        e.save_project(&proj, "{}").unwrap();
+        if let Err(er) = e.open_project(&dst) {
+            println!("{src}: does not open ({er:#})");
+            continue;
+        }
+        let ls = e.list_layers();
+        let mut tiles = 0;
+        for l in &ls {
+            if l.has_geometry() && !l.is_raster() {
+                for z in [2u32, 6] {
+                    e.tile(&l.id, z, 1, 1, &[]).unwrap();
+                    tiles += 1;
+                }
+            }
+        }
+        e.open_project(&dst).unwrap(); // and again in place
+        println!("{src}: {} layers, {tiles} tiles, reopened in place", ls.len());
     }
-    if let Some(v) = skip {
-        std::env::set_var("GIS_STUDIO_SKIP_RTREE_BIND", v);
-    }
-    let e = Engine::new().unwrap();
-    let t = std::time::Instant::now();
-    e.open_project(&proj).unwrap();
-    println!("open_project: {:?} (bind skipped: {})", t.elapsed(), std::env::var_os("GIS_STUDIO_SKIP_RTREE_BIND").is_some());
-    e.crs_display_info("EPSG:26914", None).unwrap();
-    let t0 = e.layer(&id).unwrap().table;
-    let plan: String = e.with_conn_for_tests(|c| Ok(c.query_row(&format!("EXPLAIN SELECT count(*) FROM \"{t0}\" WHERE ST_Intersects(__g, ST_MakeEnvelope(1e12, 1e12, 1e12 + 1, 1e12 + 1))"), [], |r| r.get::<_, String>(1))?)).unwrap();
-    println!("probe plan uses the R-tree: {}", plan.contains("RTREE_INDEX_SCAN"));
-    let t = std::time::Instant::now();
-    e.tile(&id, 8, 57, 105, &[]).unwrap();
-    println!("first tile: {:?}", t.elapsed());
-    let t = std::time::Instant::now();
-    e.tile_in_crs(&id, &key, 8, 57, 105, &[]).unwrap();
-    println!("first display tile: {:?}", t.elapsed());
 }

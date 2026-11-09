@@ -51,6 +51,8 @@ pub struct Pool {
     root: Mutex<Connection>,
     idle: Mutex<Vec<Connection>>,
     gate: std::sync::Arc<Gate>,
+    /// The database file this pool has open (None: in memory).
+    path: Option<std::path::PathBuf>,
 }
 
 /// Counts the connections in use. Whatever a connection is doing (an import, a display table, a model step), it is counted, so Save can wait
@@ -86,7 +88,15 @@ impl Pool {
             None => Connection::open_in_memory()?,
         };
         load_spatial(&root)?;
-        Ok(Self { root: Mutex::new(root), idle: Mutex::new(Vec::new()), gate })
+        Ok(Self { root: Mutex::new(root), idle: Mutex::new(Vec::new()), gate, path: path.map(|p| p.to_path_buf()) })
+    }
+
+    /// Whether this pool has `path` open (the same file under any spelling).
+    pub fn has_open(&self, path: &Path) -> bool {
+        match (&self.path, std::fs::canonicalize(path)) {
+            (Some(p), Ok(q)) => std::fs::canonicalize(p).map(|p| p == q).unwrap_or(false),
+            _ => false,
+        }
     }
 
     pub fn get(&self) -> Result<Conn<'_>> {

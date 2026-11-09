@@ -227,36 +227,7 @@ impl Engine {
             let _ = self.ensure_labels(&conn, &mut info);
             self.layers.write().insert(info.id.clone(), info);
         }
-        self.bind_rtrees(&conn);
         Ok(())
-    }
-
-    /// DuckDB spatial binds a persisted R-tree lazily, in the optimizer of the first query that filters its table with a spatial
-    /// predicate. Two tile threads doing that at once on a reopened project raced inside the binding and crashed the process (SIGBUS,
-    /// BUGS.md). So every R-tree of the project (layer tables, their overviews, display tables) is bound here, on one connection, before
-    /// anything can draw. The probe filters like a tile query does, on a box nothing is in, so it reads the index but no rows.
-    fn bind_rtrees(&self, conn: &Connection) {
-        if std::env::var_os("GIS_STUDIO_SKIP_RTREE_BIND").is_some() {
-            return; // for the stress test, which shows what happens without it
-        }
-        let mut targets: Vec<(String, &str)> = vec![];
-        for info in self.layers.read().values() {
-            if info.has_geometry() && !info.is_raster() {
-                targets.extend(attrs::tables(info).into_iter().map(|t| (t, "__g")));
-            }
-        }
-        if let Ok(mut st) = conn.prepare("SELECT table_name, overviews FROM __disp_index") {
-            if let Ok(rows) = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))) {
-                for (t, ov) in rows.flatten() {
-                    targets.extend(ov.split(',').filter_map(|z| z.parse::<u32>().ok()).map(|z| (layers::overview_table(&t, z), "__d")));
-                    targets.push((t, "__d"));
-                }
-            }
-        }
-        for (t, col) in targets {
-            // A table that is gone, or has no index, just answers (or errors) without binding anything.
-            let _ = conn.query_row(&format!("SELECT count(*) FROM {} WHERE ST_Intersects({col}, ST_MakeEnvelope(1e12, 1e12, 1e12 + 1, 1e12 + 1))", db::ident(&t)), [], |r| r.get::<_, i64>(0));
-        }
     }
 
     fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
@@ -2063,6 +2034,15 @@ impl Engine {
     }
 
     fn open_db(&self, path: &Path) -> Result<()> {
+        // A file is never open twice in one process: a second DuckDB instance on it does not see the first one's uncheckpointed writes, and
+        // reading an R-tree stored there crashes the process (SIGBUS; BUGS.md RT-1). Opening the project that is already open (the app does
+        // this after Save As) closes the old instance first, which also folds its write-ahead log into the file.
+        {
+            let mut pool = self.pool.write();
+            if pool.has_open(path) {
+                *pool = Pool::open(None, self.gate.clone())?;
+            }
+        }
         *self.pool.write() = Pool::open(Some(path), self.gate.clone())?;
         *self.graph_cache.lock() = Cache::default();
         self.tile_cache.lock().clear();
