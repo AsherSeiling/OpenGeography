@@ -124,6 +124,8 @@ export interface ProgramSettings {
   /** The dock arrangement new projects start with (UR-17). */
   startupLayout?: unknown;
   scriptingLanguage?: string | null;
+  /** The one format the status bar shows the pointer in: dd, dms, projected or mgrs (UX14). */
+  coordinateFormat?: string | null;
 }
 
 export interface Citation {

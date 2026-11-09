@@ -4,6 +4,13 @@
 .sb-scale { flex: none; }
 .sb-scale input { width: 96px; font: var(--type-small); border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); padding: 0 var(--s-2); height: 18px; box-sizing: border-box; }
 .sb-scale input:hover { border-color: var(--rule); }
+.sb-format { flex: none; font: var(--type-small); border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-2); color: var(--text); height: 18px; padding: 0 var(--s-2); margin-right: var(--s-3); max-width: 170px; }
+.sb-jobs-btn { flex: none; border: 1px solid transparent; border-radius: var(--r-control); background: none; font: var(--type-small); color: var(--link); cursor: pointer; padding: 1px var(--s-3); }
+.sb-jobs { display: flex; flex-direction: column; gap: var(--s-4); min-width: 320px; max-width: 460px; padding: var(--s-4); }
+.sb-job { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s-3); align-items: center; }
+.sb-job-label { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-job-detail { grid-column: 1 / -1; font: var(--type-small); color: var(--text-muted, var(--text)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-job .sb-progress-bar { grid-column: 1 / -1; width: auto; }
 .sb-warn { color: var(--warn); font-weight: 600; }
 .sb-coords { flex: 1; min-width: 0; display: flex; gap: var(--s-6); overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sb-right { flex: 0 1 auto; min-width: 0; display: flex; gap: var(--s-5); align-items: center; white-space: nowrap; overflow: hidden; }

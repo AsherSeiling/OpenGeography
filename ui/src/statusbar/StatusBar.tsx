@@ -1,6 +1,5 @@
-// Status bar: editable map scale, cursor coordinates in the map CRS, decimal
-// degrees / DMS, MGRS, and the map CRS (click to change).
-import { forward as toMgrs } from "mgrs";
+// Status bar: editable map scale, the pointer in one chosen coordinate format (decimal degrees, DMS, map E/N or MGRS; remembered in
+// the program settings), running background jobs, and the map CRS (click to change).
 import { useEffect, useState } from "react";
 import { api } from "../ipc/api";
 import { pickMapCrs } from "../actions";
@@ -9,26 +8,8 @@ import { formatScale, parseScale, SCALE_PRESETS } from "../map/style";
 import { useMapView } from "../panes/MapView";
 import { StatusProgress } from "../progress/progress";
 import { useApp } from "../store/store";
-
-function dms(v: number, pos: string, neg: string) {
-  const a = Math.abs(v);
-  const d = Math.floor(a);
-  const m = Math.floor((a - d) * 60);
-  const s = ((a - d) * 60 - m) * 60;
-  return `${d}°${String(m).padStart(2, "0")}′${s.toFixed(1).padStart(4, "0")}″${v >= 0 ? pos : neg}`;
-}
-
-export function mgrsOf(lon: number, lat: number): string {
-  if (lat < -80 || lat > 84) return "—";
-  try {
-    // "14SPF1234567890" → "14S PF 12345 67890" (readable grid reference)
-    const m = toMgrs([lon, lat], 5);
-    const r = m.match(/^(\d{1,2}[A-Z])([A-Z]{2})(\d{5})(\d{5})$/);
-    return r ? `${r[1]} ${r[2]} ${r[3]} ${r[4]}` : m;
-  } catch {
-    return "—";
-  }
-}
+import { useSettings } from "../store/settings";
+import { COORD_FORMATS, formatPointer, readCoordFormat, type CoordFormat } from "./coordFormat";
 
 /** True when lon/lat lies outside the CRS's area of use [west, south, east, north] (areas crossing the antimeridian have west > east). */
 export function outsideArea(lon: number, lat: number, area: [number, number, number, number]): boolean {
@@ -69,6 +50,8 @@ export function StatusBar() {
   const projectDir = useApp((s) => s.projectDir);
   const dirty = useApp((s) => s.dirty);
   const [scaleText, setScaleText] = useState<string | null>(null);
+  const fmt = useSettings((st) => readCoordFormat(st.settings.coordinateFormat));
+  const setFmt = (f: CoordFormat) => void useSettings.getState().update({ coordinateFormat: f }).then((err) => err && useApp.getState().setStatus(err));
   // Every number comes from the engine with the pointer (R2): lon/lat from `transformPoint`, E/N are the view coordinates it was asked about.
   const lon = pointer?.lon ?? null;
   const lat = pointer?.lat ?? null;
@@ -104,20 +87,21 @@ export function StatusBar() {
       <div className="sb-coords">
         {lon !== null && lat !== null ? (
           <>
-            {projected && (
-              <span title={`Map coordinate system: ${mapCrs?.name}`}>
-                {projected[0].toLocaleString("en-US", { maximumFractionDigits: 1 })} E {projected[1].toLocaleString("en-US", { maximumFractionDigits: 1 })} N
-              </span>
-            )}
+            {(() => {
+              const r = formatPointer(fmt, { lon, lat, x: pointer!.x, y: pointer!.y }, !!projected);
+              return <span title={r.title} data-testid="sb-pointer" data-format={r.format}>{r.text}</span>;
+            })()}
             {projected && <PointFactors x={projected[0]} y={projected[1]} lon={lon} lat={lat} />}
-            <span title="Decimal degrees (WGS 84)">{lat.toFixed(5)}°, {lon.toFixed(5)}°</span>
-            <span title="Degrees minutes seconds">{dms(lat, "N", "S")} {dms(lon, "E", "W")}</span>
-            <span title="MGRS / USNG grid reference (1 m)">{mgrsOf(lon, lat)}</span>
           </>
         ) : (
           <span className="muted">{status}</span>
         )}
       </div>
+      <select className="sb-format" value={fmt} onChange={(e) => setFmt(e.target.value as CoordFormat)} aria-label="Coordinate format" title="How the pointer position is shown">
+        {COORD_FORMATS.map((f) => (
+          <option key={f.id} value={f.id} title={f.title}>{f.label}</option>
+        ))}
+      </select>
       <div className="sb-right">
         <StatusProgress />
         {lon !== null && <span className="muted sb-msg">{status}</span>}
