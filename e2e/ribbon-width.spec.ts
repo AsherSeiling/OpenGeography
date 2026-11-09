@@ -36,7 +36,7 @@ async function commandsReachable(app: any, label: string) {
 for (const w of WIDTHS) {
   test(`LW-T ribbon at ${w}px: no scroll bar on any tab`, async ({ app }) => {
     await app.setViewportSize({ width: w, height: 800 });
-    await addTestLayer(app, "points", 20);
+    const layer = await addTestLayer(app, "points", 20);
     await gis(app, (g) => { const s = g.useApp.getState(); s.setActiveLayer(Object.keys(s.layers)[0]); });
     for (const tab of ["Map", "Insert", "View", "Analysis", "Feature Layer"]) {
       await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).first().click();
@@ -44,6 +44,13 @@ for (const w of WIDTHS) {
       await noScroll(app, `${tab} at ${w}px`);
       await commandsReachable(app, `${tab} at ${w}px`);
     }
+    // The Edit tab is on the ribbon only while a shape-edit session is open.
+    await gis(app, (g, id: string) => g.edit.startEditing(id), layer.id);
+    await app.locator(".rtab", { hasText: /^Edit$/ }).first().click();
+    await app.waitForTimeout(350);
+    await noScroll(app, `Edit at ${w}px`);
+    await commandsReachable(app, `Edit at ${w}px`);
+    await gis(app, (g) => g.edit.discardEdits());
     // The layout's tabs: Page, Insert, Arrange, View, Export, and Map Frame while a frame is selected.
     await gis(app, async (g) => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
     await app.waitForTimeout(600);
@@ -168,7 +175,7 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
   for (const id of r.catalog) await expect(app.locator(`[role="treeitem"][data-node="public:${id}"]`)).toHaveCount(1);
   // And on screen: with a layer and a layout open and a very wide window, every tab shows a button for each of its commands.
   await app.setViewportSize({ width: 2560, height: 1000 });
-  await addTestLayer(app, "points", 20);
+  const layer = await addTestLayer(app, "points", 20);
   const seen = new Set<string>();
   const readTab = async (tab: string) => {
     await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).last().click();
@@ -176,6 +183,10 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
     for (const t of await app.locator(".ribbon-body .rbtn-label").allTextContents()) seen.add(t.trim());
   };
   for (const tab of ["Map", "Insert", "View", "Analysis", "Feature Layer"]) await readTab(tab);
+  // The Edit tab exists only while a shape-edit session is open.
+  await gis(app, (g, id: string) => g.edit.startEditing(id), layer.id);
+  await readTab("Edit");
+  await gis(app, (g) => g.edit.discardEdits());
   // The layout: its tabs, the Insert rail and the rail's Shape menu.
   await gis(app, async () => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
   await addFrame(app);
