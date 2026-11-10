@@ -109,6 +109,23 @@ describe("layout store", () => {
     expect(doc().elements).toHaveLength(0);
   });
 
+  it("runs one save at a time per layout and the later one sends the newest version", async () => {
+    let finish = () => {};
+    (api.saveLayout as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise<void>((r) => { finish = r; }));
+    addText();
+    const first = flushLayoutSaves();
+    await new Promise((r) => setTimeout(r));
+    expect(api.saveLayout).toHaveBeenCalledTimes(1);
+    addText();
+    const second = flushLayoutSaves();
+    await new Promise((r) => setTimeout(r));
+    expect(api.saveLayout).toHaveBeenCalledTimes(1); // still waiting for the first
+    finish();
+    await Promise.all([first, second]);
+    expect(api.saveLayout).toHaveBeenCalledTimes(2);
+    expect((api.saveLayout as ReturnType<typeof vi.fn>).mock.calls[1][0].elements).toHaveLength(2);
+  });
+
   it("removes elements and keeps locked ones out of nothing else", () => {
     const a = addText()!;
     const b = addText()!;

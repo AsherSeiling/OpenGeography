@@ -424,6 +424,9 @@ pub(super) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     })
 }
 
+/// Each call takes its own pooled connection, and two commits touching the same layout id fail with a constraint error in DuckDB.
+static LAYOUT_WRITES: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
 impl Engine {
     /// Saved layouts, in name order.
     pub fn list_layouts(&self) -> Result<Vec<Layout>> {
@@ -443,6 +446,7 @@ impl Engine {
     pub fn save_layout(&self, layout: &Layout) -> Result<()> {
         layout.validate()?;
         let json = serde_json::to_string(layout)?;
+        let _one_at_a_time = LAYOUT_WRITES.lock();
         self.with_conn(|c| {
             c.execute("INSERT OR REPLACE INTO __layouts VALUES (?, ?::JSON, now()::TIMESTAMP)", duckdb::params![layout.id, json])?;
             Ok(())
@@ -450,6 +454,7 @@ impl Engine {
     }
 
     pub fn delete_layout(&self, id: &str) -> Result<()> {
+        let _one_at_a_time = LAYOUT_WRITES.lock();
         self.with_conn(|c| {
             c.execute("DELETE FROM __layouts WHERE id = ?", duckdb::params![id])?;
             Ok(())

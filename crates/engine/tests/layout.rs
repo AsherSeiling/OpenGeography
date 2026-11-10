@@ -281,6 +281,23 @@ fn no_ellipsoid_literals_outside_geo_rs() {
 // ---------------------------------------------------------------- C2.2
 
 #[test]
+fn saving_the_same_layout_from_many_threads_at_once_never_collides() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let layout = request(&ids, categorized()).layout;
+    e.save_layout(&layout).unwrap();
+    std::thread::scope(|s| {
+        for _ in 0..8 {
+            s.spawn(|| {
+                for _ in 0..25 {
+                    e.save_layout(&layout).unwrap();
+                }
+            });
+        }
+    });
+}
+
+#[test]
 fn layouts_are_stored_in_the_project_and_survive_reopening() {
     let dir = tempfile::tempdir().unwrap();
     let (e, ids) = fixture(dir.path());

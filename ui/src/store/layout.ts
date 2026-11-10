@@ -73,9 +73,16 @@ function latest(id: string): Layout | null {
   return s.id === id ? s.doc : (s.docs[id] ?? null);
 }
 
-async function saveNow(id: string) {
+/** The save in flight for each layout. Saves run one at a time, each sending the newest version, so two can't collide in the database or land out of order. */
+const saving: Record<string, Promise<void>> = {};
+
+function saveNow(id: string): Promise<void> {
   clearTimeout(timers[id]);
   delete timers[id];
+  return (saving[id] = (saving[id] ?? Promise.resolve()).then(() => writeLatest(id)));
+}
+
+async function writeLatest(id: string) {
   const l = latest(id);
   if (!l) return;
   try {
@@ -94,7 +101,7 @@ function scheduleSave(id: string) {
 
 /** Write any layout edits still waiting for their debounce (before saving or closing the project). */
 export async function flushLayoutSaves() {
-  await Promise.all(Object.keys(timers).map(saveNow));
+  await Promise.all([...Object.keys(timers).map(saveNow), ...Object.values(saving)]);
 }
 
 export const useLayouts = create<LayoutState>()(
