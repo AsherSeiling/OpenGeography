@@ -35,7 +35,7 @@ After Wave 1 is merged and before Wave 2, because they edit files both Wave 2 la
 | Lane | Packages, in order | Owns |
 |---|---|---|
 | **A: node editor** | UX6, UX7, UX8, UX5, UX12 | `ui/src/nodes/`, `store/model.ts`, `graph.rs` |
-| **B: app shell, then tools** | UX1, UX2, UX13, UX9, UX11, UX15, then T2, T8 | `App.tsx`, project save and open, ribbon search, Settings, then new `nodes/` files |
+| **B: app shell, then tools** | UX1, UX2, UX13, UX9, UX11, UX15, UX16, then T2, T8 | `App.tsx`, project save and open, ribbon search, Settings, then new `nodes/` files |
 
 ### Statistics workspace: about 11 sessions
 
