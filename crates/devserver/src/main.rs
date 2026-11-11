@@ -456,6 +456,14 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "unique_values" => json!(e.unique_values(&s(a, "id")?, &s(a, "field")?, a["limit"].as_u64().unwrap_or(100) as usize)?),
         "quantile_breaks" => json!(e.quantile_breaks(&s(a, "id")?, &s(a, "field")?, a["classes"].as_u64().unwrap_or(5) as usize)?),
         "tool_specs" => json!(e.tool_specs()),
+        "batch_list_folder" => json!(engine::batch::list_folder(&PathBuf::from(s(a, "folder")?))?.into_iter().map(|p| p.display().to_string()).collect::<Vec<_>>()),
+        "run_batch" => {
+            let items = e.run_batch(&engine::batch::request_from(&a["request"])?)?;
+            for l in items.iter().filter_map(|i| i.layer.as_ref()) {
+                let _ = e.prewarm(&l.id, 8, &[]);
+            }
+            json!(items)
+        }
         "node_groups_list" => json!(engine::node_groups::list()),
         "node_group_get" => json!(engine::node_groups::get(&s(a, "name")?)?),
         "node_group_save" => json!(engine::node_groups::save(&a["group"])?),

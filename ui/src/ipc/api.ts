@@ -610,6 +610,29 @@ export interface OutFieldsRule {
 
 export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";
 
+/** Batch run (UX5); the engine's `batch` types. */
+export type BatchSource = { kind: "file"; path: string } | { kind: "layer"; id: string };
+export interface BatchRequest {
+  graph: GraphPayload;
+  inputNode: string;
+  resultNode: string;
+  sources: BatchSource[];
+  outDir: string;
+  format: string;
+  overwrite: boolean;
+  addToProject: boolean;
+}
+export interface BatchItem {
+  name: string;
+  source: string;
+  status: "done" | "failed" | "skipped" | "cancelled";
+  message: string | null;
+  rows: number | null;
+  output: string | null;
+  layer: LayerInfo | null;
+  millis: number;
+}
+
 /** Reusable node groups (UX8); the engine's `node_groups::Group`. */
 export interface NodeGroupNode {
   id: string;
@@ -917,6 +940,8 @@ export const api = {
   toolSpecs: () => invoke<ToolSpec[]>("tool_specs"),
   runGraph: (graph: GraphPayload, target?: string | null) =>
     invoke<NodeResult[]>("run_graph", { graph, target: target ?? null }),
+  batchListFolder: (folder: string) => invoke<string[]>("batch_list_folder", { folder }),
+  runBatch: (request: BatchRequest) => invoke<BatchItem[]>("run_batch", { request }),
   nodeGroupsList: () => invoke<NodeGroupSummary[]>("node_groups_list"),
   nodeGroupGet: (name: string) => invoke<NodeGroup>("node_group_get", { name }),
   nodeGroupSave: (group: NodeGroup) => invoke<NodeGroup>("node_group_save", { group }),

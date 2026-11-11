@@ -20,6 +20,7 @@ pub mod whitebox;
 pub mod transform_report;
 pub mod grids;
 pub mod check;
+pub mod batch;
 pub mod node_groups;
 pub mod crs_warnings;
 pub mod vertical;
@@ -1715,6 +1716,11 @@ impl Engine {
     }
 
     pub fn run_graph(&self, graph: &Graph, target: Option<&str>, on_status: &mut dyn FnMut(&NodeResult)) -> Result<Vec<NodeResult>> {
+        self.run_graph_in(graph, target, on_status, None)
+    }
+
+    /// `run_graph`, also stopping when `parent` (a batch run, UX5) is cancelled.
+    pub(crate) fn run_graph_in(&self, graph: &Graph, target: Option<&str>, on_status: &mut dyn FnMut(&NodeResult), parent: Option<progress::TaskHandle>) -> Result<Vec<NodeResult>> {
         let pool = self.pool.read();
         let conn = pool.get()?;
         let mut cache = self.graph_cache.lock();
@@ -1750,14 +1756,14 @@ impl Engine {
                 // flag when a query starts, so a Cancel that lands between
                 // two queries must hit the next one too.
                 while !finished.load(Ordering::Relaxed) {
-                    if handle.check().is_err() {
+                    if handle.check().is_err() || parent.is_some_and(|p| p.check().is_err()) {
                         interrupt.interrupt();
                         stop_rasters.store(true, Ordering::Relaxed); // raster steps stop via GDAL's progress callback
                     }
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
             });
-            let out = progress::with_cancel_flag(stop_rasters.clone(), || graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report, &|| handle.check().is_err()));
+            let out = progress::with_cancel_flag(stop_rasters.clone(), || graph::run(&conn, &self.tools, self, &mut cache, graph, target, &mut report, &|| handle.check().is_err() || parent.is_some_and(|p| p.check().is_err())));
             finished.store(true, Ordering::Relaxed);
             out
         })

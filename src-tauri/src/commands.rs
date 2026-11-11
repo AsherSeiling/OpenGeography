@@ -336,6 +336,19 @@ pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<engine::nodes::SpecOut>> {
     blocking(&engine, |e| Ok(e.tool_specs())).await
 }
 
+/// Batch run (UX5): data files in a folder, then a node tree over many inputs with a report per input.
+#[tauri::command]
+pub async fn batch_list_folder(folder: String) -> Res<Vec<String>> {
+    engine::batch::list_folder(std::path::Path::new(&folder)).map(|v| v.into_iter().map(|p| p.display().to_string()).collect()).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn run_batch(engine: Eng<'_>, request: engine::batch::BatchRequest) -> Res<Vec<engine::batch::BatchItem>> {
+    let items = blocking(&engine, move |e| e.run_batch(&request)).await?;
+    prewarm(&engine, items.iter().filter_map(|i| i.layer.as_ref().map(|l| l.id.clone())).collect());
+    Ok(items)
+}
+
 /// Reusable node groups (UX8): the user's library of saved parts of node trees.
 #[tauri::command]
 pub async fn node_groups_list() -> Res<Vec<engine::node_groups::Summary>> {

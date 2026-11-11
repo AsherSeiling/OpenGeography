@@ -625,3 +625,10 @@ Python stays the default scripting language, but queries (Definition Query, Sele
 - **Library in the user's data folder** (`node-groups/*.gisgroup`, JSON), so every project sees it; sharing is one file via Share/Import. Nothing is saved in the project file, so project format and Lane B's save/open are untouched.
 - **Layers are never part of a group.** Layer settings are emptied on save and again on import (a layer id means nothing in another project and would leak one). Scripts inside a group stay behind the existing per-computer script approval. Files from others are checked for format, version, size, every tool id, connections and duplicate ids.
 - **Entry point is a Groups button in the node editor toolbar** (`GroupsMenu`, one line added to `ModelPane.tsx`), not the ribbon or Shift+A menu, to stay out of Lane B's files.
+
+## UX5 Batch run (Wave 2, Lane A)
+- **A batch runs the open node tree per input and writes each result with the Export Features tool** (a temporary step after the chosen result step), so the coordinate system is written, a source file is refused, and there is one export code path. Inputs from files are imported, used and removed again; project layers given as inputs stay. "Tool" batches are a tree with one tool in it.
+- **A result is a new file in a chosen folder; an existing file is left alone (reported as "left as it was")** unless the user ticks replace. Even then a result never replaces its own input. Reason: Output never modifies source data, and replacing is the less reversible choice.
+- **One bad input never stops the rest.** Every input gets a row (Succeeded, Failed with a sentence, Left as it was, Cancelled). Cancel interrupts the running input (the batch passes its own cancel to the model run) and marks the rest Cancelled.
+- **Substitution is by Layer Input node:** the chosen node's layer becomes each input's original data (not another layer's node-tree result). Other Layer Input nodes in the tree keep their layers.
+- **Entry point is a Batch button in the node editor toolbar** (`BatchDialog`, one line in `ModelPane.tsx`). Folder scan is not recursive.
