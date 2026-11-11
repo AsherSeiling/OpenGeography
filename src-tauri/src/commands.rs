@@ -430,6 +430,48 @@ pub async fn new_project(engine: Eng<'_>) -> Res<()> {
     blocking(&engine, |e| e.new_project()).await
 }
 
+/// Autosave (UX1): write the separate recovery copy. Never touches the open project; the UI keeps its unsaved mark.
+#[tauri::command]
+pub async fn write_recovery(engine: Eng<'_>, ui_state: String, origin: Option<PathBuf>, name: String) -> Res<()> {
+    blocking(&engine, move |e| e.write_recovery(&engine::recovery::root()?, &ui_state, origin.as_deref(), &name)).await
+}
+
+/// Recovery copies left by a run that ended without a clean save (offered at start).
+#[tauri::command]
+pub async fn list_recovery() -> Res<Vec<engine::recovery::RecoveryEntry>> {
+    Ok(engine::recovery::list(&engine::recovery::root().map_err(|e| format!("{e:#}"))?))
+}
+
+/// Delete one recovery copy (the user chose to discard it).
+#[tauri::command]
+pub async fn discard_recovery(id: String) -> Res<()> {
+    engine::recovery::discard(&engine::recovery::root().map_err(|e| format!("{e:#}"))?, &id).map_err(|e| format!("{e:#}"))
+}
+
+/// Remove this run's own recovery copy (after a clean save, or when the work was left on purpose).
+#[tauri::command]
+pub async fn discard_own_recovery() -> Res<()> {
+    engine::recovery::discard_own(&engine::recovery::root().map_err(|e| format!("{e:#}"))?).map_err(|e| format!("{e:#}"))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoredProject {
+    ui_state: String,
+    layers: Vec<LayerInfo>,
+    origin: Option<String>,
+}
+
+/// Restore a recovery copy as an unsaved project. The copy stays until the UI discards it.
+#[tauri::command]
+pub async fn restore_recovery(engine: Eng<'_>, id: String) -> Res<RestoredProject> {
+    blocking(&engine, move |e| {
+        let r = e.restore_recovery(&engine::recovery::root()?, &id)?;
+        Ok(RestoredProject { ui_state: r.ui_state, layers: e.list_layers(), origin: r.origin })
+    })
+    .await
+}
+
 /// Messages from the UI (startup report, uncaught errors), printed to the
 /// app's stderr so problems in release builds can be diagnosed.
 #[tauri::command]

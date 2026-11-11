@@ -662,6 +662,7 @@ export async function saveProject(saveAs = false) {
   const ok = await busy("Saving project", () => api.saveProject(dir!, JSON.stringify(uiState())));
   if (ok === undefined) return;
   useApp.getState().set({ projectDir: dir, dirty: false });
+  void clearOwnRecovery(); // the project file now holds everything the recovery copy did
   useRun.getState().set({ results: {} }); // cache tables are not saved
   const bib = useBibPrefs.getState().autoExport ? await exportBibliography(`${dir}/Bibliography`) : 0;
   status(`Saved ${dir}${bib ? ` · annotated bibliography (APA, MLA, Chicago, BibTeX, RIS) in Bibliography/` : ""}`);
@@ -715,6 +716,7 @@ export async function openProject(path?: string) {
 const projectLayers = (layers: LayerInfo[]) => Object.fromEntries(layers.filter((l) => !l.temporary && !l.resultOf).map((l) => [l.id, l]));
 
 function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | null, loaded?: Extract<LoadedMaps, { ok: true }>) {
+  void clearOwnRecovery(); // the work this run was holding was left on purpose (opened or started another project)
   nextProjectEpoch(); // a new project's layers may reuse ids and versions (U-6)
   closeLayoutPanels(); // the dock layout below brings back the new project's layout tabs
   const byId = projectLayers(layers);
@@ -774,6 +776,81 @@ export async function newProject() {
   restoreState([], {}, null);
   applySettings(useSettings.getState().settings); // the default coordinate system for the new, empty map
   status("New project");
+}
+
+// ---------- autosave and crash recovery (UX1) ----------
+
+/** Remove this run's recovery copy. Never throws: a copy that can't be removed is only offered again after a crash. */
+export async function clearOwnRecovery() {
+  try {
+    await api.discardOwnRecovery();
+  } catch {
+    /* nothing to remove, or the engine isn't there */
+  }
+}
+
+let autosaving = false;
+let lastAutosaveError = "";
+
+/**
+ * Write the recovery copy of unsaved work, if there is any. It is a separate copy kept by the app, never the project folder, and it
+ * neither marks the project saved nor changes it. Returns "saved", "skipped" (nothing unsaved, or one is already being written) or the
+ * error sentence (reported once in the status bar, not on every try).
+ */
+export async function autosaveProject(): Promise<string> {
+  if (autosaving || !useApp.getState().dirty) return "skipped";
+  autosaving = true;
+  try {
+    await flushLayoutSaves();
+    const dir = useApp.getState().projectDir;
+    const name = dir ? (dir.split(/[\\/]/).pop() ?? dir).replace(/\.gproj$/, "") : "Untitled project";
+    await api.writeRecovery(JSON.stringify(uiState()), dir, name);
+    lastAutosaveError = "";
+    // Saved by the user while this was being written: the copy is stale now.
+    if (!useApp.getState().dirty) await clearOwnRecovery();
+    return "saved";
+  } catch (e) {
+    const msg = errorText(e);
+    if (msg !== lastAutosaveError) status(`Autosave: ${msg}`);
+    lastAutosaveError = msg;
+    return msg;
+  } finally {
+    autosaving = false;
+  }
+}
+
+/**
+ * Bring back a recovery copy as unsaved work (the next Save asks where to put it). The old copy is removed only once the restored work
+ * has been written to a new one, so a failure in between loses nothing. Returns whether the work was restored.
+ */
+export async function restoreRecovery(id: string): Promise<boolean> {
+  const res = await busy("Restoring recovered work", () => api.restoreRecovery(id));
+  if (!res) return false;
+  let ui: Partial<UiState> = {};
+  try {
+    ui = JSON.parse(res.uiState);
+  } catch {
+    /* fall back to defaults */
+  }
+  const loaded = loadMaps(ui, Object.keys(projectLayers(res.layers)));
+  if (!loaded.ok) {
+    status(loaded.error);
+    reportError(loaded.error, "action:Restoring recovered work", { title: "This recovery copy can't be used", context: "restoring recovered work" });
+    return false;
+  }
+  await loadLayouts();
+  restoreState(res.layers, ui, null, loaded);
+  useApp.setState({ dirty: true });
+  const from = res.origin ? ` It came from ${res.origin}; that project folder was not changed.` : "";
+  status(`Restored your unsaved work.${from} It is not saved yet: use Save to choose where it goes.`);
+  if ((await autosaveProject()) === "saved") {
+    try {
+      await api.discardRecovery(id);
+    } catch {
+      /* it will be offered again; harmless */
+    }
+  }
+  return true;
 }
 
 /** Open the table pane on a node of the open tree; `compare` also diffs it against its input. */

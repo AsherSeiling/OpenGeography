@@ -6,7 +6,9 @@ import "dockview-react/dist/styles/dockview.css";
 import { useEffect } from "react";
 import { startProgressPolling } from "./progress/progress";
 import { useSettings } from "./store/settings";
-import { addData, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
+import { addData, autosaveProject, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
+import { RecoveryDialog } from "./recovery/RecoveryDialog";
+import { autosaveEveryMinutes } from "./recovery/format";
 import { EditHost } from "./edit/EditHost";
 import { ScriptApprovalDialog } from "./dialogs/ScriptApprovalDialog";
 import { Dialogs } from "./dialogs/Dialogs";
@@ -75,6 +77,14 @@ export function App() {
   useEffect(() => applyThemeMode(dark ? "dark" : "light"), [dark]);
 
   useEffect(startProgressPolling, []);
+  // Autosave (UX1): a separate recovery copy of unsaved work on a timer; the project itself is never written and stays marked unsaved.
+  const autosaveSetting = useSettings((s) => s.settings.autosaveMinutes);
+  const autosaveMinutes = autosaveEveryMinutes(autosaveSetting);
+  useEffect(() => {
+    if (!autosaveMinutes) return;
+    const t = setInterval(() => void autosaveProject(), autosaveMinutes * 60_000);
+    return () => clearInterval(t);
+  }, [autosaveMinutes]);
   // Program settings (UR-16): read once at start and applied. (The ribbon's Dark Theme keeps using the app's own remembered choice; the theme in Settings is saved to the file.)
   useEffect(() => {
     void useSettings.getState().load();
@@ -184,6 +194,7 @@ export function App() {
         <BookmarkNameDialog />
         <Dialogs />
         <ScriptApprovalDialog />
+        <RecoveryDialog />
         <EditHost />
         <ErrorDialog />
       </div>

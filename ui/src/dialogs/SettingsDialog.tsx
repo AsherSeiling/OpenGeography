@@ -7,6 +7,7 @@ import { AREA_UNITS, LENGTH_UNITS } from "../nav/geodesy";
 import { useSettings } from "../store/settings";
 import { useApp } from "../store/store";
 import { StartupPanesSection } from "./StartupPanes";
+import { AUTOSAVE_CHOICES, autosaveEveryMinutes } from "../recovery/format";
 
 const COMMON_CRS: [string, string][] = [["EPSG:4326", "WGS 84 (EPSG:4326)"], ["EPSG:4269", "NAD83 (EPSG:4269)"], ["EPSG:3857", "Web Mercator (EPSG:3857)"], ["EPSG:5070", "NAD83 / Conus Albers (EPSG:5070)"]];
 
@@ -70,6 +71,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <Input size="small" aria-label="Another coordinate system" placeholder="Another: EPSG:26914, or a definition" value={crsText} onChange={(_, d) => setCrsText(d.value)} onKeyDown={(e) => e.key === "Enter" && void applyCrs(crsText)} style={{ flex: 1 }} />
               <Button size="small" disabled={!crsText.trim()} onClick={() => void applyCrs(crsText)}>Use</Button>
             </div>
+            <Field label="Autosave" size="small" hint="Keeps a separate copy of unsaved work so it can be offered back after a crash. It never changes your project or the data you imported, and it is removed when you save.">
+              <Dropdown size="small" aria-label="Autosave" value={AUTOSAVE_CHOICES.find(([n]) => n === autosaveEveryMinutes(settings.autosaveMinutes))?.[1] ?? `Every ${autosaveEveryMinutes(settings.autosaveMinutes)} minutes`} selectedOptions={[String(autosaveEveryMinutes(settings.autosaveMinutes))]} onOptionSelect={(_, d) => void save({ autosaveMinutes: Number(d.optionValue) })}>
+                {AUTOSAVE_CHOICES.map(([n, l]) => <Option key={n} value={String(n)}>{l}</Option>)}
+              </Dropdown>
+            </Field>
             <Checkbox label="Show developer tools" checked={!!settings.showDeveloperTools} onChange={(_, d) => void save({ showDeveloperTools: !!d.checked })} />
             <div className="muted small">Adds a Developer group to the View tab: Frame Rate, Benchmark and Generate Test Data. Off by default.</div>
             <StartupPanesSection />

@@ -155,6 +155,20 @@ export interface ProgramSettings {
   coordinateFormat?: string | null;
   /** Show the Developer group on the View tab (Frame Rate, Benchmark, Generate Test Data). Off by default. */
   showDeveloperTools?: boolean | null;
+  /** Minutes between autosaves of the recovery copy; 0 = off; unset = 2 (UX1). */
+  autosaveMinutes?: number | null;
+}
+
+/** A recovery copy left by a run that ended without a clean save (UX1). */
+export interface RecoveryEntry {
+  id: string;
+  name: string;
+  /** The project folder it came from; null for work that was never saved. */
+  origin: string | null;
+  /** Seconds since 1970. */
+  writtenAt: number;
+  /** Why it can't be restored, as a sentence; null when it is whole. */
+  problem: string | null;
 }
 
 export interface Citation {
@@ -906,6 +920,11 @@ export const api = {
   saveProject: (dir: string, uiState: string) => invoke<void>("save_project", { dir, uiState }),
   openProject: (dir: string) => invoke<{ uiState: string; layers: LayerInfo[] }>("open_project", { dir }),
   newProject: () => invoke<void>("new_project"),
+  writeRecovery: (uiState: string, origin: string | null, name: string) => invoke<void>("write_recovery", { uiState, origin, name }),
+  listRecovery: () => invoke<RecoveryEntry[]>("list_recovery"),
+  discardRecovery: (id: string) => invoke<void>("discard_recovery", { id }),
+  discardOwnRecovery: () => invoke<void>("discard_own_recovery"),
+  restoreRecovery: (id: string) => invoke<{ uiState: string; layers: LayerInfo[]; origin: string | null }>("restore_recovery", { id }),
   listLayouts: () => invoke<Layout[]>("list_layouts"),
   saveLayout: (layout: Layout) => invoke<void>("save_layout", { layout }),
   deleteLayout: (id: string) => invoke<void>("delete_layout", { id }),

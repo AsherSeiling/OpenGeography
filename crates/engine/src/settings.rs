@@ -31,6 +31,8 @@ pub struct Settings {
     pub coordinate_format: Option<String>,
     /// RB3: show the Developer group (Frame Rate, Benchmark, Generate Test Data) on the View tab. Off unless the user turns it on.
     pub show_developer_tools: Option<bool>,
+    /// UX1: minutes between autosaves of the recovery copy (0 = off). None = the default (2).
+    pub autosave_minutes: Option<u32>,
 }
 
 fn text(v: &Value, key: &str, allowed: Option<&[&str]>) -> Option<String> {
@@ -63,6 +65,7 @@ impl Settings {
             scripting_language: text(v, "scriptingLanguage", None),
             coordinate_format: text(v, "coordinateFormat", Some(&["dd", "dms", "projected", "mgrs"])),
             show_developer_tools: v.get("showDeveloperTools").and_then(|b| b.as_bool()),
+            autosave_minutes: v.get("autosaveMinutes").and_then(|n| n.as_u64()).filter(|n| *n <= 120).map(|n| n as u32),
         }
     }
 }

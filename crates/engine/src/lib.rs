@@ -43,6 +43,7 @@ pub mod nodes;
 pub mod geomkit;
 pub mod network;
 pub mod progress;
+pub mod recovery;
 pub mod pyscript;
 pub mod raster;
 pub mod raster_style;

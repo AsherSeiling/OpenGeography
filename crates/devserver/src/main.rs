@@ -515,6 +515,14 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "render_layout_preview" => json!(e.render_layout_preview(&de(a, "req")?, f(a, "dpi")?)?),
         "export_layout" => json!(e.export_layout(&de(a, "req")?, engine::layout::ExportFormat::parse(&s(a, "format")?)?, f(a, "dpi")?, &PathBuf::from(s(a, "path")?))?),
         "new_project" => json!(e.new_project()?),
+        "write_recovery" => json!(e.write_recovery(&engine::recovery::root()?, &s(a, "uiState")?, a["origin"].as_str().map(std::path::Path::new), &s(a, "name")?)?),
+        "list_recovery" => json!(engine::recovery::list(&engine::recovery::root()?)),
+        "discard_recovery" => json!(engine::recovery::discard(&engine::recovery::root()?, &s(a, "id")?)?),
+        "discard_own_recovery" => json!(engine::recovery::discard_own(&engine::recovery::root()?)?),
+        "restore_recovery" => {
+            let r = e.restore_recovery(&engine::recovery::root()?, &s(a, "id")?)?;
+            json!({ "uiState": r.ui_state, "layers": e.list_layers(), "origin": r.origin })
+        }
         other => return Err(anyhow!("unknown command {other}")),
     })
 }
