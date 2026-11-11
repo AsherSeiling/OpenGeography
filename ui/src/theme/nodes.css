@@ -126,3 +126,8 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .react-flow__edge:focus-visible path { stroke: var(--focus, var(--accent)) !important; stroke-width: 3px !important; }
 .bnode-eye { background: none; border: 0; padding: 0 2px; color: inherit; cursor: pointer; display: inline-flex; opacity: 0.75; }
 .bnode-eye:hover { opacity: 1; }
+.bnode-problems { display: flex; flex-direction: column; gap: 2px; padding: 2px 8px; }
+.bnode-problem { display: flex; align-items: flex-start; gap: 4px; font-size: 11px; line-height: 1.3; flex-wrap: wrap; }
+.bnode-problem.error { color: var(--error); }
+.bnode-problem.warning { color: var(--warn); }
+.bnode-problem svg { flex: none; margin-top: 1px; }

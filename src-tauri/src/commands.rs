@@ -337,6 +337,11 @@ pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<engine::nodes::SpecOut>> {
 }
 
 #[tauri::command]
+pub async fn check_graph(engine: Eng<'_>, graph: Graph) -> Res<Vec<engine::check::NodeProblem>> {
+    blocking(&engine, move |e| e.check_graph(&graph)).await
+}
+
+#[tauri::command]
 pub async fn run_graph(app: AppHandle, engine: Eng<'_>, graph: Graph, target: Option<String>) -> Res<Vec<NodeResult>> {
     let results = blocking(&engine, move |e| {
         e.run_graph(&graph, target.as_deref(), &mut |r| {

@@ -19,6 +19,7 @@ pub mod kriging;
 pub mod whitebox;
 pub mod transform_report;
 pub mod grids;
+pub mod check;
 pub mod crs_warnings;
 pub mod vertical;
 pub mod remote_sensing;
@@ -1759,6 +1760,12 @@ impl Engine {
             finished.store(true, Ordering::Relaxed);
             out
         })
+    }
+
+    /// Check before running (UX7): coordinate-system problems on a tree, without running it (`check.rs`).
+    pub fn check_graph(&self, graph: &Graph) -> Result<Vec<check::NodeProblem>> {
+        let layers = self.layers.read().clone();
+        check::check_graph(graph, &self.tools, &layers)
     }
 
     /// Show a node's cached output on the map as a temporary layer.

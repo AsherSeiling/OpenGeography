@@ -4,7 +4,9 @@
 import { ToolIcon } from "./toolIcon";
 import { useShallow } from "zustand/react/shallow";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Eye16Regular, ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
+import { useEffect } from "react";
+import { applyFix, startChecks, useChecks } from "./checks";
+import { Warning16Filled, Eye16Regular, ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
 import { saveResultAsLayer } from "../actions";
 import type { NodeResult } from "../ipc/api";
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
@@ -114,6 +116,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
 
       {data.tool === "layer_output" && !data.collapsed && <OutputControls owner={String(data.params.layer ?? "")} status={r?.status} changed={changed} />}
 
+      {!data.collapsed && <NodeProblems id={id} />}
       {r?.reprojected && (
         <div className="bnode-note" title="An input was reprojected to match the first input's coordinate system">
           <Globe16Regular /> input reprojected
@@ -124,6 +127,28 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
           {isWaiting(r.error) ? <ScriptWaiting nodeId={id} params={data.params} /> : r.error}
         </div>
       )}
+    </div>
+  );
+}
+
+/** UX7: what is wrong with this step before it runs, each with its safe one-click fix if it has one. */
+function NodeProblems({ id }: { id: string }) {
+  const list = useChecks((s) => s.problems[id]);
+  useEffect(() => startChecks(), []);
+  if (!list?.length) return null;
+  return (
+    <div className="bnode-problems nodrag" data-testid="node-problems">
+      {list.map((p, i) => (
+        <div key={`${p.code}-${i}`} className={`bnode-problem ${p.severity}`} title={p.message}>
+          {p.severity === "error" ? <ErrorCircle16Filled /> : <Warning16Filled />}
+          <span>{p.message}</span>
+          {p.fix && (
+            <button className="bctl bbtn" onClick={(e) => { e.stopPropagation(); const said = applyFix(p); if (said) useApp.getState().setStatus(said); }}>
+              {p.fix.label}
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

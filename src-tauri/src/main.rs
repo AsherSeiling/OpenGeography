@@ -85,6 +85,7 @@ fn main() {
             commands::quantile_breaks,
             commands::tool_specs,
             commands::run_graph,
+            commands::check_graph,
             commands::preview_output,
             commands::clear_model_cache,
             commands::prune_node_cache,

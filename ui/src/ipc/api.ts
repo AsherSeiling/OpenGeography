@@ -610,6 +610,16 @@ export interface OutFieldsRule {
 
 export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";
 
+/** A problem found on a node before running (UX7). `fix` is a safe, explicit Project step in front of `port`. */
+export interface NodeProblem {
+  node: string;
+  port: string;
+  severity: "error" | "warning";
+  code: string;
+  message: string;
+  fix: { port: string; crs: string } | null;
+}
+
 export interface NodeResult {
   id: string;
   status: NodeStatus;
@@ -885,6 +895,7 @@ export const api = {
   toolSpecs: () => invoke<ToolSpec[]>("tool_specs"),
   runGraph: (graph: GraphPayload, target?: string | null) =>
     invoke<NodeResult[]>("run_graph", { graph, target: target ?? null }),
+  checkGraph: (graph: GraphPayload) => invoke<NodeProblem[]>("check_graph", { graph }),
   previewOutput: (output: string, crs: string | null, name: string) =>
     invoke<LayerInfo>("preview_output", { output, crs, name }),
   clearModelCache: () => invoke<void>("clear_model_cache"),
