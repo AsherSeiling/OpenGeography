@@ -3,6 +3,7 @@ import { AlignMenu, BasemapGallery, DistributeMenu, DpiBox, MapFrameInsert, NewL
 // PageMenu lives in Ribbon.tsx (a hoisted function declaration, so the import cycle is safe).
 import { PageMenu } from "./Ribbon";
 import { Shelf } from "./shelf";
+import { ToolMenus } from "./toolDropdowns";
 import { SwipeMenu } from "../map/SwipeUi";
 import { BookmarksMenu, FrameBookmarkMenu } from "../map/BookmarkMenu";
 import type { Group } from "./tabs";
@@ -55,6 +56,7 @@ export const TABS: Record<string, Group[]> = {
   ],
   Analysis: [
     { label: "Geoprocessing", items: [{ cmd: "addTool" }, { cmd: "runModel" }] },
+    { label: "Tools", items: [{ custom: <ToolMenus /> }] },
     { label: "Favourites", items: [{ custom: <Shelf /> }] },
   ],
   // The layout workspace: Page, Insert (the same tab as in the map), Arrange, View (the same tab as in the map, with Zoom active) and Export.

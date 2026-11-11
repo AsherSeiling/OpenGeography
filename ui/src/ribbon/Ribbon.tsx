@@ -21,6 +21,7 @@ import { TopSearch } from "./search";
 import { KEY_TIPS, LAYOUT_ORDER, MAIN_TABS, TABS } from "./tabsDef";
 import { useRibbonTabs, type Group } from "./tabs";
 import { useEdit } from "../edit/editStore";
+import { useRun } from "../store/model";
 import { useSaved } from "../edit/editActions";
 
 /** The contextual tab for the active layer: its name follows what the layer is. */
@@ -56,6 +57,7 @@ export function Ribbon() {
   useLayoutView((s) => s.preflightOpen);
   // The Map Frame tab is there only while a map frame is selected.
   const frameSelected = useLayouts((s) => !!s.doc?.elements.some((e) => e.kind === "map_frame" && s.selected.includes(e.id)));
+  const toolCount = useRun((s) => Object.keys(s.specs).length); // the Tools group on Analysis is as wide as the tool list is long
   const registered = useRibbonTabs((s) => s.tabs);
   // Opening a layout brings its Page tab forward; the map's tabs (Map, Analysis, Feature Layer) leave while a layout is open.
   useEffect(() => {
@@ -155,7 +157,7 @@ export function Ribbon() {
   const [forced, setForced] = useState<Variant | null>(null);
   const [fit, setFit] = useState<{ variants: Variant[]; shown: number } | null>(null);
   const widths = useRef<Record<string, number[][]>>({});
-  const layoutKey = `${current}|${groups.length}`;
+  const layoutKey = `${current}|${groups.length}|${toolCount}`;
   const measure = useCallback(() => {
     const el = body.current;
     if (!el) return;
