@@ -157,6 +157,10 @@ export interface ProgramSettings {
   showDeveloperTools?: boolean | null;
   /** Minutes between autosaves of the recovery copy; 0 = off; unset = 2 (UX1). */
   autosaveMinutes?: number | null;
+  /** Project folders opened or saved recently, newest first (UX2). */
+  recentProjects?: string[] | null;
+  /** Show the Start page when the app opens; unset = yes (UX2). */
+  showStartPage?: boolean | null;
 }
 
 /** A recovery copy left by a run that ended without a clean save (UX1). */

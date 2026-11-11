@@ -81,6 +81,7 @@ function paneToggle(id: string, pane: PaneId, label: string, icon: ReactElement,
 const list: Command[] = [
   // Project
   { id: "new", label: "New", icon: <RIcon name="new" />, run: newProject, tip: "Start a new project" },
+  { id: "startPage", label: "Start Page", icon: <RIcon name="new" />, run: () => useDialog.getState().show({ kind: "start" }), tip: "Recent projects, new project from a template, sample data" },
   { id: "open", label: "Open", icon: <RIcon name="open-project" />, run: openProject, keys: "Ctrl+O", tip: "Open a .gproj project folder" },
   { id: "save", label: "Save", icon: <RIcon name="save" />, run: () => saveProject(), keys: "Ctrl+S", tip: "Save the project" },
   { id: "saveAs", label: "Save As", icon: <RIcon name="save-as" />, run: () => saveProject(true), tip: "Save the project to a new folder" },

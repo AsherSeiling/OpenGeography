@@ -33,7 +33,14 @@ pub struct Settings {
     pub show_developer_tools: Option<bool>,
     /// UX1: minutes between autosaves of the recovery copy (0 = off). None = the default (2).
     pub autosave_minutes: Option<u32>,
+    /// UX2: project folders opened or saved recently, newest first (at most 10). Paths only; whether they still exist is checked when opened.
+    pub recent_projects: Option<Vec<String>>,
+    /// UX2: show the Start page when the app opens. None = yes.
+    pub show_start_page: Option<bool>,
 }
+
+/// How many recent projects are kept.
+pub const MAX_RECENT: usize = 10;
 
 fn text(v: &Value, key: &str, allowed: Option<&[&str]>) -> Option<String> {
     let s = v.get(key)?.as_str()?.trim();
@@ -66,6 +73,16 @@ impl Settings {
             coordinate_format: text(v, "coordinateFormat", Some(&["dd", "dms", "projected", "mgrs"])),
             show_developer_tools: v.get("showDeveloperTools").and_then(|b| b.as_bool()),
             autosave_minutes: v.get("autosaveMinutes").and_then(|n| n.as_u64()).filter(|n| *n <= 120).map(|n| n as u32),
+            recent_projects: v.get("recentProjects").and_then(|a| a.as_array()).map(|a| {
+                let mut out: Vec<String> = vec![];
+                for p in a.iter().filter_map(|p| p.as_str()).map(str::trim).filter(|p| !p.is_empty() && p.len() <= 4096) {
+                    if !out.iter().any(|o| o == p) && out.len() < MAX_RECENT {
+                        out.push(p.to_string());
+                    }
+                }
+                out
+            }),
+            show_start_page: v.get("showStartPage").and_then(|b| b.as_bool()),
         }
     }
 }

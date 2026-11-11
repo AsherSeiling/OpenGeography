@@ -43,7 +43,7 @@ describe("ribbon reach", () => {
   });
 
   it("keeps the project menu to New, Open and Save As", () => {
-    expect(PROJECT_MENU).toEqual(["new", "open", "saveAs", "settings"]);
+    expect(PROJECT_MENU).toEqual(["new", "open", "saveAs", "startPage", "settings"]);
   });
 
   it("has no Geoprocessing pane command", () => {

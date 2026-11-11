@@ -24,6 +24,7 @@ import { styleFromSymbologyNode } from "./layers/nodeStyle";
 import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
 import { nextProjectEpoch } from "./store/projectEpoch";
 import { flushLayoutSaves, useLayouts } from "./store/layout";
+import { pushRecent, type StartTemplate } from "./start/recent";
 
 // ---------- dialogs ----------
 
@@ -62,7 +63,8 @@ export type DialogState =
   | { kind: "stac" }
   | { kind: "census"; layer: string }
   | { kind: "projectionBuilder" }
-  | { kind: "nodeShortcuts" };
+  | { kind: "nodeShortcuts" }
+  | { kind: "start" };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,
@@ -663,6 +665,7 @@ export async function saveProject(saveAs = false) {
   if (ok === undefined) return;
   useApp.getState().set({ projectDir: dir, dirty: false });
   void clearOwnRecovery(); // the project file now holds everything the recovery copy did
+  void rememberProject(dir);
   useRun.getState().set({ results: {} }); // cache tables are not saved
   const bib = useBibPrefs.getState().autoExport ? await exportBibliography(`${dir}/Bibliography`) : 0;
   status(`Saved ${dir}${bib ? ` · annotated bibliography (APA, MLA, Chicago, BibTeX, RIS) in Bibliography/` : ""}`);
@@ -709,6 +712,7 @@ export async function openProject(path?: string) {
   }
   await loadLayouts();
   restoreState(res.layers, ui, picked, loaded);
+  void rememberProject(picked);
   status(`Opened ${picked}${loaded.notes.length ? `. ${loaded.notes.join(" ")}` : ""}`);
 }
 
@@ -776,6 +780,36 @@ export async function newProject() {
   restoreState([], {}, null);
   applySettings(useSettings.getState().settings); // the default coordinate system for the new, empty map
   status("New project");
+}
+
+// ---------- start page (UX2) ----------
+
+/** Put a project folder at the top of the recent list (kept in the per-user settings, never in a project). */
+export async function rememberProject(dir: string) {
+  try {
+    const cur = useSettings.getState().settings.recentProjects ?? [];
+    const next = pushRecent(cur, dir);
+    if (next.join("\n") !== cur.join("\n")) await useSettings.getState().update({ recentProjects: next });
+  } catch {
+    /* the list is a convenience */
+  }
+}
+
+/** Forget one recent project (its folder is not touched). */
+export async function forgetProject(dir: string) {
+  const cur = useSettings.getState().settings.recentProjects ?? [];
+  await useSettings.getState().update({ recentProjects: cur.filter((p) => p !== dir) });
+}
+
+/** Start a new project from a start-page template (see start/templates.ts). */
+export async function newProjectFromTemplate(t: StartTemplate) {
+  await newProject();
+  // newProject asks before discarding unsaved work: only carry on if it really started a new one.
+  if (useApp.getState().projectDir !== null || useApp.getState().dirty) return;
+  const m = useApp.getState().maps.find((x) => x.id === useApp.getState().activeMapId);
+  if (t.crs && m) useApp.getState().setMapCrs(t.crs, m.id);
+  useApp.setState({ dirty: false });
+  status(`New project: ${t.name}`);
 }
 
 // ---------- autosave and crash recovery (UX1) ----------

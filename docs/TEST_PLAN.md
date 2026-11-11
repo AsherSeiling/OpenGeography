@@ -1287,3 +1287,12 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | CP3-2 | Polygon layer Properties: slider reads "Fill opacity"; new "Outline opacity" slider and the Outline picker's alpha edit the same stored colour; line and point layers keep "Opacity"; points get an optional outline colour | both controls always show the same percentage; a style with alpha survives save, reopen, copy to another layer | manual; copy and node parts auto in `ui/src/map/styleAlpha.test.ts` |
 | CP3-3 | Paper, app theme, raster class colours | picker opens without an opacity control (no alpha stored) | manual |
 
+
+## UX. Everyday usability (Wave 2, Lane B; `docs/MASTER_PLAN.md` Phase UX)
+
+| ID | Check | Expected | Coverage |
+|---|---|---|---|
+| UX2-1 | Recent projects: opening or saving a project puts its folder first in the list; a repeat moves to the top; at most ten; the list is in the per-user settings, never in a project; a blank, non-text or over-long entry in the file is dropped | as stated | auto: `ui/src/start/start.test.ts`, `engine::settings::recent_projects_and_autosave_are_cleaned_when_read` |
+| UX2-2 | Start page: opens when the desktop app starts (not in a browser dev session, not when there is work to recover, not when turned off); File menu › Start Page opens it; Remove drops a project from the list without touching it; a missing project folder gives the normal open error | as stated | manual (not run); templates and list logic auto in `start.test.ts` |
+| UX2-3 | New from template sets the first map's coordinate system (Blank, WGS 84, Web Mercator, Conus Albers) and leaves the project not unsaved; declining the unsaved-changes prompt starts nothing | as stated | auto: `start.test.ts` |
+| UX2-4 | Sample data: World land outline (bundled), 1,000 sample polygons, 1,000 sample points are added to the map with no download; the outline is cited in Sources | as stated | manual (not run) |

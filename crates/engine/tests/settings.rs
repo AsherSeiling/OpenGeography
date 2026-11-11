@@ -17,6 +17,9 @@ fn settings_round_trip_through_a_file_in_a_new_folder() {
         scripting_language: Some("python".into()),
         coordinate_format: Some("mgrs".into()),
         show_developer_tools: Some(true),
+        autosave_minutes: Some(5),
+        recent_projects: Some(vec!["/work/a.gproj".into(), "/work/b.gproj".into()]),
+        show_start_page: Some(false),
     };
     let saved = save_to(&file, &s).unwrap();
     assert_eq!(saved, s);
@@ -70,4 +73,22 @@ fn show_developer_tools_is_off_unless_a_real_true_is_stored() {
     assert_eq!(load_from(&file).show_developer_tools, Some(true));
     std::fs::write(&file, r#"{ "showDeveloperTools": "yes" }"#).unwrap();
     assert_eq!(load_from(&file).show_developer_tools, None);
+}
+
+#[test]
+fn recent_projects_and_autosave_are_cleaned_when_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("settings.json");
+    let many: Vec<String> = (0..15).map(|i| format!("/p/{i}.gproj")).collect();
+    let mut list = vec![json!("/p/0.gproj"), json!(7), json!("  "), json!("x".repeat(5000))];
+    list.extend(many.iter().map(|p| json!(p)));
+    std::fs::write(&file, json!({ "recentProjects": list, "autosaveMinutes": 500, "showStartPage": "yes" }).to_string()).unwrap();
+    let s = load_from(&file);
+    let r = s.recent_projects.unwrap();
+    assert_eq!(r.len(), 10, "at most ten");
+    assert_eq!(r[0], "/p/0.gproj");
+    assert_eq!(r.iter().filter(|p| *p == "/p/0.gproj").count(), 1, "no duplicates");
+    assert!(r.iter().all(|p| p.starts_with("/p/")), "numbers, blanks and huge strings are dropped");
+    assert_eq!(s.autosave_minutes, None, "out of range is ignored");
+    assert_eq!(s.show_start_page, None);
 }

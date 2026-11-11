@@ -9,6 +9,7 @@ import { useSettings } from "./store/settings";
 import { addData, autosaveProject, registerDock, registerMapPanelSync, saveProject, openProject } from "./actions";
 import { RecoveryDialog } from "./recovery/RecoveryDialog";
 import { autosaveEveryMinutes } from "./recovery/format";
+import { useDialog } from "./actions";
 import { EditHost } from "./edit/EditHost";
 import { ScriptApprovalDialog } from "./dialogs/ScriptApprovalDialog";
 import { Dialogs } from "./dialogs/Dialogs";
@@ -77,6 +78,20 @@ export function App() {
   useEffect(() => applyThemeMode(dark ? "dark" : "light"), [dark]);
 
   useEffect(startProgressPolling, []);
+  // The Start page opens when the desktop app starts (not in a browser dev session), unless turned off or there is work to recover first.
+  useEffect(() => {
+    if (!IN_TAURI) return;
+    void (async () => {
+      try {
+        const s = await api.getSettings();
+        if (s?.showStartPage === false) return;
+        if ((await api.listRecovery()).length) return;
+        if (!useDialog.getState().dialog) useDialog.getState().show({ kind: "start" });
+      } catch {
+        /* no start page; the app works without it */
+      }
+    })();
+  }, []);
   // Autosave (UX1): a separate recovery copy of unsaved work on a timer; the project itself is never written and stays marked unsaved.
   const autosaveSetting = useSettings((s) => s.settings.autosaveMinutes);
   const autosaveMinutes = autosaveEveryMinutes(autosaveSetting);
