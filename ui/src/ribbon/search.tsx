@@ -1,8 +1,13 @@
-// Tab-row search: commands, tools and layers in one box (Alt+Q). Tools and commands use the Shift+A menu's matcher (nodes/toolSearch.ts).
-// Picking a tool adds it to the active layer's node tree exactly as the menu does; picking a layer makes it the active one.
+// Tab-row search: commands, tools, layers, fields and coordinate systems in one box (Alt+Q). Tools and commands use the Shift+A menu's matcher (nodes/toolSearch.ts).
+// Picking a tool adds it to the active layer's node tree exactly as the menu does; picking a layer makes it the active one; a field opens
+// its layer's attribute table; a coordinate system becomes the map's (the same checked change as the picker).
 import { SearchRegular } from "@fluentui/react-icons";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { setMapCrsChecked } from "../actions";
+import { loadCatalog, type CrsEntry } from "../crs/crs";
+import { showPane } from "../panes/panes";
+import { crsHits, fieldHits } from "./searchSources";
 import { searchTools, type Searchable } from "../nodes/toolSearch";
 import { useToolMenu } from "../nodes/toolMenuStore";
 import { useRun } from "../store/model";
@@ -15,7 +20,7 @@ import { TABS } from "./tabsDef";
 interface Hit {
   key: string;
   label: string;
-  hint: "Command" | "Tool" | "Layer";
+  hint: "Command" | "Tool" | "Layer" | "Field" | "Coordinate system";
   disabled?: boolean;
   run: () => void;
 }
@@ -38,6 +43,11 @@ export function TopSearch() {
   const specs = useRun((s) => s.specs);
   const layers = useApp(useShallow((s) => projectLayerIds(s.order, s.layers).map((id) => s.layers[id]).filter((l) => l && !l.temporary)));
   const fav = useToolMenu((s) => s.fav);
+  const [catalog, setCatalog] = useState<CrsEntry[]>([]);
+  // The coordinate system list is loaded the first time someone types enough to look for one.
+  useEffect(() => {
+    if (value.trim().length >= 3 && !catalog.length) loadCatalog().then(setCatalog, () => {});
+  }, [value, catalog.length]);
 
   const cmdItems = useMemo(() => {
     const g = groupOf();
@@ -54,8 +64,19 @@ export function TopSearch() {
     const c = searchTools(cmdItems, value, fav).slice(0, 5).map((h): Hit => ({ key: `c:${h.item.id}`, label: h.item.name, hint: "Command", disabled: h.item.cmd.enabled ? !h.item.cmd.enabled() : false, run: () => h.item.cmd.run() }));
     const t = searchTools(toolItems, value, fav).slice(0, 7).map((h): Hit => ({ key: `t:${h.item.id}`, label: h.item.name, hint: "Tool", run: () => void addToolFromUi(h.item.id) }));
     const l = searchTools(layerItems, value, fav).slice(0, 3).map((h): Hit => ({ key: `l:${h.item.id}`, label: h.item.name, hint: "Layer", run: () => useApp.getState().setActiveLayer(h.item.id) }));
-    return [...c, ...t, ...l];
-  }, [value, cmdItems, toolItems, layerItems, fav]);
+    const f = fieldHits(layers, value).map((h): Hit => ({
+      key: `f:${h.layerId}:${h.field}`,
+      label: `${h.field} · ${h.layerName}`,
+      hint: "Field",
+      run: () => {
+        useApp.getState().setActiveLayer(h.layerId);
+        showPane("table");
+        useApp.getState().setStatus(`Opened the table of ${h.layerName}; ${h.field} is a ${h.type || "field"} column.`);
+      },
+    }));
+    const x = crsHits(catalog, value).map((e): Hit => ({ key: `x:${e.id}`, label: `${e.name} (${e.id})`, hint: "Coordinate system", run: () => void setMapCrsChecked(e.id, e.name) }));
+    return [...c, ...t, ...l, ...f, ...x];
+  }, [value, cmdItems, toolItems, layerItems, layers, catalog, fav]);
 
   const close = () => {
     setValue("");
@@ -113,7 +134,7 @@ export function TopSearch() {
       </label>
       {open && value.trim() && (
         <div className="search-pop" role="listbox" id={listId} aria-label="Search results">
-          {hits.length === 0 && <div className="search-none">Nothing matches “{value.trim()}”. Try a plain word, like “cut” or “join”.</div>}
+          {hits.length === 0 && <div className="search-none">Nothing matches “{value.trim()}”. Try a plain word, like “cut” or “join”, a field name or a coordinate system.</div>}
           {hits.map((h, i) => (
             <div
               key={h.key}
