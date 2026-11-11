@@ -39,6 +39,7 @@ const NO_CHANGE_OK: { match: RegExp; ctx?: RegExp; why: string }[] = [
 
 /** Disabled in every generic context, for a stated reason. Each is either a placeholder row, covered by name elsewhere, or listed as not exercised in docs/UI_REDESIGN_VERIFY.md. */
 const NEVER_USABLE_OK: RegExp[] = [
+  /No bookmarks yet|No visible layers to compare/, // placeholder lines in an empty menu, disabled on purpose
   /No templates of yours yet$/, // placeholder row while there are no templates
   /already on this map$/, // placeholder row when every layer is on the map
   /\|Ungroup$/, // recorded as "Ungroup (after Group)" once a group exists
