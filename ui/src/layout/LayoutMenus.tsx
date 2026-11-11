@@ -1,5 +1,6 @@
 // Right-click menus and the Shift+A "add an element" menu of the layout page (add-on 2), and the context bar over a selected element.
 // One popup component serves both menus; the entries call the same store actions and ribbon commands as the ribbon does.
+import { ColorField } from "../theme/ColorField";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { create } from "zustand";
@@ -241,7 +242,7 @@ export function ContextBar({ el, left, top }: { el: LayoutElement; left: number;
           </select>
           <input className="ctx-size" type="number" aria-label="Text size in points" min={1} max={400} step={1} value={t.size} onChange={(e) => { const v = Number(e.target.value); if (Number.isFinite(v) && v >= 1 && v <= 400) set({ size: v }, "size"); }} />
           <button aria-label="Bold" aria-pressed={t.font === "sans-bold"} className={t.font === "sans-bold" ? "on" : ""} onClick={() => set({ font: t.font === "sans-bold" ? "sans" : "sans-bold" })}><b>B</b></button>
-          <input type="color" aria-label="Text colour" value={t.color} onChange={(e) => set({ color: e.target.value }, "color")} />
+          <ColorField label="Text colour" value={t.color} onChange={(v) => set({ color: v }, "color")} />
           {(["left", "center", "right"] as const).map((a) => (
             <button key={a} aria-label={`Text ${a}`} aria-pressed={t.align === a} className={t.align === a ? "on" : ""} onClick={() => set({ align: a })}>{a === "left" ? "⇤" : a === "center" ? "↔" : "⇥"}</button>
           ))}

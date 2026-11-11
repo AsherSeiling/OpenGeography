@@ -1,6 +1,7 @@
 // Converts layer symbology into Mapbox-style layers (drawn by OpenLayers through ol-mapbox-style). Pure functions (tested).
 import type { GeomType } from "../ipc/api";
 import type { LayerStyle, StrokeSpec } from "../store/store";
+import { cssColor } from "../theme/color";
 
 /** ArcGIS-style cyan selection highlight. */
 export const SELECTION_COLOR = "#00ffff";
@@ -47,7 +48,7 @@ export function validColor(c: unknown): c is string {
 function colorExpr(style: LayerStyle, base: string): ExpressionSpecification | string {
   if (style.kind === "categorized" && style.field && style.classes?.length) {
     const seen = new Set<string>();
-    const pairs = style.classes.filter((c) => validColor(c.color)).flatMap((c) => [c.value, ...(c.values ?? [])].filter((v) => !seen.has(String(v)) && seen.add(String(v))).map((v) => [v, c.color])).flat();
+    const pairs = style.classes.filter((c) => validColor(c.color)).flatMap((c) => [c.value, ...(c.values ?? [])].filter((v) => !seen.has(String(v)) && seen.add(String(v))).map((v) => [v, cssColor(c.color)])).flat();
     if (!pairs.length) return base;
     return ["match", ["to-string", ["get", style.field]], ...pairs, base] ;
   }
@@ -59,11 +60,11 @@ function colorExpr(style: LayerStyle, base: string): ExpressionSpecification | s
     style.breaks.forEach((b, i) => {
       const c = style.colors![i + 1];
       if (Number.isFinite(b) && b > last && validColor(c)) {
-        steps.push(b, c);
+        steps.push(b, cssColor(c));
         last = b;
       }
     });
-    return ["step", ["to-number", ["get", style.field], 0], validColor(style.colors[0]) ? style.colors[0] : base, ...steps];
+    return ["step", ["to-number", ["get", style.field], 0], validColor(style.colors[0]) ? cssColor(style.colors[0]) : base, ...steps];
   }
   return base;
 }
@@ -86,7 +87,7 @@ export function layerIds(id: string): string[] {
 function strokeLayers(idPrefix: string, strokes: StrokeSpec[], filter: ExpressionSpecification, common: object, opacity: number, topColor?: ExpressionSpecification | string): LayerSpecification[] {
   return strokes.map((st, k) => {
     const w = Math.max(st.width, 0.1);
-    const paint: Record<string, unknown> = { "line-color": k === strokes.length - 1 && topColor ? topColor : st.color, "line-width": st.width, "line-opacity": opacity };
+    const paint: Record<string, unknown> = { "line-color": k === strokes.length - 1 && topColor ? topColor : cssColor(st.color), "line-width": st.width, "line-opacity": opacity };
     if (st.dash?.length) paint["line-dasharray"] = st.dash.map((d) => Math.max(d / w, 0.01));
     return { id: k === 0 ? idPrefix : `${idPrefix}-${k}`, type: "line", ...common, filter, layout: { "line-join": "round", "line-cap": st.cap ?? (st.dash?.length ? "butt" : "round") }, paint } as LayerSpecification;
   });
@@ -99,10 +100,11 @@ function strokeLayers(idPrefix: string, strokes: StrokeSpec[], filter: Expressio
 export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl = false): LayerSpecification[] {
   const withSelection = (expr: ExpressionSpecification | string): ExpressionSpecification | string => (forOl ? expr : selectionExpr(expr));
   const lineWidth = forOl ? style.strokeWidth : ["case", selected, Math.max(2, style.strokeWidth + 1), style.strokeWidth];
-  const circleStroke = forOl ? "#333333" : ["case", selected, "#0060a0", "#333333"];
+  const ringColor = style.pointStroke && validColor(style.pointStroke) ? cssColor(style.pointStroke) : "#333333";
+  const circleStroke = forOl ? ringColor : ["case", selected, "#0060a0", ringColor];
   const source = `src-${id}`;
   const common = { source, "source-layer": "layer" } as const;
-  const fill = colorExpr(style, style.fill);
+  const fill = colorExpr(style, cssColor(style.fill));
   const out: LayerSpecification[] = [];
   if (geom === "Raster") {
     return [{ id: `${id}-raster`, type: "raster", source, paint: { "raster-opacity": style.opacity, "raster-resampling": "linear" } }];
@@ -131,10 +133,10 @@ export function buildLayers(id: string, geom: GeomType, style: LayerStyle, forOl
         out.push(...strokeLayers(`${id}-line-c${i}`, c.strokes!, f, common, op));
       }
     } else {
-      out.push(...strokeLayers(`${id}-line`, own, geomFilter, common, op, forOl ? undefined : selectionExpr(own[own.length - 1].color)));
+      out.push(...strokeLayers(`${id}-line`, own, geomFilter, common, op, forOl ? undefined : selectionExpr(cssColor(own[own.length - 1].color))));
     }
   } else if (geom === "Polygon" || geom === "Line" || geom === "Mixed") {
-    const lineColor = geom === "Line" ? fill : style.stroke;
+    const lineColor = geom === "Line" ? fill : cssColor(style.stroke);
     out.push({
       id: `${id}-line`,
       type: "line",

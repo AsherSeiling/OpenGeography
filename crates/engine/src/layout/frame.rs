@@ -228,10 +228,13 @@ struct Bucket {
 }
 
 fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &mut String) {
-    let color = class_color(style, i);
-    let stroke = svg::color(&style.stroke, "#4d4d4d");
+    // Colours may carry alpha (`#rrggbbaa`): it multiplies with the layer's opacity for fills and lines, and an outline's own alpha is its opacity.
+    let (color, ca) = svg::color_alpha(&class_color(style, i), "#808080");
+    let (stroke, sa) = svg::color_alpha(&style.stroke, "#4d4d4d");
     let sw = style.stroke_width.max(0.0) * PX_MM;
     let op = opacity(style.opacity);
+    let fop = opacity(ca * style.opacity);
+    let s_attr = svg::alpha_attr("stroke-opacity", sa);
     // A symbol stack (casing, fill, ticks) of this class, else of the layer.
     let strokes = if style.kind == StyleKind::Categorized { style.classes.as_ref().and_then(|c| c.get(i)).and_then(|c| c.strokes.as_ref()) } else { None }.or(style.strokes.as_ref()).filter(|s| !s.is_empty());
     if !b.polys.is_empty() {
@@ -246,7 +249,7 @@ fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &
             }
             None => color.clone(),
         };
-        let _ = write!(out, "<g fill=\"{fill}\" fill-opacity=\"{op}\" fill-rule=\"evenodd\" stroke=\"{s}\" stroke-width=\"{w}\" stroke-linejoin=\"round\"{dash}>{}</g>", b.polys);
+        let _ = write!(out, "<g fill=\"{fill}\" fill-opacity=\"{fop}\" fill-rule=\"evenodd\" stroke=\"{s}\"{s_attr} stroke-width=\"{w}\" stroke-linejoin=\"round\"{dash}>{}</g>", b.polys);
         for st in strokes.into_iter().flatten() {
             let _ = write!(out, "<g fill=\"none\" {}>{}</g>", st.attrs("1"), b.polys);
         }
@@ -256,13 +259,18 @@ fn bucket_svg(info: &LayerInfo, style: &LayerStyle, i: usize, b: &Bucket, out: &
             let _ = write!(out, "<g fill=\"none\" {}>{}</g>", st.attrs(&op), b.lines);
         }
     } else if !b.lines.is_empty() {
-        let (c, o) = if info.geom_type == "Line" { (color.as_str(), op.as_str()) } else { (stroke.as_str(), "1") };
+        let (c, o) = if info.geom_type == "Line" { (color.as_str(), fop.clone()) } else { (stroke.as_str(), opacity(sa)) };
         let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
         let _ = write!(out, "<g fill=\"none\" stroke=\"{c}\" stroke-opacity=\"{o}\" stroke-width=\"{}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"{dash}>{}</g>", mm(sw), b.lines);
     }
     if !b.points.is_empty() {
-        let ring = if style.radius > 2.0 { format!(" stroke=\"#333333\" stroke-width=\"{}\"", mm(0.6 * PX_MM)) } else { String::new() };
-        let _ = write!(out, "<g fill=\"{color}\" fill-opacity=\"{op}\"{ring}>{}</g>", b.points);
+        let ring = if style.radius > 2.0 {
+            let (rc, ra) = svg::color_alpha(style.point_stroke.as_deref().unwrap_or("#333333"), "#333333");
+            format!(" stroke=\"{rc}\"{} stroke-width=\"{}\"", svg::alpha_attr("stroke-opacity", ra), mm(0.6 * PX_MM))
+        } else {
+            String::new()
+        };
+        let _ = write!(out, "<g fill=\"{color}\" fill-opacity=\"{fop}\"{ring}>{}</g>", b.points);
     }
 }
 

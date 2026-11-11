@@ -1,4 +1,5 @@
 // Page Setup (CG6): size, margin, bleed and crop marks, background, author, and the editor's guides.
+import { ColorField } from "../theme/ColorField";
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input } from "@fluentui/react-components";
 import { useState } from "react";
 import type { Guide, Page } from "../layout/types";
@@ -61,7 +62,7 @@ export function PageSetupDialog({ onClose }: { onClose: () => void }) {
             <Checkbox label="PNG export also writes a world file (.pgw) and .prj for the map frame" checked={world} onChange={(_, d) => setWorld(!!d.checked)} />
             <div className="props-hint">The world file places the first map frame (not rotated, nominal scale); the rest of the page is layout. PDF exports embed their fonts as subsets and are RGB: for a print shop that needs CMYK, convert the PDF in Acrobat, Scribus or Ghostscript.</div>
             <Field label="Page background" size="small">
-              <input type="color" value={/^#[0-9a-f]{6}$/i.test(bg) ? bg : "#ffffff"} onChange={(e) => setBg(e.target.value)} aria-label="Page background" />
+              <ColorField label="Page background" alpha={false} value={bg} fallback="#ffffff" onChange={setBg} />
             </Field>
             <Field label="Author (the {author} text token)" size="small">
               <Input size="small" value={author} onChange={(_, d) => setAuthor(d.value)} />

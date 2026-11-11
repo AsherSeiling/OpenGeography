@@ -1,7 +1,7 @@
 // The Symbology and Labels node (`symbology` tool): its settings become the owner layer's style after a run.
 import { defaultLabel, type LayerStyle, type StyleClass } from "../store/store";
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
+const HEX = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const num = (v: unknown, d: number, lo = 0, hi = Infinity) => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;

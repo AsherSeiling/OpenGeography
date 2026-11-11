@@ -1,4 +1,5 @@
 // The Labels section of a layer's Properties (L1): which field to show, how it looks, and the scales it shows at.
+import { ColorField } from "../theme/ColorField";
 import { Accordion, AccordionHeader, AccordionItem, AccordionPanel, Checkbox, Combobox, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, Slider, Textarea, Button } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { api, errorText } from "../ipc/api";
@@ -70,7 +71,7 @@ export function LabelSettings({ id }: { id: string }) {
                 <Slider min={5} max={24} step={0.5} value={label.size} onChange={(_, d) => set({ size: d.value })} />
               </Field>
               <Field label="Text color" size="small">
-                <input type="color" value={label.color} onChange={(e) => set({ color: e.target.value })} />
+                <ColorField label="Text color" value={label.color} onChange={(v) => set({ color: v })} />
               </Field>
               <div className="row2">
                 <Field label="Wrap at (characters)" size="small" hint="Break lines at spaces; empty = no wrap">
@@ -150,21 +151,21 @@ export function LabelSettings({ id }: { id: string }) {
             <AccordionHeader size="small">Halo, background and shadow</AccordionHeader>
             <AccordionPanel className="stack">
               <div className="row2">
-                <Field label="Halo color" size="small"><input type="color" value={label.haloColor} onChange={(e) => set({ haloColor: e.target.value })} /></Field>
+                <Field label="Halo color" size="small"><ColorField label="Halo color" value={label.haloColor} onChange={(v) => set({ haloColor: v })} /></Field>
                 <Field label={`Halo width ${label.haloWidth} px (0 = none)`} size="small"><Slider min={0} max={4} step={0.5} value={label.haloWidth} onChange={(_, d) => set({ haloWidth: d.value })} /></Field>
               </div>
               <Checkbox label="Background box" checked={!!label.background} onChange={(_, d) => set({ background: d.checked ? { fill: "#ffffe0", stroke: "#999999", padding: 2 } : undefined })} />
               {label.background && (
                 <div className="row2">
-                  <Field label="Fill" size="small"><input type="color" value={label.background.fill} onChange={(e) => set({ background: { ...label.background!, fill: e.target.value } })} /></Field>
-                  <Field label="Outline" size="small"><input type="color" value={label.background.stroke ?? "#999999"} onChange={(e) => set({ background: { ...label.background!, stroke: e.target.value } })} /></Field>
+                  <Field label="Fill" size="small"><ColorField label="Background fill" value={label.background.fill} onChange={(v) => set({ background: { ...label.background!, fill: v } })} /></Field>
+                  <Field label="Outline" size="small"><ColorField label="Background outline" value={label.background.stroke ?? "#999999"} onChange={(v) => set({ background: { ...label.background!, stroke: v } })} /></Field>
                   <Field label={`Padding ${label.background.padding} px`} size="small"><Slider min={0} max={10} step={1} value={label.background.padding} onChange={(_, d) => set({ background: { ...label.background!, padding: d.value } })} /></Field>
                 </div>
               )}
               <Checkbox label="Drop shadow" checked={!!label.shadow} onChange={(_, d) => set({ shadow: d.checked ? { color: "#00000080", dx: 1.5, dy: 1.5 } : undefined })} />
               {label.shadow && (
                 <div className="row2">
-                  <Field label="Shadow color" size="small"><input type="color" value={label.shadow.color.slice(0, 7)} onChange={(e) => set({ shadow: { ...label.shadow!, color: e.target.value } })} /></Field>
+                  <Field label="Shadow color" size="small"><ColorField label="Shadow color" value={label.shadow.color} onChange={(v) => set({ shadow: { ...label.shadow!, color: v } })} /></Field>
                   <Field label={`Offset ${label.shadow.dx} px`} size="small"><Slider min={0} max={6} step={0.5} value={label.shadow.dx} onChange={(_, d) => set({ shadow: { ...label.shadow!, dx: d.value, dy: d.value } })} /></Field>
                 </div>
               )}

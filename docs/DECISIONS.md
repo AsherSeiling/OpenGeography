@@ -598,3 +598,17 @@ Made while the user was away; each can be changed.
 
 ## Default query language (user, 2026-11-11)
 Python stays the default scripting language, but queries (Definition Query, Select by Attributes) and symbology rules default to an ArcGIS-style clause builder that writes SQL, with Python still available. This replaces the part of UR-20 (2026-11-08) that made Python the default in queries. Built as UX16 in Wave 2. Saved queries in either language open unchanged.
+
+## Colour picker and outline opacity (CP1-CP3, 2026-11-11)
+
+- **No separate dependency entry:** `@fluentui/react-color-picker` is imported through `@fluentui/react-components`, which already re-exports it, so `package.json` is unchanged. Reason: nothing new to ship; the notices file already lists it.
+- **Opaque colours stay `#rrggbb`:** `formatColor` writes `#rrggbbaa` only when alpha is below 255. Reason: old projects and style files are never rewritten by a plain edit, and every check that still accepts only six digits keeps working for opaque colours.
+- **Alpha for OpenLayers goes out as `rgba()`:** the style parser behind ol-mapbox-style has no 8-digit hex, so `cssColor` converts at the map boundary only; stored values stay hex.
+- **Picker changes are a live preview with Cancel/Escape restoring the starting value;** one undo step is not made (the layer style store has no undo of its own). Easy to add later with a commit callback.
+- **Eyedropper not included** (as planned).
+- **Point outline is `pointStroke` on the layer style** (optional colour, with alpha); unset keeps the fixed `#333333` ring, so old maps and the layout golden files are unchanged. Its width stays 0.6 px. The map's selected-point ring stays `#0060a0`.
+- **Engine writes alpha as `fill-opacity` / `stroke-opacity`** through `svg::color_alpha`; no 8-digit hex reaches the SVG. A fully opaque colour adds no attribute, so old output is byte-identical. Pattern marks in fills and the halo's fill follow the same rule but patterns ignore alpha of their own colours.
+- **Layout shape fills:** colour alpha multiplies with the shape's `fillOpacity`; the UI (CP3) keeps writing `fillOpacity` and leaves the fill colour opaque.
+- **Layout shape fill keeps its separate "Fill opacity" number** (alpha off in its picker) and element colours the engine does not draw with alpha (grid, north arrow, scale bar, extent indicator, chart) are opaque-only (`ColorInput alpha`). Reason: reversible, no data change; alpha is on for layer fills and outlines, classes, ramps, labels, text, shape and frame outlines, backgrounds and the Symbology node (`ParamControl`/`ParamField` enable it for tool `symbology` in the UI rather than adding an `alpha` flag to every `ToolSpec` parameter).
+- **Outline opacity slider** exists for polygon layers without a stroke stack; its value is the alpha of `stroke`. Raster class colours, paper and the app theme are opaque-only.
+

@@ -1,4 +1,5 @@
 // Properties of the page itself (nothing selected): Sheet, Guides, Info, and the layout's named text styles.
+import { ColorField } from "../theme/ColorField";
 import { Button, Checkbox, Dropdown, Field, Input, Option } from "@fluentui/react-components";
 import { useState } from "react";
 import { addGuide, beginStep, useLayouts } from "../store/layout";
@@ -89,7 +90,7 @@ function Info({ doc }: { doc: Layout }) {
       </Field>
       <Checkbox label="PNG export also writes a world file (.pgw) and .prj" checked={!!doc.worldFile} onChange={(_, d) => useLayouts.getState().setMeta({ worldFile: !!d.checked })} />
       <Field label="Page background" size="small">
-        <input type="color" aria-label="Page background" value={/^#[0-9a-f]{6}$/i.test(doc.page.background) ? doc.page.background : PAPER.white} onChange={(e) => useLayouts.getState().setPage({ ...doc.page, background: e.target.value })} />
+        <ColorField label="Page background" alpha={false} value={doc.page.background} fallback={PAPER.white} onChange={(v) => useLayouts.getState().setPage({ ...doc.page, background: v })} />
       </Field>
     </>
   );
@@ -124,7 +125,7 @@ function TextStyles({ doc }: { doc: Layout }) {
                 <Input size="small" type="number" aria-label={`${st.name} size`} defaultValue={String(st.size)} key={st.size} onBlur={(e) => { const v = parseStyleSize(e.target.value); if (v === null) e.target.value = String(st.size); else if (v !== st.size) edit(i, { size: v }); }} />
               </Field>
               <Field label="Colour" size="small">
-                <input type="color" aria-label={`${st.name} colour`} value={st.color ?? PAPER.black} onChange={(e) => edit(i, { color: e.target.value })} />
+                <ColorField label={`${st.name} colour`} value={st.color ?? PAPER.black} onChange={(v) => edit(i, { color: v })} />
               </Field>
             </div>
             <div className="row2">

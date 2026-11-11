@@ -1,4 +1,6 @@
 import { UniqueClasses } from "./UniqueClasses";
+import { ColorField } from "../theme/ColorField";
+import { alphaOf, alphaToPct, pctToAlpha, withAlpha } from "../theme/color";
 import { defaultClassField } from "./fieldPick";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -261,11 +263,11 @@ export function Symbology({ id }: { id: string }) {
       {style.kind === "single" && (
         <div className="row2">
           <Field label={info.geomType === "Line" ? "Color" : "Fill"}>
-            <input type="color" value={style.fill} onChange={(e) => setStyle({ fill: e.target.value, ...(info.geomType !== "Polygon" ? { stroke: e.target.value } : {}) })} />
+            <ColorField label={info.geomType === "Line" ? "Color" : "Fill"} value={style.fill} onChange={(v) => setStyle({ fill: v, ...(info.geomType !== "Polygon" ? { stroke: v } : {}) })} />
           </Field>
           {info.geomType === "Polygon" && (
             <Field label="Outline">
-              <input type="color" value={style.stroke} onChange={(e) => setStyle({ stroke: e.target.value })} />
+              <ColorField label="Outline" value={style.stroke} onChange={(v) => setStyle({ stroke: v })} />
             </Field>
           )}
         </div>
@@ -275,7 +277,7 @@ export function Symbology({ id }: { id: string }) {
         <div className="classes">
           {style.colors.map((c, i) => (
             <div key={i} className="class-row">
-              <input type="color" value={c} onChange={(e) => setStyle({ colors: style.colors!.map((x, j) => (j === i ? e.target.value : x)) })} />
+              <ColorField label={`Colour of class ${i + 1}`} value={c} onChange={(v) => setStyle({ colors: style.colors!.map((x, j) => (j === i ? v : x)) })} />
               <span>
                 {i === 0 ? "≤ " : `${fmt(style.breaks![i - 1])} – `}
                 {i < style.breaks!.length ? fmt(style.breaks![i]) : "max"}
@@ -284,9 +286,20 @@ export function Symbology({ id }: { id: string }) {
           ))}
         </div>
       )}
-      <Field label={`Opacity ${Math.round(style.opacity * 100)}%`}>
+      <Field label={`${info.geomType === "Polygon" ? "Fill opacity" : "Opacity"} ${Math.round(style.opacity * 100)}%`}>
         <Slider min={0} max={100} value={Math.round(style.opacity * 100)} onChange={(_, d) => setStyle({ opacity: d.value / 100 })} />
       </Field>
+      {info.geomType === "Polygon" && !style.strokes?.length && (
+        // The outline's opacity is the alpha of its colour: this slider and the colour picker's alpha edit the same stored value.
+        <Field label={`Outline opacity ${alphaToPct(alphaOf(style.stroke))}%`}>
+          <Slider min={0} max={100} value={alphaToPct(alphaOf(style.stroke))} onChange={(_, d) => setStyle({ stroke: withAlpha(style.stroke, pctToAlpha(d.value)) })} />
+        </Field>
+      )}
+      {info.geomType === "Point" && (
+        <Field label="Point outline">
+          <ColorField label="Point outline" value={style.pointStroke} fallback="#333333" onChange={(v) => setStyle({ pointStroke: v })} onClear={style.pointStroke ? () => setStyle({ pointStroke: undefined }) : undefined} />
+        </Field>
+      )}
       {info.geomType !== "Point" && (
         <Field label={`${info.geomType === "Line" ? "Line" : "Outline"} width ${style.strokeWidth} pt`}>
           <Slider min={0} max={8} step={0.1} value={style.strokeWidth} onChange={(_, d) => setStyle({ strokeWidth: d.value })} />
@@ -524,6 +537,8 @@ function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolPa
   const set = (v: unknown) => useModel.getState().setParam(nodeId, p.id, v);
   const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary)));
   const label = `${p.label}${p.optional ? " (optional)" : ""}`;
+  // Transparency only where the tool reads it: the Symbology node turns its colours into a layer style, which draws alpha.
+  const symbology = useModel((s) => s.nodes.find((n) => n.id === nodeId)?.data.tool === "symbology");
   const fields = p.fieldOf ? fieldsForPort(nodeId, p.fieldOf) : [];
   switch (p.kind) {
     case "number":
@@ -537,7 +552,7 @@ function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolPa
     case "color":
       return (
         <Field label={label} hint={p.help || undefined}>
-          <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(String(value ?? "")) ? String(value) : "#000000"} onChange={(e) => set(e.target.value)} />
+          <ColorField label={label} value={String(value ?? "")} alpha={symbology} onChange={(v) => set(v)} onClear={p.optional ? () => set(null) : undefined} />
         </Field>
       );
     case "enum":

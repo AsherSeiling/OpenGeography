@@ -30,10 +30,10 @@ const ALLOW: Record<string, Why> = {
   "layout.css": { why: "page overlays on the white page: selection outlines, handles, guides, pasteboard" },
   "dialogs/PageSetupDialog.tsx": { why: "page background colour (white paper)" },
   "ribbon/Ribbon.tsx": { why: "page background default (white paper)" },
-  "nodes/ParamControl.tsx": { why: "<input type=color> fallback value" },
   "panes/LabelSettings.tsx": { why: "label background, outline and shadow defaults" },
   "panes/PropertiesPane.tsx": { why: "effect colour defaults and <input type=color> fallback" },
   "sources/cite.ts": { why: "print stylesheet of a generated document" },
+  "theme/color.ts": { why: "Okabe-Ito colour-blind-safe set offered in the colour picker (content colours)" },
   "theme/colorMath.ts": { why: "ink, white and black: the candidates the readable-text rule picks from" },
   // Chrome that a later work package restyles.
   "panes/ContentsPane.tsx": { why: "raster swatch ramp (content)" },

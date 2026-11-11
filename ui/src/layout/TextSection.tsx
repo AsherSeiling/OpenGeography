@@ -1,5 +1,6 @@
 // The Text section of a layout element's Properties: one entry per text slot the element draws (the list comes from the engine,
 // `layoutTextSlots`), each with size in points, font, bold, italic, underline, colour, letter spacing and halo.
+import { ColorField } from "../theme/ColorField";
 import { Button, Checkbox, Field, Input } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { FontPicker } from "../panes/LabelSettings";
@@ -77,7 +78,7 @@ export function TextSection({ el, set }: { el: LayoutElement; set: SetFn }) {
                 <Checkbox label="Underline" checked={!!st.underline} onChange={(_, d) => change(s.id, { underline: !!d.checked })} />
               </div>
               <Field label="Colour" size="small">
-                <input type="color" aria-label={`${s.label} colour`} value={st.color ?? "#000000"} onChange={(e) => change(s.id, { color: e.target.value }, `text:${s.id}:color`)} />
+                <ColorField label={`${s.label} colour`} value={st.color ?? "#000000"} onChange={(v) => change(s.id, { color: v }, `text:${s.id}:color`)} />
               </Field>
               <div className="row2">
                 <Field label="Letter spacing (mm)" size="small">
@@ -89,7 +90,7 @@ export function TextSection({ el, set }: { el: LayoutElement; set: SetFn }) {
               </div>
               {st.haloWidth !== undefined && (
                 <Field label="Halo colour" size="small">
-                  <input type="color" aria-label={`${s.label} halo colour`} value={st.haloColor ?? "#ffffff"} onChange={(e) => change(s.id, { haloColor: e.target.value }, `text:${s.id}:haloc`)} />
+                  <ColorField label={`${s.label} halo colour`} value={st.haloColor ?? "#ffffff"} onChange={(v) => change(s.id, { haloColor: v }, `text:${s.id}:haloc`)} />
                 </Field>
               )}
               <Button size="small" appearance="subtle" disabled={!el.textStyles?.[s.id]} onClick={() => set({ textStyles: resetSlot(el.textStyles, s.id) })}>

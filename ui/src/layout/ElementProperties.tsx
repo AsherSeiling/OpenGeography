@@ -1,4 +1,5 @@
 // Properties pane for a layout element (target { kind: "layoutElement" }).
+import { ColorField } from "../theme/ColorField";
 import { Button, Checkbox, Dropdown, Field, Input, Option, Textarea } from "@fluentui/react-components";
 import { FontPicker } from "../panes/LabelSettings";
 import { TextSection } from "./TextSection";
@@ -280,7 +281,7 @@ function FrameLabels({ el, set }: { el: MapFrame; set: Set }) {
                   </Field>
                   <Num label="Size (pt)" value={patch?.size ?? mapLabel?.size ?? 9} min={1} step={0.5} decimals={1} onChange={(size) => edit({ size })} />
                   <Field label="Text color" size="small">
-                    <input type="color" value={patch?.color ?? mapLabel?.color ?? "#222222"} onChange={(e) => edit({ color: e.target.value })} />
+                    <ColorField label="Text color" value={patch?.color ?? mapLabel?.color ?? "#222222"} onChange={(v) => edit({ color: v })} />
                   </Field>
                 </div>
               )}
@@ -395,7 +396,7 @@ function LegendFields({ el, set, layout }: { el: LegendElement; set: Set; layout
         <div className="stack">
           {custom.map((c, i) => (
             <div key={i} className="class-row">
-              <input type="color" value={/^#[0-9a-f]{6}$/i.test(c.color) ? c.color : "#888888"} aria-label={`Colour of extra entry ${i + 1}`} onChange={(e) => set({ custom: custom.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)) })} />
+              <ColorField value={c.color} fallback="#888888" label={`Colour of extra entry ${i + 1}`} onChange={(v) => set({ custom: custom.map((x, j) => (j === i ? { ...x, color: v } : x)) })} />
               <Input size="small" value={c.label} aria-label={`Text of extra entry ${i + 1}`} onChange={(_, d) => set({ custom: custom.map((x, j) => (j === i ? { ...x, label: d.value } : x)) })} />
               <Button size="small" appearance="subtle" aria-label={`Remove extra entry ${i + 1}`} onClick={() => set({ custom: custom.filter((_, j) => j !== i) })}>✕</Button>
             </div>
@@ -535,7 +536,7 @@ function CharacterFields({ el, set }: { el: TextElement; set: Set }) {
       </Field>
       <Num label="Size (pt)" value={el.size} min={1} step={1} onChange={(size) => set({ size }, "size")} />
       <Field label="Colour" size="small">
-        <input type="color" value={el.color} onChange={(e) => set({ color: e.target.value }, "color")} />
+        <ColorField label="Colour" value={el.color} onChange={(v) => set({ color: v }, "color")} />
       </Field>
       <Checkbox label="Underline" checked={!!st.underline} onChange={(_, d) => change({ underline: !!d.checked }, "text:underline")} />
       <div className="row2">
@@ -544,7 +545,7 @@ function CharacterFields({ el, set }: { el: TextElement; set: Set }) {
       </div>
       {st.haloWidth !== undefined && (
         <Field label="Halo colour" size="small">
-          <input type="color" aria-label="Halo colour" value={st.haloColor ?? "#ffffff"} onChange={(e) => change({ haloColor: e.target.value }, "text:haloc")} />
+          <ColorField label="Halo colour" value={st.haloColor ?? "#ffffff"} onChange={(v) => change({ haloColor: v }, "text:haloc")} />
         </Field>
       )}
     </>
@@ -555,10 +556,11 @@ export type { LayoutElement };
 
 type SetFn = (patch: Record<string, unknown>, burst?: string) => void;
 
-function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (c: string) => void }) {
+/** Transparency only where the engine draws it (shape and frame outlines, backgrounds); other colours are opaque. */
+function ColorInput({ label, value, onChange, alpha = false }: { label: string; value: string; onChange: (c: string) => void; alpha?: boolean }) {
   return (
     <Field label={label} size="small">
-      <input type="color" value={/^#[0-9a-f]{6}$/i.test(value) ? value : "#000000"} onChange={(e) => onChange(e.target.value)} aria-label={label} />
+      <ColorField value={value} label={label} alpha={alpha} onChange={onChange} />
     </Field>
   );
 }
@@ -641,7 +643,7 @@ function ShapeFields({ el, set }: { el: ShapeElement; set: SetFn }) {
           {el.fill !== "none" && <Num label="Fill opacity (0–1)" value={el.fillOpacity ?? 1} min={0} max={1} step={0.05} decimals={2} onChange={(fillOpacity) => set({ fillOpacity }, "fillOpacity")} />}
         </>
       )}
-      <ColorInput label={line ? "Colour" : "Outline"} value={el.stroke} onChange={(stroke) => set({ stroke }, "stroke")} />
+      <ColorInput alpha label={line ? "Colour" : "Outline"} value={el.stroke} onChange={(stroke) => set({ stroke }, "stroke")} />
       <Num label="Line width (mm)" value={el.strokeWidth} min={0} step={0.05} decimals={2} onChange={(strokeWidth) => set({ strokeWidth }, "strokeWidth")} />
       <Field label="Line style" size="small">
         <Dropdown value={el.dash || "solid"} selectedOptions={[el.dash || "solid"]} onOptionSelect={(_, d) => set({ dash: d.optionValue })}>
@@ -684,11 +686,11 @@ function DecorFields({ el, set }: { el: LayoutElement; set: SetFn }) {
     <div className="stack" data-testid="decor">
       <div className="stack">
         <Checkbox label="Background" checked={!!d.background} onChange={(_, c) => patch({ background: c.checked ? "#ffffff" : null })} />
-        {d.background && <ColorInput label="Background colour" value={d.background} onChange={(background) => patch({ background })} />}
+        {d.background && <ColorInput alpha label="Background colour" value={d.background} onChange={(background) => patch({ background })} />}
         <Checkbox label="Frame" checked={(d.frameWidth ?? 0) > 0} onChange={(_, c) => patch({ frameWidth: c.checked ? 0.35 : 0, frameColor: d.frameColor ?? "#000000" })} />
         {(d.frameWidth ?? 0) > 0 && (
           <>
-            <ColorInput label="Frame colour" value={d.frameColor ?? "#000000"} onChange={(frameColor) => patch({ frameColor })} />
+            <ColorInput alpha label="Frame colour" value={d.frameColor ?? "#000000"} onChange={(frameColor) => patch({ frameColor })} />
             <Num label="Frame width (mm)" value={d.frameWidth ?? 0.35} min={0.05} step={0.05} decimals={2} onChange={(frameWidth) => patch({ frameWidth })} />
           </>
         )}

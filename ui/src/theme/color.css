@@ -1,0 +1,43 @@
+/* The built-in colour picker (ColorField.tsx). Transparent colours show over a checkerboard. */
+.cf-swatch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-control);
+  background: conic-gradient(var(--rule-soft) 25%, var(--surface-1, var(--canvas)) 0 50%, var(--rule-soft) 0 75%, var(--surface-1, var(--canvas)) 0) 0 0 / 8px 8px;
+  cursor: pointer;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.cf-swatch:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.cf-swatch:disabled { opacity: 0.5; cursor: default; }
+.cf-swatch-fill { position: absolute; inset: 0; }
+.cf-swatch.none .cf-swatch-fill {
+  background: linear-gradient(to top right, transparent calc(50% - 1px), var(--error) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+}
+.cf-surface { width: 260px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.cf-area { height: 140px; }
+.cf-slider { width: 100%; }
+.cf-fields { display: flex; flex-wrap: wrap; gap: 6px; }
+.cf-f { display: flex; flex-direction: column; gap: 2px; font: var(--type-micro); color: var(--text); }
+.cf-hex { flex: 1 1 100%; }
+.cf-n { flex: 1 1 52px; min-width: 0; }
+.cf-group-title { font: var(--type-micro); color: var(--text); margin-bottom: 3px; }
+.cf-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.cf-chip {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+  cursor: pointer;
+  background: conic-gradient(var(--rule-soft) 25%, var(--surface-1, var(--canvas)) 0 50%, var(--rule-soft) 0 75%, var(--surface-1, var(--canvas)) 0) 0 0 / 8px 8px;
+}
+.cf-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.cf-chip-fill { position: absolute; inset: 0; }
+.cf-actions { display: flex; justify-content: flex-end; gap: 4px; }
