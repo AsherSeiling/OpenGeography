@@ -20,6 +20,7 @@ fn settings_round_trip_through_a_file_in_a_new_folder() {
         autosave_minutes: Some(5),
         recent_projects: Some(vec!["/work/a.gproj".into(), "/work/b.gproj".into()]),
         show_start_page: Some(false),
+        show_hints: Some(false),
     };
     let saved = save_to(&file, &s).unwrap();
     assert_eq!(saved, s);

@@ -161,6 +161,8 @@ export interface ProgramSettings {
   recentProjects?: string[] | null;
   /** Show the Start page when the app opens; unset = yes (UX2). */
   showStartPage?: boolean | null;
+  /** Show the first-run tips in the node editor and layouts; unset = yes (UX15). */
+  showHints?: boolean | null;
 }
 
 /** A named layer style in the personal style library (UX9). `style` is a LayerStyle. */

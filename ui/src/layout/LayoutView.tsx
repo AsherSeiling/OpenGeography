@@ -1,6 +1,7 @@
 // The Layout document tab: the page on a grey canvas, an engine-rendered
 // preview (the same renderer as the export), and an HTML overlay that selects,
 // moves and resizes elements.
+import { HintBar } from "../hints/HintBar";
 import { useLegendRows } from "./legendRows";
 import { snapMove, snapTargets } from "./snap";
 import { pointerMm } from "./items";
@@ -495,6 +496,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
 
   return (
     <div className="layout-view">
+      <HintBar id="layout" empty={layout.elements.length === 0} />
       <div className="layout-toolbar">
         <Button size="small" appearance={fit ? "primary" : "subtle"} onClick={() => useLayoutView.getState().fitPage()}>Fit page</Button>
         <Button size="small" appearance="subtle" onClick={() => useLayoutView.getState().actualSize()}>100%</Button>

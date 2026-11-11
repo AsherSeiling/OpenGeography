@@ -68,3 +68,6 @@
 .src-warn { flex-wrap: wrap; }
 .src-uncited { display: inline-flex; align-items: center; gap: 2px; }
 .tree-uncited { color: var(--warn); flex: none; margin-left: 4px; cursor: pointer; }
+
+/* UX15: a first-run tip over the bottom of an empty node editor or layout; it moves nothing. */
+.hint-bar { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--surface-2, var(--surface-1)); border: 1px solid var(--border, currentColor); border-radius: var(--r-control, 4px); box-shadow: 0 2px 8px rgb(0 0 0 / 0.18); font: var(--type-body); }

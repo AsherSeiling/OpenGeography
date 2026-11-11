@@ -7,6 +7,7 @@ import { AREA_UNITS, LENGTH_UNITS } from "../nav/geodesy";
 import { useSettings } from "../store/settings";
 import { useApp } from "../store/store";
 import { StartupPanesSection } from "./StartupPanes";
+import { useHints } from "../hints/hints";
 import { AUTOSAVE_CHOICES, autosaveEveryMinutes } from "../recovery/format";
 
 const COMMON_CRS: [string, string][] = [["EPSG:4326", "WGS 84 (EPSG:4326)"], ["EPSG:4269", "NAD83 (EPSG:4269)"], ["EPSG:3857", "Web Mercator (EPSG:3857)"], ["EPSG:5070", "NAD83 / Conus Albers (EPSG:5070)"]];
@@ -76,6 +77,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 {AUTOSAVE_CHOICES.map(([n, l]) => <Option key={n} value={String(n)}>{l}</Option>)}
               </Dropdown>
             </Field>
+            <Checkbox label="Show first-run tips" checked={settings.showHints !== false} onChange={(_, d) => void save({ showHints: !!d.checked })} />
+            <div className="btn-row">
+              <div className="muted small" style={{ flex: 1 }}>Short tips in an empty node editor or layout. "Got it" hides one; this switches them all off.</div>
+              <Button size="small" onClick={() => { useHints.getState().reset(); void save({ showHints: true }); }}>Show tips again</Button>
+            </div>
             <Checkbox label="Show developer tools" checked={!!settings.showDeveloperTools} onChange={(_, d) => void save({ showDeveloperTools: !!d.checked })} />
             <div className="muted small">Adds a Developer group to the View tab: Frame Rate, Benchmark and Generate Test Data. Off by default.</div>
             <StartupPanesSection />

@@ -37,6 +37,8 @@ pub struct Settings {
     pub recent_projects: Option<Vec<String>>,
     /// UX2: show the Start page when the app opens. None = yes.
     pub show_start_page: Option<bool>,
+    /// UX15: show the first-run tips in the node editor and layouts. None = yes.
+    pub show_hints: Option<bool>,
 }
 
 /// How many recent projects are kept.
@@ -83,6 +85,7 @@ impl Settings {
                 out
             }),
             show_start_page: v.get("showStartPage").and_then(|b| b.as_bool()),
+            show_hints: v.get("showHints").and_then(|b| b.as_bool()),
         }
     }
 }

@@ -1,4 +1,5 @@
 import { Button, Toolbar, ToolbarDivider, Tooltip } from "@fluentui/react-components";
+import { HintBar } from "../hints/HintBar";
 import { AddRegular, ArrowRedoRegular, ArrowUndoRegular, DeleteRegular, DismissRegular, EraserRegular, KeyboardRegular, Play20Filled, ZoomFitRegular } from "@fluentui/react-icons";
 import { Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow, type Connection, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -443,6 +444,7 @@ function ModelCanvas() {
 
   return (
     <div className={`model ${active === "on" ? "shortcuts-on" : ""}`}>
+      <HintBar id="nodeEditor" empty={!!treeLayer && nodes.length <= 2} />
       <Toolbar size="small" className="model-bar">
         <span className="model-title" title="Each layer has its own node tree. Select a layer in Map Layers to switch.">
           {treeName ? <>Node tree: <b>{treeName}</b></> : "No layer selected"}
