@@ -137,3 +137,22 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 .batch-report th, .batch-report td { text-align: left; padding: 2px 6px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 .batch-failed td:nth-child(2) { color: var(--error); }
 .batch-skipped td:nth-child(2), .batch-cancelled td:nth-child(2) { color: var(--warn); }
+.thelp { width: 360px; max-height: 70vh; overflow: auto; font-size: 12px; line-height: 1.4; }
+.thelp h4 { margin: 0 0 4px; font-size: 14px; }
+.thelp h5 { margin: 8px 0 2px; font-size: 11px; text-transform: uppercase; color: var(--text-2); }
+.thelp p { margin: 0 0 6px; }
+.thelp ul { margin: 0; padding-left: 16px; }
+.thelp em { color: var(--text-2); font-style: normal; }
+.thelp-pics { display: flex; gap: 8px; margin: 6px 0 2px; }
+.thelp-fig { margin: 0; flex: 1; text-align: center; }
+.thelp-fig svg { width: 100%; aspect-ratio: 1; background: var(--surface-2, transparent); border: 1px solid var(--rule); border-radius: 3px; }
+.thelp-fig figcaption { font-size: 11px; color: var(--text-2); }
+.thelp-note { color: var(--text-2); font-size: 11px; }
+.thelp-cite a { word-break: break-all; }
+.thelp-input, .thelp-input-faint { fill: var(--text-2); fill-opacity: 0.3; stroke: var(--text-2); stroke-width: 1; }
+.thelp-overlay, .thelp-overlay-faint { fill: var(--warn); fill-opacity: 0.25; stroke: var(--warn); stroke-width: 1; }
+.thelp-input-faint, .thelp-overlay-faint { fill-opacity: 0.08; stroke-opacity: 0.45; }
+.thelp-result { fill: var(--ok); fill-opacity: 0.45; stroke: var(--ok); stroke-width: 1.5; }
+.thelp-line, .thelp-line.thelp-result { fill: none; }
+.thelp-point { fill-opacity: 0.9; }
+.thelp-pop { padding: 10px; }

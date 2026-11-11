@@ -12,6 +12,7 @@ mod buffer;
 mod calculate_field;
 mod calculate_geometry;
 mod clip;
+pub mod help;
 pub mod keywords;
 mod dissolve;
 mod export;

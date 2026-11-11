@@ -456,6 +456,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "unique_values" => json!(e.unique_values(&s(a, "id")?, &s(a, "field")?, a["limit"].as_u64().unwrap_or(100) as usize)?),
         "quantile_breaks" => json!(e.quantile_breaks(&s(a, "id")?, &s(a, "field")?, a["classes"].as_u64().unwrap_or(5) as usize)?),
         "tool_specs" => json!(e.tool_specs()),
+        "tool_help" => json!(e.tool_help(&s(a, "id")?)?),
         "batch_list_folder" => json!(engine::batch::list_folder(&PathBuf::from(s(a, "folder")?))?.into_iter().map(|p| p.display().to_string()).collect::<Vec<_>>()),
         "run_batch" => {
             let items = e.run_batch(&engine::batch::request_from(&a["request"])?)?;

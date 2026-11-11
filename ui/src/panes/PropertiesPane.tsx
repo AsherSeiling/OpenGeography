@@ -22,6 +22,7 @@ import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@flu
 import { save } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
 import { previewAtNode } from "../nodes/nodePreview";
+import { ToolHelpBody } from "../nodes/ToolHelp";
 import { runModel, setDefinitionPython, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
 import { api, errorText, type CrsInfo as CrsInfoT, type LayerInfo, type ToolParam, type TransformReport } from "../ipc/api";
@@ -504,6 +505,12 @@ function NodeProperties({ id }: { id: string }) {
       <div className="props-title">{spec.name}</div>
       <div className="props-body stack">
         <div className="muted">{spec.description}</div>
+        {spec.role === "tool" && (
+          <details>
+            <summary>About this tool: picture, settings and method</summary>
+            <ToolHelpBody tool={node.data.tool} />
+          </details>
+        )}
         {result?.status === "error" && (
           <MessageBar intent="error"><MessageBarBody>{result.error}</MessageBarBody></MessageBar>
         )}

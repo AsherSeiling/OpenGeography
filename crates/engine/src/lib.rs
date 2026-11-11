@@ -1715,6 +1715,13 @@ impl Engine {
         self.tools.iter().map(|t| nodes::SpecOut { spec: t.spec(), fields: t.output_fields(), keywords: nodes::keywords::keywords(t.spec().id), result_look: t.result_look() }).collect()
     }
 
+    /// Tool help (UX12): the citation and the before-and-after picture of one tool (`nodes/help.rs`).
+    pub fn tool_help(&self, id: &str) -> Result<nodes::help::ToolHelp> {
+        let pool = self.pool.read();
+        let conn = pool.get()?;
+        nodes::help::help(&conn, &self.tools, id)
+    }
+
     pub fn run_graph(&self, graph: &Graph, target: Option<&str>, on_status: &mut dyn FnMut(&NodeResult)) -> Result<Vec<NodeResult>> {
         self.run_graph_in(graph, target, on_status, None)
     }

@@ -610,6 +610,19 @@ export interface OutFieldsRule {
 
 export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";
 
+/** Tool help (UX12); the engine's `nodes::help::ToolHelp`. The picture is the tool's real result on a built-in sample. */
+export interface HelpLayer {
+  role: "input" | "overlay" | "result" | "input-faint" | "overlay-faint";
+  paths: string[];
+  kind: "polygon" | "line" | "point";
+}
+export interface ToolHelpInfo {
+  id: string;
+  citation: { text: string; url: string | null } | null;
+  picture: { before: HelpLayer[]; after: HelpLayer[]; view: [number, number, number, number] } | null;
+  pictureNote: string | null;
+}
+
 /** Batch run (UX5); the engine's `batch` types. */
 export type BatchSource = { kind: "file"; path: string } | { kind: "layer"; id: string };
 export interface BatchRequest {
@@ -940,6 +953,7 @@ export const api = {
   toolSpecs: () => invoke<ToolSpec[]>("tool_specs"),
   runGraph: (graph: GraphPayload, target?: string | null) =>
     invoke<NodeResult[]>("run_graph", { graph, target: target ?? null }),
+  toolHelp: (id: string) => invoke<ToolHelpInfo>("tool_help", { id }),
   batchListFolder: (folder: string) => invoke<string[]>("batch_list_folder", { folder }),
   runBatch: (request: BatchRequest) => invoke<BatchItem[]>("run_batch", { request }),
   nodeGroupsList: () => invoke<NodeGroupSummary[]>("node_groups_list"),

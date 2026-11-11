@@ -15,6 +15,7 @@ import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 import { splitCategory } from "./categories";
 import { previewAtNode } from "./nodePreview";
+import { HelpButton } from "./ToolHelp";
 import { ParamControl } from "./ParamControl";
 import { isWaiting, reviewScript } from "../scripts/script";
 
@@ -77,6 +78,7 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
         <span className="bnode-title">{title}</span>
         {data.muted && <span className="bnode-tag" title="Muted (M): bypassed — its first input passes straight through">muted</span>}
         {changed && !data.muted && <span className="bnode-changed" title="Changed since the last run — run the tree to update" />}
+        {kind === "tool" && <HelpButton tool={data.tool} name={spec.name} />}
         {kind === "tool" && spec.output && (
           <button className="bnode-eye nodrag" aria-label={`Preview ${spec.name} on the map`} title="Preview this step's result on the map (runs only the steps it needs)" onClick={(e) => { e.stopPropagation(); void previewAtNode(id); }}>
             <Eye16Regular />

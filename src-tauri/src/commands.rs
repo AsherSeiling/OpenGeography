@@ -336,6 +336,12 @@ pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<engine::nodes::SpecOut>> {
     blocking(&engine, |e| Ok(e.tool_specs())).await
 }
 
+/// Tool help (UX12): a tool's citation and before-and-after picture.
+#[tauri::command]
+pub async fn tool_help(engine: Eng<'_>, id: String) -> Res<engine::nodes::help::ToolHelp> {
+    blocking(&engine, move |e| e.tool_help(&id)).await
+}
+
 /// Batch run (UX5): data files in a folder, then a node tree over many inputs with a report per input.
 #[tauri::command]
 pub async fn batch_list_folder(folder: String) -> Res<Vec<String>> {

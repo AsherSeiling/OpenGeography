@@ -86,6 +86,7 @@ fn main() {
             commands::tool_specs,
             commands::run_graph,
             commands::check_graph,
+            commands::tool_help,
             commands::batch_list_folder,
             commands::run_batch,
             commands::node_groups_list,
