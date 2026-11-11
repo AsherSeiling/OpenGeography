@@ -630,3 +630,12 @@ Python stays the default scripting language, but queries (Definition Query, Sele
 - **Existing:** "Apply Symbology / Labels of X To Others" on a multi-selection already existed (`applyStyleParts`). UX9 adds a clipboard (Copy Style, Paste Style, Paste To Selected, whole style = symbology then labels, same class-field rules) and a library.
 - **Library location:** one file, `<data_dir>/style-library.json`, per user, not in a project and not in `localStorage`. Reason: styles should survive a reinstall of the webview and be reachable by the devserver and the desktop app alike; a project never carries it, so sharing a project shares no private styles. Entries are the UI's `LayerStyle` JSON, opaque to the engine apart from a 1 MB limit, a `kind` check, 100-character names and 200 entries (refused with a sentence, never dropped silently). Same name in any case replaces.
 - **Not done:** exporting or importing the library file, and applying library styles to rasters (their style is different). Closest reversible option; easy to add.
+
+## Default languages (UX16, 2026-11-11)
+
+- **Existing:** a Builder tab (rows, And/Or, unique-value pickers, SQL preview) already existed beside Python, Blocks and SQL; the editor opened on Python (UR-20). UX16 makes the Builder the first and default tab and adds SQL → rows, so the Builder and SQL views stay in step both ways.
+- **One editor, three places:** `QueryEditor` serves Definition Query, Select by Attributes and the query nodes' dialog, so all three change together. Calculate Field, labels and script nodes keep Python as their default. There is no Python in symbology rules (classes are by field value), so nothing changed there.
+- **Opening a saved query changes nothing:** a Python query opens on Python; a SQL query opens as rows only when `builderToSql(parse(sql))` equals the saved text exactly, otherwise on the SQL tab. The stored text is only replaced when the user edits.
+- **Mixed And/Or:** rows keep their joins as written and rebuild the same text, so SQL's own precedence (AND before OR) applies exactly as in the SQL. No grouping rows (parentheses) yet: SQL with parentheses stays SQL with a plain sentence. Most reversible; grouping can be added later.
+- **Field names ignore case when parsed** (SQL does); the rows then use the field's real spelling.
+- **e2e specs `table.spec.ts` (M-12) and `python-scripts.spec.ts` were edited for the new default and tab order and were not run.**

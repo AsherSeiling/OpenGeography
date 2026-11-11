@@ -1,5 +1,7 @@
-// Build a filter three ways: a Python function (the default, run by CPython), a point-and-click Builder, or SQL. Reports the text to run
-// (SQL, or a Python script) with its language, or an error, via onChange. A query saved before Python was the default is SQL and opens as SQL.
+// Build a filter four ways: a point-and-click Builder (the default, like ArcGIS Pro's clause builder: rows of field, operator and value
+// joined by And/Or, values picked from the field's unique values), a Python function (run by CPython), Blocks, or SQL. Reports the text to
+// run (SQL, or a Python script) with its language, or an error, via onChange. A saved Python query opens in Python and a saved SQL query
+// opens in the Builder only when the rows rebuild exactly the same SQL; otherwise it opens in SQL, unchanged.
 import { BlocksEditor } from "../scripts/BlocksEditor";
 import { blocksFromScript, blocksScript, type BlockJson } from "../scripts/blocks";
 import { Button, Tab, TabList, Textarea } from "@fluentui/react-components";
@@ -7,6 +9,7 @@ import { AddRegular, DeleteRegular } from "@fluentui/react-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Field } from "../ipc/api";
 import { builderToSql, needsValue, opsFor, type Clause } from "./builder";
+import { sqlToClauses } from "./builderParse";
 import { fieldRef, filterTemplate } from "../scripts/script";
 import { pySubsetSql } from "./pySubset";
 
@@ -84,9 +87,17 @@ export function QueryEditor({
   /** `text` is SQL or a Python script, by `language`. */
   onChange: (text: string, error: string | null, language: QueryLanguage) => void;
 }) {
-  const [mode, setMode] = useState<QueryMode>(initialPython ? "python" : initialSql ? "sql" : "python");
   const firstField = (fields.find((f) => !/^(OGC_FID|OBJECTID|OID|FID|fid|id)$/.test(f.name)) ?? fields[0])?.name;
-  const [clauses, setClauses] = useState<Clause[]>([newClause(firstField)]);
+  // A saved SQL query opens as rows only when they rebuild exactly the same text, so opening never changes it.
+  const initialRows = useMemo(() => {
+    if (initialPython || !initialSql?.trim()) return null;
+    const p = sqlToClauses(initialSql, fields);
+    return p.ok && builderToSql(p.clauses, fields) === initialSql.trim() ? p.clauses : null;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [mode, setMode] = useState<QueryMode>(initialPython ? "python" : initialSql?.trim() ? (initialRows ? "builder" : "sql") : "builder");
+  const [clauses, setClauses] = useState<Clause[]>(initialRows ?? [newClause(firstField)]);
+  /** Why the last switch to the Builder did not happen (SQL or Python it can't show as rows). */
+  const [note, setNote] = useState<string | null>(null);
   const [python, setPython] = useState(initialPython ?? "");
   // Hand-written Python that was open when the Blocks tab was chosen: kept unless the blocks are actually edited.
   const kept = useRef<{ python: string; first: string | null } | null>(null);
@@ -133,6 +144,25 @@ export function QueryEditor({
   const update = (i: number, p: Partial<Clause>) => setClauses((cs) => cs.map((c, j) => (j === i ? { ...c, ...p } : c)));
 
   const switchTo = (m: QueryMode) => {
+    setNote(null);
+    if (m === "builder" && mode !== "builder") {
+      // Carry the expression into rows where it can be shown; otherwise stay where it is and say why.
+      const text = mode === "sql" ? sql : mode === "python" ? (simple ?? "") : mode === "blocks" ? "" : "";
+      if (text.trim()) {
+        const p = sqlToClauses(text, fields);
+        if (!p.ok) {
+          setNote(p.reason);
+          return;
+        }
+        setClauses(p.clauses);
+      } else if (mode === "python" && python.trim() && python.trim() !== filterTemplate(fields).trim()) {
+        setNote("This Python filter can't be shown as rows: it is more than a simple comparison. It stays as Python.");
+        return;
+      } else if (mode === "blocks") {
+        setNote("Blocks can't be shown as rows. Use the Python tab to see what they make.");
+        return;
+      }
+    }
     // Carry the expression forward where it can be represented (a Python filter that is plain SQL carries over as that SQL).
     if (m === "sql" && mode === "builder" && result[0]) setSql(result[0]);
     if (m === "sql" && mode === "python" && simple) setSql(simple);
@@ -153,11 +183,12 @@ export function QueryEditor({
   return (
     <div className="qe">
       <TabList size="small" selectedValue={mode} onTabSelect={(_, d) => switchTo(d.value as QueryMode)}>
-        <Tab value="python">Python</Tab>
-        <Tab value="blocks">Blocks</Tab>
         <Tab value="builder">Builder</Tab>
         <Tab value="sql">SQL</Tab>
+        <Tab value="python">Python</Tab>
+        <Tab value="blocks">Blocks</Tab>
       </TabList>
+      {note && <div className="qe-preview err" role="status" data-testid="qe-note">{note}</div>}
 
       {mode === "builder" && (
         <div className="qe-rows">

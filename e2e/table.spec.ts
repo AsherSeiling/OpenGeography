@@ -85,9 +85,8 @@ test("M-12 definition query: builder rows, Python and SQL tabs, apply and clear"
   await ribbon(app, "Feature Layer", /^Definition Query$/);
   const qe = app.locator(".qe");
   await expect(qe).toBeVisible();
-  // Python is the first and default tab (UR-20); this test is about the Builder.
-  await expect(qe.getByRole("tab", { name: "Python" })).toHaveAttribute("aria-selected", "true");
-  await qe.getByRole("tab", { name: "Builder" }).click();
+  // The Builder is the first and default tab (UX16); Python stays one click away.
+  await expect(qe.getByRole("tab", { name: "Builder" })).toHaveAttribute("aria-selected", "true");
   const row0 = qe.locator(".qe-row").nth(0);
   await row0.locator("select").nth(0).selectOption("pop");
   await row0.locator("select").nth(1).selectOption("gt");

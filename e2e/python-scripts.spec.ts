@@ -7,12 +7,13 @@ const ribbon = async (page: any, tab: string, name: RegExp) => {
   await page.getByRole("button", { name }).first().click();
 };
 
-test("the Definition Query editor opens on Python; a Python query filters the layer and an old SQL query opens on SQL", async ({ app }) => {
+test("the Definition Query editor opens on the Builder (UX16); a Python query filters the layer and an old SQL query opens unchanged", async ({ app }) => {
   const layer = await addTestLayer(app, "points", 40, [-100, 30, -95, 35]);
   await ribbon(app, "Feature Layer", /^Definition Query$/);
   const qe = app.locator(".qe");
-  await expect(qe.getByRole("tab", { name: "Python" })).toHaveAttribute("aria-selected", "true");
-  expect(await qe.getByRole("tab").allInnerTexts().then((t) => t.map((x) => x.trim().replace(/(.+)\1/, "$1")))).toEqual(["Python", "Blocks", "Builder", "SQL"]);
+  await expect(qe.getByRole("tab", { name: "Builder" })).toHaveAttribute("aria-selected", "true");
+  expect(await qe.getByRole("tab").allInnerTexts().then((t) => t.map((x) => x.trim().replace(/(.+)\1/, "$1")))).toEqual(["Builder", "SQL", "Python", "Blocks"]);
+  await qe.getByRole("tab", { name: "Python" }).click();
   await qe.getByTestId("qe-python").fill('def calculate(row):\n    return row["value"] > 50\n');
   await expect(qe.getByTestId("qe-preview")).toContainText(/Python|SQL/);
   await app.getByRole("button", { name: "Apply" }).click();
@@ -24,13 +25,13 @@ test("the Definition Query editor opens on Python; a Python query filters the la
   const total = await gis(app, async (g, id) => (await g.api.getRows(id, { offset: 0, limit: 100 })).total, layer.id);
   expect(total).toBe(n);
 
-  // A layer with a SQL query (also one saved long ago) opens on the SQL tab, unchanged.
+  // A layer with a SQL query (also one saved long ago) opens unchanged: as rows when they rebuild exactly the same SQL, else on the SQL tab.
   const old = await addTestLayer(app, "points", 10, [-100, 30, -95, 35]);
   await gis(app, (g, id) => g.actions.setDefinitionQuery(id, "value > 10"), old.id);
   await gis(app, (g, id) => g.useApp.getState().setActiveLayer(id), old.id);
   await ribbon(app, "Feature Layer", /^Definition Query$/);
-  await expect(app.locator(".qe").getByRole("tab", { name: "SQL" })).toHaveAttribute("aria-selected", "true");
-  await expect(app.locator(".qe textarea")).toHaveValue("value > 10");
+  await expect(app.locator(".qe").getByRole("tab", { name: "Builder" })).toHaveAttribute("aria-selected", "true");
+  await expect(app.locator(".qe-preview")).toContainText("value > 10");
 });
 
 test("a script waiting for approval shows no features, says so on the map, and the approval dialog shows the script and the warning", async ({ app }) => {
