@@ -124,3 +124,5 @@ textarea.bctl { height: auto; resize: vertical; font-size: 11px; }
 /* A link between nodes takes keyboard focus (React Flow makes edges focusable); show it. */
 .react-flow__edge:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 .react-flow__edge:focus-visible path { stroke: var(--focus, var(--accent)) !important; stroke-width: 3px !important; }
+.bnode-eye { background: none; border: 0; padding: 0 2px; color: inherit; cursor: pointer; display: inline-flex; opacity: 0.75; }
+.bnode-eye:hover { opacity: 1; }

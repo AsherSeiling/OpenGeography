@@ -4,7 +4,7 @@
 import { ToolIcon } from "./toolIcon";
 import { useShallow } from "zustand/react/shallow";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
+import { Eye16Regular, ArrowSync16Regular, CheckmarkCircle16Filled, DismissCircle16Regular, ErrorCircle16Filled, Globe16Regular, History16Regular } from "@fluentui/react-icons";
 import { saveResultAsLayer } from "../actions";
 import type { NodeResult } from "../ipc/api";
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
@@ -12,6 +12,7 @@ import { asOneStep, connectProblem, nodeSignature, outputKind, useModel, useRun,
 import { useApp } from "../store/store";
 import { projectLayerInfos } from "../store/maps";
 import { splitCategory } from "./categories";
+import { previewAtNode } from "./nodePreview";
 import { ParamControl } from "./ParamControl";
 import { isWaiting, reviewScript } from "../scripts/script";
 
@@ -74,6 +75,11 @@ function NodeCard({ id, data, selected, kind }: NodeProps<ModelNode> & { kind: "
         <span className="bnode-title">{title}</span>
         {data.muted && <span className="bnode-tag" title="Muted (M): bypassed — its first input passes straight through">muted</span>}
         {changed && !data.muted && <span className="bnode-changed" title="Changed since the last run — run the tree to update" />}
+        {kind === "tool" && spec.output && (
+          <button className="bnode-eye nodrag" aria-label={`Preview ${spec.name} on the map`} title="Preview this step's result on the map (runs only the steps it needs)" onClick={(e) => { e.stopPropagation(); void previewAtNode(id); }}>
+            <Eye16Regular />
+          </button>
+        )}
         <Badge r={r} />
       </div>
       {fixedInput && <LayerName id={String(data.params.layer ?? "")} />}

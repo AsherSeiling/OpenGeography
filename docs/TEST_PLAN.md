@@ -1279,3 +1279,10 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | CP3-2 | Polygon layer Properties: slider reads "Fill opacity"; new "Outline opacity" slider and the Outline picker's alpha edit the same stored colour; line and point layers keep "Opacity"; points get an optional outline colour | both controls always show the same percentage; a style with alpha survives save, reopen, copy to another layer | manual; copy and node parts auto in `ui/src/map/styleAlpha.test.ts` |
 | CP3-3 | Paper, app theme, raster class colours | picker opens without an opacity control (no alpha stored) | manual |
 
+
+## UX. Everyday usability (`docs/MASTER_PLAN.md` Phase UX)
+| # | Case | Expected | Check |
+|---|---|---|---|
+| UX6-1 | Preview rule: never run, failed, changed since, or no output table means run first; finished and unchanged means reuse | as stated | auto: `ui/src/nodes/nodePreview.test.ts` |
+| UX6-2 | Raster step and a step without output | a readable sentence in the status bar, nothing runs | auto: same file |
+| UX6-3 | Click the eye on a tool card in a tree with a Buffer after a Layer Input, never run | only the steps up to Buffer run (the Output card stays idle), the Buffer result appears as a temporary "Preview" layer with its feature count in the status bar; clicking again reuses the cache | manual (not run in a browser by the author) |
