@@ -643,6 +643,74 @@ export interface OutFieldsRule {
 
 export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";
 
+/** Tool help (UX12); the engine's `nodes::help::ToolHelp`. The picture is the tool's real result on a built-in sample. */
+export interface HelpLayer {
+  role: "input" | "overlay" | "result" | "input-faint" | "overlay-faint";
+  paths: string[];
+  kind: "polygon" | "line" | "point";
+}
+export interface ToolHelpInfo {
+  id: string;
+  citation: { text: string; url: string | null } | null;
+  picture: { before: HelpLayer[]; after: HelpLayer[]; view: [number, number, number, number] } | null;
+  pictureNote: string | null;
+}
+
+/** Batch run (UX5); the engine's `batch` types. */
+export type BatchSource = { kind: "file"; path: string } | { kind: "layer"; id: string };
+export interface BatchRequest {
+  graph: GraphPayload;
+  inputNode: string;
+  resultNode: string;
+  sources: BatchSource[];
+  outDir: string;
+  format: string;
+  overwrite: boolean;
+  addToProject: boolean;
+}
+export interface BatchItem {
+  name: string;
+  source: string;
+  status: "done" | "failed" | "skipped" | "cancelled";
+  message: string | null;
+  rows: number | null;
+  output: string | null;
+  layer: LayerInfo | null;
+  millis: number;
+}
+
+/** Reusable node groups (UX8); the engine's `node_groups::Group`. */
+export interface NodeGroupNode {
+  id: string;
+  tool: string;
+  params: Record<string, unknown>;
+  x: number;
+  y: number;
+}
+export interface NodeGroup {
+  format: "gis-studio-node-group";
+  version: number;
+  name: string;
+  description: string;
+  nodes: NodeGroupNode[];
+  edges: { source: string; target: string; sourceHandle?: string | null; targetHandle: string }[];
+}
+export interface NodeGroupSummary {
+  name: string;
+  description: string;
+  nodes: number;
+}
+
+/** A problem found on a node before running (UX7). `fix` is a safe, explicit Project step in front of `port`. */
+export interface NodeProblem {
+  node: string;
+  port: string;
+  severity: "error" | "warning";
+  code: string;
+  message: string;
+  fix: { port: string; crs: string } | null;
+}
+
 export interface NodeResult {
   id: string;
   status: NodeStatus;
@@ -918,6 +986,16 @@ export const api = {
   toolSpecs: () => invoke<ToolSpec[]>("tool_specs"),
   runGraph: (graph: GraphPayload, target?: string | null) =>
     invoke<NodeResult[]>("run_graph", { graph, target: target ?? null }),
+  toolHelp: (id: string) => invoke<ToolHelpInfo>("tool_help", { id }),
+  batchListFolder: (folder: string) => invoke<string[]>("batch_list_folder", { folder }),
+  runBatch: (request: BatchRequest) => invoke<BatchItem[]>("run_batch", { request }),
+  nodeGroupsList: () => invoke<NodeGroupSummary[]>("node_groups_list"),
+  nodeGroupGet: (name: string) => invoke<NodeGroup>("node_group_get", { name }),
+  nodeGroupSave: (group: NodeGroup) => invoke<NodeGroup>("node_group_save", { group }),
+  nodeGroupDelete: (name: string) => invoke<void>("node_group_delete", { name }),
+  nodeGroupExport: (name: string, path: string) => invoke<void>("node_group_export", { name, path }),
+  nodeGroupImport: (path: string) => invoke<NodeGroup>("node_group_import", { path }),
+  checkGraph: (graph: GraphPayload) => invoke<NodeProblem[]>("check_graph", { graph }),
   previewOutput: (output: string, crs: string | null, name: string) =>
     invoke<LayerInfo>("preview_output", { output, crs, name }),
   clearModelCache: () => invoke<void>("clear_model_cache"),

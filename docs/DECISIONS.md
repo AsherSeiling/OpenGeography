@@ -639,3 +639,32 @@ Python stays the default scripting language, but queries (Definition Query, Sele
 - **Mixed And/Or:** rows keep their joins as written and rebuild the same text, so SQL's own precedence (AND before OR) applies exactly as in the SQL. No grouping rows (parentheses) yet: SQL with parentheses stays SQL with a plain sentence. Most reversible; grouping can be added later.
 - **Field names ignore case when parsed** (SQL does); the rows then use the field's real spelling.
 - **e2e specs `table.spec.ts` (M-12) and `python-scripts.spec.ts` were edited for the new default and tab order and were not run.**
+
+## UX6 and UX7 (Wave 2, Lane A)
+- **UX6 preview runs only to the node:** the eye button on a card calls `runModel(node)` (cached upstream steps are reused) and then the existing `previewOutput`; it skips the run when the step finished and nothing upstream changed. Raster steps say plainly that they have no map preview yet (their output is a file, not a table); easy to add later. Reason: smallest change on top of what existed.
+- **UX7 CRS rules live in one Rust function, `check::crs_problems`,** and the UI only displays what the engine says. The output CRS of a tool before running is declared in one table, `check::crs_rule`, listing only tools whose code was read to take their first input's CRS (or Project's setting); every other tool is "unknown" and makes no claim. Reason: never guess a CRS, and a wrong claim is worse than none. A test asserts the prediction equals the run for Project, buffer and Erase.
+- **UX7 only compares feature inputs of tools without raster ports.** Raster-and-vector tools handle CRS in their own ways; claiming anything there would need per-tool rules.
+- **The only CRS fix is an explicit Project step to the first input's CRS** (what the tool would do silently when it runs). A layer without a CRS is an error with no button: the user must say what the data uses (Define Projection). Reason: CRS is never guessed.
+- **Field problems are warnings, not errors,** because field lists come from each tool's declared output rule and a tool that adds fields without declaring them would otherwise show false errors. The one-click fix is offered only for a single near match (case, spaces, punctuation).
+
+## UX8 Reusable node groups (Wave 2, Lane A)
+- **A group is inserted as ordinary nodes, not as a collapsed card.** Saving copies the selected nodes, settings and inner connections; inserting copies them back with new ids, as one undo step. Reason: the most reversible option and no new executor concept: nothing runs or hides that the user cannot see and edit. A collapsed "group card" with a shared definition can be added later on top of the same file format (`version` 1).
+- **Library in the user's data folder** (`node-groups/*.gisgroup`, JSON), so every project sees it; sharing is one file via Share/Import. Nothing is saved in the project file, so project format and Lane B's save/open are untouched.
+- **Layers are never part of a group.** Layer settings are emptied on save and again on import (a layer id means nothing in another project and would leak one). Scripts inside a group stay behind the existing per-computer script approval. Files from others are checked for format, version, size, every tool id, connections and duplicate ids.
+- **Entry point is a Groups button in the node editor toolbar** (`GroupsMenu`, one line added to `ModelPane.tsx`), not the ribbon or Shift+A menu, to stay out of Lane B's files.
+
+## UX5 Batch run (Wave 2, Lane A)
+- **A batch runs the open node tree per input and writes each result with the Export Features tool** (a temporary step after the chosen result step), so the coordinate system is written, a source file is refused, and there is one export code path. Inputs from files are imported, used and removed again; project layers given as inputs stay. "Tool" batches are a tree with one tool in it.
+- **A result is a new file in a chosen folder; an existing file is left alone (reported as "left as it was")** unless the user ticks replace. Even then a result never replaces its own input. Reason: Output never modifies source data, and replacing is the less reversible choice.
+- **One bad input never stops the rest.** Every input gets a row (Succeeded, Failed with a sentence, Left as it was, Cancelled). Cancel interrupts the running input (the batch passes its own cancel to the model run) and marks the rest Cancelled.
+- **Substitution is by Layer Input node:** the chosen node's layer becomes each input's original data (not another layer's node-tree result). Other Layer Input nodes in the tree keep their layers.
+- **Entry point is a Batch button in the node editor toolbar** (`BatchDialog`, one line in `ModelPane.tsx`). Folder scan is not recursive.
+
+## UX12 Tool help (Wave 2, Lane A)
+- **Text comes from `ToolSpec`** (name, description, inputs, output, each setting's `help`): no second catalog of descriptions. The engine adds only what the spec cannot hold: a citation and a picture, both through the `tool_help` command.
+- **The before-and-after picture is generated, not drawn:** the tool runs on a built-in sample (a wavy polygon, a triangle and an overlay ellipse in UTM 15N, 100 m wide) with its own default settings, through `Tool::build` on a temporary table that is dropped at once; the real SQL result becomes SVG paths. A drawn illustration per tool would be a second catalog that can drift from the tool. Cost: tools that need a field, layer, file or raster (and those whose sample result would look the same) show a plain sentence instead of a picture. About 20 tools get one today (Buffer, Clip, Erase, Intersect, Union, Dissolve, Simplify and others); a per-tool sample setting can be added in `help::sample_params` (only Buffer and Simplify need one so far).
+- **Citations are a small table in `nodes/help.rs`** (11 tools: the published methods already in `docs/OPEN_SOURCE.md` section 5). It is a second list, but of references, not tool descriptions; a test keeps every id real. Tools without a published method show no Method section.
+- **Entry points:** a ? on each tool card and "About this tool" in Properties. The Shift+A menu is unchanged.
+
+## Start page templates and samples (UX2, lead, 2026-11-12)
+Project templates set only the first map's coordinate system (blank, WGS 84, Web Mercator, CONUS Albers). Sample data is the bundled world outline or 1,000 generated polygons or points, so the start page needs no network. Both are easy to extend later.

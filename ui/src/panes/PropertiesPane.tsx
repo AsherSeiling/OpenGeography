@@ -21,7 +21,9 @@ import {
 import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@fluentui/react-icons";
 import { save } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
-import { previewNode, runModel, setDefinitionPython, setDefinitionQuery, useDialog } from "../actions";
+import { previewAtNode } from "../nodes/nodePreview";
+import { ToolHelpBody } from "../nodes/ToolHelp";
+import { runModel, setDefinitionPython, setDefinitionQuery, useDialog } from "../actions";
 import { crsName } from "../crs/crs";
 import { api, errorText, type CrsInfo as CrsInfoT, type LayerInfo, type ToolParam, type TransformReport } from "../ipc/api";
 import { TopoSymbolPicker } from "../topo/TopoSymbolPicker";
@@ -503,6 +505,12 @@ function NodeProperties({ id }: { id: string }) {
       <div className="props-title">{spec.name}</div>
       <div className="props-body stack">
         <div className="muted">{spec.description}</div>
+        {spec.role === "tool" && (
+          <details>
+            <summary>About this tool: picture, settings and method</summary>
+            <ToolHelpBody tool={node.data.tool} />
+          </details>
+        )}
         {result?.status === "error" && (
           <MessageBar intent="error"><MessageBarBody>{result.error}</MessageBarBody></MessageBar>
         )}
@@ -515,7 +523,7 @@ function NodeProperties({ id }: { id: string }) {
         <div className="btn-row">
           <Button size="small" icon={<Play16Regular />} disabled={running} onClick={() => runModel(id)}>Run to here</Button>
           {spec.output && (
-            <Button size="small" icon={<EyeRegular />} disabled={!result?.output} onClick={() => previewNode(id)}>Preview on map</Button>
+            <Button size="small" icon={<EyeRegular />} disabled={running} onClick={() => previewAtNode(id)}>Preview on map</Button>
           )}
         </div>
         {result && (result.status === "done" || result.status === "cached") && (

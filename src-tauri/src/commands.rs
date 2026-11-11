@@ -336,6 +336,61 @@ pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<engine::nodes::SpecOut>> {
     blocking(&engine, |e| Ok(e.tool_specs())).await
 }
 
+/// Tool help (UX12): a tool's citation and before-and-after picture.
+#[tauri::command]
+pub async fn tool_help(engine: Eng<'_>, id: String) -> Res<engine::nodes::help::ToolHelp> {
+    blocking(&engine, move |e| e.tool_help(&id)).await
+}
+
+/// Batch run (UX5): data files in a folder, then a node tree over many inputs with a report per input.
+#[tauri::command]
+pub async fn batch_list_folder(folder: String) -> Res<Vec<String>> {
+    engine::batch::list_folder(std::path::Path::new(&folder)).map(|v| v.into_iter().map(|p| p.display().to_string()).collect()).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn run_batch(engine: Eng<'_>, request: engine::batch::BatchRequest) -> Res<Vec<engine::batch::BatchItem>> {
+    let items = blocking(&engine, move |e| e.run_batch(&request)).await?;
+    prewarm(&engine, items.iter().filter_map(|i| i.layer.as_ref().map(|l| l.id.clone())).collect());
+    Ok(items)
+}
+
+/// Reusable node groups (UX8): the user's library of saved parts of node trees.
+#[tauri::command]
+pub async fn node_groups_list() -> Res<Vec<engine::node_groups::Summary>> {
+    Ok(engine::node_groups::list())
+}
+
+#[tauri::command]
+pub async fn node_group_get(name: String) -> Res<engine::node_groups::Group> {
+    engine::node_groups::get(&name).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_save(group: serde_json::Value) -> Res<engine::node_groups::Group> {
+    engine::node_groups::save(&group).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_delete(name: String) -> Res<()> {
+    engine::node_groups::delete(&name).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_export(name: String, path: String) -> Res<()> {
+    engine::node_groups::export(&name, &path).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_import(path: String) -> Res<engine::node_groups::Group> {
+    engine::node_groups::import(&path).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn check_graph(engine: Eng<'_>, graph: Graph) -> Res<Vec<engine::check::NodeProblem>> {
+    blocking(&engine, move |e| e.check_graph(&graph)).await
+}
+
 #[tauri::command]
 pub async fn run_graph(app: AppHandle, engine: Eng<'_>, graph: Graph, target: Option<String>) -> Res<Vec<NodeResult>> {
     let results = blocking(&engine, move |e| {
