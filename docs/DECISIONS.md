@@ -586,3 +586,11 @@ Made while the user was away; each can be changed.
 - **Format memory:** the panel's format is remembered in the webview's `localStorage` (per computer), starting from the status bar's format until the user picks one. Reason: no settings-file change needed; easy to reverse.
 - **Ctrl/Cmd+G** is free (nothing else binds it; the node editor's plain G is Grab) and opens the panel.
 - **Icon:** new drawing `go-to-coordinates` (map tile with a grid and a red pin) in `scripts/ribbon_icons_lib.py`.
+
+## Colour picker and outline opacity (CP1-CP3, 2026-11-11)
+
+- **No separate dependency entry:** `@fluentui/react-color-picker` is imported through `@fluentui/react-components`, which already re-exports it, so `package.json` is unchanged. Reason: nothing new to ship; the notices file already lists it.
+- **Opaque colours stay `#rrggbb`:** `formatColor` writes `#rrggbbaa` only when alpha is below 255. Reason: old projects and style files are never rewritten by a plain edit, and every check that still accepts only six digits keeps working for opaque colours.
+- **Alpha for OpenLayers goes out as `rgba()`:** the style parser behind ol-mapbox-style has no 8-digit hex, so `cssColor` converts at the map boundary only; stored values stay hex.
+- **Picker changes are a live preview with Cancel/Escape restoring the starting value;** one undo step is not made (the layer style store has no undo of its own). Easy to add later with a commit callback.
+- **Eyedropper not included** (as planned).

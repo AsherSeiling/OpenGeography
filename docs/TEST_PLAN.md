@@ -1249,3 +1249,10 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | RB4-6 | A place the map CRS can't show (UTM 15 map at 100 E, Web Mercator at 89 N); a map with no CRS | a readable sentence, no map position, other formats still given | auto: same file |
 | RB4-7 | Pasting "34.05, -118.25", "34.05N 118.25W", "118.25W 34.05N", DMS with letters; ambiguous or three-part strings | latitude then longitude; letters override the order; ambiguity reported, not guessed | auto: `ui/src/goto/split.test.ts` |
 | RB4-8 | UTM map and Web Mercator map: type a position, Enter | view centred on the place, marker on the centre pixel, no layer, project not marked changed, marker removed on a CRS change; Clear removes it; Esc closes the panel; swapped/out-of-range/unshowable input shows its sentence and Go stays disabled | auto: `e2e/goto-coordinates.spec.ts` (not yet run) |
+
+## CP. Colour picker, transparency and outline opacity (`docs/COLOUR_AND_OUTLINE_PLAN.md`)
+| # | Case | Expected | Check |
+|---|---|---|---|
+| CP1-1 | Parse and format colours: 3, 4, 6, 8 hex digits, with and without `#`; garbage; opaque colours written back as `#rrggbb` | old `#rrggbb` values unchanged by a parse and format; `#rrggbbaa` only when not opaque; non-colours rejected | auto: `ui/src/theme/color.test.ts` |
+| CP1-2 | Alpha percent to byte and back for 0 to 100 | every whole percent survives; rgba() output for the map | auto: same file |
+| CP1-3 | Open a swatch, drag the area, hue and alpha sliders, type hex (3/4/6/8 digits), RGB and opacity %, pick an Okabe-Ito, project and recent colour; Escape; Cancel; Done; None (optional settings only) | the value changes live; Escape and Cancel restore the starting value; None clears an optional colour; the swatch shows transparency over a checkerboard; keyboard-only use works | manual (no DOM test runner); e2e `e2e/colour-picker.spec.ts` added in CP3, not run by the builder |
