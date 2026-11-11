@@ -430,6 +430,22 @@ pub async fn new_project(engine: Eng<'_>) -> Res<()> {
     blocking(&engine, |e| e.new_project()).await
 }
 
+/// The personal style library (UX9): named layer styles kept once per user.
+#[tauri::command]
+pub async fn list_style_library() -> Res<Vec<engine::style_library::LibraryEntry>> {
+    engine::style_library::list().map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn save_style_library(name: String, geom_type: String, style: serde_json::Value) -> Res<Vec<engine::style_library::LibraryEntry>> {
+    engine::style_library::save(&name, &geom_type, style).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn delete_style_library(id: String) -> Res<Vec<engine::style_library::LibraryEntry>> {
+    engine::style_library::delete(&id).map_err(|e| format!("{e:#}"))
+}
+
 /// Autosave (UX1): write the separate recovery copy. Never touches the open project; the UI keeps its unsaved mark.
 #[tauri::command]
 pub async fn write_recovery(engine: Eng<'_>, ui_state: String, origin: Option<PathBuf>, name: String) -> Res<()> {

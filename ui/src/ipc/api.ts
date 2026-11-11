@@ -163,6 +163,15 @@ export interface ProgramSettings {
   showStartPage?: boolean | null;
 }
 
+/** A named layer style in the personal style library (UX9). `style` is a LayerStyle. */
+export interface StyleLibraryEntry {
+  id: string;
+  name: string;
+  geomType: string;
+  savedAt: number;
+  style: import("../store/store").LayerStyle;
+}
+
 /** A recovery copy left by a run that ended without a clean save (UX1). */
 export interface RecoveryEntry {
   id: string;
@@ -931,6 +940,9 @@ export const api = {
   writeRecovery: (uiState: string, origin: string | null, name: string) => invoke<void>("write_recovery", { uiState, origin, name }),
   listRecovery: () => invoke<RecoveryEntry[]>("list_recovery"),
   discardRecovery: (id: string) => invoke<void>("discard_recovery", { id }),
+  listStyleLibrary: () => invoke<StyleLibraryEntry[]>("list_style_library"),
+  saveStyleLibrary: (name: string, geomType: string, style: unknown) => invoke<StyleLibraryEntry[]>("save_style_library", { name, geomType, style }),
+  deleteStyleLibrary: (id: string) => invoke<StyleLibraryEntry[]>("delete_style_library", { id }),
   markRecoveryClosed: () => invoke<void>("mark_recovery_closed"),
   discardOwnRecovery: () => invoke<void>("discard_own_recovery"),
   restoreRecovery: (id: string) => invoke<{ uiState: string; layers: LayerInfo[]; origin: string | null; openedOrigin: boolean }>("restore_recovery", { id }),

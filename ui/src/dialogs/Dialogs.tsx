@@ -26,6 +26,7 @@ import { reportError } from "../errors/store";
 import { crsName, FAVORITES, loadCatalog, searchCatalog, statePlaneFor, utmFor, type CrsEntry } from "../crs/crs";
 import { SettingsDialog } from "./SettingsDialog";
 import { StartDialog } from "../start/StartDialog";
+import { StyleLibraryDialog } from "../layers/StyleLibraryDialog";
 import { NewTableDialog } from "./NewTableDialog";
 import { CrsTreeView } from "../crs/CrsTreeView";
 import { STATES } from "./TigerDialog";
@@ -136,6 +137,8 @@ function DialogHost() {
       return <ElevationDialog onClose={close} />;
     case "nationalMap":
       return <NationalMapDialog onClose={close} />;
+    case "styleLibrary":
+      return <StyleLibraryDialog layer={dialog.layer} onClose={close} />;
     case "start":
       return <StartDialog onClose={close} />;
     case "nodeShortcuts":

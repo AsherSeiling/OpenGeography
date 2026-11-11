@@ -49,6 +49,7 @@ pub mod raster;
 pub mod raster_style;
 pub mod topo_symbols;
 pub mod settings;
+pub mod style_library;
 pub mod sources;
 pub mod resources;
 pub mod table;

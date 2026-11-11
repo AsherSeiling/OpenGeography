@@ -64,7 +64,8 @@ export type DialogState =
   | { kind: "census"; layer: string }
   | { kind: "projectionBuilder" }
   | { kind: "nodeShortcuts" }
-  | { kind: "start" };
+  | { kind: "start" }
+  | { kind: "styleLibrary"; layer: string };
 
 export const useDialog = create<{ dialog: DialogState; show: (d: DialogState) => void; close: () => void }>((set) => ({
   dialog: null,

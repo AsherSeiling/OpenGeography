@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { applyStyleToLayers, exportLayer, exportTable, moveLayers, pickedLayers, removeLayers, setLayersVisible, zoomToLayers, layerFromSelection, splitByAttribute, openDefinitionQuery, pickMapCrs, removeLayer, useDialog, zoomToLayer } from "../actions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
+import { copyStyle, isVector, pasteStyle, useStyleClip } from "../layers/styleClip";
 import { uncitedLayers, useSourceLog } from "../sources/log";
 import { showPane } from "./panes";
 import { justDragged, startDrag, type DropDetail } from "../dnd";
@@ -265,6 +266,7 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
   const hasResult = useApp((s) => !!s.results[id]);
   const nsel = useApp((s) => s.selection[id]?.length ?? 0);
   const showingOriginal = useApp((s) => !!s.showOriginal[id]);
+  const clip = useStyleClip((s) => s.clip);
   const target = { getBoundingClientRect: () => ({ x, y, left: x, top: y, right: x, bottom: y, width: 0, height: 0, toJSON: () => null }) };
   const dlg = useDialog.getState().show;
   if (!info) return null;
@@ -275,6 +277,9 @@ function LayerMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuItem icon={<ZoomFitRegular />} disabled={!info.extent} onClick={() => zoomToLayer(id)}>Zoom To Layer</MenuItem>
           <MenuItem icon={<TableRegular />} onClick={() => { useApp.getState().setActiveLayer(id); showPane("table"); }}>Attribute Table</MenuItem>
           <MenuItem icon={<PaintBrushRegular />} disabled={info.geomType === "Table"} onClick={() => openLayerProperties(id, "symbology")}>Symbology…</MenuItem>
+          <MenuItem icon={<PaintBrushRegular />} disabled={!isVector(info)} onClick={() => copyStyle(id)}>Copy Style</MenuItem>
+          <MenuItem icon={<PaintBrushRegular />} disabled={!isVector(info) || !clip} onClick={() => pasteStyle([id])}>Paste Style{clip ? ` From “${clip.name}”` : ""}</MenuItem>
+          <MenuItem icon={<PaintBrushRegular />} disabled={!isVector(info)} onClick={() => dlg({ kind: "styleLibrary", layer: id })}>Style Library…</MenuItem>
           <MenuItem icon={<FlowchartRegular />} onClick={() => showPane("model")}>Edit Node Tree</MenuItem>
           {hasResult && (
             <MenuItem icon={<FlowchartRegular />} onClick={() => useApp.getState().setShowOriginal(id, !showingOriginal)}>
@@ -307,6 +312,7 @@ function MultiMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
   const vector = ids.filter((i) => names[i] && names[i].geomType !== "Raster" && names[i].geomType !== "Table");
   const target = { getBoundingClientRect: () => ({ x, y, left: x, top: y, right: x, bottom: y, width: 0, height: 0, toJSON: () => null }) };
   const from = names[id];
+  const clip = useStyleClip((s) => s.clip);
   return (
     <Menu open positioning={{ target: target as never, position: "below", align: "start" }} onOpenChange={(_, d) => !d.open && onClose()}>
       <MenuPopover>
@@ -324,6 +330,7 @@ function MultiMenu({ x, y, id, onClose }: { x: number; y: number; id: string; on
           <MenuDivider />
           <MenuItem icon={<PaintBrushRegular />} disabled={!vector.includes(id) || vector.length < 2} onClick={() => applyStyleToLayers(id, vector, "symbology")}>Apply Symbology of “{from?.name}” To Others</MenuItem>
           <MenuItem icon={<PaintBrushRegular />} disabled={!vector.includes(id) || vector.length < 2} onClick={() => applyStyleToLayers(id, vector, "labels")}>Apply Labels of “{from?.name}” To Others</MenuItem>
+          <MenuItem icon={<PaintBrushRegular />} disabled={!clip || !vector.length} onClick={() => pasteStyle(vector)}>Paste Style{clip ? ` From “${clip.name}”` : ""} To Selected</MenuItem>
           <MenuDivider />
           <MenuItem icon={<ArrowExportRegular />} onClick={() => useDialog.getState().show({ kind: "exportLayers", ids })}>Export Layers…</MenuItem>
           <MenuItem icon={<DeleteRegular />} onClick={() => removeFromMap(ids)}>Remove {ids.length} From Map</MenuItem>
