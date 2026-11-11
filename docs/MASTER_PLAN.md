@@ -41,6 +41,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 - `docs/PUBLIC_DATA_NODE_PLAN.md` — Public Data node: public datasets as cached model inputs (user, 2026-11-06); built with the Census importer, after its fetch engine (C3).
 - `docs/SHAPE_EDITING_PLAN.md` — shape editing mode: edit a layer's shapes or make a new layer and draw (user, 2026-11-06); after the user-requests list, before the Census importer (user, 2026-11-06).
 - `docs/COLOUR_AND_OUTLINE_PLAN.md` — built-in colour picker with transparency, outline opacity (user, 2026-11-09); Phase CP.
+- `docs/RIBBON_REORGANISATION_PLAN.md` — sorting the top toolbar (user, 2026-11-09); Phase RB.
 - `docs/STATISTICS_WORKSPACE_PLAN.md` — a separate statistics workspace (user, 2026-11-09); Phase ST.
 - `docs/TOOL_SOURCES.md` — candidate open-source code for more tools, by tier and licence (2026-11-06); a list, not in the order yet.
 
@@ -94,6 +95,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | Every USGS service | Planned 2026-11-06, not built | U0–U2 in `SERVER_CONNECTIONS_PLAN.md` §4a, after S2–S3 |
 | T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; after shape editing, before Census (user, 2026-11-06) |
 | CP. Colour picker and outline opacity | Planned 2026-11-09, not built | CP1–CP3 below |
+| RB. Sorting the top toolbar | Planned 2026-11-09, not built | RB1–RB3 below |
 | ST. Statistics workspace | Planned 2026-11-09, not built | ST0–ST7 below |
 
 **Effort** is counted in focused sessions, not days. At about one to two sessions per working day, each session takes 0.5–1 day. Ranges include the usual CI and fix rounds; the history so far shows each platform problem costs 1–3 extra rounds.
@@ -311,6 +313,21 @@ Design: `docs/COLOUR_AND_OUTLINE_PLAN.md`.
 | CP3 | 0.5 | Sonnet | **Rollout:** every colour control replaced; Outline opacity field added |
 
 **Total:** about 1.5–2 sessions.
+
+### Phase RB — Sorting the top toolbar (user, 2026-11-09)
+
+**Order:** with Phase CP, after Wave 1 is merged and before Wave 2, because Wave 2 adds ribbon search and favourites. This is the lead's placement.
+
+Design: `docs/RIBBON_REORGANISATION_PLAN.md`.
+
+| Task | Effort | Model | What |
+|---|---|---|---|
+| RB1 | 0.5 | Sonnet | **Re-sort:** new tabs Map, Data, Coordinates, Analysis, Insert, View; duplicates removed |
+| RB2 | 0.5 | Sonnet | **Tool dropdowns on Analysis,** from `tool_specs` |
+| RB3 | 0.25 | Sonnet | **Conditional groups:** Zoom only in layouts; developer tools behind a setting |
+| RB4 | 0.5 | Sonnet | **Go To Coordinates:** type a position in any format and the map goes there, with a temporary marker (user, 2026-11-09) |
+
+**Total:** about 1.75 sessions.
 
 ### Phase ST — Statistics workspace (user, 2026-11-09)
 

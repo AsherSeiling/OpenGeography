@@ -21,9 +21,14 @@ Run one wave at a time. Effort is in focused sessions, from `MASTER_PLAN.md`. St
 
 Lane B's only shared files are `nodes/mod.rs`, `nodes/keywords.rs`, `docs/OPEN_SOURCE.md` and `THIRD_PARTY_NOTICES.md`. Those are add-a-line conflicts, so you resolve them at merge.
 
-### Colour picker: about 2 sessions, one lane, alone
+### Colour picker and toolbar: about 2 sessions
 
-After Wave 1 is merged and before Wave 2, because it edits files both Wave 2 lanes own. CP1, CP2, CP3 (`docs/COLOUR_AND_OUTLINE_PLAN.md`).
+After Wave 1 is merged and before Wave 2, because they edit files both Wave 2 lanes own.
+
+| Lane | Packages, in order | Owns |
+|---|---|---|
+| **A: colour** | CP1, CP2, CP3 (`docs/COLOUR_AND_OUTLINE_PLAN.md`) | colour controls, `ui/src/map/style.ts`, `layout/svg.rs`, `layout/frame.rs` |
+| **B: toolbar** | RB1, RB2, RB3, RB4 (`docs/RIBBON_REORGANISATION_PLAN.md`) | `ui/src/ribbon/`, specs that open a tab by name |
 
 ### Wave 2: about 7.5 sessions
 
