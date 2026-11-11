@@ -31,7 +31,7 @@ test("A5 the datum coverage table lists every checked region with a plain-words 
 });
 
 test("B2 the Datum Grids menu lists the catalog by region, filters it, and offers downloads", async ({ app }) => {
-  await ribbon(app, "Map", "Datum Grids");
+  await ribbon(app, "Coordinates", "Datum Grids");
   const dlg = app.getByRole("dialog");
   await expect(dlg).toContainText("Datum Grids");
   const list = dlg.getByTestId("grid-list");
@@ -59,7 +59,7 @@ test("B2 the Datum Grids menu lists the catalog by region, filters it, and offer
 });
 
 test("D3/C4 the responsible-use statement opens from the ribbon, and a US-foot layer says which foot it uses", async ({ app }) => {
-  await ribbon(app, "Map", "Limits & Responsible Use");
+  await ribbon(app, "Coordinates", "Limits & Responsible Use");
   const dlg = app.getByRole("dialog");
   await expect(dlg).toContainText("Limitations and responsible use");
   await expect(dlg.getByTestId("responsible-use")).toContainText(/not a survey instrument/i);

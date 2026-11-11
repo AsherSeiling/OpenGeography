@@ -15,7 +15,7 @@ test("UR-13 a layer with no citation is marked in Map Layers and Sources; a form
   await expect(app.locator(".tree-layer", { has: marks })).toContainText(gen.name);
 
   // The Sources pane says so too (it is not open by default).
-  await ribbon(app, "View", /^Sources$/);
+  await ribbon(app, "Data", /^Sources$/);
   await expect(app.getByTestId("uncited")).toContainText("1 layer has no citation");
 
   // Click the marker: the Add citation dialog for that layer opens. The form needs a title or an author.

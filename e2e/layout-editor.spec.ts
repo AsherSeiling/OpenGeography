@@ -62,7 +62,7 @@ test("Map tabs leave while a layout is open, the layout tabs follow the doc, Bac
   await emptyLayout(app);
   const tabs = await app.locator(".rtabs .rtab").allTextContents();
   expect(tabs.map((t: string) => t.trim())).toEqual(["Page", "Insert", "Arrange", "View", "Export"]);
-  await expect(app.locator(".rtab", { hasText: /^(Map|Analysis|Feature Layer)$/ })).toHaveCount(0);
+  await expect(app.locator(".rtab", { hasText: /^(Map|Data|Coordinates|Analysis|Feature Layer)$/ })).toHaveCount(0);
   await app.locator(".rtab", { hasText: /^Page$/ }).click();
   for (const g of ["Sheet", "Look", "Template", "Map Series"]) await expect(app.locator(`.rg-slot[data-group="${g}"]`)).toHaveCount(1);
   await app.locator(".rtab", { hasText: /^Arrange$/ }).click();

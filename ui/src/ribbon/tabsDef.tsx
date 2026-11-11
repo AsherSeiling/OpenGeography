@@ -10,17 +10,25 @@ import type { Group } from "./tabs";
 export const TABS: Record<string, Group[]> = {
   Map: [
     { label: "Navigate", items: [{ cmd: "explore" }, { cmd: "fullExtent" }, { cmd: "goToCoordinates" }, { custom: <BookmarksMenu /> }, { custom: <SwipeMenu /> }] },
-    { label: "Layer", items: [{ cmd: "addData" }, { cmd: "newTable" }, { cmd: "newLayer" }, { cmd: "catalog" }, { custom: <BasemapGallery /> }] },
-    { label: "Edit", items: [{ cmd: "startEditing" }, { cmd: "undoLastSave", size: "small" }] },
+    { label: "Layer", items: [{ cmd: "addData" }, { custom: <BasemapGallery /> }] },
     {
       label: "Selection",
       items: [{ cmd: "select" }, { cmd: "selectBox", size: "small" }, { cmd: "selectByAttributes", size: "small" }, { cmd: "selectByLocation", size: "small" }, { cmd: "zoomSelection", size: "small" }, { cmd: "clearSelection" }],
     },
     { label: "Inquiry", items: [{ cmd: "identify" }, { cmd: "measure" }, { cmd: "measureArea", size: "small" }] },
-    { label: "Land Nav", items: [{ cmd: "resection" }, { cmd: "intersection" }, { cmd: "usngGrid" }] },
-    { label: "Coordinate System", items: [{ cmd: "mapCrs" }, { cmd: "datumGrids" }, { cmd: "projectionBuilder" }, { cmd: "tissot" }, { cmd: "responsibleUse" }] },
-    { label: "World", items: [{ cmd: "worldView" }, { cmd: "worldGraticule" }, { cmd: "worldOutline" }] },
+    { label: "Edit", items: [{ cmd: "startEditing" }, { cmd: "undoLastSave", size: "small" }] },
+  ],
+  // Getting data in and describing where it came from. Server connections and Census go here when they are built.
+  Data: [
+    { label: "Add", items: [{ cmd: "addData" }, { cmd: "catalog" }] },
+    { label: "Create", items: [{ cmd: "newLayer" }, { cmd: "newTable" }] },
     { label: "Georeference", items: [{ cmd: "georeference" }, { cmd: "adjustShapes" }] },
+    { label: "Sources", items: [{ cmd: "paneSources" }] },
+  ],
+  Coordinates: [
+    { label: "Coordinate System", items: [{ cmd: "mapCrs" }, { cmd: "projectionBuilder" }, { cmd: "datumGrids" }, { cmd: "tissot" }, { cmd: "responsibleUse" }] },
+    { label: "World", items: [{ cmd: "worldView" }, { cmd: "worldGraticule" }, { cmd: "worldOutline" }] },
+    { label: "Land Navigation", items: [{ cmd: "resection" }, { cmd: "intersection" }, { cmd: "usngGrid" }] },
   ],
   Insert: [
     { label: "Layouts", items: [{ custom: <NewLayoutGallery />, covers: ["newLayout"] }] },
@@ -37,18 +45,16 @@ export const TABS: Record<string, Group[]> = {
         { cmd: "paneModel", size: "small" },
         { cmd: "paneTable", size: "small" },
         { cmd: "paneProperties", size: "small" },
-        { cmd: "paneSources", size: "small" },
         { cmd: "paneMap", size: "small" },
         { cmd: "resetPanes" },
       ],
     },
     { label: "Appearance", items: [{ cmd: "theme" }, { cmd: "colours" }] },
     { label: "Program", items: [{ cmd: "settings" }, { cmd: "saveStartup", size: "small" }, { cmd: "resetStartup", size: "small" }] },
-    { label: "Performance", items: [{ cmd: "fps", size: "small" }, { cmd: "benchmark", size: "small" }] },
-    { label: "Testing", items: [{ cmd: "testData" }] },
+    { label: "Developer", items: [{ cmd: "fps", size: "small" }, { cmd: "benchmark", size: "small" }, { cmd: "testData", size: "small" }] },
   ],
   Analysis: [
-    { label: "Geoprocessing", items: [{ cmd: "addTool" }, { cmd: "runModel" }, { cmd: "paneModel" }, { cmd: "paneTable" }] },
+    { label: "Geoprocessing", items: [{ cmd: "addTool" }, { cmd: "runModel" }] },
     { label: "Favourites", items: [{ custom: <Shelf /> }] },
   ],
   // The layout workspace: Page, Insert (the same tab as in the map), Arrange, View (the same tab as in the map, with Zoom active) and Export.
@@ -75,11 +81,10 @@ export const TABS: Record<string, Group[]> = {
     { label: "Scale and CRS", items: [{ custom: <ScaleBox /> }, { cmd: "layoutFrameCrs" }] },
   ],
   "Feature Layer": [
-    { label: "Layer", items: [{ cmd: "layerProps" }, { cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }] },
-    { label: "Fields", items: [{ cmd: "addField", size: "small" }, { cmd: "calcField", size: "small" }, { cmd: "calcGeometry", size: "small" }, { cmd: "census" }] },
+    { label: "Layer", items: [{ cmd: "layerProps" }, { cmd: "zoomLayer" }, { cmd: "symbology" }, { cmd: "openTable" }, { cmd: "removeLayer" }] },
+    { label: "Fields", items: [{ cmd: "addField", size: "small" }, { cmd: "calcField", size: "small" }, { cmd: "calcGeometry", size: "small" }] },
     { label: "Filter", items: [{ cmd: "definitionQuery" }] },
-    { label: "Data", items: [{ cmd: "defineProjection" }, { cmd: "exportLayer" }, { cmd: "exportTable" }, { cmd: "layerFromSelection" }, { cmd: "splitByAttribute" }] },
-    { label: "Remove", items: [{ cmd: "removeLayer" }] },
+    { label: "Data", items: [{ cmd: "defineProjection" }, { cmd: "exportLayer" }, { cmd: "exportTable" }, { cmd: "layerFromSelection" }, { cmd: "splitByAttribute" }, { cmd: "census" }] },
   ],
 };
 
@@ -94,10 +99,10 @@ export const RAIL: Group[] = [
 
 /** The tabs only a layout has (Map Frame only while a frame is selected). The Insert and View tabs are the main ones. */
 export const LAYOUT_TABS = ["Page", "Arrange", "Export", "Map Frame"];
-/** The tabs shown, in order, while a layout is open: Map and Analysis leave, the rest do not move. */
+/** The tabs shown, in order, while a layout is open: Map, Data, Coordinates and Analysis leave, the rest do not move. */
 export const LAYOUT_ORDER = ["Page", "Insert", "Arrange", "View", "Export"];
-export const MAIN_TABS = ["Map", "Insert", "View", "Analysis"];
-export const KEY_TIPS: Record<string, string> = { Map: "M", Insert: "I", View: "V", Analysis: "A" };
+export const MAIN_TABS = ["Map", "Data", "Coordinates", "Analysis", "Insert", "View"];
+export const KEY_TIPS: Record<string, string> = { Map: "M", Data: "D", Coordinates: "C", Analysis: "A", Insert: "I", View: "V" };
 
 /** Every command id a tab (or a custom control on it) offers. */
 /** The groups of the Edit tab, which is on the ribbon only while a shape-edit session is open (EditHost registers it). */

@@ -378,7 +378,7 @@ export async function buildTopoSheet(spec: TopoSpec): Promise<TopoBuild> {
 export async function newLayoutFromTemplate(id: string) {
   const crs = useApp.getState().mapCrs;
   if (!crs) {
-    status("Set a coordinate system for the map (Map tab → Coordinate System), then create the layout from a template.");
+    status("Set a coordinate system for the map (Coordinates tab → Coordinate System), then create the layout from a template.");
     return;
   }
   let template: Layout;

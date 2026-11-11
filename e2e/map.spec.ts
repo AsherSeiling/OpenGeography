@@ -7,7 +7,7 @@ const status = (page: any) => page.locator(".statusbar");
 
 test("M-4 map CRS: UTM 14N, Web Mercator, polar 3031 with dropped note", async ({ app }) => {
   await addTestLayer(app, "polygons", 60, [-170, -60, 170, 70]); // a world-wide layer
-  await ribbon(app, "Map", "Coordinate System");
+  await ribbon(app, "Coordinates", "Coordinate System");
   const dlg = app.getByRole("dialog");
   await dlg.getByRole("combobox").or(dlg.getByRole("searchbox")).or(dlg.locator("input").first()).first().fill("26914");
   await dlg.getByText(/NAD83 \/ UTM zone 14N$/).first().click();
@@ -16,7 +16,7 @@ test("M-4 map CRS: UTM 14N, Web Mercator, polar 3031 with dropped note", async (
   expect((await gis(app, (g) => g.useApp.getState().mapCrs)).id).toBe("EPSG:26914");
   await expect(app.locator(".map canvas").first()).toBeVisible();
 
-  await ribbon(app, "Map", "Coordinate System");
+  await ribbon(app, "Coordinates", "Coordinate System");
   await app.getByRole("dialog").getByRole("button", { name: /Web Mercator/ }).click();
   await app.getByRole("dialog").getByRole("button", { name: "OK" }).click();
   await expect(status(app).locator(".sb-crs")).toContainText(/Pseudo-Mercator|Web Mercator/);
@@ -91,10 +91,14 @@ test("M-7 coordinate readout follows the pointer and ends on the last position",
 
 test("M-8 panes toggle and reset; dark theme", async ({ app }) => {
   const tabOf = (name: string) => app.locator(".dv-default-tab, .dv-tab").filter({ hasText: new RegExp(`^${name}$`) });
-  await app.locator(".rtab", { hasText: /^View$/ }).click();
-  await expect(tabOf("Sources")).toHaveCount(0); // not in the default layout (UR-3); View › Sources opens it
+  await expect(tabOf("Sources")).toHaveCount(0); // not in the default layout (UR-3); Data › Sources opens it
+  await ribbon(app, "Data", /^Sources$/);
+  await expect(tabOf("Sources").first()).toBeVisible();
+  await app.locator(".rbtn", { hasText: /^Sources$/ }).first().click(); // it is a toggle
+  await expect(tabOf("Sources")).toHaveCount(0);
   await app.locator(".rbtn", { hasText: /^Sources$/ }).first().click();
-  for (const [label, tab] of [["Map Layers", "Map Layers"], ["Attribute Table", "Attribute Table"], ["Properties", "Properties"], ["Processing nodes", "Processing nodes"], ["Catalog", "Catalog"], ["Sources", "Sources"]] as const) {
+  await app.locator(".rtab", { hasText: /^View$/ }).click();
+  for (const [label, tab] of [["Map Layers", "Map Layers"], ["Attribute Table", "Attribute Table"], ["Properties", "Properties"], ["Processing nodes", "Processing nodes"], ["Catalog", "Catalog"]] as const) {
     const btn = app.locator(".rbtn", { hasText: new RegExp(`^${label}$`) }).first();
     await expect(tabOf(tab).first()).toBeVisible();
     await btn.click();
@@ -138,7 +142,7 @@ test.describe("shell with the bottom panel closed at start-up", () => {
     expect(layers.height / (layers.height + catalog.height)).toBeLessThan(0.4);
     // Properties takes the whole right column. Sources is still in the View menu, and opens under Properties.
     expect(props.height).toBeGreaterThan(dock.height - 3);
-    await ribbon(app, "View", /^Sources$/);
+    await ribbon(app, "Data", /^Sources$/);
     await expect(dockTab(app, "Sources")).toHaveCount(1);
     const sources = await box(groupOf(app, "Sources"));
     expect(sources.y).toBeGreaterThan((await box(groupOf(app, "Properties"))).y);
@@ -146,12 +150,12 @@ test.describe("shell with the bottom panel closed at start-up", () => {
 
   test("WP6 the bottom panel appears when Node Editor or Attribute Table is opened and goes when the last one closes", async ({ app }) => {
     const full = (await box(groupOf(app, "Map"))).height;
-    await ribbon(app, "Analysis", /^Processing nodes$/);
+    await ribbon(app, "View", /^Processing nodes$/);
     await expect(dockTab(app, "Processing nodes")).toHaveCount(1);
     await expect(app.locator(".model-canvas")).toBeVisible();
     const withPanel = (await box(groupOf(app, "Map"))).height;
     expect(withPanel).toBeLessThan(full * 0.7); // the panel takes about 47 %
-    await ribbon(app, "Analysis", /^Attribute Table$/);
+    await ribbon(app, "View", /^Attribute Table$/);
     await expect(dockTab(app, "Attribute Table")).toHaveCount(1);
     // Both are tabs of the one panel under the map.
     expect(await groupOf(app, "Processing nodes").locator(".dv-tab").filter({ hasText: /^Attribute Table$/ }).count()).toBe(1);
@@ -166,7 +170,7 @@ test.describe("shell with the bottom panel closed at start-up", () => {
   });
 
   test("UR-2 a project saved with the old tab title 'Node Editor' opens with 'Processing nodes'", async ({ app }) => {
-    await ribbon(app, "Analysis", /^Processing nodes$/);
+    await ribbon(app, "View", /^Processing nodes$/);
     await expect(dockTab(app, "Processing nodes")).toHaveCount(1);
     await app.evaluate(() => {
       const g = (window as any).__gis.panes;
@@ -215,7 +219,7 @@ test.describe("shell with the bottom panel closed at start-up", () => {
   test("WP6 Public Data opens the Catalog if it is closed and puts the focus on the Public Data row", async ({ app }) => {
     await gis(app, async () => { const m = await import("/src/panes/panes.ts"); m.togglePane("catalog"); });
     await expect(dockTab(app, "Catalog")).toHaveCount(0);
-    await ribbon(app, "Map", /^Public Data/);
+    await ribbon(app, "Data", /^Public Data/);
     await expect(dockTab(app, "Catalog")).toHaveCount(1);
     await expect(app.locator('[role="treeitem"][data-node="public"]')).toBeFocused();
     await expect(app.locator('[role="treeitem"][data-node^="public:"]')).toHaveCount(8);
@@ -223,7 +227,7 @@ test.describe("shell with the bottom panel closed at start-up", () => {
 
   test("WP6 a saved layout of this version comes back; an old one falls back to the default and the project data is untouched", async ({ app }) => {
     const info = await addTestLayer(app, "points", 20);
-    await ribbon(app, "Analysis", /^Processing nodes$/);
+    await ribbon(app, "View", /^Processing nodes$/);
     await expect(dockTab(app, "Processing nodes")).toHaveCount(1);
     const dir = join(mkdtempSync(join(tmpdir(), "gis-e2e-dock-")), "dock.gproj");
     await gis(app, (g, d) => g.useApp.setState({ projectDir: d }), dir);

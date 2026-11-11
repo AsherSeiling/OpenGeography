@@ -16,11 +16,30 @@ describe("ribbon reach", () => {
     expect(unknown).toEqual([]);
   });
 
-  it("has the tabs the plan asks for, no Data tab, and a key tip for each main tab", () => {
-    expect(MAIN_TABS).toEqual(["Map", "Insert", "View", "Analysis"]);
-    expect(Object.keys(TABS)).not.toContain("Data");
-    expect(Object.keys(KEY_TIPS).sort()).toEqual([...MAIN_TABS].sort());
+  it("has the six tabs of the ribbon plan in order, with a key tip each", () => {
+    expect(MAIN_TABS).toEqual(["Map", "Data", "Coordinates", "Analysis", "Insert", "View"]);
+    expect(KEY_TIPS).toEqual({ Map: "M", Data: "D", Coordinates: "C", Analysis: "A", Insert: "I", View: "V" });
     for (const t of [...MAIN_TABS, ...LAYOUT_TABS, "Feature Layer"]) expect(TABS[t]?.length, t).toBeGreaterThan(0);
+  });
+
+  it("offers each command once across the main tabs, except Add Data (Map and Data)", () => {
+    const seen = new Map<string, string[]>();
+    for (const t of [...MAIN_TABS, "Feature Layer"]) for (const g of TABS[t]) for (const it of g.items) if ("cmd" in it) seen.set(it.cmd, [...(seen.get(it.cmd) ?? []), t]);
+    const dups = [...seen].filter(([, tabs]) => tabs.length > 1).map(([id]) => id);
+    expect(dups).toEqual(["addData"]);
+    expect(seen.get("addData")).toEqual(["Map", "Data"]);
+  });
+
+  it("keeps the commands the plan puts on each tab", () => {
+    const on = (tab: string) => new Set(commandsOnTabs({ [tab]: TABS[tab] }));
+    for (const id of ["explore", "fullExtent", "goToCoordinates", "addData", "select", "identify", "measure", "startEditing"]) expect(on("Map").has(id), id).toBe(true);
+    for (const id of ["addData", "catalog", "newLayer", "newTable", "georeference", "adjustShapes", "paneSources"]) expect(on("Data").has(id), id).toBe(true);
+    for (const id of ["mapCrs", "projectionBuilder", "datumGrids", "tissot", "responsibleUse", "worldView", "worldGraticule", "worldOutline", "resection", "intersection", "usngGrid"]) expect(on("Coordinates").has(id), id).toBe(true);
+    expect([...on("Analysis")].sort()).toEqual(["addTool", "runModel"]);
+    expect(on("Feature Layer").has("removeLayer")).toBe(true);
+    expect(on("Feature Layer").has("census")).toBe(true);
+    // The Map tab keeps five groups and the quick everyday commands only.
+    expect(TABS.Map.map((g) => g.label)).toEqual(["Navigate", "Layer", "Selection", "Inquiry", "Edit"]);
   });
 
   it("keeps the project menu to New, Open and Save As", () => {

@@ -41,7 +41,7 @@ test("UR-17 the current panes can be saved as the startup layout: new projects o
   // Arrange: no Catalog, Sources open. Save it from the View tab.
   await dockTab("Catalog").locator(".dv-default-tab-action").click();
   await expect(dockTab("Catalog")).toHaveCount(0);
-  await ribbon(app, "View", /^Sources$/);
+  await ribbon(app, "Data", /^Sources$/);
   await expect(dockTab("Sources")).toHaveCount(1);
   await ribbon(app, "View", /^Save Startup Layout$/);
   await expect.poll(() => gis(app, (g) => g.api.getSettings().then((s: any) => !!s.startupLayout))).toBe(true);

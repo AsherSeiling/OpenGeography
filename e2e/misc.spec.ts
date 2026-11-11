@@ -17,7 +17,7 @@ test("M-22 sources pane (no dialogs): entries, edit author/year, APA/MLA/Chicago
   await expect.poll(() => gis(app, (g) => g.useApp.getState().order.length)).toBe(1);
 
   // The Sources pane is open at start-up (right column, under Properties); View › Sources opens it when it is not.
-  if (!(await app.locator(".sources-pane").isVisible())) await ribbon(app, "View", /^Sources$/);
+  if (!(await app.locator(".sources-pane").isVisible())) await ribbon(app, "Data", /^Sources$/);
   const entry = app.locator(".src-entry").first();
   await expect(entry).toContainText("parcels");
   await entry.getByRole("button", { name: /Edit/ }).click();

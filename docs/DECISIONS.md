@@ -586,3 +586,10 @@ Made while the user was away; each can be changed.
 - **Format memory:** the panel's format is remembered in the webview's `localStorage` (per computer), starting from the status bar's format until the user picks one. Reason: no settings-file change needed; easy to reverse.
 - **Ctrl/Cmd+G** is free (nothing else binds it; the node editor's plain G is Grab) and opens the panel.
 - **Icon:** new drawing `go-to-coordinates` (map tile with a grid and a red pin) in `scripts/ribbon_icons_lib.py`.
+
+## Ribbon re-sort (RB1-RB3, 2026-11-11)
+
+- **Sources is one button, on Data.** The plan lists Sources on Data and also leaves View > Windows "unchanged", which would show the Sources pane toggle twice. Rule 4 (each command once, except Add Data) won: `paneSources` left View > Windows. Reverting is one line in `tabsDef.tsx`.
+- **Processing nodes and Attribute Table pane toggles live on View > Windows only;** Analysis keeps Add Tool and Run (plus the tool dropdowns and favourites).
+- **The Developer group replaces Performance and Testing** (Frame Rate, Benchmark, Generate Test Data, all small buttons in one column).
+- **Sentences that named the Map tab for the coordinate system** now say Coordinates > Coordinate System; the Public Data hint says Data > Add.

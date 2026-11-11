@@ -5,7 +5,7 @@ test("MGRS Grid adds a labelled grid layer for the map view and finer squares wh
   const layer = await addTestLayer(app, "points", 12, [-93.05, 44.98, -92.95, 45.04]);
   await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
   await app.waitForTimeout(1500);
-  await app.locator(".rtab", { hasText: /^Map$/ }).click();
+  await app.locator(".rtab", { hasText: /^Coordinates$/ }).click();
   await app.locator(".rbtn", { hasText: /MGRS Grid/ }).first().click();
   await expect.poll(async () => ((await gis(app, (g) => Object.values(g.useApp.getState().layers).map((l: any) => l.name))) as string[]).some((n) => n.startsWith("MGRS grid"))).toBe(true);
   const info = (await gis(app, (g) => {

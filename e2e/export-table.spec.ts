@@ -66,6 +66,7 @@ test("ET-USNG-CRS choosing USNG or MGRS in the coordinate system dialog picks th
   const layer = await addTestLayer(app, "points", 12, [-100, 30, -95, 35]);
   await gis(app, (g, id) => g.actions.zoomToLayer(id), layer.id);
   await app.waitForTimeout(1200);
+  await app.locator(".rtab", { hasText: /^Coordinates$/ }).click();
   await app.locator(".rbtn", { hasText: /Coordinate System/ }).first().click();
   const dlg = app.getByRole("dialog");
   await dlg.getByRole("button", { name: /^USNG/ }).click();

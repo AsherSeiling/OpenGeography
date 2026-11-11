@@ -1249,3 +1249,17 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | RB4-6 | A place the map CRS can't show (UTM 15 map at 100 E, Web Mercator at 89 N); a map with no CRS | a readable sentence, no map position, other formats still given | auto: same file |
 | RB4-7 | Pasting "34.05, -118.25", "34.05N 118.25W", "118.25W 34.05N", DMS with letters; ambiguous or three-part strings | latitude then longitude; letters override the order; ambiguity reported, not guessed | auto: `ui/src/goto/split.test.ts` |
 | RB4-8 | UTM map and Web Mercator map: type a position, Enter | view centred on the place, marker on the centre pixel, no layer, project not marked changed, marker removed on a CRS change; Clear removes it; Esc closes the panel; swapped/out-of-range/unshowable input shows its sentence and Go stays disabled | auto: `e2e/goto-coordinates.spec.ts` (not yet run) |
+
+## Ribbon re-sort (RB1-RB3)
+
+| ID | Steps | Expected | How |
+|---|---|---|---|
+| RB-1 | Tabs of the ribbon | Map, Data, Coordinates, Analysis, Insert, View, in that order, key tips M D C A I V | auto: `ui/src/ribbon/reach.test.ts` |
+| RB-2 | Count each command across the main tabs and Feature Layer | each command once; only Add Data is on both Map and Data; none lost | auto: same file |
+| RB-3 | Open the Map tab at 1440 px | five groups, none collapsed, no More menu | e2e: `ribbon-width.spec.ts` (not run by the author) |
+| RB-4 | Specs that open a tab by name | Coordinate System, World, Land Navigation under Coordinates; Public Data, New Table, Georeference, Sources under Data; Processing nodes and Attribute Table under View | e2e: updated specs (not run by the author) |
+| RB-5 | Every tool-role `ToolSpec` | appears in exactly one Analysis dropdown; data and output tools do not; grouping follows `splitCategory`; a new tool appears with no ribbon change | auto: `ui/src/ribbon/toolMenus.test.ts` |
+| RB-6 | Pick a tool from an Analysis dropdown | same effect as picking it in Shift+A (`addToolFromUi`): opens the node editor and places the tool | e2e: `ribbon-tools.spec.ts` (not run by the author) |
+| RB-7 | Developer group on View | absent by default; present after Settings > Show developer tools; stored per user in the settings file | auto: `ui/src/ribbon/visibility.test.ts` and engine settings test; e2e: `ribbon-tools.spec.ts` |
+| RB-8 | Zoom group on View | present while a layout is open, absent on the map | auto: `ui/src/ribbon/visibility.test.ts`; e2e |
+| RB-9 | Old project and saved quick-access list | command ids unchanged, so both load and work | auto: ids checked by `reach.test.ts` |

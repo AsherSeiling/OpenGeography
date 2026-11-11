@@ -73,7 +73,7 @@ test("M-10 Resection and Intersection panels match the geodesy test examples", a
   const near = (s: string) => { const m = s.match(/(-?\d+\.\d+)°, (-?\d+\.\d+)°/)!; return [Number(m[2]), Number(m[1])]; };
   await addKnownPoints(app);
 
-  await ribbon(app, "Map", /^Resection$/);
+  await ribbon(app, "Coordinates", /^Resection$/);
   const panel = app.locator(".nav-panel");
   await panel.locator("select").first().selectOption("grid");
   const rows = panel.locator(".nav-row");

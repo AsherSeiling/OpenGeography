@@ -4,7 +4,7 @@ import { test, expect, ribbon, addTestLayer } from "./fixtures";
 
 test("GR3 Adjust Shapes opens its coordinate system dialog on top and Cancel returns to the window", async ({ app }) => {
   await addTestLayer(app, "polygons", 4);
-  await ribbon(app, "Map", "Adjust Shapes");
+  await ribbon(app, "Data", "Adjust Shapes");
   const main = app.getByRole("dialog", { name: "Spatial Adjustment" });
   await expect(main).toBeVisible();
 

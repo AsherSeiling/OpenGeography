@@ -20,7 +20,7 @@ export async function addToolFromUi(tool: string): Promise<void> {
   placeTool(tool, { at: null, wire: null });
 }
 
-/** Map › Layer › Public Data: open the Catalog if it is closed, expand its Public Data branch and put the focus on that row. */
+/** Data › Add › Public Data: open the Catalog if it is closed, expand its Public Data branch and put the focus on that row. */
 export function focusPublicData(): void {
   showPane("catalog");
   const t0 = Date.now();

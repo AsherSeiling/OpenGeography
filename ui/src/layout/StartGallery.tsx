@@ -84,7 +84,7 @@ export function StartGallery({ layoutId }: { layoutId: string }) {
     <div className="start-gallery" role="dialog" aria-label="Start this layout" data-testid="start-gallery" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === "Escape") useLayoutView.getState().closeGallery(layoutId); }}>
       <div className="gal">
         <h2>Start this layout</h2>
-        <p>Each start uses your layers and your project's sources, and everything stays editable.{!hasCrs && " Set the map's coordinate system first (Map › Coordinate System); the map frame needs one."}</p>
+        <p>Each start uses your layers and your project's sources, and everything stays editable.{!hasCrs && " Set the map's coordinate system first (Coordinates › Coordinate System); the map frame needs one."}</p>
         {STARTS.map((s, i) => (
           <button key={s.id} className="tile" data-start={s.id} autoFocus={i === 0} onClick={() => pick(s)}>
             <span className="thumb" aria-hidden>

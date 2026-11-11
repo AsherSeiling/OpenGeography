@@ -269,7 +269,7 @@ export function toggleWorldView() {
   const s = useApp.getState();
   const on = !s.worldView;
   s.setWorldView(on);
-  status(on ? "World view: the whole Earth, cut at the opposite side of the central meridian. Add Graticule and World Outline from the Map tab." : "Back to the area of use of the map coordinate system");
+  status(on ? "World view: the whole Earth, cut at the opposite side of the central meridian. Add Graticule and World Outline from the Coordinates tab." : "Back to the area of use of the map coordinate system");
 }
 
 /** Add an MGRS grid for the map view as a layer: outlines and a reference in each square, sized for how far in you are zoomed. */

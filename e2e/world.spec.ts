@@ -3,13 +3,13 @@ import { test, expect, gis, ribbon } from "./fixtures";
 test("R8 world view: Albers over the whole Earth, graticule and outline layers, projection builder re-centres", async ({ app }) => {
   await gis(app, (g) => g.useApp.getState().setMapCrs({ id: "EPSG:5070", name: "NAD83 / Conus Albers" }));
   await app.waitForTimeout(600);
-  await ribbon(app, "Map", /^World View$/);
+  await ribbon(app, "Coordinates", /^World View$/);
   await expect.poll(async () => gis(app, (g) => g.mapController.getActiveCrs()?.info.world?.lon0)).toBe(-96);
   expect(await gis(app, (g) => g.mapController.getActiveCrs()?.id)).toBe("world:EPSG:5070");
 
-  await ribbon(app, "Map", /^World Outline$/);
+  await ribbon(app, "Coordinates", /^World Outline$/);
   await expect.poll(async () => gis(app, (g) => Object.values(g.useApp.getState().layers).filter((l: any) => /World outline/.test(l.name)).length)).toBe(1);
-  await ribbon(app, "Map", /^Graticule$/);
+  await ribbon(app, "Coordinates", /^Graticule$/);
   await expect.poll(async () => gis(app, (g) => Object.values(g.useApp.getState().layers).filter((l: any) => /Graticule|Reference lines/.test(l.name)).length)).toBe(2);
   // The whole-Earth view is framed: the view's extent is about the size of the grid.
   const framed = await gis(app, (g) => {
@@ -23,12 +23,12 @@ test("R8 world view: Albers over the whole Earth, graticule and outline layers, 
   expect(src.some((s: any) => s.citation.key === "natural-earth-110m-land")).toBe(true);
 
   // Back to the normal view.
-  await ribbon(app, "Map", /^World View$/);
+  await ribbon(app, "Coordinates", /^World View$/);
   await expect.poll(async () => gis(app, (g) => g.mapController.getActiveCrs()?.id)).toBe("EPSG:5070");
 });
 
 test("R8 projection builder: sliders make a PROJ string, bad parallels are explained, the map re-centres", async ({ app }) => {
-  await ribbon(app, "Map", /Projection Builder/);
+  await ribbon(app, "Coordinates", /Projection Builder/);
   const dlg = app.getByRole("dialog");
   await expect(dlg.getByTestId("proj-string")).toContainText("+proj=aea");
   // Equal and opposite standard parallels are rejected with a sentence, and no string is offered.

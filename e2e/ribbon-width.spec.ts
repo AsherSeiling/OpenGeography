@@ -38,7 +38,7 @@ for (const w of WIDTHS) {
     await app.setViewportSize({ width: w, height: 800 });
     const layer = await addTestLayer(app, "points", 20);
     await gis(app, (g) => { const s = g.useApp.getState(); s.setActiveLayer(Object.keys(s.layers)[0]); });
-    for (const tab of ["Map", "Insert", "View", "Analysis", "Feature Layer"]) {
+    for (const tab of ["Map", "Data", "Coordinates", "Analysis", "Insert", "View", "Feature Layer"]) {
       await app.locator(".rtab", { hasText: new RegExp(`^${tab}$`) }).first().click();
       await app.waitForTimeout(350);
       await noScroll(app, `${tab} at ${w}px`);
@@ -76,9 +76,9 @@ async function addFrame(app: any) {
 
 test("LW-T a narrow window collapses groups into menus but a command is still one click away", async ({ app }) => {
   await app.setViewportSize({ width: 1024, height: 800 });
-  await app.locator(".rtab", { hasText: /^Map$/ }).first().click();
+  await app.locator(".rtab", { hasText: /^Coordinates$/ }).first().click();
   await app.waitForTimeout(400);
-  // A command from the end of the Map tab (Coordinate System group) is in the ribbon, a group menu or More.
+  // A command from the Coordinates tab (Coordinate System group) is in the ribbon, a group menu or More.
   const direct = await app.locator(".rbtn", { hasText: "Datum Grids" }).count();
   if (!direct) {
     const more = app.locator(".rbtn-more").first();
@@ -182,7 +182,7 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
     await app.waitForTimeout(250);
     for (const t of await app.locator(".ribbon-body .rbtn-label").allTextContents()) seen.add(t.trim());
   };
-  for (const tab of ["Map", "Insert", "View", "Analysis", "Feature Layer"]) await readTab(tab);
+  for (const tab of ["Map", "Data", "Coordinates", "Analysis", "Insert", "View", "Feature Layer"]) await readTab(tab);
   // The Edit tab exists only while a shape-edit session is open.
   await gis(app, (g, id: string) => g.edit.startEditing(id), layer.id);
   await readTab("Edit");
@@ -197,4 +197,13 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
   await app.keyboard.press("Escape");
   const missing = r.onTabs.filter((id: string) => id !== "newLayout" && !seen.has(r.labels[id])); // New Layout is the Insert gallery
   expect(missing, "commands with no button on screen").toEqual([]);
+});
+
+test("RB1 the Map tab fits at 1440 px with no collapsed group and no More menu", async ({ app }) => {
+  await app.setViewportSize({ width: 1440, height: 800 });
+  await app.locator(".rtab", { hasText: /^Map$/ }).first().click();
+  await app.waitForTimeout(450);
+  await expect(app.locator(".rgroup-collapsed")).toHaveCount(0);
+  await expect(app.locator(".rbtn-more")).toHaveCount(0);
+  expect(await app.locator(".ribbon-body .rg-slot:not(.rg-more)").count()).toBe(5);
 });

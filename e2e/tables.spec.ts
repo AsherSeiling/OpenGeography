@@ -3,8 +3,8 @@ import { test, expect, gis, ribbon } from "./fixtures";
 const layers = () => (page: any) => gis(page, (g) => Object.values(g.useApp.getState().layers).map((l: any) => ({ id: l.id, name: l.name, type: l.geomType, n: l.featureCount, fields: l.fields.map((f: any) => `${f.name}:${f.type}`) }))) as Promise<any[]>;
 
 test("UR-14 New Table makes a typed empty table; rows are added, edited, deleted and put back in the Attribute Table", async ({ app }) => {
-  await app.locator(".rtab", { hasText: /^Map$/ }).click();
-  await ribbon(app, "Map", /^New Table$/);
+  await app.locator(".rtab", { hasText: /^Data$/ }).click();
+  await ribbon(app, "Data", /^New Table$/);
   const dlg = app.getByRole("dialog");
   await expect(dlg).toContainText("New Table");
   // The button says what is wrong before the engine does.

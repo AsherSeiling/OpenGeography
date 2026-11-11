@@ -358,7 +358,7 @@ export function addMapFrame(over: Partial<MapFrame> & { sources?: boolean } = {}
   const crs = useApp.getState().mapCrs;
   if (!s.doc) return null;
   if (!crs) {
-    useApp.getState().setStatus("Set a coordinate system for the map frame (Map tab → Coordinate System), then insert it again.");
+    useApp.getState().setStatus("Set a coordinate system for the map frame (Coordinates tab → Coordinate System), then insert it again.");
     return null;
   }
   const p = s.doc.page;
