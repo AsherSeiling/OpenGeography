@@ -5,6 +5,8 @@
 .model-hint { color: var(--text-2); margin-left: 10px; font-size: 11.5px; }
 .model-canvas { flex: 1; min-height: 0; }
 .react-flow__node { font: 12px var(--font-ui); }
+/* A node reached with the keyboard shows where the focus is (found by the focus audit once the ribbon had fewer tab stops). */
+.react-flow .react-flow__node:focus-visible, .react-flow .react-flow__node:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* React Flow styles a node type named "output" (and "input"/"default") with a white box; the card draws its own body. */
 .react-flow__node-output, .react-flow__node-data, .react-flow__node-tool { background: transparent; border: 0; padding: 0; border-radius: 0; width: auto; color: inherit; box-shadow: none; text-align: left; }
 .react-flow__node-output.selected, .react-flow__node-output:focus, .react-flow__node-output:focus-visible { box-shadow: none; border: 0; }

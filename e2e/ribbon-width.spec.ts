@@ -205,6 +205,6 @@ test("RB1 the Map tab fits at 1440 px with no collapsed group and no More menu",
   await app.locator(".rtab", { hasText: /^Map$/ }).first().click();
   await app.waitForTimeout(450);
   await expect(app.locator(".rgroup-collapsed")).toHaveCount(0);
-  await expect(app.locator(".rbtn-more")).toHaveCount(0);
+  await expect(app.locator("button.rbtn-more")).toHaveCount(0); // the hidden span.rbtn-more is only a width probe
   expect(await app.locator(".ribbon-body .rg-slot:not(.rg-more)").count()).toBe(5);
 });

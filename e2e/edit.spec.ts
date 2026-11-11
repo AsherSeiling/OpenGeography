@@ -123,7 +123,7 @@ test("a layer that can't be edited says why", async ({ app }) => {
 });
 
 test("New Layer: name, shape type, coordinate system; the empty layer opens in edit mode", async ({ app }) => {
-  await app.locator(".rtab", { hasText: /^Map$/ }).click();
+  await app.locator(".rtab", { hasText: /^Data$/ }).click();
   await app.getByRole("button", { name: /^New Layer$/ }).first().click();
   const dlg = app.getByRole("dialog", { name: /New Layer/ });
   await expect(dlg).toBeVisible();
