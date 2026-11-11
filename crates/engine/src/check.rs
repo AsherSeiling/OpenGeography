@@ -93,7 +93,7 @@ pub struct CrsProblem {
 /// 3. Anything unknown makes no claim.
 pub fn crs_problems(inputs: &[PortCrs]) -> Vec<CrsProblem> {
     let mut out = Vec::new();
-    for p in inputs.iter().filter(|p| p.crs == Known::Missing) {
+    for p in inputs.iter().filter(|p| matches!(p.crs, Known::Missing)) {
         out.push(CrsProblem {
             port: p.port.clone(),
             severity: Severity::Error,
