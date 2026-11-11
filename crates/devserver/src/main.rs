@@ -456,6 +456,12 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "unique_values" => json!(e.unique_values(&s(a, "id")?, &s(a, "field")?, a["limit"].as_u64().unwrap_or(100) as usize)?),
         "quantile_breaks" => json!(e.quantile_breaks(&s(a, "id")?, &s(a, "field")?, a["classes"].as_u64().unwrap_or(5) as usize)?),
         "tool_specs" => json!(e.tool_specs()),
+        "node_groups_list" => json!(engine::node_groups::list()),
+        "node_group_get" => json!(engine::node_groups::get(&s(a, "name")?)?),
+        "node_group_save" => json!(engine::node_groups::save(&a["group"])?),
+        "node_group_delete" => json!(engine::node_groups::delete(&s(a, "name")?)?),
+        "node_group_export" => json!(engine::node_groups::export(&s(a, "name")?, &s(a, "path")?)?),
+        "node_group_import" => json!(engine::node_groups::import(&s(a, "path")?)?),
         "check_graph" => json!(e.check_graph(&de::<Graph>(a, "graph")?)?),
         "run_graph" => {
             let g: Graph = de(a, "graph")?;

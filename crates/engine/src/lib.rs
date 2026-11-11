@@ -20,6 +20,7 @@ pub mod whitebox;
 pub mod transform_report;
 pub mod grids;
 pub mod check;
+pub mod node_groups;
 pub mod crs_warnings;
 pub mod vertical;
 pub mod remote_sensing;

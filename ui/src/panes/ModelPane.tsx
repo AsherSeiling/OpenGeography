@@ -8,6 +8,7 @@ import { addData, runModel, useDialog } from "../actions";
 import type { DropDetail } from "../dnd";
 import { api } from "../ipc/api";
 import { connectLayerTo, nodeTypes } from "../nodes/ModelNodes";
+import { GroupsMenu } from "../nodes/GroupsMenu";
 import { NodeMenu } from "../nodes/NodeMenu";
 import { copySelection, cutLinks, deleteSelection, duplicateSelection, invertSelection, makeLinks, paste, selectAll, toggleCollapse, toggleMute } from "../nodes/graphOps";
 import { actionFor, displayCombo, eventCombo, useKeymap, type NodeAction } from "../nodes/keymap";
@@ -471,6 +472,7 @@ function ModelCanvas() {
             Add
           </Button>
         </Tooltip>
+        <GroupsMenu />
         <ToolbarDivider />
         <Tooltip content={`Undo${keys("undo")}`} relationship="label">
           <Button size="small" appearance="subtle" icon={<ArrowUndoRegular />} disabled={!canUndo} onClick={() => (flushParamEdit(), temporal.getState().undo())} />

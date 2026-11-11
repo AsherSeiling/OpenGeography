@@ -610,6 +610,28 @@ export interface OutFieldsRule {
 
 export type NodeStatus = "running" | "done" | "cached" | "error" | "skipped" | "cancelled";
 
+/** Reusable node groups (UX8); the engine's `node_groups::Group`. */
+export interface NodeGroupNode {
+  id: string;
+  tool: string;
+  params: Record<string, unknown>;
+  x: number;
+  y: number;
+}
+export interface NodeGroup {
+  format: "gis-studio-node-group";
+  version: number;
+  name: string;
+  description: string;
+  nodes: NodeGroupNode[];
+  edges: { source: string; target: string; sourceHandle?: string | null; targetHandle: string }[];
+}
+export interface NodeGroupSummary {
+  name: string;
+  description: string;
+  nodes: number;
+}
+
 /** A problem found on a node before running (UX7). `fix` is a safe, explicit Project step in front of `port`. */
 export interface NodeProblem {
   node: string;
@@ -895,6 +917,12 @@ export const api = {
   toolSpecs: () => invoke<ToolSpec[]>("tool_specs"),
   runGraph: (graph: GraphPayload, target?: string | null) =>
     invoke<NodeResult[]>("run_graph", { graph, target: target ?? null }),
+  nodeGroupsList: () => invoke<NodeGroupSummary[]>("node_groups_list"),
+  nodeGroupGet: (name: string) => invoke<NodeGroup>("node_group_get", { name }),
+  nodeGroupSave: (group: NodeGroup) => invoke<NodeGroup>("node_group_save", { group }),
+  nodeGroupDelete: (name: string) => invoke<void>("node_group_delete", { name }),
+  nodeGroupExport: (name: string, path: string) => invoke<void>("node_group_export", { name, path }),
+  nodeGroupImport: (path: string) => invoke<NodeGroup>("node_group_import", { path }),
   checkGraph: (graph: GraphPayload) => invoke<NodeProblem[]>("check_graph", { graph }),
   previewOutput: (output: string, crs: string | null, name: string) =>
     invoke<LayerInfo>("preview_output", { output, crs, name }),

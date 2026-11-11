@@ -336,6 +336,37 @@ pub async fn tool_specs(engine: Eng<'_>) -> Res<Vec<engine::nodes::SpecOut>> {
     blocking(&engine, |e| Ok(e.tool_specs())).await
 }
 
+/// Reusable node groups (UX8): the user's library of saved parts of node trees.
+#[tauri::command]
+pub async fn node_groups_list() -> Res<Vec<engine::node_groups::Summary>> {
+    Ok(engine::node_groups::list())
+}
+
+#[tauri::command]
+pub async fn node_group_get(name: String) -> Res<engine::node_groups::Group> {
+    engine::node_groups::get(&name).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_save(group: serde_json::Value) -> Res<engine::node_groups::Group> {
+    engine::node_groups::save(&group).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_delete(name: String) -> Res<()> {
+    engine::node_groups::delete(&name).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_export(name: String, path: String) -> Res<()> {
+    engine::node_groups::export(&name, &path).map_err(|e| format!("{e:#}"))
+}
+
+#[tauri::command]
+pub async fn node_group_import(path: String) -> Res<engine::node_groups::Group> {
+    engine::node_groups::import(&path).map_err(|e| format!("{e:#}"))
+}
+
 #[tauri::command]
 pub async fn check_graph(engine: Eng<'_>, graph: Graph) -> Res<Vec<engine::check::NodeProblem>> {
     blocking(&engine, move |e| e.check_graph(&graph)).await
