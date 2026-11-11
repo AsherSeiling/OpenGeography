@@ -586,3 +586,6 @@ Made while the user was away; each can be changed.
 - **Format memory:** the panel's format is remembered in the webview's `localStorage` (per computer), starting from the status bar's format until the user picks one. Reason: no settings-file change needed; easy to reverse.
 - **Ctrl/Cmd+G** is free (nothing else binds it; the node editor's plain G is Grab) and opens the panel.
 - **Icon:** new drawing `go-to-coordinates` (map tile with a grid and a red pin) in `scripts/ribbon_icons_lib.py`.
+
+## Default query language (user, 2026-11-11)
+Python stays the default scripting language, but queries (Definition Query, Select by Attributes) and symbology rules default to an ArcGIS-style clause builder that writes SQL, with Python still available. This replaces the part of UR-20 (2026-11-08) that made Python the default in queries. Built as UX16 in Wave 2. Saved queries in either language open unchanged.

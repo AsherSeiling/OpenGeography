@@ -90,7 +90,7 @@ _Written 2026-10-23, updated 2026-11-04 (phase status table in §3 and the seque
 | User requests (Mac test, 2026-11-05) | Batches A, B and C built and merged on `ui-redesign`, not pushed | Batch D in `USER_REQUESTS_2026-11-05.md` |
 | Shape editing | Planned 2026-11-06, not built | E0–E3 in `SHAPE_EDITING_PLAN.md` |
 | GR. Georeferencing and spatial adjustment | Listed 2026-11-08, not built | GR1–GR4 below; right after shape editing |
-| UX. Everyday usability | Listed 2026-11-08, not built | UX0–UX15 below; after georeferencing, before Phase T |
+| UX. Everyday usability | Listed 2026-11-08, not built | UX0–UX16 below; after georeferencing, before Phase T |
 | Census tables + Public Data node | Planned 2026-11-06, not built | C0–C8 in `CENSUS_TABLES_PLAN.md`, N1–N2 in `PUBLIC_DATA_NODE_PLAN.md` |
 | Every USGS service | Planned 2026-11-06, not built | U0–U2 in `SERVER_CONNECTIONS_PLAN.md` §4a, after S2–S3 |
 | T. More tools from open-source code | Listed 2026-11-06, not built | T1–T8 below and in `TOOL_SOURCES.md`; after shape editing, before Census (user, 2026-11-06) |
@@ -276,6 +276,7 @@ Rules for the phase: Output never modifies source data, so autosave and batch ru
 | UX13 | 0.5 | Sonnet | **Favourites and recent tools:** pin to the Shift+A menu and the ribbon |
 | UX14 | 0.5 | Sonnet | **Better status bar:** coordinates in a chosen format, map scale you can type, current CRS, background jobs |
 | UX15 | 0.5 | Sonnet | **First-run hints:** short tips in the node editor and layouts, which can be turned off |
+| UX16 | 1 | Sonnet | **Default languages (user, 2026-11-11):** Python stays the default scripting language (Calculate Field, labels, script nodes). Queries (Definition Query, Select by Attributes, the query nodes) and symbology rules default to a new clause builder like ArcGIS Pro's: rows of field, operator and value joined by And/Or, values picked from the field's unique values, with an editable SQL view. Python stays one click away in each. The builder writes the existing SQL `where` text, so old projects and saved Python queries open unchanged. Tests: builder round-trips SQL it can show, and says plainly when hand-written SQL is too complex to show as rows. |
 
 **Total:** about 10–13 sessions, a rough estimate until UX0 reports.
 
