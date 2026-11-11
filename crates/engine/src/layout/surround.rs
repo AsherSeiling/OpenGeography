@@ -119,16 +119,19 @@ pub(super) fn text_slot(out: &mut String, x: f64, y: f64, text: &str, font: &str
         let _ = write!(extra, " letter-spacing=\"{}\"", mm(ls));
     }
     if let (Some(hc), Some(hw)) = (st.and_then(|t| t.halo_color.as_deref()), st.and_then(|t| t.halo_width).filter(|w| w.is_finite() && *w > 0.0 && *w <= 5.0)) {
-        let _ = write!(extra, " stroke=\"{}\" stroke-width=\"{}\" stroke-linejoin=\"round\" paint-order=\"stroke\"", svg::color(hc, "#ffffff"), mm(hw * 2.0));
+        let (hrgb, ha) = svg::color_alpha(hc, "#ffffff");
+        let _ = write!(extra, " stroke=\"{hrgb}\"{} stroke-width=\"{}\" stroke-linejoin=\"round\" paint-order=\"stroke\"", svg::alpha_attr("stroke-opacity", ha), mm(hw * 2.0));
     }
+    let (tc, ta) = svg::color_alpha(st.and_then(|t| t.color.as_deref()).unwrap_or("#000000"), "#000000");
     let _ = write!(
         out,
-        "<text x=\"{}\" y=\"{}\" font-family=\"{}\" font-weight=\"{weight}\" font-style=\"{fstyle}\" font-size=\"{}\" fill=\"{}\" text-anchor=\"{anchor}\"{extra}>{}</text>",
+        "<text x=\"{}\" y=\"{}\" font-family=\"{}\" font-weight=\"{weight}\" font-style=\"{fstyle}\" font-size=\"{}\" fill=\"{}\"{} text-anchor=\"{anchor}\"{extra}>{}</text>",
         mm(x),
         mm(y),
         export::font_stack(st.and_then(|t| t.family.as_deref())),
         mm(size_pt * PT_MM),
-        svg::color(st.and_then(|t| t.color.as_deref()).unwrap_or("#000000"), "#000000"),
+        tc,
+        svg::alpha_attr("fill-opacity", ta),
         esc(text)
     );
 }
@@ -543,8 +546,13 @@ fn layer_rows(info: &LayerInfo, style: &LayerStyle) -> Vec<Row> {
 
 fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &LayerStyle, row_mm: f64, patch: &str) {
     let sw = style.stroke_width.max(0.0) * PX_MM;
-    let stroke = svg::color(&style.stroke, "#4d4d4d");
+    // Same transparency rules as the map frame (`frame::bucket_svg`): fill alpha x layer opacity, outline alpha is its opacity.
+    let (color, ca) = svg::color_alpha(color, "#808080");
+    let color = color.as_str();
+    let (stroke, sa) = svg::color_alpha(&style.stroke, "#4d4d4d");
     let op = opacity(style.opacity);
+    let fop = opacity(ca * style.opacity);
+    let s_attr = svg::alpha_attr("stroke-opacity", sa);
     let ymid = y + row_mm / 2.0;
     let stack = style.strokes.as_ref().filter(|s| !s.is_empty());
     match sym {
@@ -564,13 +572,13 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
             let color = fill.as_str();
             match patch {
                 "circle" => {
-                    let _ = write!(out, "<ellipse cx=\"{}\" cy=\"{}\" rx=\"{}\" ry=\"1.75\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(SWATCH_W / 2.0));
+                    let _ = write!(out, "<ellipse cx=\"{}\" cy=\"{}\" rx=\"{}\" ry=\"1.75\" fill=\"{color}\" fill-opacity=\"{fop}\" stroke=\"{s}\"{s_attr} stroke-width=\"{w}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(SWATCH_W / 2.0));
                 }
                 "rounded" => {
-                    let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" rx=\"1.2\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
+                    let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" rx=\"1.2\" fill=\"{color}\" fill-opacity=\"{fop}\" stroke=\"{s}\"{s_attr} stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
                 }
                 _ => {
-                    let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"{s}\" stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
+                    let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{color}\" fill-opacity=\"{fop}\" stroke=\"{s}\"{s_attr} stroke-width=\"{w}\"/>", mm(x), mm(yy), mm(SWATCH_W), mm(h));
                 }
             }
             for st in stack.into_iter().flatten() {
@@ -584,7 +592,7 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
                 }
             } else {
                 let dash = style.dash.as_deref().map_or(String::new(), |d| super::symbols::dash_attr(d, sw));
-                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{color}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"round\"{dash}/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), mm(sw.max(0.3)));
+                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{color}\" stroke-opacity=\"{fop}\" stroke-width=\"{}\" stroke-linecap=\"round\"{dash}/>", mm(x), mm(ymid), mm(x + SWATCH_W), mm(ymid), mm(sw.max(0.3)));
             }
         }
         Sym::Raster(ramped) => {
@@ -602,10 +610,12 @@ fn swatch(out: &mut String, x: f64, y: f64, sym: Sym, color: &str, style: &Layer
         Sym::Point => {
             let r = (style.radius.max(0.0) * PX_MM).min(1.8);
             let shape = style.marker.as_deref().unwrap_or("");
+            let (rc, ra) = svg::color_alpha(style.point_stroke.as_deref().unwrap_or("#333333"), "#333333");
+            let ring = format!("stroke=\"{rc}\"{}", svg::alpha_attr("stroke-opacity", ra));
             if shape.is_empty() || shape == "circle" {
-                let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"#333333\" stroke-width=\"{}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(r), mm(0.6 * PX_MM));
+                let _ = write!(out, "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"{color}\" fill-opacity=\"{fop}\" {ring} stroke-width=\"{}\"/>", mm(x + SWATCH_W / 2.0), mm(ymid), mm(r), mm(0.6 * PX_MM));
             } else {
-                let _ = write!(out, "<g fill=\"{color}\" fill-opacity=\"{op}\" stroke=\"#333333\" stroke-width=\"{}\">", mm(0.6 * PX_MM));
+                let _ = write!(out, "<g fill=\"{color}\" fill-opacity=\"{fop}\" {ring} stroke-width=\"{}\">", mm(0.6 * PX_MM));
                 super::symbols::marker(out, shape, style.marker_svg.as_deref().unwrap_or(""), x + SWATCH_W / 2.0, ymid, r);
                 out.push_str("</g>");
             }

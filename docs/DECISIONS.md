@@ -594,3 +594,7 @@ Made while the user was away; each can be changed.
 - **Alpha for OpenLayers goes out as `rgba()`:** the style parser behind ol-mapbox-style has no 8-digit hex, so `cssColor` converts at the map boundary only; stored values stay hex.
 - **Picker changes are a live preview with Cancel/Escape restoring the starting value;** one undo step is not made (the layer style store has no undo of its own). Easy to add later with a commit callback.
 - **Eyedropper not included** (as planned).
+- **Point outline is `pointStroke` on the layer style** (optional colour, with alpha); unset keeps the fixed `#333333` ring, so old maps and the layout golden files are unchanged. Its width stays 0.6 px. The map's selected-point ring stays `#0060a0`.
+- **Engine writes alpha as `fill-opacity` / `stroke-opacity`** through `svg::color_alpha`; no 8-digit hex reaches the SVG. A fully opaque colour adds no attribute, so old output is byte-identical. Pattern marks in fills and the halo's fill follow the same rule but patterns ignore alpha of their own colours.
+- **Layout shape fills:** colour alpha multiplies with the shape's `fillOpacity`; the UI (CP3) keeps writing `fillOpacity` and leaves the fill colour opaque.
+

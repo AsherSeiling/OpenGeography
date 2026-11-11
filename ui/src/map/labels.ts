@@ -5,6 +5,7 @@ import Stroke from "ol/style/Stroke";
 import Style, { type StyleFunction } from "ol/style/Style";
 import Text from "ol/style/Text";
 import type { GeomType } from "../ipc/api";
+import { cssColor } from "../theme/color";
 import type { ContourLabels, LabelPosition, LabelStyle } from "../store/store";
 
 /** Pseudo tile field: the engine returns one label anchor point per feature (`tiles::ANCHORS`). */
@@ -91,7 +92,7 @@ export function positionAnchor(pos: LabelPosition | undefined): { align: "left" 
   }
 }
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
+const HEX = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const number = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : null;
@@ -114,9 +115,9 @@ export function labelStyleFunction(geom: GeomType, label: LabelStyle, scale: () 
       new Text({
         text,
         font,
-        fill: new Fill({ color: fill }),
+        fill: new Fill({ color: cssColor(fill) }),
         // In-line contour labels break the line under the text with a thick halo in the halo (map background) colour.
-        stroke: halo && (label.contour?.inLine ? true : label.haloWidth > 0) ? new Stroke({ color: label.haloColor, width: label.contour?.inLine ? Math.max(6, label.haloWidth * 2) : label.haloWidth * 2 }) : undefined,
+        stroke: halo && (label.contour?.inLine ? true : label.haloWidth > 0) ? new Stroke({ color: cssColor(label.haloColor), width: label.contour?.inLine ? Math.max(6, label.haloWidth * 2) : label.haloWidth * 2 }) : undefined,
         placement: geom === "Line" ? "line" : "point",
         // Contours: repeat along the line, spaced in px; OpenLayers keeps the text upright and follows the bends (curved text).
         repeat: geom === "Line" && label.contour ? Math.max(40, label.contour.spacing) : undefined,
@@ -127,8 +128,8 @@ export function labelStyleFunction(geom: GeomType, label: LabelStyle, scale: () 
         rotation: (rotationDeg * Math.PI) / 180,
         overflow: geom === "Line" ? false : true,
         padding: [2, 2, 2, 2],
-        backgroundFill: label.background ? new Fill({ color: label.background.fill }) : undefined,
-        backgroundStroke: label.background?.stroke ? new Stroke({ color: label.background.stroke, width: 1 }) : undefined,
+        backgroundFill: label.background ? new Fill({ color: cssColor(label.background.fill) }) : undefined,
+        backgroundStroke: label.background?.stroke ? new Stroke({ color: cssColor(label.background.stroke), width: 1 }) : undefined,
       });
     const z = label.priority ?? 5;
     const t = text1(color, 0, 0, true);

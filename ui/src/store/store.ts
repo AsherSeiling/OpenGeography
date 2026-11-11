@@ -152,6 +152,8 @@ export interface LayerStyle {
   pattern?: "hatch" | "hatch2" | "cross" | "horizontal" | "vertical" | "grid" | "dots" | "marsh" | "orchard" | "vineyard" | "scrub" | "sand" | "gravel";
   /** CSS px between pattern repeats. */
   patternSpacing?: number;
+  /** Outline colour of point symbols (`#rrggbb` or `#rrggbbaa`). Unset = the fixed dark ring older maps have. */
+  pointStroke?: string;
   /** Layout-only: a drop shadow behind the layer (print layouts). */
   effect?: { dx: number; dy: number; color: string; opacity: number };
   /** Raster layers only; projects saved before raster symbology have none (the default look). */

@@ -818,11 +818,14 @@ pub struct StrokeSpec {
 impl StrokeSpec {
     /// The SVG attributes for this stroke (no leading `fill`), widths in page millimetres.
     pub fn attrs(&self, op: &str) -> String {
-        use super::svg::{color, mm};
+        use super::svg::{color_alpha, mm, opacity};
         let px = super::frame::PX_MM;
         let dash = if self.dash.is_empty() { String::new() } else { format!(" stroke-dasharray=\"{}\"", self.dash.iter().map(|d| mm(d.max(0.01) * px)).collect::<Vec<_>>().join(" ")) };
         let cap = self.cap.as_deref().filter(|c| matches!(*c, "butt" | "round" | "square")).unwrap_or(if self.dash.is_empty() { "round" } else { "butt" });
-        format!("stroke=\"{}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"{cap}\" stroke-linejoin=\"round\"{dash}", color(&self.color, "#000000"), mm(self.width.max(0.0) * px))
+        // The colour's own alpha multiplies with the layer slider (`op`, already formatted by `opacity()`).
+        let (c, a) = color_alpha(&self.color, "#000000");
+        let op = if a < 1.0 { opacity(a * op.parse::<f64>().unwrap_or(1.0)) } else { op.to_string() };
+        format!("stroke=\"{c}\" stroke-opacity=\"{op}\" stroke-width=\"{}\" stroke-linecap=\"{cap}\" stroke-linejoin=\"round\"{dash}", mm(self.width.max(0.0) * px))
     }
 }
 
@@ -880,6 +883,9 @@ pub struct LayerStyle {
     /// Raster symbology; the layout draws rasters exactly as the map does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raster: Option<crate::raster_style::RasterStyle>,
+    /// Outline colour of point symbols (`#rrggbb` or `#rrggbbaa`). Unset = the fixed dark ring every older map has.
+    #[serde(default, rename = "pointStroke", skip_serializing_if = "Option::is_none")]
+    pub point_stroke: Option<String>,
 }
 
 /// An overview map's rectangle showing where another frame looks (QGIS "Overview", ArcGIS "Extent indicator").
@@ -1154,6 +1160,7 @@ impl Default for LayerStyle {
             pattern_spacing: None,
             effect: None,
             raster: None,
+            point_stroke: None,
         }
     }
 }

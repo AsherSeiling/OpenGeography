@@ -4,7 +4,7 @@
 //! Layouts graphics). Everything is plain SVG, so PDF/PNG/SVG output agree.
 
 use super::model::{Decor, Placement};
-use super::svg::{color, esc, mm, opacity};
+use super::svg::{esc, mm, opacity};
 use anyhow::{bail, Result};
 use std::fmt::Write;
 
@@ -28,13 +28,17 @@ pub fn decor(out: &mut String, at: &Placement, d: &Decor) {
         let (dx, dy) = (d.shadow_offset.max(0.0), d.shadow_offset.max(0.0));
         let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"{rx} fill=\"#000000\" fill-opacity=\"0.3\"/>", mm(at.x + dx), mm(at.y + dy), mm(at.w), mm(at.h));
     }
-    let fill = d.background.as_deref().map_or("none".to_string(), |c| color(c, "#ffffff"));
-    let (stroke, sw) = match (&d.frame_color, d.frame_width > 0.0) {
-        (Some(c), true) => (color(c, "#000000"), mm(d.frame_width)),
-        _ => ("none".to_string(), "0".to_string()),
+    let (fill, fa) = d.background.as_deref().map_or(("none".to_string(), 1.0), |c| super::svg::color_alpha(c, "#ffffff"));
+    let (stroke, sa, sw) = match (&d.frame_color, d.frame_width > 0.0) {
+        (Some(c), true) => {
+            let (c, a) = super::svg::color_alpha(c, "#000000");
+            (c, a, mm(d.frame_width))
+        }
+        _ => ("none".to_string(), 1.0, "0".to_string()),
     };
     if fill != "none" || stroke != "none" {
-        let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"{rx} fill=\"{fill}\" stroke=\"{stroke}\" stroke-width=\"{sw}\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h));
+        let (fo, so) = (super::svg::alpha_attr("fill-opacity", fa), super::svg::alpha_attr("stroke-opacity", sa));
+        let _ = write!(out, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"{rx} fill=\"{fill}\"{fo} stroke=\"{stroke}\"{so} stroke-width=\"{sw}\"/>", mm(at.x), mm(at.y), mm(at.w), mm(at.h));
     }
     out.push_str("</g>");
 }
@@ -67,11 +71,12 @@ pub fn check_shape(shape: &str) -> Result<()> {
 /// A shape filling the element's box. Lines and arrows run along the box's
 /// horizontal centre line (use rotation for other directions).
 pub fn shape(out: &mut String, at: &Placement, s: &ShapeStyle) {
-    let fill = color(s.fill, "none");
-    let stroke = color(s.stroke, "#000000");
+    let (fill, fa) = super::svg::color_alpha(s.fill, "none");
+    let (stroke, sa) = super::svg::color_alpha(s.stroke, "#000000");
+    let so = super::svg::alpha_attr("stroke-opacity", sa);
     let sw = s.stroke_width.max(0.0);
     let (x, y, w, h) = (at.x, at.y, at.w, at.h);
-    let paint = format!("fill=\"{fill}\" fill-opacity=\"{}\" stroke=\"{stroke}\" stroke-width=\"{}\"{}", opacity(s.fill_opacity), mm(sw), dash(s.dash, sw));
+    let paint = format!("fill=\"{fill}\" fill-opacity=\"{}\" stroke=\"{stroke}\"{so} stroke-width=\"{}\"{}", opacity(fa * s.fill_opacity), mm(sw), dash(s.dash, sw));
     let _ = write!(out, "<g id=\"shape-{}\"{}>", esc(&at.id), rotation(at));
     match s.shape {
         "ellipse" => {
@@ -87,10 +92,10 @@ pub fn shape(out: &mut String, at: &Placement, s: &ShapeStyle) {
                 // Head length 4 line widths (at least 2 mm), never longer than half the line.
                 let head = (sw * 4.0).max(2.0).min(w / 2.0);
                 let half = (head * 0.4).max(sw);
-                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\" stroke-width=\"{}\"{}/>", mm(x), mm(ym), mm(x + w - head), mm(ym), mm(sw), dash(s.dash, sw));
-                let _ = write!(out, "<polygon points=\"{},{} {},{} {},{}\" fill=\"{stroke}\"/>", mm(x + w), mm(ym), mm(x + w - head), mm(ym - half), mm(x + w - head), mm(ym + half));
+                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\"{so} stroke-width=\"{}\"{}/>", mm(x), mm(ym), mm(x + w - head), mm(ym), mm(sw), dash(s.dash, sw));
+                let _ = write!(out, "<polygon points=\"{},{} {},{} {},{}\" fill=\"{stroke}\"{so}/>", mm(x + w), mm(ym), mm(x + w - head), mm(ym - half), mm(x + w - head), mm(ym + half));
             } else {
-                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\" stroke-width=\"{}\"{}/>", mm(x), mm(ym), mm(x + w), mm(ym), mm(sw), dash(s.dash, sw));
+                let _ = write!(out, "<line x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\" stroke=\"{stroke}\"{so} stroke-width=\"{}\"{}/>", mm(x), mm(ym), mm(x + w), mm(ym), mm(sw), dash(s.dash, sw));
             }
         }
         _ => {

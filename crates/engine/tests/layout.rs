@@ -2054,3 +2054,67 @@ fn ur18_units_per_mm_follow_the_scale_and_the_crs() {
     assert!(e.layout_frame_units_per_mm("earth", "", [0.0, 0.0], 24_000.0, 10.0, 10.0).unwrap_err().to_string().contains("coordinate system"));
     assert!(e.layout_frame_units_per_mm("earth", "EPSG:26915", [0.0, 0.0], 0.0, 10.0, 10.0).is_err());
 }
+
+// ---- CP2: colours with alpha (`#rrggbbaa`), docs/COLOUR_AND_OUTLINE_PLAN.md ----
+
+fn style_json(v: serde_json::Value) -> LayerStyle {
+    serde_json::from_value(v).unwrap()
+}
+
+#[test]
+fn cp2_outline_alpha_reaches_svg_png_and_pdf() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    // White fill, a wide 50 % red outline: over white paper the outline must come out as about (255, 127, 127).
+    let style = json!({ "kind": "single", "fill": "#ffffff", "stroke": "#ff000080", "strokeWidth": 8, "opacity": 1, "radius": 3.5 });
+    let out = render(&e, &request(&ids, style));
+    assert!(out.svg.contains("stroke=\"#ff0000\" stroke-opacity=\"0.502\""), "outline alpha written as stroke-opacity, colour as plain rgb");
+    assert!(!out.svg.contains("#ff000080"), "no 8-digit hex reaches the SVG");
+    let png = export::svg_to_png(&out.svg, 96.0).unwrap();
+    let mut dec = png::Decoder::new(std::io::Cursor::new(&png)).read_info().unwrap();
+    let mut buf = vec![0; dec.output_buffer_size().unwrap()];
+    let info = dec.next_frame(&mut buf).unwrap();
+    let bpp = info.color_type.samples();
+    let blended = buf.chunks(bpp).filter(|p| p[0] >= 252 && (124..=130).contains(&p[1]) && (124..=130).contains(&p[2])).count();
+    assert!(blended > 300, "expected a run of 50 % red pixels, found {blended}");
+    let solid = render(&e, &request(&ids, json!({ "kind": "single", "fill": "#ffffff", "stroke": "#ff0000", "strokeWidth": 8, "opacity": 1, "radius": 3.5 })));
+    assert!(!solid.svg.contains("stroke=\"#ff0000\" stroke-opacity"), "opaque outline carries no stroke-opacity");
+    let pdf = export::svg_to_pdf(&out.svg).unwrap();
+    assert!(contains(&pdf, "/CA 0.50"), "PDF has a stroke alpha of about 0.5");
+}
+
+#[test]
+fn cp2_alpha_multiplies_with_the_layer_slider_on_lines_and_fills() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let mut req = request(&ids, json!({ "kind": "single", "fill": "#00ff0080", "stroke": "#4d4d4d", "strokeWidth": 1, "opacity": 0.5, "radius": 3.5 }));
+    req.styles.insert(ids[1].clone(), style_json(json!({ "kind": "single", "fill": "#ff000080", "stroke": "#ff000080", "strokeWidth": 2, "opacity": 0.5, "radius": 3.5 })));
+    let svg = render(&e, &req).svg;
+    assert!(svg.contains("stroke=\"#ff0000\" stroke-opacity=\"0.251\""), "line: 50 % alpha x 0.5 slider = 25 %");
+    assert!(svg.contains("fill=\"#00ff00\" fill-opacity=\"0.251\""), "polygon fill: alpha x slider");
+}
+
+#[test]
+fn cp2_point_outline_is_optional_and_old_maps_keep_the_dark_ring() {
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let old = render(&e, &request(&ids, categorized())).svg;
+    assert!(old.contains("stroke=\"#333333\""), "no pointStroke: the fixed #333333 ring");
+    let mut req = request(&ids, categorized());
+    req.styles.insert(ids[2].clone(), style_json(json!({ "kind": "single", "fill": "#2a7", "stroke": "#2a7", "strokeWidth": 0.7, "opacity": 1, "radius": 3.5, "pointStroke": "#0000ff80" })));
+    let svg = render(&e, &req).svg;
+    assert!(svg.contains("stroke=\"#0000ff\" stroke-opacity=\"0.502\""), "point outline colour and alpha");
+}
+
+#[test]
+fn cp2_old_six_digit_projects_load_and_render_unchanged() {
+    let v = json!({ "kind": "single", "fill": "#7aa8d8", "stroke": "#4d4d4d", "strokeWidth": 0.7, "opacity": 1.0, "radius": 3.5 });
+    let s: LayerStyle = serde_json::from_value(v.clone()).unwrap();
+    assert!(serde_json::to_value(&s).unwrap().get("pointStroke").is_none(), "an old style gains no pointStroke key");
+    assert_eq!(s.fill, "#7aa8d8");
+    let dir = tempfile::tempdir().unwrap();
+    let (e, ids) = fixture(dir.path());
+    let svg = render(&e, &request(&ids, v)).svg;
+    assert!(svg.contains("fill=\"#7aa8d8\" fill-opacity=\"1\""));
+    assert!(!svg.contains("stroke=\"#4d4d4d\" stroke-opacity"), "opaque outline adds no attribute");
+}

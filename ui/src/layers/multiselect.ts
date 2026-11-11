@@ -88,6 +88,7 @@ export function applyStyleParts(src: LayerStyle, target: LayerStyle, targetInfo:
     note = `classes not copied: no field "${src.field}"; used the single symbol colour`;
   }
   const style: LayerStyle = { ...target, kind, fill: src.fill, stroke: src.stroke, strokeWidth: src.strokeWidth, opacity: src.opacity, radius: src.radius };
+  if (src.pointStroke) style.pointStroke = src.pointStroke; else delete style.pointStroke;
   if (kind === "single") {
     delete style.field; delete style.classes; delete style.breaks; delete style.colors;
   } else {

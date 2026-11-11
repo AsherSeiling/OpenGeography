@@ -54,6 +54,29 @@ pub fn color(c: &str, fallback: &str) -> String {
     }
 }
 
+/// A colour split into its opaque part and its alpha 0..=1, so renderers write `fill-opacity` / `stroke-opacity`
+/// (PNG through resvg and PDF through svg2pdf both honour those; neither is left to read 8-digit hex).
+/// `#rrggbb`, `#rgb` and names have alpha 1; `#rrggbbaa` and `#rgba` carry theirs. Anything unsafe becomes `fallback` (alpha 1).
+pub fn color_alpha(c: &str, fallback: &str) -> (String, f64) {
+    let v = color(c, fallback);
+    let Some(h) = v.strip_prefix('#') else { return (v, 1.0) };
+    let hex = |s: &str| u8::from_str_radix(s, 16).unwrap_or(255);
+    match h.len() {
+        8 => (format!("#{}", &h[..6]), f64::from(hex(&h[6..])) / 255.0),
+        4 => (format!("#{}", &h[..3]), f64::from(hex(&h[3..4]) * 17) / 255.0),
+        _ => (v, 1.0),
+    }
+}
+
+/// ` name="a"` for an alpha below 1, else nothing, so a fully opaque colour keeps byte-identical output.
+pub fn alpha_attr(name: &str, a: f64) -> String {
+    if a < 1.0 {
+        format!(" {name}=\"{}\"", opacity(a))
+    } else {
+        String::new()
+    }
+}
+
 /// Opacity 0..=1 as a short decimal.
 pub fn opacity(v: f64) -> String {
     let n = (v.clamp(0.0, 1.0) * 1000.0).round() as i64;
@@ -87,6 +110,21 @@ mod tests {
         assert_eq!(opacity(0.75), "0.75");
         assert_eq!(opacity(1.0), "1");
         assert_eq!(opacity(0.0), "0");
+    }
+
+    #[test]
+    fn color_alpha_splits_hex_with_alpha() {
+        assert_eq!(color_alpha("#FF0000", "#000"), ("#ff0000".to_string(), 1.0));
+        let (c, a) = color_alpha("#ff000080", "#000");
+        assert_eq!(c, "#ff0000");
+        assert!((a - 128.0 / 255.0).abs() < 1e-9);
+        let (c, a) = color_alpha("#f008", "#000");
+        assert_eq!(c, "#f00");
+        assert!((a - 136.0 / 255.0).abs() < 1e-9);
+        assert_eq!(color_alpha("none", "#000"), ("none".to_string(), 1.0));
+        assert_eq!(color_alpha("bad\"", "#123456"), ("#123456".to_string(), 1.0));
+        assert_eq!(alpha_attr("stroke-opacity", 1.0), "");
+        assert_eq!(alpha_attr("stroke-opacity", 0.5), " stroke-opacity=\"0.5\"");
     }
 
     #[test]

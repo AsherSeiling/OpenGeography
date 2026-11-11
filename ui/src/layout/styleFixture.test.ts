@@ -30,6 +30,7 @@ const ALL_KEYS: Record<keyof LayerStyle, true> = {
   dash: true,
   pattern: true,
   patternSpacing: true,
+  pointStroke: true,
 };
 
 describe("LayerStyle engine mirror", () => {

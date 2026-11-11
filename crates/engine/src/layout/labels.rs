@@ -506,8 +506,10 @@ fn geometry(c: &Candidate) -> Geo {
 fn draw(c: &Candidate, g: &Geo) -> String {
     let l = &c.label;
     let halo = l.halo_width.max(0.0) * PX_MM;
+    // Text, halo, background and shadow colours may carry alpha (`#rrggbbaa`): written as fill-opacity / stroke-opacity.
     let fill = super::svg::color(c.color.as_deref().unwrap_or(&l.color), "#222222");
     let halo_color = super::svg::color(&l.halo_color, "#ffffff");
+    let (halo_rgb, halo_a) = super::svg::color_alpha(&halo_color, "#ffffff");
     let rot = if g.deg != 0.0 { format!(" transform=\"rotate({} {} {})\"", mm(g.deg), mm(g.cx), mm(g.cy)) } else { String::new() };
     let weight = if l.bold { " font-weight=\"700\"" } else { "" };
     let style = if l.italic { " font-style=\"italic\"" } else { "" };
@@ -520,7 +522,8 @@ fn draw(c: &Candidate, g: &Geo) -> String {
         } else {
             g.lines.iter().enumerate().map(|(i, t)| format!("<tspan x=\"{}\" y=\"{}\">{}</tspan>", mm(g.tx + dx), mm(first + dy + lh * i as f64), esc(t))).collect::<String>()
         };
-        format!("<text {attrs} fill=\"{color}\"{extra}>{body}</text>")
+        let (rgb, a) = super::svg::color_alpha(color, "#000000");
+        format!("<text {attrs} fill=\"{rgb}\"{}{extra}>{body}</text>", super::svg::alpha_attr("fill-opacity", a))
     };
     let mut s = String::new();
     if let Some(b) = &l.background {
@@ -528,14 +531,18 @@ fn draw(c: &Candidate, g: &Geo) -> String {
         let (w, h) = (g.bx[2] - g.bx[0], g.bx[3] - g.bx[1]);
         // The box is axis-aligned after rotation; the background is drawn unrotated at the label's own size inside it.
         let (rw, rh) = if g.deg != 0.0 { (text_box_w(g, l) + 2.0 * pad, lh * g.lines.len() as f64 + 2.0 * pad) } else { (w, h) };
-        let stroke = b.stroke.as_deref().map_or(String::new(), |c| format!(" stroke=\"{}\" stroke-width=\"{}\"", super::svg::color(c, "#000000"), mm(0.2)));
-        let _ = write!(s, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{}\"{stroke}{rot}/>", mm(g.cx - rw / 2.0), mm(g.cy - rh / 2.0), mm(rw), mm(rh), super::svg::color(&b.fill, "#ffffff"));
+        let stroke = b.stroke.as_deref().map_or(String::new(), |c| {
+            let (rgb, a) = super::svg::color_alpha(c, "#000000");
+            format!(" stroke=\"{rgb}\"{} stroke-width=\"{}\"", super::svg::alpha_attr("stroke-opacity", a), mm(0.2))
+        });
+        let (bg, bga) = super::svg::color_alpha(&b.fill, "#ffffff");
+        let _ = write!(s, "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"{bg}\"{}{stroke}{rot}/>", mm(g.cx - rw / 2.0), mm(g.cy - rh / 2.0), mm(rw), mm(rh), super::svg::alpha_attr("fill-opacity", bga));
     }
     if let Some(sh) = &l.shadow {
         s.push_str(&text(sh.dx * PX_MM, sh.dy * PX_MM, "", &super::svg::color(&sh.color, "#000000")));
     }
     if halo > 0.0 {
-        s.push_str(&text(0.0, 0.0, &format!(" stroke=\"{halo_color}\" stroke-width=\"{}\" stroke-linejoin=\"round\"", mm(halo * 2.0)), &halo_color));
+        s.push_str(&text(0.0, 0.0, &format!(" stroke=\"{halo_rgb}\"{} stroke-width=\"{}\" stroke-linejoin=\"round\"", super::svg::alpha_attr("stroke-opacity", halo_a), mm(halo * 2.0)), &halo_color));
     }
     s.push_str(&text(0.0, 0.0, "", &fill));
     s
