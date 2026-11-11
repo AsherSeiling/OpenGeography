@@ -29,6 +29,8 @@ pub struct Settings {
     pub scripting_language: Option<String>,
     /// UX14: the one format the status bar shows the pointer in ("dd", "dms", "projected", "mgrs").
     pub coordinate_format: Option<String>,
+    /// RB3: show the Developer group (Frame Rate, Benchmark, Generate Test Data) on the View tab. Off unless the user turns it on.
+    pub show_developer_tools: Option<bool>,
 }
 
 fn text(v: &Value, key: &str, allowed: Option<&[&str]>) -> Option<String> {
@@ -60,6 +62,7 @@ impl Settings {
             startup_layout,
             scripting_language: text(v, "scriptingLanguage", None),
             coordinate_format: text(v, "coordinateFormat", Some(&["dd", "dms", "projected", "mgrs"])),
+            show_developer_tools: v.get("showDeveloperTools").and_then(|b| b.as_bool()),
         }
     }
 }

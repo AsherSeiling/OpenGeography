@@ -2,7 +2,7 @@
 // groups of large and small buttons. The open tab and its band are outlined as one shape. Contextual tabs appear for a layer and a layout.
 import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger } from "@fluentui/react-components";
 import { RIcon } from "./icons/RIcon";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useDialog } from "../actions";
 import { describePage, PAGE_SIZES, pageFor, type Orientation } from "../layout/types";
@@ -19,7 +19,8 @@ import { RButton } from "./rbutton";
 import { fitRibbon, type Variant } from "./ribbonFit";
 import { TopSearch } from "./search";
 import { KEY_TIPS, LAYOUT_ORDER, MAIN_TABS, TABS } from "./tabsDef";
-import { useRibbonTabs, type Group } from "./tabs";
+import { useRibbonTabs, visibleGroups, type Group } from "./tabs";
+import { useSettings } from "../store/settings";
 import { useEdit } from "../edit/editStore";
 import { useRun } from "../store/model";
 import { useSaved } from "../edit/editActions";
@@ -58,6 +59,7 @@ export function Ribbon() {
   // The Map Frame tab is there only while a map frame is selected.
   const frameSelected = useLayouts((s) => !!s.doc?.elements.some((e) => e.kind === "map_frame" && s.selected.includes(e.id)));
   const toolCount = useRun((s) => Object.keys(s.specs).length); // the Tools group on Analysis is as wide as the tool list is long
+  const developer = useSettings((s) => !!s.settings.showDeveloperTools);
   const registered = useRibbonTabs((s) => s.tabs);
   // Opening a layout brings its Page tab forward; the map's tabs (Map, Analysis, Feature Layer) leave while a layout is open.
   useEffect(() => {
@@ -67,7 +69,7 @@ export function Ribbon() {
   const extra = Object.values(registered).filter((t) => t.visible);
   const allowed = inLayout ? LAYOUT_ORDER.includes(tab) || (tab === "Map Frame" && frameSelected) : MAIN_TABS.includes(tab) || (tab === "Feature Layer" && contextual);
   const current = allowed || extra.some((t) => t.id === tab) ? tab : inLayout ? "Page" : "Map";
-  const groups: Group[] = TABS[current] ?? extra.find((t) => t.id === current)?.groups ?? [];
+  const groups: Group[] = useMemo(() => visibleGroups(TABS[current] ?? Object.values(registered).find((t) => t.visible && t.id === current)?.groups ?? [], { inLayout: !!inLayout, developer }), [current, registered, inLayout, developer]);
 
   // Collapse to the tab row (double-click a tab or Ctrl+F1); a click on a tab while collapsed shows the body until you click elsewhere.
   const [collapsed, setCollapsed] = useState(false);

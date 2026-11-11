@@ -13,3 +13,23 @@ test("RB2 an Analysis dropdown lists tools from tool_specs and picking one does 
   await app.getByRole("menuitem", { name: /^Buffer$/ }).click();
   await expect.poll(() => gis(app, (g) => g.useModel.getState().nodes.some((n: any) => n.data?.tool === "buffer"))).toBe(true);
 });
+
+test("RB3 the Developer group on View is hidden until Settings > Show developer tools is on", async ({ app }) => {
+  await app.setViewportSize({ width: 2560, height: 1000 });
+  await app.locator(".rtab", { hasText: /^View$/ }).click();
+  await expect(app.locator('.rg-slot[data-group="Developer"]')).toHaveCount(0);
+  await expect(app.locator(".rbtn", { hasText: /^Frame Rate$/ })).toHaveCount(0);
+  // The dev hook turns the setting on without writing the user's settings file.
+  await gis(app, (g) => g.useSettings.setState({ settings: { ...g.useSettings.getState().settings, showDeveloperTools: true } }));
+  await expect(app.locator('.rg-slot[data-group="Developer"]')).toHaveCount(1);
+  await expect(app.locator(".rbtn", { hasText: /^Generate Test Data$/ })).toBeVisible();
+});
+
+test("RB3 View > Zoom appears while a layout is open and not on the map", async ({ app }) => {
+  await app.setViewportSize({ width: 2560, height: 1000 });
+  await app.locator(".rtab", { hasText: /^View$/ }).click();
+  await expect(app.locator('.rg-slot[data-group="Zoom"]')).toHaveCount(0);
+  await gis(app, async () => { const m = await import("/src/layout/actions.ts"); m.newLayout("Letter", "landscape"); });
+  await app.locator(".rtab", { hasText: /^View$/ }).click();
+  await expect(app.locator('.rg-slot[data-group="Zoom"]')).toHaveCount(1);
+});

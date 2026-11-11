@@ -1,6 +1,6 @@
 // Settings (UR-16): the choices that belong to the person, not to a project: theme, units, the coordinate system of new maps, and
 // (UR-17) the startup panes. Saved at once to the per-user settings file; nothing here is a secret.
-import { Button, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, Option } from "@fluentui/react-components";
+import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Field, Input, Option } from "@fluentui/react-components";
 import { useState } from "react";
 import { api } from "../ipc/api";
 import { AREA_UNITS, LENGTH_UNITS } from "../nav/geodesy";
@@ -70,6 +70,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <Input size="small" aria-label="Another coordinate system" placeholder="Another: EPSG:26914, or a definition" value={crsText} onChange={(_, d) => setCrsText(d.value)} onKeyDown={(e) => e.key === "Enter" && void applyCrs(crsText)} style={{ flex: 1 }} />
               <Button size="small" disabled={!crsText.trim()} onClick={() => void applyCrs(crsText)}>Use</Button>
             </div>
+            <Checkbox label="Show developer tools" checked={!!settings.showDeveloperTools} onChange={(_, d) => void save({ showDeveloperTools: !!d.checked })} />
+            <div className="muted small">Adds a Developer group to the View tab: Frame Rate, Benchmark and Generate Test Data. Off by default.</div>
             <StartupPanesSection />
             {msg && <div className="field-error">{msg}</div>}
           </DialogContent>

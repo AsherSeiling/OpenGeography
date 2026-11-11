@@ -174,6 +174,7 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
   // The Public Data rows are really in the tree.
   for (const id of r.catalog) await expect(app.locator(`[role="treeitem"][data-node="public:${id}"]`)).toHaveCount(1);
   // And on screen: with a layer and a layout open and a very wide window, every tab shows a button for each of its commands.
+  await gis(app, (g) => g.useSettings.setState({ settings: { ...g.useSettings.getState().settings, showDeveloperTools: true } })); // the Developer group is hidden by default
   await app.setViewportSize({ width: 2560, height: 1000 });
   const layer = await addTestLayer(app, "points", 20);
   const seen = new Set<string>();

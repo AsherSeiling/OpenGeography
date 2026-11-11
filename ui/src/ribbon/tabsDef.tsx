@@ -36,7 +36,7 @@ export const TABS: Record<string, Group[]> = {
     { label: "Maps", items: [{ cmd: "newMap" }, { cmd: "duplicateMap" }, { cmd: "topoMap" }] },
   ],
   View: [
-    { label: "Zoom", items: [{ cmd: "layoutFit" }, { cmd: "layoutActual" }, { cmd: "layoutZoomIn", size: "small" }, { cmd: "layoutZoomOut", size: "small" }] },
+    { label: "Zoom", when: "layout", items: [{ cmd: "layoutFit" }, { cmd: "layoutActual" }, { cmd: "layoutZoomIn", size: "small" }, { cmd: "layoutZoomOut", size: "small" }] },
     {
       label: "Windows",
       items: [
@@ -52,7 +52,7 @@ export const TABS: Record<string, Group[]> = {
     },
     { label: "Appearance", items: [{ cmd: "theme" }, { cmd: "colours" }] },
     { label: "Program", items: [{ cmd: "settings" }, { cmd: "saveStartup", size: "small" }, { cmd: "resetStartup", size: "small" }] },
-    { label: "Developer", items: [{ cmd: "fps", size: "small" }, { cmd: "benchmark", size: "small" }, { cmd: "testData", size: "small" }] },
+    { label: "Developer", when: "developer", items: [{ cmd: "fps", size: "small" }, { cmd: "benchmark", size: "small" }, { cmd: "testData", size: "small" }] },
   ],
   Analysis: [
     { label: "Geoprocessing", items: [{ cmd: "addTool" }, { cmd: "runModel" }] },

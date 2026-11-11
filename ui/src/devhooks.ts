@@ -9,13 +9,14 @@ import { startLayoutTrace } from "./layout/trace";
 import { useLayouts } from "./store/layout";
 import { useApp } from "./store/store";
 import * as panes from "./panes/panes";
+import { useSettings } from "./store/settings";
 import * as mapActions from "./maps/mapActions";
 import * as editActions from "./edit/editActions";
 import { useClip, useEdit } from "./edit/editStore";
 import { useGeoref } from "./georef/store";
 
 if (import.meta.env.DEV) {
-  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap: mapController.getMap, mapController, useMapView, useLayouts, layoutActions, panes, edit: { ...editActions, useEdit, useClip }, mapActions, useGeoref };
+  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap: mapController.getMap, mapController, useMapView, useLayouts, layoutActions, panes, edit: { ...editActions, useEdit, useClip }, mapActions, useGeoref, useSettings };
   startLayoutTrace();
 }
 

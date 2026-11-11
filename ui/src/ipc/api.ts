@@ -153,6 +153,8 @@ export interface ProgramSettings {
   scriptingLanguage?: string | null;
   /** The one format the status bar shows the pointer in: dd, dms, projected or mgrs (UX14). */
   coordinateFormat?: string | null;
+  /** Show the Developer group on the View tab (Frame Rate, Benchmark, Generate Test Data). Off by default. */
+  showDeveloperTools?: boolean | null;
 }
 
 export interface Citation {

@@ -6,8 +6,11 @@ import { create } from "zustand";
 export type Size = "large" | "small";
 /** `covers`: ids of commands a custom control already offers (a gallery or menu), so they count as reachable. */
 export type Item = { cmd: string; size?: Size } | { custom: ReactNode; covers?: string[] };
+/** Where a group works: "layout" only while a layout is open, "developer" only when Settings › Show developer tools is on. */
+export type GroupWhen = "layout" | "developer";
 export interface Group {
   label: string;
+  when?: GroupWhen;
   items: Item[];
 }
 
@@ -37,6 +40,11 @@ export const useRibbonTabs = create<RibbonTabs>((set) => ({
   },
   setVisible: (id, visible) => set((s) => (s.tabs[id] ? { tabs: { ...s.tabs, [id]: { ...s.tabs[id], visible } } } : s)),
 }));
+
+/** The groups of a tab that work now: a group with a `when` is left out (better hidden than greyed out) until its condition holds. */
+export function visibleGroups(groups: Group[], ctx: { inLayout: boolean; developer: boolean }): Group[] {
+  return groups.filter((g) => !g.when || (g.when === "layout" ? ctx.inLayout : ctx.developer));
+}
 
 /** Register a contextual tab; returns the function that removes it. */
 export const registerContextualTab = (t: ContextualTab) => useRibbonTabs.getState().register(t);

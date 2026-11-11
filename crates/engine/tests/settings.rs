@@ -16,6 +16,7 @@ fn settings_round_trip_through_a_file_in_a_new_folder() {
         startup_layout: Some(json!({ "version": 3, "layout": { "grid": {} } })),
         scripting_language: Some("python".into()),
         coordinate_format: Some("mgrs".into()),
+        show_developer_tools: Some(true),
     };
     let saved = save_to(&file, &s).unwrap();
     assert_eq!(saved, s);
@@ -58,4 +59,15 @@ fn coordinate_format_keeps_only_the_known_formats() {
     assert_eq!(load_from(&file).coordinate_format.as_deref(), Some("dms"));
     std::fs::write(&file, r#"{ "coordinateFormat": "utm-zone-soup" }"#).unwrap();
     assert_eq!(load_from(&file).coordinate_format, None);
+}
+
+#[test]
+fn show_developer_tools_is_off_unless_a_real_true_is_stored() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("settings.json");
+    assert_eq!(load_from(&file).show_developer_tools, None);
+    std::fs::write(&file, r#"{ "showDeveloperTools": true }"#).unwrap();
+    assert_eq!(load_from(&file).show_developer_tools, Some(true));
+    std::fs::write(&file, r#"{ "showDeveloperTools": "yes" }"#).unwrap();
+    assert_eq!(load_from(&file).show_developer_tools, None);
 }
