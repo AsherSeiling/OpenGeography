@@ -448,6 +448,12 @@ pub async fn discard_recovery(id: String) -> Res<()> {
     engine::recovery::discard(&engine::recovery::root().map_err(|e| format!("{e:#}"))?, &id).map_err(|e| format!("{e:#}"))
 }
 
+/// Note that the window was closed with unsaved work (the copy stays; the next start says so).
+#[tauri::command]
+pub async fn mark_recovery_closed() -> Res<()> {
+    engine::recovery::mark_closed(&engine::recovery::root().map_err(|e| format!("{e:#}"))?).map_err(|e| format!("{e:#}"))
+}
+
 /// Remove this run's own recovery copy (after a clean save, or when the work was left on purpose).
 #[tauri::command]
 pub async fn discard_own_recovery() -> Res<()> {
@@ -460,6 +466,7 @@ pub struct RestoredProject {
     ui_state: String,
     layers: Vec<LayerInfo>,
     origin: Option<String>,
+    opened_origin: bool,
 }
 
 /// Restore a recovery copy as an unsaved project. The copy stays until the UI discards it.
@@ -467,7 +474,7 @@ pub struct RestoredProject {
 pub async fn restore_recovery(engine: Eng<'_>, id: String) -> Res<RestoredProject> {
     blocking(&engine, move |e| {
         let r = e.restore_recovery(&engine::recovery::root()?, &id)?;
-        Ok(RestoredProject { ui_state: r.ui_state, layers: e.list_layers(), origin: r.origin })
+        Ok(RestoredProject { ui_state: r.ui_state, layers: e.list_layers(), origin: r.origin, opened_origin: r.opened_origin })
     })
     .await
 }

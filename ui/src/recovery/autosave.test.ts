@@ -7,7 +7,7 @@ const writeRecovery = vi.fn(async (..._a: unknown[]) => {});
 const discardOwn = vi.fn(async () => {});
 const discardRecovery = vi.fn(async (..._a: unknown[]) => {});
 const saveProjectApi = vi.fn(async (..._a: unknown[]) => null); // Tauri answers null for a command that returns nothing
-const restoreApi = vi.fn(async (..._a: unknown[]) => ({ uiState: JSON.stringify({ version: 2, maps: [] }), layers: [], origin: "/work/Madera.gproj" as string | null }));
+const restoreApi = vi.fn(async (..._a: unknown[]) => ({ uiState: JSON.stringify({ version: 2, maps: [] }), layers: [], origin: "/work/Madera.gproj" as string | null, openedOrigin: false }));
 vi.mock("../ipc/api", () => ({
   api: {
     writeRecovery: (...a: unknown[]) => (calls.push("write"), writeRecovery(...a)),
@@ -106,6 +106,15 @@ describe("restoreRecovery", () => {
     expect(discardRecovery).toHaveBeenCalledWith("s1-abc");
   });
 
+  it("a copy of a project with a folder reopens that project with the changes unsaved", async () => {
+    restoreApi.mockResolvedValueOnce({ uiState: JSON.stringify({ version: 2, maps: [] }), layers: [], origin: "/work/Madera.gproj", openedOrigin: true });
+    useApp.setState({ dirty: false, projectDir: null });
+    expect(await restoreRecovery("s1-ui")).toBe(true);
+    expect(useApp.getState().projectDir).toBe("/work/Madera.gproj");
+    expect(useApp.getState().dirty).toBe(true);
+    expect(useApp.getState().status).toMatch(/unsaved changes to \/work\/Madera\.gproj/);
+  });
+
   it("keeps the old copy when the new one can't be written", async () => {
     writeRecovery.mockRejectedValueOnce(new Error("no space"));
     expect(await restoreRecovery("s1-abc")).toBe(true);
@@ -134,9 +143,10 @@ describe("wording and interval", () => {
 
   it("describes a copy in a sentence, and shows a damaged one's problem", () => {
     const now = 1_000_000_000_000;
-    const base = { id: "s1", name: "Madera", origin: "/work/Madera.gproj", writtenAt: now / 1000 - 600, problem: null };
-    expect(describeEntry(base, now)).toBe("Madera, last saved automatically 10 minutes ago, from /work/Madera.gproj");
+    const base = { mode: "ui", closed: false, id: "s1", name: "Madera", origin: "/work/Madera.gproj", writtenAt: now / 1000 - 600, problem: null };
+    expect(describeEntry(base, now)).toBe("The program stopped unexpectedly. Madera, kept automatically 10 minutes ago, from /work/Madera.gproj");
     expect(describeEntry({ ...base, origin: null }, now)).toMatch(/never saved to a folder/);
+    expect(describeEntry({ ...base, closed: true }, now)).toMatch(/^You closed this without saving\./);
     expect(describeEntry({ ...base, problem: "This recovery copy can't be used: x." }, now)).toBe("This recovery copy can't be used: x.");
   });
 });

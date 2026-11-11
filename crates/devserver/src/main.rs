@@ -519,9 +519,10 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "list_recovery" => json!(engine::recovery::list(&engine::recovery::root()?)),
         "discard_recovery" => json!(engine::recovery::discard(&engine::recovery::root()?, &s(a, "id")?)?),
         "discard_own_recovery" => json!(engine::recovery::discard_own(&engine::recovery::root()?)?),
+        "mark_recovery_closed" => json!(engine::recovery::mark_closed(&engine::recovery::root()?)?),
         "restore_recovery" => {
             let r = e.restore_recovery(&engine::recovery::root()?, &s(a, "id")?)?;
-            json!({ "uiState": r.ui_state, "layers": e.list_layers(), "origin": r.origin })
+            json!({ "uiState": r.ui_state, "layers": e.list_layers(), "origin": r.origin, "openedOrigin": r.opened_origin })
         }
         other => return Err(anyhow!("unknown command {other}")),
     })

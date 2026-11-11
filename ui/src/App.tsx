@@ -147,12 +147,18 @@ export function App() {
       if (useApp.getState().dirty) e.preventDefault();
     };
     window.addEventListener("beforeunload", beforeUnload);
+    // Leaving with unsaved work keeps the recovery copy; note that the window was closed so the next start can say so (best effort).
+    const pageHide = () => {
+      if (useApp.getState().dirty) api.markRecoveryClosed().catch(() => {});
+    };
+    window.addEventListener("pagehide", pageHide);
     return () => {
       un1.then((f) => f());
       un2.then((f) => f());
       window.removeEventListener("keydown", onKey);
       unTree();
       window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("pagehide", pageHide);
     };
   }, []);
 

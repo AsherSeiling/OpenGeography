@@ -38,8 +38,24 @@ struct Manifest {
     /// The project folder the work came from; None for a project that was never saved.
     origin: Option<String>,
     name: String,
+    /// "full" (the database is copied too: work never saved to a folder) or "ui" (only the UI state: the project's own database
+    /// is already written in place, so copying it every few minutes would be redundant and heavy).
+    #[serde(default = "full_mode")]
+    mode: String,
+    /// The window was closed (and the leave prompt accepted) rather than the program stopping unexpectedly.
+    #[serde(default)]
+    closed: bool,
     db_bytes: u64,
     json_bytes: u64,
+    /// "ui" mode: size and modification time (seconds) of the origin's `project.duckdb` when this was written. Informational.
+    #[serde(default)]
+    origin_db_bytes: Option<u64>,
+    #[serde(default)]
+    origin_db_modified: Option<u64>,
+}
+
+fn full_mode() -> String {
+    "full".into()
 }
 
 /// One recovery copy as the start-up offer shows it.
@@ -53,6 +69,10 @@ pub struct RecoveryEntry {
     pub origin: Option<String>,
     /// Seconds since 1970 when the copy was last written.
     pub written_at: u64,
+    /// "full" or "ui" (see the manifest).
+    pub mode: String,
+    /// The window was closed without saving (as opposed to the program stopping unexpectedly).
+    pub closed: bool,
     /// Why the copy can't be restored, as a sentence; None when it is whole.
     pub problem: Option<String>,
 }
@@ -61,6 +81,8 @@ pub struct RecoveryEntry {
 pub struct Restored {
     pub ui_state: String,
     pub origin: Option<String>,
+    /// True when the origin project was opened (a "ui" copy): the work is that project with these unsaved changes, not an untitled one.
+    pub opened_origin: bool,
 }
 
 /// This run's session id.
@@ -107,7 +129,15 @@ fn json_file(dir: &Path, gen: u64) -> PathBuf {
 fn verify(dir: &Path) -> std::result::Result<(Manifest, String), String> {
     let m = read_manifest(dir).map_err(|e| format!("This recovery copy can't be used: {e}."))?;
     let size = |p: PathBuf| std::fs::metadata(p).map(|x| x.len()).ok();
-    if size(db_file(dir, m.gen)) != Some(m.db_bytes) || size(json_file(dir, m.gen)) != Some(m.json_bytes) {
+    if m.mode == "ui" {
+        let Some(origin) = m.origin.as_deref() else { return Err("This recovery copy can't be used: it does not say which project it belongs to.".into()) };
+        if !Path::new(origin).join(crate::PROJECT_DB).is_file() {
+            return Err(format!("This recovery copy can't be used: the project folder it belongs to ({origin}) is missing or is no longer a project. You can discard it."));
+        }
+    } else if size(db_file(dir, m.gen)) != Some(m.db_bytes) {
+        return Err("This recovery copy can't be used: its files are incomplete or damaged (the program probably stopped while writing it).".into());
+    }
+    if size(json_file(dir, m.gen)) != Some(m.json_bytes) {
         return Err("This recovery copy can't be used: its files are incomplete or damaged (the program probably stopped while writing it).".into());
     }
     let ui = std::fs::read_to_string(json_file(dir, m.gen)).map_err(|_| "This recovery copy can't be used: its settings file can't be read.".to_string())?;
@@ -135,7 +165,7 @@ fn process_alive(pid: u32) -> bool {
 
 /// An id from the UI names a folder directly inside `root`; anything else is refused.
 fn slot(root: &Path, id: &str) -> Result<PathBuf> {
-    if id.is_empty() || id.contains(['/', '\\']) || id == "." || id == ".." {
+    if id.is_empty() || id.contains(['/', '\\', ':', '\0']) || id == "." || id == ".." {
         return Err(anyhow!("That is not a recovery copy."));
     }
     Ok(root.join(id))
@@ -151,6 +181,10 @@ impl Engine {
         std::fs::create_dir_all(&dir).with_context(|| format!("Creating the recovery folder {}", dir.display()))?;
         let gen = read_manifest(&dir).map(|m| m.gen + 1).unwrap_or(1);
         let db_path = db_file(&dir, gen);
+        // A project with a folder already writes its database in place: keep only the UI state (and where the project is).
+        let ui_only = self.project_dir().is_some();
+        let origin: Option<PathBuf> = if ui_only { self.project_dir() } else { origin.map(|p| p.to_path_buf()) };
+        let origin = origin.as_deref();
         let cleanup = |dir: &Path| {
             let _ = std::fs::remove_file(db_file(dir, gen));
             let _ = std::fs::remove_file(format!("{}.wal", db_file(dir, gen).display()));
@@ -158,6 +192,9 @@ impl Engine {
         };
         cleanup(&dir);
         let copied: Result<()> = (|| {
+            if ui_only {
+                return Ok(());
+            }
             let pool = self.pool.read();
             let conn = pool.get()?;
             let cur: String = conn.query_row("SELECT current_database()", [], |r| r.get(0))?;
@@ -177,6 +214,7 @@ impl Engine {
             return Err(anyhow!("The recovery copy could not be written: {e:#}. Your project is unchanged."));
         }
         let _ = std::fs::remove_file(format!("{}.wal", db_path.display()));
+        let origin_db = origin.and_then(|o| std::fs::metadata(o.join(crate::PROJECT_DB)).ok());
         let written: Result<()> = (|| {
             std::fs::write(json_file(&dir, gen), ui_state)?;
             let m = Manifest {
@@ -188,8 +226,12 @@ impl Engine {
                 app_version: env!("CARGO_PKG_VERSION").to_string(),
                 origin: origin.map(|p| p.display().to_string()),
                 name: name.chars().take(200).collect(),
-                db_bytes: std::fs::metadata(&db_path)?.len(),
+                mode: if ui_only { "ui".into() } else { "full".into() },
+                closed: false,
+                db_bytes: if ui_only { 0 } else { std::fs::metadata(&db_path)?.len() },
                 json_bytes: ui_state.len() as u64,
+                origin_db_bytes: if ui_only { origin_db.as_ref().map(|m| m.len()) } else { None },
+                origin_db_modified: if ui_only { origin_db.and_then(|m| m.modified().ok()).and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()) } else { None },
             };
             let tmp = dir.join(format!("{MANIFEST}.tmp"));
             std::fs::write(&tmp, serde_json::to_string_pretty(&m)?)?;
@@ -221,6 +263,13 @@ impl Engine {
     pub fn restore_recovery(&self, root: &Path, id: &str) -> Result<Restored> {
         let dir = slot(root, id)?;
         let (m, ui_state) = verify(&dir).map_err(|e| anyhow!(e))?;
+        if m.mode == "ui" {
+            // Open the project the work belongs to (its database was written in place); the recovered UI state is applied by the UI as unsaved
+            // changes. The project's own project.json is not written here: only the user's Save does that.
+            let origin = m.origin.clone().unwrap_or_default();
+            self.open_project(Path::new(&origin)).map_err(|e| anyhow!("This recovery copy can't be used: the project {origin} could not be opened ({e:#}). Nothing was changed. You can discard the copy."))?;
+            return Ok(Restored { ui_state, origin: m.origin, opened_origin: true });
+        }
         // Build the working copy in a fresh in-memory database; the engine switches to it only when it is complete.
         let pool = Pool::open(None, self.gate.clone())?;
         {
@@ -245,7 +294,7 @@ impl Engine {
         let init = self.init_schema();
         *self.project_dir.write() = None;
         init.map_err(|e| anyhow!("This recovery copy can't be used: {e:#}"))?;
-        Ok(Restored { ui_state, origin: m.origin })
+        Ok(Restored { ui_state, origin: m.origin, opened_origin: false })
     }
 }
 
@@ -269,7 +318,7 @@ pub fn list(root: &Path) -> Vec<RecoveryEntry> {
                 if process_alive(m.pid) && now_secs().saturating_sub(m.written_at) < ALIVE_GRACE_SECS {
                     continue;
                 }
-                out.push(RecoveryEntry { id, name: m.name, origin: m.origin, written_at: m.written_at, problem: None });
+                out.push(RecoveryEntry { id, name: m.name, origin: m.origin, written_at: m.written_at, mode: m.mode, closed: m.closed, problem: None });
             }
             Err(problem) => {
                 let mtime = std::fs::metadata(&dir).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0);
@@ -277,7 +326,7 @@ pub fn list(root: &Path) -> Vec<RecoveryEntry> {
                 if !dir.join(MANIFEST).exists() && now_secs().saturating_sub(mtime) < 60 {
                     continue;
                 }
-                out.push(RecoveryEntry { id, name: "Unfinished recovery copy".into(), origin: None, written_at: mtime, problem: Some(problem) });
+                out.push(RecoveryEntry { id, name: "Unfinished recovery copy".into(), origin: None, written_at: mtime, mode: "full".into(), closed: false, problem: Some(problem) });
             }
         }
     }
@@ -298,4 +347,16 @@ pub fn discard(root: &Path, id: &str) -> Result<()> {
 pub fn discard_own(root: &Path) -> Result<()> {
     let _guard = write_lock().lock().unwrap_or_else(|p| p.into_inner());
     discard(root, session_id())
+}
+
+/// Note that this run's window was closed (the leave prompt accepted) with its copy still in place, so the next start can say so.
+pub fn mark_closed(root: &Path) -> Result<()> {
+    let _guard = write_lock().lock().unwrap_or_else(|p| p.into_inner());
+    let dir = root.join(session_id());
+    let Ok(mut m) = read_manifest(&dir) else { return Ok(()) };
+    m.closed = true;
+    let tmp = dir.join(format!("{MANIFEST}.tmp"));
+    std::fs::write(&tmp, serde_json::to_string_pretty(&m)?)?;
+    std::fs::rename(&tmp, dir.join(MANIFEST))?;
+    Ok(())
 }

@@ -49,6 +49,9 @@ fn the_copy_is_separate_and_the_saved_project_is_untouched() {
     assert_eq!(before, after, "the autosave added no file to the project and changed none of its saved files");
     assert!(root.join(recovery::session_id()).join("recovery.json").is_file());
     assert!(!root.starts_with(&proj));
+    // A project with a folder already writes its database in place: only the UI state is kept, not another copy of the data.
+    let slot_files: Vec<String> = std::fs::read_dir(root.join(recovery::session_id())).unwrap().flatten().map(|f| f.file_name().to_string_lossy().into_owned()).collect();
+    assert!(!slot_files.iter().any(|n| n.ends_with(".duckdb")), "{slot_files:?}");
     // The engine kept working on the same two layers.
     assert_eq!(e.list_layers().len(), 2);
 }
@@ -145,4 +148,68 @@ fn a_run_that_is_still_going_is_not_offered() {
     // Move it to another session folder but leave the pid as this (running) process.
     std::fs::rename(root.join(recovery::session_id()), root.join("s2-other")).unwrap();
     assert!(recovery::list(&root).is_empty());
+}
+
+#[test]
+fn a_project_with_a_folder_keeps_only_its_ui_state_and_restores_by_opening_it() {
+    let work = tempfile::tempdir().unwrap();
+    let root = work.path().join("recovery");
+    let proj = work.path().join("demo.gproj");
+    let e = Engine::new().unwrap();
+    let l = e.generate_test_layer("points", 12, [0.0, 0.0, 1.0, 1.0]).unwrap();
+    e.save_project(&proj, r#"{"version":2,"saved":true}"#).unwrap();
+    e.write_recovery(&root, r#"{"version":2,"unsaved":"yes"}"#, Some(&proj), "demo").unwrap();
+    let id = as_crashed(&root);
+    let found = recovery::list(&root);
+    assert_eq!(found[0].mode, "ui");
+    assert!(!found[0].closed);
+    let json_before = std::fs::read_to_string(proj.join("project.json")).unwrap();
+    drop(e); // the crash: the first process's database instance is gone
+    let fresh = Engine::new().unwrap();
+    let r = fresh.restore_recovery(&root, &id).unwrap();
+    assert!(r.opened_origin);
+    assert_eq!(r.origin.as_deref(), proj.to_str());
+    assert!(r.ui_state.contains("\"unsaved\":\"yes\""));
+    assert_eq!(fresh.project_dir().as_deref(), Some(proj.as_path()));
+    assert_eq!(fresh.layer(&l.id).unwrap().feature_count, 12);
+    // The project's own project.json is untouched until the user saves.
+    assert_eq!(std::fs::read_to_string(proj.join("project.json")).unwrap(), json_before);
+}
+
+#[test]
+fn a_ui_copy_whose_project_folder_is_gone_says_so_and_is_refused() {
+    let work = tempfile::tempdir().unwrap();
+    let root = work.path().join("recovery");
+    let proj = work.path().join("demo.gproj");
+    let e = Engine::new().unwrap();
+    e.generate_test_layer("points", 3, [0.0, 0.0, 1.0, 1.0]).unwrap();
+    e.save_project(&proj, "{}").unwrap();
+    e.write_recovery(&root, "{}", Some(&proj), "demo").unwrap();
+    let id = as_crashed(&root);
+    drop(e);
+    std::fs::remove_dir_all(&proj).unwrap();
+    let listed = recovery::list(&root);
+    let problem = listed[0].problem.as_deref().unwrap();
+    assert!(problem.contains("missing or is no longer a project") && problem.contains("discard"), "{problem}");
+    let other = Engine::new().unwrap();
+    let keep = other.generate_test_layer("points", 4, [0.0, 0.0, 1.0, 1.0]).unwrap();
+    assert!(other.restore_recovery(&root, &id).is_err());
+    assert_eq!(other.layer(&keep.id).unwrap().feature_count, 4);
+    recovery::discard(&root, &id).unwrap();
+}
+
+#[test]
+fn a_window_closed_without_saving_is_marked_and_ids_with_drive_or_nul_are_refused() {
+    let work = tempfile::tempdir().unwrap();
+    let root = work.path().join("recovery");
+    let e = Engine::new().unwrap();
+    e.generate_test_layer("points", 3, [0.0, 0.0, 1.0, 1.0]).unwrap();
+    e.write_recovery(&root, "{}", None, "a").unwrap();
+    recovery::mark_closed(&root).unwrap();
+    as_crashed(&root);
+    assert!(recovery::list(&root)[0].closed);
+    for bad in ["C:evil", "C:", "a:b", "x\0y", "a/b", "a\\b", ""] {
+        assert!(recovery::discard(&root, bad).is_err(), "{bad:?}");
+        assert!(e.restore_recovery(&root, bad).is_err(), "{bad:?}");
+    }
 }

@@ -839,10 +839,14 @@ export async function restoreRecovery(id: string): Promise<boolean> {
     return false;
   }
   await loadLayouts();
-  restoreState(res.layers, ui, null, loaded);
+  // A copy of a project with a folder reopens that project with the recovered changes unsaved; a never-saved one is untitled.
+  restoreState(res.layers, ui, res.openedOrigin ? res.origin : null, loaded);
   useApp.setState({ dirty: true });
-  const from = res.origin ? ` It came from ${res.origin}; that project folder was not changed.` : "";
-  status(`Restored your unsaved work.${from} It is not saved yet: use Save to choose where it goes.`);
+  status(
+    res.openedOrigin
+      ? `Restored your unsaved changes to ${res.origin}. The project's saved files are unchanged until you save.`
+      : `Restored your unsaved work.${res.origin ? ` It came from ${res.origin}; that project folder was not changed.` : ""} It is not saved yet: use Save to choose where it goes.`,
+  );
   if ((await autosaveProject()) === "saved") {
     try {
       await api.discardRecovery(id);

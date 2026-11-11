@@ -11,6 +11,7 @@ Updated 2026-11-05, after the bug batch.
 | ID | Sev. | Summary | Next step |
 |---|---|---|---|
 | C-1b | Low | **Accepted.** DuckDB's embedded PROJ and libproj (cs2cs) pick equivalent datum operations that differ by up to ~12 cm for NAD83/ETRS89 ↔ WGS 84 and up to ~3.3 m for NAD27 away from the NADCON anchor. The anchor itself agrees to 1.3 cm. Test: `crs_reference.rs` datum_tol. | A full match needs transforms through GDAL's libproj instead of DuckDB (a large change across ~49 call sites): decide with F1. |
+| RC-1 | Low | **Known issue (UX1).** On Windows there is no check that the program that wrote a recovery copy has ended (Unix checks the process id), so a second running instance's copy can be offered at start. Restoring is always the user's choice and nothing is overwritten. | Add a liveness check (OpenProcess) when a Windows dependency is justified. |
 | E2E-3 | Low | `misc.spec.ts` M-25 (progress UI, cancel) failed once in a full run on 2026-10-28 (waiting for the "cancelled" status, 60 s) and passed on the next two runs with no change to that code. | Flaky; watch it. |
 
 ## Closed bugs

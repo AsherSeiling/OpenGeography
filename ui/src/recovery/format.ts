@@ -24,5 +24,6 @@ export function ago(writtenAt: number, nowMs: number = Date.now()): string {
 /** One line telling the person what a copy is. */
 export function describeEntry(e: RecoveryEntry, nowMs?: number): string {
   if (e.problem) return e.problem;
-  return `${e.name || "Untitled project"}, last saved automatically ${ago(e.writtenAt, nowMs)}${e.origin ? `, from ${e.origin}` : ", never saved to a folder"}`;
+  const how = e.closed ? "You closed this without saving." : "The program stopped unexpectedly.";
+  return `${how} ${e.name || "Untitled project"}, kept automatically ${ago(e.writtenAt, nowMs)}${e.origin ? `, from ${e.origin}` : ", never saved to a folder"}`;
 }

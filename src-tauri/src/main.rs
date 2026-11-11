@@ -103,6 +103,7 @@ fn main() {
             commands::discard_recovery,
             commands::discard_own_recovery,
             commands::restore_recovery,
+            commands::mark_recovery_closed,
             commands::frontend_log,
             commands::add_field,
             commands::delete_field,

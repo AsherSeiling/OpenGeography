@@ -167,6 +167,10 @@ export interface RecoveryEntry {
   origin: string | null;
   /** Seconds since 1970. */
   writtenAt: number;
+  /** "full" (database copied: never-saved work) or "ui" (only the unsaved UI state of a project with a folder). */
+  mode: string;
+  /** The window was closed without saving, as opposed to the program stopping unexpectedly. */
+  closed: boolean;
   /** Why it can't be restored, as a sentence; null when it is whole. */
   problem: string | null;
 }
@@ -923,8 +927,9 @@ export const api = {
   writeRecovery: (uiState: string, origin: string | null, name: string) => invoke<void>("write_recovery", { uiState, origin, name }),
   listRecovery: () => invoke<RecoveryEntry[]>("list_recovery"),
   discardRecovery: (id: string) => invoke<void>("discard_recovery", { id }),
+  markRecoveryClosed: () => invoke<void>("mark_recovery_closed"),
   discardOwnRecovery: () => invoke<void>("discard_own_recovery"),
-  restoreRecovery: (id: string) => invoke<{ uiState: string; layers: LayerInfo[]; origin: string | null }>("restore_recovery", { id }),
+  restoreRecovery: (id: string) => invoke<{ uiState: string; layers: LayerInfo[]; origin: string | null; openedOrigin: boolean }>("restore_recovery", { id }),
   listLayouts: () => invoke<Layout[]>("list_layouts"),
   saveLayout: (layout: Layout) => invoke<void>("save_layout", { layout }),
   deleteLayout: (id: string) => invoke<void>("delete_layout", { id }),
