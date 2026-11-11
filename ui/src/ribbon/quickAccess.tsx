@@ -6,6 +6,7 @@ import { useStore } from "zustand";
 import { flushParamEdit, useModel } from "../store/model";
 import { useLayouts } from "../store/layout";
 import { commands } from "./commands";
+import { FavouriteTools } from "./favourites";
 
 /** Undo and Redo on whatever is active: the open layout, else the active node tree. Used by the buttons and the app-wide shortcuts. */
 export function undoActive() {
@@ -52,6 +53,7 @@ export function QuickAccess() {
       {btn("save", save.icon, "Save", `Save the project (${save.keys})`, false, () => save.run())}
       {btn("undo", <RIcon name="undo" />, "Undo", `Undo the last change to the ${h.target}`, !h.canUndo, h.undo)}
       {btn("redo", <RIcon name="redo" />, "Redo", `Redo the last undone change to the ${h.target}`, !h.canRedo, h.redo)}
+      <FavouriteTools />
     </div>
   );
 }
