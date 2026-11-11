@@ -1,4 +1,5 @@
 import { DismissRegular } from "@fluentui/react-icons";
+import { ColorField } from "./ColorField";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useApp } from "../store/store";
 import { ACCENTS, FAMILIES, FAMILY_LABEL, HILITES, PALETTE_NAMES, closeAppearance, resetAppearance, setAppearance, useAppearance } from "./appearance";
@@ -11,7 +12,7 @@ function Swatches({ label, list, value, onPick }: { label: string; list: [string
       ))}
       <label className="apr-custom">
         Custom
-        <input type="color" aria-label={`${label}: custom colour`} value={value.toLowerCase()} onChange={(e) => onPick(e.target.value)} />
+        <ColorField label={`${label}: custom colour`} alpha={false} value={value.toLowerCase()} onChange={onPick} />
       </label>
     </div>
   );
@@ -81,7 +82,7 @@ export function AppearancePanel() {
             {FAMILIES.map((k) => (
               <div key={k} className="apr-fam">
                 <label htmlFor={`apr-fam-${k}`}>{FAMILY_LABEL[k]}</label>
-                <input id={`apr-fam-${k}`} type="color" value={fam[k].toLowerCase()} onChange={(e) => setAppearance({ fam: { [k]: e.target.value } })} />
+                <ColorField label={FAMILY_LABEL[k]} alpha={false} value={fam[k].toLowerCase()} onChange={(v) => setAppearance({ fam: { [k]: v } })} />
               </div>
             ))}
           </div>

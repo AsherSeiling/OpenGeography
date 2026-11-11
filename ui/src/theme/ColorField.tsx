@@ -1,24 +1,25 @@
 // The app's own colour control (docs/COLOUR_AND_OUTLINE_PLAN.md, CP1): a swatch that opens a Fluent colour picker with
 // transparency, a hex field, RGB fields, recent / project / Okabe-Ito colours and (where a setting is optional) a None button.
-// It replaces every <input type="color">, so the operating system's own panel is never used.
-import { useEffect, useRef, useState } from "react";
+// It replaces every native colour input, so the operating system's own panel is never used.
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useApp } from "../store/store";
 import { AlphaSlider, Button, ColorArea, ColorPicker, ColorSlider, Input, Popover, PopoverSurface, PopoverTrigger } from "@fluentui/react-components";
 import { DEFAULT_COLOUR, OKABE_ITO, alphaToPct, formatColor, hsvToRgb, parseColor, pctToAlpha, recentColours, rememberColour, rgbToHsv, type Hsv, type Rgba } from "./color";
 
 export interface ColorFieldProps {
   /** The stored colour (`#rrggbb` or `#rrggbbaa`). Empty or null means "none" when `optional`. */
   value: string | null | undefined;
-  /** Called on every change while the picker is open (a live preview), with the new stored colour, or null for None. */
-  onChange: (value: string | null) => void;
+  /** Called on every change while the picker is open (a live preview), with the new stored colour. */
+  onChange: (value: string) => void;
+  /** Called by the None button; giving it makes the setting optional (the button is shown). */
+  onClear?: () => void;
   /** Screen-reader name of the swatch. */
   label: string;
   /** Offer transparency. Turn off where the renderer can't honour it (paper, app theme). Default true. */
   alpha?: boolean;
-  /** Offer a None button. */
-  optional?: boolean;
   /** The swatch colour to show and start from when `value` is empty. */
   fallback?: string;
-  /** Colours this project already uses. */
+  /** Colours this project already uses; by default those of the layers' styles. */
   projectColors?: string[];
   disabled?: boolean;
   className?: string;
@@ -26,14 +27,22 @@ export interface ColorFieldProps {
 
 const clampByte = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
 
-export function ColorField({ value, onChange, label, alpha = true, optional = false, fallback = DEFAULT_COLOUR, projectColors, disabled, className }: ColorFieldProps) {
+export function ColorField({ value, onChange, label, alpha = true, onClear, fallback = DEFAULT_COLOUR, projectColors, disabled, className }: ColorFieldProps) {
   const shown = parseColor(value) ?? parseColor(fallback) ?? { r: 0, g: 0, b: 0, a: 1 };
+  const optional = !!onClear;
   const none = optional && !parseColor(value);
   const [open, setOpen] = useState(false);
   const start = useRef<string | null>(null);
   const [hsv, setHsv] = useState<Hsv>(() => rgbToHsv(shown));
   const [hexText, setHexText] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  const styles = useApp((s) => s.styles);
+  const used = useMemo(() => {
+    if (projectColors) return projectColors;
+    const out: string[] = [];
+    for (const st of Object.values(styles)) out.push(st.fill, st.stroke, ...(st.classes?.map((c) => c.color) ?? []), ...(st.colors ?? []));
+    return out.map((c) => c?.toLowerCase());
+  }, [styles, projectColors]);
 
   // Keep the picker in step with outside changes (undo, the Opacity field) without losing the hue of a grey.
   const stored = formatColor(shown);
@@ -79,7 +88,8 @@ export function ColorField({ value, onChange, label, alpha = true, optional = fa
     setOpen(o);
   };
   const cancel = () => {
-    onChange(start.current);
+    if (start.current === null) onClear?.();
+    else onChange(start.current);
     setOpen(false);
   };
 
@@ -144,11 +154,11 @@ export function ColorField({ value, onChange, label, alpha = true, optional = fa
           )}
         </div>
         {palette("Colour-blind-safe", OKABE_ITO)}
-        {palette("This project", (projectColors ?? []).filter((c, i, a) => parseColor(c) && a.indexOf(c) === i).slice(0, 16))}
+        {palette("This project", used.filter((c, i, a) => parseColor(c) && a.indexOf(c) === i).slice(0, 16))}
         {palette("Recent", recent)}
         <div className="cf-actions">
           {optional && (
-            <Button size="small" appearance="subtle" onClick={() => { onChange(null); setOpen(false); }}>
+            <Button size="small" appearance="subtle" onClick={() => { onClear?.(); setOpen(false); }}>
               None
             </Button>
           )}

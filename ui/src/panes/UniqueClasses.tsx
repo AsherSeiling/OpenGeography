@@ -1,5 +1,6 @@
 // The class list of a unique-values style (UR-12): start empty, add a class by typing a value or picking one of the field's values,
 // put several values in one class, give the leftover values ("all other values") a colour and legend text, or leave them undrawn.
+import { ColorField } from "../theme/ColorField";
 import { Button, Checkbox, Dropdown, Input, Option } from "@fluentui/react-components";
 import { useEffect, useState } from "react";
 import { api, errorText, type LayerInfo } from "../ipc/api";
@@ -64,7 +65,7 @@ export function UniqueClasses({ info, style, setStyle, setErr }: { info: LayerIn
           >
             <Checkbox aria-label={`Select ${c.label}`} checked={checked.includes(i)} onChange={(_, d) => setChecked(d.checked ? [...checked, i] : checked.filter((x) => x !== i))} />
             <span className="class-grip" title="Drag to change the drawing order" aria-hidden>⠿</span>
-            <input type="color" aria-label={`Colour of ${c.label}`} value={c.color} onChange={(e) => set(classes.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)))} />
+            <ColorField label={`Colour of ${c.label}`} value={c.color} onChange={(v) => set(classes.map((x, j) => (j === i ? { ...x, color: v } : x)))} />
             <Input size="small" className="grow" aria-label={`Legend text of class ${i + 1}`} value={c.label} onChange={(_, d) => set(classes.map((x, j) => (j === i ? { ...x, label: d.value } : x)))} title={`Values: ${classValues(c).map((v) => v || "<empty>").join(", ")}`} />
             {(c.values?.length ?? 0) > 0 && (
               <Button size="small" appearance="subtle" aria-label={`Split ${c.label} into one class per value`} title={`${classValues(c).length} values: ${classValues(c).join(", ")}. Click to split`} onClick={() => set(ungroupClass(classes, i))}>
@@ -78,7 +79,7 @@ export function UniqueClasses({ info, style, setStyle, setErr }: { info: LayerIn
         ))}
         <div className="class-row other-row" data-testid="other-class">
           <span className="class-grip" aria-hidden />
-          <input type="color" aria-label="Colour of all other values" value={style.fill} onChange={(e) => setStyle({ fill: e.target.value, ...(info.geomType !== "Polygon" ? { stroke: e.target.value } : {}) })} />
+          <ColorField label="Colour of all other values" value={style.fill} onChange={(v) => setStyle({ fill: v, ...(info.geomType !== "Polygon" ? { stroke: v } : {}) })} />
           <Input size="small" className="grow" aria-label="Legend text of all other values" placeholder="Other" value={style.otherLabel ?? ""} onChange={(_, d) => setStyle({ otherLabel: d.value })} title="The legend text of the values that have no class above" />
           <Checkbox label="All other values" checked={!style.otherHidden} onChange={(_, d) => setStyle({ otherHidden: d.checked ? undefined : true })} />
         </div>

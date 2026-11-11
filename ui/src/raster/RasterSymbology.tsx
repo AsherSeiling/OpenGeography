@@ -1,5 +1,6 @@
 // Raster symbology (RS3): renderer, band, stretch with a histogram, colour ramp, classes, transparency and image adjustments.
 // The style is `LayerStyle.raster`; the engine draws it (raster_style.rs).
+import { ColorField } from "../theme/ColorField";
 import { Button, Checkbox, Dropdown, Field, Input, MessageBar, MessageBarBody, Option, OptionGroup, Slider, SpinButton } from "@fluentui/react-components";
 import { open, save } from "../ipc/dialogs";
 import { useEffect, useRef, useState } from "react";
@@ -179,7 +180,7 @@ export function RasterSymbology({ id }: { id: string }) {
               return (
                 <div key={i} className="class-row">
                   <Checkbox checked={!e.hidden} onChange={(_, d) => patch({ hidden: !d.checked })} aria-label={`Show class ${e.value}`} />
-                  <input type="color" value={e.color} onChange={(ev) => patch({ color: ev.target.value })} aria-label={`Colour of ${e.value}`} />
+                  <ColorField alpha={false} value={e.color} onChange={(v) => patch({ color: v })} label={`Colour of ${e.value}`} />
                   <span style={{ width: 52 }}>{e.value}</span>
                   <Input size="small" value={e.label ?? ""} onChange={(_, d) => patch({ label: d.value })} aria-label={`Label of ${e.value}`} />
                 </div>

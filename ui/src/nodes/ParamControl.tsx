@@ -2,6 +2,7 @@
 // Native inputs keep nodes light; "nodrag" stops React Flow from treating
 // clicks in them as node drags.
 import { save } from "../ipc/dialogs";
+import { ColorField } from "../theme/ColorField";
 import { useShallow } from "zustand/react/shallow";
 import { useDialog } from "../actions";
 import { crsName } from "../crs/crs";
@@ -20,6 +21,7 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
   const fields = p.fieldOf ? fieldsForPort(nodeId, p.fieldOf) : [];
   // Python or SQL for this node (a node saved before Python was the default has no language and is SQL).
   const python = useModel((s) => s.nodes.find((n) => n.id === nodeId)?.data.params.language === "python");
+  const symbology = useModel((s) => s.nodes.find((n) => n.id === nodeId)?.data.tool === "symbology");
   const str = value === undefined || value === null ? "" : String(value);
 
   const row = (control: React.ReactNode, wide = false) => (
@@ -42,8 +44,7 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
     case "color":
       return row(
         <span className="bpath">
-          <input type="color" className="bctl" value={/^#[0-9a-fA-F]{6}$/.test(str) ? str : "#000000"} style={{ opacity: str || !p.optional ? 1 : 0.35 }} onChange={(e) => set(e.target.value)} />
-          {p.optional && <button className="bctl bbtn" disabled={!str} title="No colour" onClick={(e) => { e.preventDefault(); set(null); }}>×</button>}
+          <ColorField label={p.label} value={str} alpha={symbology} onChange={(v) => set(v)} onClear={p.optional ? () => set(null) : undefined} />
         </span>,
       );
     case "enum":
