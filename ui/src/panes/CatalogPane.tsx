@@ -44,6 +44,7 @@ import { zoomToLayer } from "../actions";
 import { openLayerProperties } from "../dialogs/LayerPropertiesWindow";
 import { showPane } from "./panes";
 import { projectLayerInfos } from "../store/maps";
+const NO_ORDER: string[] = []; // a stable empty list: a fresh [] from a store selector re-renders forever when no map is active
 
 const ADDABLE = new Set(["vector", "raster", "table", "archive", "gdb"]);
 
@@ -220,7 +221,7 @@ export function CatalogPane() {
   const activeMapId = useApp((s) => s.activeMapId);
   // Every layer of the project, whichever map shows it (imported ones included): the active map's first, then the rest in the project's order.
   const projectLayers = useApp(useShallow((s) => projectLayerInfos(s).filter(Boolean)));
-  const inActiveMap = useApp((s) => s.maps.find((m) => m.id === s.activeMapId)?.order ?? []);
+  const inActiveMap = useApp((s) => s.maps.find((m) => m.id === s.activeMapId)?.order ?? NO_ORDER);
   const shownIn = (id: string) => maps.filter((m) => m.order.includes(id)).map((m) => m.name);
   /** Put the layer on the active map if it isn't there, then show it (a table opens the Attribute Table instead). */
   const openLayer = (id: string) => {

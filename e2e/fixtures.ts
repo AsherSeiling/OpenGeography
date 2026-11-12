@@ -25,6 +25,7 @@ export const test = base.extend<{ app: Page; errors: { expected: boolean; known:
       if (/ResizeObserver loop completed with undelivered notifications/.test(t)) return; // the browser's own note when a pane is resized during layout (opening a layout shrinks the bottom panel); not a script error
       if (errState.known.some((r) => r.test(t))) return;
       errors.push(`console.error: ${t}`);
+      if (process.env.E2E_AUDIT_TRACE) console.log("PAGE ERROR", t.slice(0, 2000));
     });
     await page.goto("/");
     await page.waitForFunction(() => !!(window as any).__gis);

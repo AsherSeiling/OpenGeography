@@ -452,6 +452,7 @@ async function sweep(env: Env, area: string, scope: string, reveal: () => Promis
   const list = await listControls(env.page, scope);
   for (const c of list) {
     if (skip?.test(c.name) || (only && !only.test(c.name))) continue;
+    if (process.env.E2E_AUDIT_TRACE) console.log("AUDIT CTRL", area, "›", c.name);
     await exerciseControl(env, area, scope, c, reveal);
   }
 }

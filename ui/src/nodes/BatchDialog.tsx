@@ -2,6 +2,7 @@
 import { Button, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Dropdown, Option, Tooltip } from "@fluentui/react-components";
 import { PlayMultiple16Regular } from "@fluentui/react-icons";
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { api, errorText, type BatchItem, type BatchSource } from "../ipc/api";
 import { open } from "../ipc/dialogs";
 import { track, useProgress } from "../progress/progress";
@@ -41,7 +42,7 @@ function BatchDialog({ onClose }: { onClose: () => void }) {
   const nodes = useModel((s) => s.nodes);
   const edges = useModel((s) => s.edges);
   const treeLayer = useModel((s) => s.layer);
-  const layers = useApp((s) => projectLayerInfos(s).filter((l) => l && !l.temporary && l.id !== treeLayer));
+  const layers = useApp(useShallow((s) => projectLayerInfos(s).filter((l) => l && !l.temporary && l.id !== treeLayer))); // useShallow: a fresh array each read loops forever
   const ins = inputNodes(nodes);
   const [inputNode, setInputNode] = useState(ins[0]?.id ?? "");
   const [resultNode, setResultNode] = useState(defaultResultNode(nodes, edges) ?? "");
