@@ -470,7 +470,10 @@ async function exerciseMenu(env: Env, area: string, scope: string, c: Ctl, revea
 }
 
 async function sweep(env: Env, area: string, scope: string, reveal: () => Promise<void>, skip?: RegExp, only?: RegExp) {
-  await reveal();
+  // The previous sweep's last control may have left the context (New Statistics Sheet is last on Insert, and opens its sheet a moment after
+  // the click, so the invariants can still look right): when the tab can't be reached, rebuild the context once and try again.
+  await ensure(env.page, env.ctx);
+  try { await reveal(); } catch { await build(env.page, env.ctx); await reveal(); }
   const list = await listControls(env.page, scope);
   for (const c of list) {
     if (skip?.test(c.name) || (only && !only.test(c.name))) continue;
@@ -493,7 +496,8 @@ async function ribbonSweep(env: Env) {
     const reveal = gotoTab(page, t);
     // the tab button itself
     currentControl = `${ctx} › tab ${t}`;
-    await reveal();
+    await ensure(page, ctx); // the last control of the previous tab may have left the context (New Statistics Sheet, last on Insert)
+    try { await reveal(); } catch { await build(page, ctx); await reveal(); }
     record({ ctx, area: "tabs", name: `tab ${t}`, result: (await page.locator(".ribbon-tabs [role=tab][aria-selected=true]").first().textContent())?.trim() === t ? "ok" : "dead" });
     await sweep(env, `ribbon ▸ ${t}`, ".ribbon-body", reveal);
   }

@@ -196,6 +196,9 @@ test("every command is reachable: on a tab, in the project menu, or in the Catal
   await app.locator(".rail-btn", { hasText: /^Shape/ }).click();
   for (const t of await app.getByRole("menuitem").allTextContents()) seen.add(t.trim());
   await app.keyboard.press("Escape");
+  // A statistics sheet: its contextual tabs.
+  await gis(app, (g) => g.statsActions.newStatsSheet());
+  for (const tab of ["Explore", "Charts", "Tests", "Regression", "Spatial", "Export"]) await readTab(tab);
   const missing = r.onTabs.filter((id: string) => id !== "newLayout" && !seen.has(r.labels[id])); // New Layout is the Insert gallery
   expect(missing, "commands with no button on screen").toEqual([]);
 });
