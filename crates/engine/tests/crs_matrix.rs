@@ -115,7 +115,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 61] = [
+const EXCLUDED: [(&str, &str); 78] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("usng_grid", "its squares are the UTM grid, so the result is deliberately in the UTM zone of the input, not in the input's CRS; tested in usng.rs"),
     ("usng_to_points", "reads text references, so its input has no coordinate system to vary; tested against GeoTrans/mgrs values in usng.rs"),
@@ -131,6 +131,23 @@ const EXCLUDED: [(&str, &str); 61] = [
     ("stat_describe", "tables only: no geometry is used (stat_describe.rs)"),
     ("stat_frequency", "tables only: no geometry is used (stat_describe.rs)"),
     ("stat_crosstab", "tables only: no geometry is used (stat_describe.rs)"),
+    ("stat_ttest", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_anova", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_chisq", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_proportion", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_rank_test", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_shapiro", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_levene", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_correlation", "tables only: no geometry is used (stat_tests.rs)"),
+    ("stat_ols", "attribute regression; the residual Moran test builds weights from centroids and is checked in stat_spatial.rs"),
+    ("stat_weights", "needs a numeric field and builds weights from centroids; checked in stat_spatial.rs"),
+    ("stat_moran", "needs a numeric field and builds weights from centroids; checked in stat_spatial.rs"),
+    ("stat_lisa", "needs a numeric field and builds weights from centroids; checked in stat_spatial.rs"),
+    ("stat_spatial_lag", "needs numeric fields and builds weights or distances from centroids; checked in stat_spatial_reg.rs"),
+    ("stat_spatial_error", "needs numeric fields and builds weights or distances from centroids; checked in stat_spatial_reg.rs"),
+    ("stat_gwr", "needs numeric fields and builds weights or distances from centroids; checked in stat_spatial_reg.rs"),
+    ("stat_mgwr", "needs numeric fields and builds weights or distances from centroids; checked in stat_spatial_reg.rs"),
+    ("stat_logistic", "attribute regression; the residual Moran test builds weights from centroids and is checked in stat_spatial.rs"),
     ("chart_histogram", "attribute values only; no geometry (stat_charts.rs)"),
     ("chart_box", "attribute values only; no geometry (stat_charts.rs)"),
     ("chart_scatter", "attribute values only; no geometry (stat_charts.rs)"),

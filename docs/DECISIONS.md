@@ -692,3 +692,27 @@ Project templates set only the first map's coordinate system (blank, WGS 84, Web
 - Definitions fixed and stated in each result: sample SD and variance (n - 1), quantiles R type 7, skewness G1 and excess kurtosis G2, reliability weights.
 - NIST NumAcc3 and NumAcc4 cannot be matched beyond about 9 and 8 digits for the standard deviation with double-precision data; the tests say so.
 
+
+## Statistics tests (ST4, 2026-11-13)
+- Welch is the default two-sample t-test; pooled is an option with a Levene warning. Effect sizes sit beside every p: Hedges' g (Hedges-Olkin SE), eta-squared with a non-central F interval (Steiger 2004), omega-squared, Cramer's V and Cohen's w with a non-central chi-square interval, Cohen's h, rank-biserial (Hanley-McNeil interval) and epsilon-squared (no interval: none exists in closed form; the result says so).
+- The studentized range, non-central chi-square and F, and the exact Mann-Whitney, signed-rank and Kendall distributions are our own code (`stats/dist.rs`: Gauss-Legendre integrals and counting recursions) because statrs has none; Tukey p-values match R to 1e-4. Shapiro-Wilk is Royston's AS R94 written from the published constants.
+- Chi-square uses the plain Pearson statistic; Yates' correction is a checkbox (R applies it to 2 x 2 by default). Fisher's exact test is not offered; the result tells the user to combine sparse categories.
+- Spearman p uses the t approximation (R uses an exact algorithm for small n without ties); stated in the result.
+- Holm / Benjamini-Hochberg adjustment lives in the Correlation tool (across its pairs); Tukey adjusts its own family. An adjustment across unrelated sheet cards is not done: cards are independent analyses (one line, easy to add later).
+- Every test result adds the spatial-independence note when the input has geometry.
+
+## Regression (ST5, 2026-11-13)
+- Solved by QR (nalgebra 0.35, Apache-2.0, already a dependency of statrs), never the normal equations; rank deficiency is detected from the R diagonal and named in the error. The model always has an intercept.
+- Categorical terms use treatment coding with the first value (in numeric or alphabetical order) as the reference; the result says which. VIF is per dummy column (no generalised VIF).
+- Breusch-Pagan is Koenker's studentised form (the R `bptest` default). Logistic regression uses R's IRLS start and convergence rule; separation is reported, not fixed.
+- The node output is the input layer plus fitted value and diagnostics (a new layer; geometry and CRS kept; source never changed). Rows left out have empty values. Row alignment relies on DuckDB scan order, as the existing Hot Spot tool does.
+- Moran's I of the residuals uses the weights chosen on the tool (k nearest by default; geodesic distance for layers in degrees) and states the result in a note.
+
+## Spatial statistics (ST6, 2026-11-13)
+- Weights: queen/rook come from polygon pairs found in DuckDB (`ST_Intersects`; rook also needs a shared boundary of positive length), k nearest and distance band from centroids. Layers in degrees use WGS 84 geodesic distances (Karney 2013, geographiclib-rs): k nearest ranks by chord distance, re-ranks the best 2k by exact geodesic distance; the distance band is exact (chord <= geodesic). Islands are reported and kept in the output layer.
+- Moran's I and LISA always use row-standardised weights. LISA p-values come from conditional permutation with a visible seed (SplitMix64, the same on every platform); two-sided pseudo p-values; Holm / BH optional.
+- Spatial lag and error: ML with the log-determinant from eigenvalues (symmetric structures use the symmetric eigenproblem; others the general one), golden-section search for rho/lambda, asymptotic covariance from the dense information matrix (so limited to 2,500 features). Islands are refused.
+- GWR: bandwidth by AICc (Hurvich et al. 1998) or Cleveland's cross-validation with the focal point given zero weight, golden-section search (whole numbers for adaptive); sigma-squared = RSS / (n - 2 tr S + tr S'S) as in Fotheringham et al. 2002 and GWmodel; limited to 4,000 features (dense distance matrix).
+- MGWR: bandwidths per covariate by backfitting on partial residuals (as the mgwr package), hat matrices from the converged backfit; limited to 600 features.
+- Verification: no R spdep/spatialreg/GWmodel output and no Columbus data were available offline, so these methods are checked against brute-force likelihoods, exact special cases (GWR with a wide kernel = OLS) and simulations with known parameters; every spatial regression result says so in a note. Adding Columbus is test ST6-10.
+- Ripley's K: the existing tool now also reports an L(d) - d chart with the Monte Carlo envelope and the seed.

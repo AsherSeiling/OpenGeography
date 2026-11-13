@@ -78,3 +78,8 @@ Before a release: finish and merge the UI redesign, fix the open bugs and test a
 5. R7: one full CI push on all three platforms, and fix what it finds.
 6. Rebuild the Mac app again and run the open manual checks: Windows and Linux installers (A3), keychain (M-31), hydrology (M-32).
 7. You push the `v0.1.0` tag.
+
+## Lane B: T2, T8, ST2, ST4, ST5, ST6 (2026-11-13)
+- T2 SAGA tools, T8 point clouds, ST2 describe: built earlier (see their commits).
+- ST4 built: eight "Statistics › Tests" tools with R reference tests. ST5 built: Linear and Logistic Regression (QR, nalgebra). ST6 built: Spatial Weights, Global Moran, LISA, Ripley L chart, Spatial Lag/Error (ML), GWR, MGWR.
+- Open: ST6-10 (compare the spatial models with R spdep/spatialreg/GWmodel on Anselin's Columbus data; neither the data nor stored R output was available offline). Holm/BH across unrelated sheet cards not done. Linux/Windows SAGA builds, a real 3DEP tile and manual cancel tests (T2-7, T8-11) unverified. vitest/tsc not re-run (no node_modules in this worktree).
