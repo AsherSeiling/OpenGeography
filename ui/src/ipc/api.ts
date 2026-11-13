@@ -1040,6 +1040,12 @@ export const api = {
   statChartSvg: (spec: ChartSpec, width: number, height: number) => invoke<string>("stat_chart_svg", { spec, width, height }),
   /** Feature ids behind a chart mark whose features are too many to list (a density cell). */
   statChartBinFids: (card: StatCard, bin: string) => invoke<number[]>("stat_chart_bin_fids", { card, bin }),
+  /** ST7: result table `index` of a card as CSV at `path`. */
+  statExportTable: (card: StatCard, index: number, path: string) => invoke<void>("stat_export_table", { card, index, path }),
+  /** ST7: chart `index` of a card as "svg" or "png" (dpi counts 96-per-inch pixels) at `path`. */
+  statExportChart: (card: StatCard, index: number, format: "svg" | "png", dpi: number, path: string) => invoke<void>("stat_export_chart", { card, index, format, dpi, path }),
+  /** ST7: the whole sheet as one HTML report; returns warnings (cards not run, out of date). */
+  statExportReport: (sheet: StatSheet, date: string, path: string) => invoke<string[]>("stat_export_report", { sheet, date, path }),
   statDataProfile: (layer: string, fids: number[] | null = null) => invoke<DataProfile>("stat_data_profile", { layer, fids }),
   /** Georeferencing control point sets saved in the project (GR1). */
   listControlSets: () => invoke<ControlSet[]>("list_control_sets"),

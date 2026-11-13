@@ -1120,6 +1120,24 @@ pub async fn stat_chart_bin_fids(engine: Eng<'_>, card: engine::stats::StatCard,
     blocking(&engine, move |e| e.stat_chart_bin_fids(&card, &bin)).await
 }
 
+/// Write result table `index` of a card as CSV (ST7).
+#[tauri::command]
+pub async fn stat_export_table(engine: Eng<'_>, card: engine::stats::StatCard, index: usize, path: String) -> Res<()> {
+    blocking(&engine, move |e| e.export_stat_table(&card, index, &path)).await
+}
+
+/// Write chart `index` of a card as "svg" or "png" (ST7).
+#[tauri::command]
+pub async fn stat_export_chart(engine: Eng<'_>, card: engine::stats::StatCard, index: usize, format: String, dpi: f64, path: String) -> Res<()> {
+    blocking(&engine, move |e| e.export_stat_chart(&card, index, &format, dpi, &path)).await
+}
+
+/// Write the sheet report as one HTML page; returns warnings (cards not run or out of date).
+#[tauri::command]
+pub async fn stat_export_report(engine: Eng<'_>, sheet: engine::stats::StatSheet, date: String, path: String) -> Res<Vec<String>> {
+    blocking(&engine, move |e| e.export_stat_report(&sheet, &date, &path)).await
+}
+
 #[tauri::command]
 pub async fn stat_data_profile(engine: Eng<'_>, layer: String, fids: Option<Vec<i64>>) -> Res<engine::stats::DataProfile> {
     blocking(&engine, move |e| e.stat_data_profile(&layer, fids.as_deref())).await
