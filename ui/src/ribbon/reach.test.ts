@@ -67,7 +67,7 @@ describe("statistics workspace tabs", () => {
 
   it("leaves the not-yet-built tabs with plain text only: no button that would do nothing", async () => {
     const { STATS_TABS } = await import("./tabsDef");
-    for (const t of ["stats-charts", "stats-tests", "stats-regression", "stats-spatial", "stats-export"]) {
+    for (const t of ["stats-tests", "stats-regression", "stats-spatial", "stats-export"]) {
       const cmds = STATS_TABS[t].flatMap((g) => g.items).filter((i) => "cmd" in i);
       expect(cmds, t).toEqual([]);
     }

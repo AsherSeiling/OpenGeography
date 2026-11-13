@@ -106,7 +106,10 @@ export const STATS_TABS: Record<string, Group[]> = {
     { label: "Cards", items: [{ custom: <AddCardMenu /> }, { cmd: "statRemoveCard", size: "small" }, { cmd: "statCardUp", size: "small" }, { cmd: "statCardDown", size: "small" }] },
     { label: "Run", items: [{ cmd: "statRun" }, { cmd: "statRunAll" }] },
   ],
-  "stats-charts": [{ label: "Charts", items: [{ custom: <ComingNote>Histogram, box plot, scatter plot, Q–Q plot, bar and line charts and a correlation heat map. Coming in ST3.</ComingNote> }] }],
+  "stats-charts": [
+    { label: "Add Chart", items: [{ custom: <AddCardMenu only="Charts" label="Add Chart" /> }] },
+    { label: "Map Selection", items: [{ cmd: "clearSelection" }] },
+  ],
   "stats-tests": [{ label: "Tests", items: [{ custom: <ComingNote>t tests, ANOVA, chi-square, rank tests, normality and correlation. Coming in ST4.</ComingNote> }] }],
   "stats-regression": [{ label: "Regression", items: [{ custom: <ComingNote>Linear and logistic regression with residual checks. Coming in ST5.</ComingNote> }] }],
   "stats-spatial": [{ label: "Spatial", items: [{ custom: <ComingNote>Spatial weights, Moran scatter plot, LISA, GWR, spatial lag and error models. Coming in ST6.</ComingNote> }] }],

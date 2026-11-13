@@ -7,12 +7,12 @@ import { addStatCard, statTools } from "./actions";
 import { useStats } from "./store";
 
 /** Explore › Cards: pick a statistics tool; the card is added to the open sheet on the active layer. */
-export function AddCardMenu() {
+export function AddCardMenu({ only, label = "Add Card" }: { only?: string; label?: string }) {
   const specs = useRun((s) => s.specs);
   const open = useStats((s) => !!s.id);
   const groups = useMemo(() => {
     const by = new Map<string, ReturnType<typeof statTools>>();
-    for (const t of statTools(specs)) {
+    for (const t of statTools(specs).filter((t) => !only || t.category.includes(`› ${only}`))) {
       const sub = t.category.split("›").slice(1).join("›").trim() || "Statistics";
       by.set(sub, [...(by.get(sub) ?? []), t]);
     }
@@ -23,7 +23,7 @@ export function AddCardMenu() {
       <MenuTrigger>
         <button className="rbtn large" disabled={!open || groups.length === 0} title="Add a card to the sheet: any tool in the Statistics group, the same tools the node editor offers">
           <span className="rbtn-icon"><RIcon name="add-tool" /></span>
-          <span className="rbtn-label">Add Card ▾</span>
+          <span className="rbtn-label">{label} ▾</span>
         </button>
       </MenuTrigger>
       <MenuPopover>

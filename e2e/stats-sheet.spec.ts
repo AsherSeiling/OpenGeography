@@ -35,8 +35,8 @@ test("ST1 a new sheet changes the window like a layout, with the six statistics 
   expect(during).not.toContain("model");
   await expect(app.locator(".rtab-back")).toBeVisible();
   // The not-yet-built tabs say which package builds them, in text.
-  await app.locator(".rtab", { hasText: /^Charts$/ }).click();
-  await expect(app.locator(".ribbon-body")).toContainText("ST3");
+  await app.locator(".rtab", { hasText: /^Tests$/ }).click();
+  await expect(app.locator(".ribbon-body")).toContainText("ST4");
   // Back to Map: the map's tabs and panes return.
   await app.locator(".rtab-back").click();
   await expect(app.locator(".rtab-back")).toHaveCount(0);
@@ -77,7 +77,8 @@ test("ST1 create, add a card, run it, save, reopen, go out of date after an edit
   await expect(card).toHaveAttribute("data-state", "not-run");
   // Properties shows the card's settings from its ToolSpec.
   await expect(app.locator(".props-title")).toContainText("Summary Statistics");
-  // Running without a field is refused in a sentence, before it reaches the engine.
+  // A new card starts on a numeric field. With the field cleared, running is refused in a sentence, before it reaches the engine.
+  await gis(app, (g) => { const s = g.useStats.getState(); const c = s.docs[s.id].cards[0]; s.editCard(s.id, c.id, { options: { ...c.options, field: null } }); });
   await card.getByRole("button", { name: "Run", exact: true }).click();
   await expect(card).toContainText("Choose a field");
   await app.getByRole("combobox", { name: /Statistics field/ }).click();
