@@ -16,7 +16,8 @@ import { getViewBounds, restoreCamera, type Camera, snapshotCamera, zoomToExtent
 import { readBookmarks, useBookmarks, type Bookmark } from "./map/bookmarks";
 import { loadMaps, PROJECT_VERSION, serializeMaps, type LoadedMaps, type SavedMap } from "./store/maps";
 import { openLayerProperties } from "./dialogs/LayerPropertiesWindow";
-import { closeLayoutPanels, showPane } from "./panes/panes";
+import { closeLayoutPanels, getDock, showPane } from "./panes/panes";
+import { followActivePanel } from "./layout/actions";
 import { defaultCompareInput, pruneNodeCache, useTableTarget } from "./panes/table/history";
 import { graphPayload, nodeSignature, useModel, useRun, type Tree } from "./store/model";
 import { defaultStyle, displayInfo, restoredResultStyles, savedResultStyles, setFrameHook, useApp, type LayerStyle, type RasterStyle, type SelectMode } from "./store/store";
@@ -24,6 +25,8 @@ import { styleFromSymbologyNode } from "./layers/nodeStyle";
 import { applyStyleParts, moveSelected, safeFileName, unionExtent, type Move, type StyleParts } from "./layers/multiselect";
 import { nextProjectEpoch } from "./store/projectEpoch";
 import { flushLayoutSaves, useLayouts } from "./store/layout";
+import { flushStatSaves, useStats } from "./stats/store";
+import { loadStatSheets } from "./stats/actions";
 import { pushRecent, type StartTemplate } from "./start/recent";
 
 // ---------- dialogs ----------
@@ -662,6 +665,7 @@ export async function saveProject(saveAs = false) {
   }
   await pruneSnapshots();
   await flushLayoutSaves();
+  await flushStatSaves();
   const ok = await busy("Saving project", () => api.saveProject(dir!, JSON.stringify(uiState())));
   if (ok === undefined) return;
   useApp.getState().set({ projectDir: dir, dirty: false });
@@ -712,6 +716,7 @@ export async function openProject(path?: string) {
     return;
   }
   await loadLayouts();
+  await loadStatSheets();
   restoreState(res.layers, ui, picked, loaded);
   void rememberProject(picked);
   status(`Opened ${picked}${loaded.notes.length ? `. ${loaded.notes.join(" ")}` : ""}`);
@@ -760,6 +765,9 @@ function restoreState(layers: LayerInfo[], ui: Partial<UiState>, dir: string | n
     status(`The saved window layout could not be restored (${errorText(e)}).`);
   }
   mapPanelSync?.();
+  // A saved window that was in a layout or statistics workspace comes back with that tab already active: no activation event follows, so enter it now.
+  const shown = getDock()?.activePanel;
+  if (shown?.id.startsWith("layout:") || shown?.id.startsWith("stats:")) followActivePanel(shown.params as { layoutId?: string; statsId?: string });
 }
 
 /** Read the project's layouts from the engine; their tabs come back with the dock layout. */
@@ -778,6 +786,7 @@ export async function newProject() {
   const ok = await busy("Creating project", () => api.newProject());
   if (ok === undefined) return;
   useLayouts.getState().loadAll([]);
+  useStats.getState().loadAll([]);
   restoreState([], {}, null);
   applySettings(useSettings.getState().settings); // the default coordinate system for the new, empty map
   status("New project");
@@ -837,6 +846,7 @@ export async function autosaveProject(): Promise<string> {
   autosaving = true;
   try {
     await flushLayoutSaves();
+    await flushStatSaves();
     const dir = useApp.getState().projectDir;
     const name = dir ? (dir.split(/[\\/]/).pop() ?? dir).replace(/\.gproj$/, "") : "Untitled project";
     await api.writeRecovery(JSON.stringify(uiState()), dir, name);
@@ -874,6 +884,7 @@ export async function restoreRecovery(id: string): Promise<boolean> {
     return false;
   }
   await loadLayouts();
+  await loadStatSheets();
   // A copy of a project with a folder reopens that project with the recovered changes unsaved; a never-saved one is untitled.
   restoreState(res.layers, ui, res.openedOrigin ? res.origin : null, loaded);
   useApp.setState({ dirty: true });

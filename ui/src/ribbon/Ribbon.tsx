@@ -18,7 +18,8 @@ import { QuickAccess } from "./quickAccess";
 import { RButton } from "./rbutton";
 import { fitRibbon, type Variant } from "./ribbonFit";
 import { TopSearch } from "./search";
-import { KEY_TIPS, LAYOUT_ORDER, MAIN_TABS, TABS } from "./tabsDef";
+import { KEY_TIPS, LAYOUT_ORDER, MAIN_TABS, STATS_LABELS, STATS_ORDER, STATS_TABS, TABS } from "./tabsDef";
+import { useStats } from "../stats/store";
 import { useRibbonTabs, visibleGroups, type Group } from "./tabs";
 import { useSettings } from "../store/settings";
 import { useEdit } from "../edit/editStore";
@@ -46,6 +47,12 @@ export function Ribbon() {
   const layoutId = useLayouts((s) => s.id);
   const workspace = useLayoutView((s) => s.workspace);
   const inLayout = !!layoutId && workspace;
+  // The statistics tabs show while a sheet is the active tab of the window; the commands on them read the open sheet and its selected card.
+  const statsId = useStats((s) => s.id);
+  const statsWorkspace = useStats((s) => s.workspace);
+  const inStats = !!statsId && statsWorkspace;
+  useStats((s) => s.docs);
+  useStats((s) => s.selected);
   useLayouts((s) => s.doc);
   // Shape editing commands read the edit session; redraw when it changes.
   useEdit((s) => s.status);
@@ -64,12 +71,13 @@ export function Ribbon() {
   // Opening a layout brings its Page tab forward; the map's tabs (Map, Analysis, Feature Layer) leave while a layout is open.
   useEffect(() => {
     if (inLayout) setTab("Page");
-    else setTab((t) => (LAYOUT_ORDER.includes(t) && !MAIN_TABS.includes(t) ? "Map" : t));
-  }, [inLayout, layoutId]);
+    else if (inStats) setTab("stats-explore");
+    else setTab((t) => ((LAYOUT_ORDER.includes(t) && !MAIN_TABS.includes(t)) || STATS_ORDER.includes(t) ? "Map" : t));
+  }, [inLayout, layoutId, inStats, statsId]);
   const extra = Object.values(registered).filter((t) => t.visible);
-  const allowed = inLayout ? LAYOUT_ORDER.includes(tab) || (tab === "Map Frame" && frameSelected) : MAIN_TABS.includes(tab) || (tab === "Feature Layer" && contextual);
-  const current = allowed || extra.some((t) => t.id === tab) ? tab : inLayout ? "Page" : "Map";
-  const groups: Group[] = useMemo(() => visibleGroups(TABS[current] ?? Object.values(registered).find((t) => t.visible && t.id === current)?.groups ?? [], { inLayout: !!inLayout, developer }), [current, registered, inLayout, developer]);
+  const allowed = inStats ? STATS_ORDER.includes(tab) : inLayout ? LAYOUT_ORDER.includes(tab) || (tab === "Map Frame" && frameSelected) : MAIN_TABS.includes(tab) || (tab === "Feature Layer" && contextual);
+  const current = allowed || extra.some((t) => t.id === tab) ? tab : inStats ? "stats-explore" : inLayout ? "Page" : "Map";
+  const groups: Group[] = useMemo(() => visibleGroups(TABS[current] ?? STATS_TABS[current] ?? Object.values(registered).find((t) => t.visible && t.id === current)?.groups ?? [], { inLayout: !!inLayout, developer }), [current, registered, inLayout, developer]);
 
   // Collapse to the tab row (double-click a tab or Ctrl+F1); a click on a tab while collapsed shows the body until you click elsewhere.
   const [collapsed, setCollapsed] = useState(false);
@@ -214,16 +222,16 @@ export function Ribbon() {
       <div className="rib">
       <div className="ribbon-tabs" role="tablist" aria-label="Ribbon">
         <ProjectBox />
-        {inLayout && (
+        {(inLayout || inStats) && (
           <button className="rtab-back" title="Go back to the map" onClick={() => commands.paneMap.run()}>
             <RIcon name="back" />
             <span>Back to Map</span>
           </button>
         )}
         <div className="rtabs">
-          {(inLayout ? LAYOUT_ORDER : MAIN_TABS).map((t) => (
+          {(inStats ? STATS_ORDER : inLayout ? LAYOUT_ORDER : MAIN_TABS).map((t) => (
             <button key={t} role="tab" aria-selected={current === t} className={`rtab ${current === t ? "on" : ""}`} onClick={() => pickTab(t)} onDoubleClick={() => { setCollapsed((c) => !c); setPeek(false); }} title="Double-click to collapse or expand the ribbon (Ctrl+F1)">
-              {t}
+              {STATS_LABELS[t] ?? t}
               {tips && KEY_TIPS[t] && <span className="keytip">{KEY_TIPS[t]}</span>}
             </button>
           ))}
@@ -235,7 +243,7 @@ export function Ribbon() {
               </button>
             </div>
           )}
-          {contextual && !inLayout && (
+          {contextual && !inLayout && !inStats && (
             <div className="rtab-context">
               <span className="rtab-context-label">Layer</span>
               <button role="tab" aria-selected={current === "Feature Layer"} className={`rtab ctx ${current === "Feature Layer" ? "on" : ""}`} onClick={() => pickTab("Feature Layer")}>

@@ -1,0 +1,43 @@
+/* Statistics workspace (docs/STATISTICS_WORKSPACE_PLAN.md): the sheet, its cards, and the Data pane. Colours come from tokens only. */
+.stats-view { height: 100%; overflow: auto; background: var(--surface-0); box-sizing: border-box; padding: var(--s-6); }
+.stats-col { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--s-5); }
+.stats-head { display: flex; align-items: baseline; gap: var(--s-4); }
+.stats-head h2 { margin: 0; font: var(--type-title); color: var(--text); }
+.stats-empty { background: var(--surface-1); border: 1px dashed var(--rule); border-radius: var(--r-card); padding: var(--s-6); color: var(--text-2); line-height: 1.5; }
+
+.stat-card { background: var(--surface-1); border: 1px solid var(--rule-soft); border-radius: var(--r-card); }
+.stat-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.stat-card.stale { border-color: var(--warn); }
+.stat-card-head { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--rule-soft); cursor: pointer; }
+.stat-card-title { font: var(--type-strong); color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-badge { font: var(--type-micro); text-transform: uppercase; letter-spacing: .04em; padding: 1px 6px; border-radius: var(--r-control); background: var(--surface-2); color: var(--text-2); }
+.stat-badge.current { background: var(--ok-bg); color: var(--ok); }
+.stat-badge.stale { background: var(--warn-bg); color: var(--warn); }
+.stat-card-body { padding: var(--s-4) var(--s-5) var(--s-5); display: flex; flex-direction: column; gap: var(--s-4); }
+.stat-meta { font: var(--type-small); color: var(--text-2); }
+.stat-banner { font: var(--type-body); padding: var(--s-3) var(--s-4); border-radius: var(--r-control); background: var(--warn-bg); color: var(--text); border-left: 3px solid var(--warn); }
+.stat-banner.error { background: var(--error-bg); border-left-color: var(--error); }
+.stat-method { font: var(--type-body); color: var(--text); }
+.stat-counts { font: var(--type-small); color: var(--text-2); display: flex; gap: var(--s-5); flex-wrap: wrap; }
+.stat-table-wrap { overflow: auto; max-height: 320px; border: 1px solid var(--rule-soft); border-radius: var(--r-control); }
+.stat-table { border-collapse: collapse; width: 100%; font: var(--type-body); }
+.stat-table caption { text-align: left; font: var(--type-strong); padding: var(--s-3) var(--s-4); color: var(--text); }
+.stat-table th, .stat-table td { padding: 3px var(--s-4); border-bottom: 1px solid var(--rule-soft); white-space: nowrap; }
+.stat-table th { text-align: left; font: var(--type-strong); color: var(--text-2); position: sticky; top: 0; background: var(--surface-2); }
+.stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stat-notes { margin: 0; padding-left: 1.2em; font: var(--type-small); color: var(--text-2); }
+.stat-cite { font: var(--type-small); color: var(--text-2); }
+.stat-card-actions { display: flex; gap: var(--s-3); }
+
+.stat-data { height: 100%; overflow: auto; background: var(--surface-1); padding: var(--s-4); box-sizing: border-box; display: flex; flex-direction: column; gap: var(--s-3); }
+.stat-data-layer { border: 1px solid var(--rule-soft); border-radius: var(--r-control); background: var(--surface-0); }
+.stat-data-layer > button.stat-data-name { display: flex; width: 100%; gap: var(--s-3); align-items: center; padding: 4px var(--s-4); background: transparent; border: 0; font: var(--type-strong); color: var(--text); text-align: left; cursor: pointer; }
+.stat-data-layer > button.stat-data-name:hover { background: var(--hover); }
+.stat-fields { width: 100%; border-collapse: collapse; font: var(--type-small); }
+.stat-fields th, .stat-fields td { padding: 1px var(--s-4); text-align: left; }
+.stat-fields td.num, .stat-fields th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.stat-fields th { color: var(--text-2); font-weight: 500; }
+.stat-fields .miss { color: var(--warn); }
+
+.stat-props-field { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--s-4); }
+.stat-ribbon-note { max-width: 240px; font: var(--type-small); color: var(--text-2); padding: var(--s-3) var(--s-4); line-height: 1.4; }

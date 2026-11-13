@@ -10,6 +10,7 @@ import { isCancelled } from "../progress/progress";
 import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
 import { useLayoutView } from "./view";
+import { useStats } from "../stats/store";
 import { addMapFrame, addPicture, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { effectiveStyle, useApp, type LayerStyle } from "../store/store";
 import { recolour } from "./themes";
@@ -75,11 +76,15 @@ export function openLayout(id: string) {
  * (Properties, Contents, Map) leaves the layout open. Closing the layout here made
  * a click into the Properties pane drop the selection and every later edit (bug U-5).
  */
-export function followActivePanel(layoutId: string | undefined) {
+export function followActivePanel(params: { layoutId?: string; statsId?: string } | undefined) {
   if (dockIsRebuilding()) return; // the dock is being rebuilt (Reset Panes, open project): activations on the way mean nothing
+  const { layoutId, statsId } = params ?? {};
   if (layoutId) {
     useLayouts.getState().open(layoutId);
-    enterWorkspace();
+    enterWorkspace("layout");
+  } else if (statsId) {
+    useStats.getState().open(statsId);
+    enterWorkspace("stats");
   } else if (!rearranging && workspace && isMapPanelId(getDock()?.activePanel?.id ?? "")) leaveWorkspace();
 }
 
@@ -96,46 +101,77 @@ interface Saved {
   propsWidth: number | null;
   left: { contents: boolean; catalog: boolean; items: boolean; width: number | null; contentsHeight: number | null };
 }
-let workspace: Saved | null = null;
+let workspace: (Saved & { kind: WorkspaceKind }) | null = null;
 const ITEMS_WIDTH = 240;
 const BOTTOM_IDS: PaneId[] = ["table", "model"];
 /** True while enterWorkspace closes and moves panels: the dock then activates some other group's panel, which must not read as "left the layout". */
 let rearranging = false;
 
-/** LW1: a layout tab is active, so the window becomes a layout workspace: Items beside the page, Properties on the right, no bottom panel. */
-export function enterWorkspace() {
+/** The two workspaces that take over the window. Each has its own list in the far-left column: a layout's Items, a statistics sheet's Data. */
+export type WorkspaceKind = "layout" | "stats";
+const LEFT_PANE: Record<WorkspaceKind, PaneId> = { layout: "items", stats: "statdata" };
+const statsPanelIdOf = (id: string | null) => `stats:${id ?? ""}`;
+
+/**
+ * LW1 / ST1: a layout tab or a statistics sheet tab is active, so the window becomes that workspace: the workspace's own list (Items, or Data) beside
+ * the page or sheet, Catalog under it, Properties on the right, no bottom panel. Both share this code; going straight from one to the other only swaps
+ * the left pane. What was there is remembered once (on the way in from the Map) and put back by leaveWorkspace.
+ */
+export function enterWorkspace(kind: WorkspaceKind = "layout") {
   const dock = getDock();
-  useLayoutView.getState().setWorkspace(true);
-  if (!dock || workspace) return;
+  useLayoutView.getState().setWorkspace(kind === "layout");
+  useStats.getState().setWorkspace(kind === "stats");
+  if (!dock) return;
+  if (workspace) {
+    if (workspace.kind === kind) return;
+    // layout <-> statistics sheet: the other workspace's list takes the place of this one's, in the same column.
+    const old = dock.getPanel(LEFT_PANE[workspace.kind]);
+    workspace.kind = kind;
+    rearranging = true;
+    try {
+      const id = LEFT_PANE[kind];
+      if (!dock.getPanel(id)) dock.addPanel({ id, component: id, title: PANE_TITLES[id], position: old ? { referencePanel: old.id, direction: "within" } : { direction: "left" } });
+      old?.api.close();
+      dock.getPanel(id)?.api.setActive();
+      dock.getPanel(kind === "layout" ? panelId(useLayouts.getState().id ?? "") : statsPanelIdOf(useStats.getState().id))?.api.setActive();
+    } finally {
+      rearranging = false;
+    }
+    return;
+  }
   const group = (dock.getPanel("model") ?? dock.getPanel("table"))?.group ?? null;
   const ordered = group ? (group.panels.map((p) => p.id).filter((id) => BOTTOM_IDS.includes(id as PaneId)) as PaneId[]) : [];
   const active = group?.activePanel?.id as PaneId | undefined;
   const contents = dock.getPanel("contents");
+  // A project saved inside a workspace comes back with its list pane already there and Map Layers closed: Back to Map still brings Map Layers back.
+  const restored = !contents && !!(dock.getPanel("items") || dock.getPanel("statdata"));
   workspace = {
+    kind,
     bottom: { ids: ordered, active: active && ordered.includes(active) ? active : null, height: group ? group.api.height : null },
     propsWidth: dock.getPanel("properties")?.group.api.width ?? null,
     left: {
-      contents: !!contents,
+      contents: restored || !!contents,
       catalog: !!dock.getPanel("catalog"),
-      items: !!dock.getPanel("items"),
+      items: !restored && !!dock.getPanel("items"),
       width: contents ? contents.group.api.width : null,
       contentsHeight: contents ? contents.group.api.height : null,
     },
   };
-  const layoutPanel = dock.panels.find((p) => p.id === panelId(useLayouts.getState().id ?? ""));
+  const left = LEFT_PANE[kind];
+  const tab = dock.panels.find((p) => p.id === (kind === "layout" ? panelId(useLayouts.getState().id ?? "") : statsPanelIdOf(useStats.getState().id)));
   rearranging = true;
   try {
-    for (const id of [...ordered, "contents", "catalog", "items"]) dock.getPanel(id)?.api.close();
-    // Items in a column of its own, whole height, at the far left.
-    dock.addPanel({ id: "items", component: "items", title: PANE_TITLES.items, position: { direction: "left" } }).group.api.setSize({ width: ITEMS_WIDTH });
-    // Catalog stays (layouts are renamed, copied and deleted there), stacked under Items rather than tabbed with it.
+    for (const id of [...ordered, "contents", "catalog", "items", "statdata"]) dock.getPanel(id)?.api.close();
+    // The list in a column of its own, whole height, at the far left.
+    dock.addPanel({ id: left, component: left, title: PANE_TITLES[left], position: { direction: "left" } }).group.api.setSize({ width: ITEMS_WIDTH });
+    // Catalog stays (layouts and sheets are renamed, copied and deleted there), stacked under the list rather than tabbed with it.
     if (workspace.left.catalog) {
-      const p = dock.addPanel({ id: "catalog", component: "catalog", title: PANE_TITLES.catalog, position: { referencePanel: "items", direction: "below" } });
+      const p = dock.addPanel({ id: "catalog", component: "catalog", title: PANE_TITLES.catalog, position: { referencePanel: left, direction: "below" } });
       p.group.api.setSize({ height: Math.round(dock.height * 0.34) });
     }
     showPane("properties");
     if (workspace.propsWidth) dock.getPanel("properties")?.group.api.setSize({ width: workspace.propsWidth });
-    layoutPanel?.api.setActive();
+    tab?.api.setActive();
   } finally {
     rearranging = false;
   }
@@ -145,6 +181,7 @@ export function enterWorkspace() {
 export function leaveWorkspace() {
   const dock = getDock();
   useLayoutView.getState().setWorkspace(false);
+  useStats.getState().setWorkspace(false);
   const w = workspace;
   workspace = null;
   // Reset Panes (and opening a project) rebuild the whole dock, closing the layout tab on the way: nothing to put back then.
@@ -152,6 +189,7 @@ export function leaveWorkspace() {
   rearranging = true;
   try {
     dock.getPanel("items")?.api.close();
+    dock.getPanel("statdata")?.api.close();
     dock.getPanel("catalog")?.api.close();
     if (w.left.contents) showPane("contents");
     if (w.left.catalog) showPane("catalog");
@@ -173,7 +211,7 @@ export function leaveWorkspace() {
 export function layoutPanelClosed(layoutId: string | undefined) {
   if (layoutId && useLayouts.getState().id === layoutId) {
     useLayouts.getState().open(null);
-    if (!getDock()?.panels.some((p) => p.id.startsWith("layout:") && p.id !== `layout:${layoutId}`)) leaveWorkspace();
+    if (!getDock()?.panels.some((p) => (p.id.startsWith("layout:") || p.id.startsWith("stats:")) && p.id !== `layout:${layoutId}`)) leaveWorkspace();
   }
 }
 

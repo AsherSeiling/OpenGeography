@@ -140,13 +140,13 @@ async function settleInner(page: Page) {
 
 // ---------------------------------------------------------------- contexts
 
-type Ctx = "map-empty" | "map-layer" | "map-model" | "map-run" | "layout-multi" | "layout-page" | "layout-frame" | "layout-text";
+type Ctx = "map-empty" | "map-layer" | "map-model" | "map-run" | "layout-multi" | "layout-page" | "layout-frame" | "layout-text" | "stats-sheet";
 const BBOX = [-100, 30, -90, 40];
 
 async function hardReset(page: Page) {
   const t0 = Date.now();
   // Let a pending layout save finish first: a reload in the middle of one logs "could not be saved: Failed to fetch", which is the harness, not the app.
-  await page.evaluate(async () => { const m = await import("/src/store/layout.ts"); await m.flushLayoutSaves(); }).catch(() => undefined);
+  await page.evaluate(async () => { const m = await import("/src/store/layout.ts"); await m.flushLayoutSaves(); await (await import("/src/stats/store.ts")).flushStatSaves(); }).catch(() => undefined);
   await page.goto("/");
   await page.waitForFunction(() => !!(window as any).__gis);
   await gis(page, async (g) => { await g.api.newProject(); g.useApp.setState({ basemap: "none" }); });
@@ -163,11 +163,12 @@ async function invariants(page: Page): Promise<string> {
     const g = (window as any).__gis;
     const a = g.useApp.getState();
     const L = g.useLayouts.getState();
-    return JSON.stringify({ layers: Object.keys(a.layers).length, maps: a.maps.length, layout: !!L.id, layouts: L.list().length, back: !!document.querySelector(".rtab-back"), active: !!a.activeLayer });
+    const S = g.useStats.getState();
+    return JSON.stringify({ layers: Object.keys(a.layers).length, maps: a.maps.length, layout: !!L.id, layouts: L.list().length, back: !!document.querySelector(".rtab-back"), active: !!a.activeLayer, stats: S.id && S.workspace && S.docs[S.id] ? S.docs[S.id].cards.length : -1 });
   });
 }
 
-const WANT: Record<Ctx, string> = {
+const WANT0: Record<Exclude<Ctx, "stats-sheet">, string> = {
   "map-empty": JSON.stringify({ layers: 0, maps: 1, layout: false, layouts: 0, back: false, active: false }),
   "map-layer": JSON.stringify({ layers: 2, maps: 1, layout: false, layouts: 0, back: false, active: true }),
   "map-model": JSON.stringify({ layers: 2, maps: 1, layout: false, layouts: 0, back: false, active: true }),
@@ -176,6 +177,12 @@ const WANT: Record<Ctx, string> = {
   "layout-page": JSON.stringify({ layers: 2, maps: 1, layout: true, layouts: 1, back: true, active: true }),
   "layout-frame": JSON.stringify({ layers: 2, maps: 1, layout: true, layouts: 1, back: true, active: true }),
   "layout-text": JSON.stringify({ layers: 2, maps: 1, layout: true, layouts: 1, back: true, active: true }),
+};
+
+/** The invariants a context must show before a control is tried; the statistics workspace adds the open sheet's card count (-1: no sheet open). */
+const WANT: Record<Ctx, string> = {
+  ...(Object.fromEntries(Object.entries(WANT0).map(([k, v]) => [k, JSON.stringify({ ...JSON.parse(v), stats: -1 })])) as Record<Exclude<Ctx, "stats-sheet">, string>),
+  "stats-sheet": JSON.stringify({ layers: 2, maps: 1, layout: false, layouts: 0, back: true, active: true, stats: 2 }),
 };
 
 async function build(page: Page, ctx: Ctx) {
@@ -217,6 +224,21 @@ async function buildInner(page: Page, ctx: Ctx) {
   }, BBOX);
   void first;
   if (ctx === "map-layer") return;
+  if (ctx === "stats-sheet") {
+    // A statistics sheet with two Summary Statistics cards: the first has run and is selected, so Run, Remove, Move Down and the table are live.
+    await gis(page, async (g) => {
+      g.statsActions.newStatsSheet();
+      const sheet = g.useStats.getState().id;
+      for (let i = 0; i < 2; i++) g.statsActions.addStatCard("summary_statistics");
+      const cards = g.useStats.getState().docs[sheet].cards;
+      for (const c of cards) g.useStats.getState().editCard(sheet, c.id, { options: { field: "value" } });
+      await g.statsActions.runStatCard(sheet, cards[0].id);
+      g.useStats.getState().select(cards[0].id);
+    });
+    await page.getByTestId("stats-view").waitFor();
+    await page.locator(".stat-table").first().waitFor();
+    return;
+  }
   if (ctx === "map-model") {
     // A Buffer node on the active layer's tree, so the node cards' own controls exist.
     const box = (await page.locator(".model-canvas").boundingBox())!;
@@ -483,6 +505,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeEach(async ({ app, errors }) => {
   // The audit reloads the page between contexts (to start each from a known state); a layout save that a reload cuts off logs this. Not an app error.
   errors.known.push(/Layout '.*' could not be saved: Failed to fetch/);
+  errors.known.push(/Statistics sheet '.*' could not be saved: Failed to fetch/);
   await app.setViewportSize({ width: 2560, height: 1300 });
 });
 test.afterEach(async ({}, testInfo) => {
@@ -560,6 +583,22 @@ test("audit: layout panes (Items, Properties) with an element selected, and the 
   // right-click menus: an empty spot of the page, then an element (submenus included)
   await rightClickAudit(env, "layout-text", "page", ".layout-page");
   await rightClickAudit(env, "layout-text", "element", ".layout-el");
+});
+
+test("audit: statistics workspace (ribbon tabs, sheet, Data pane, Properties)", async ({ app }) => {
+  test.setTimeout(1_200_000);
+  const env = await mk(app, "stats-sheet");
+  await ribbonSweep(env);
+  const pane = (id: string) => async () => {
+    await app.evaluate(async (pid) => {
+      const p = (await import("/src/panes/panes.ts")).getDock()!.getPanel(pid);
+      (p?.view as any)?.content?.element?.setAttribute("data-audit-pane", pid);
+    }, id);
+  };
+  await sweep(env, "stats sheet", ".stats-view", async () => undefined);
+  await sweep(env, "stats pane ▸ statdata", `[data-audit-pane="statdata"]`, pane("statdata"));
+  await sweep(env, "stats pane ▸ properties", `[data-audit-pane="properties"]`, pane("properties"));
+  await sweep(env, "stats pane ▸ catalog", `[data-audit-pane="catalog"]`, pane("catalog"), /^(Add|Public|Files)/);
 });
 
 /** Open the context menu at `selector`, and choose each item (and each submenu item) from a freshly built context. */
