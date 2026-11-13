@@ -167,6 +167,8 @@ fn main() {
             commands::delete_stat_sheet,
             commands::rename_stat_sheet,
             commands::run_stat_card,
+            commands::stat_chart_svg,
+            commands::stat_chart_bin_fids,
             commands::stat_data_profile,
             commands::list_control_sets,
             commands::save_control_set,

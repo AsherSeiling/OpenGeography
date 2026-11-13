@@ -1111,6 +1111,16 @@ pub async fn run_stat_card(engine: Eng<'_>, card: engine::stats::StatCard) -> Re
 }
 
 #[tauri::command]
+pub async fn stat_chart_svg(spec: engine::stats::ChartSpec, width: f64, height: f64) -> Res<String> {
+    Ok(engine::stats::chart::chart_svg(&spec, width, height))
+}
+
+#[tauri::command]
+pub async fn stat_chart_bin_fids(engine: Eng<'_>, card: engine::stats::StatCard, bin: String) -> Res<Vec<i64>> {
+    blocking(&engine, move |e| e.stat_chart_bin_fids(&card, &bin)).await
+}
+
+#[tauri::command]
 pub async fn stat_data_profile(engine: Eng<'_>, layer: String, fids: Option<Vec<i64>>) -> Res<engine::stats::DataProfile> {
     blocking(&engine, move |e| e.stat_data_profile(&layer, fids.as_deref())).await
 }
