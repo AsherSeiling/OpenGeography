@@ -61,13 +61,13 @@ describe("statistics workspace tabs", () => {
   it("puts every statistics command on a tab, and New Statistics Sheet on Insert and Explore", async () => {
     const { STATS_TABS } = await import("./tabsDef");
     const onStats = new Set(commandsOnTabs(STATS_TABS));
-    for (const id of ["statNewSheet", "statRenameSheet", "statDeleteSheet", "statRun", "statRunAll", "statRemoveCard", "statCardUp", "statCardDown"]) expect(onStats.has(id), id).toBe(true);
+    for (const id of ["statNewSheet", "statRenameSheet", "statDeleteSheet", "statRun", "statRunAll", "statRemoveCard", "statCardUp", "statCardDown", "statExportCsv", "statExportSvg", "statExportPng", "statExportReport"]) expect(onStats.has(id), id).toBe(true);
     expect(new Set(commandsOnTabs({ Insert: TABS.Insert })).has("statNewSheet")).toBe(true);
   });
 
   it("leaves the not-yet-built tabs with plain text only: no button that would do nothing", async () => {
     const { STATS_TABS } = await import("./tabsDef");
-    for (const t of ["stats-tests", "stats-regression", "stats-spatial", "stats-export"]) {
+    for (const t of ["stats-tests", "stats-regression", "stats-spatial"]) {
       const cmds = STATS_TABS[t].flatMap((g) => g.items).filter((i) => "cmd" in i);
       expect(cmds, t).toEqual([]);
     }

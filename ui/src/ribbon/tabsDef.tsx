@@ -6,7 +6,7 @@ import { Shelf } from "./shelf";
 import { ToolMenus } from "./toolDropdowns";
 import { SwipeMenu } from "../map/SwipeUi";
 import { BookmarksMenu, FrameBookmarkMenu } from "../map/BookmarkMenu";
-import { AddCardMenu, ComingNote } from "../stats/ribbonControls";
+import { AddCardMenu, ComingNote, SendToLayoutMenu } from "../stats/ribbonControls";
 import type { Group } from "./tabs";
 
 export const TABS: Record<string, Group[]> = {
@@ -113,7 +113,11 @@ export const STATS_TABS: Record<string, Group[]> = {
   "stats-tests": [{ label: "Tests", items: [{ custom: <ComingNote>t tests, ANOVA, chi-square, rank tests, normality and correlation. Coming in ST4.</ComingNote> }] }],
   "stats-regression": [{ label: "Regression", items: [{ custom: <ComingNote>Linear and logistic regression with residual checks. Coming in ST5.</ComingNote> }] }],
   "stats-spatial": [{ label: "Spatial", items: [{ custom: <ComingNote>Spatial weights, Moran scatter plot, LISA, GWR, spatial lag and error models. Coming in ST6.</ComingNote> }] }],
-  "stats-export": [{ label: "Export", items: [{ custom: <ComingNote>Send a card to a layout, export tables and charts, and a report of the sheet. Coming in ST7.</ComingNote> }] }],
+  "stats-export": [
+    { label: "Layout", items: [{ custom: <SendToLayoutMenu /> }] },
+    { label: "Files", items: [{ cmd: "statExportCsv" }, { cmd: "statExportSvg", size: "small" }, { cmd: "statExportPng", size: "small" }] },
+    { label: "Report", items: [{ cmd: "statExportReport" }] },
+  ],
 };
 
 /** The Insert rail beside the layout page (option B): what goes on the page, in the doc's four groups. Ribbon-style groups, shown as a column. */

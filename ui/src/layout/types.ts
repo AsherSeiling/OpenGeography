@@ -367,9 +367,24 @@ export interface ChartElement extends Placement {
   size?: number;
 }
 
+/** A chart or table of a statistics sheet's card (ST7). Points at the card; the engine draws the card's last result. */
+export interface StatCardElement extends Placement {
+  kind: "stat_card";
+  /** Statistics sheet id. */
+  sheet: string;
+  /** Card id within the sheet. */
+  card: string;
+  /** Unset = "chart". */
+  part?: "chart" | "table";
+  /** Which chart or table of the card's result (unset = the first). */
+  index?: number;
+  /** Table text size, pt; unset = 7. */
+  size?: number;
+}
+
 export type SurroundElement = LegendElement | ScaleBarElement | NorthArrowElement | DeclinationElement | SourcesElement;
 
-export type LayoutElement = MapFrame | TextElement | SurroundElement | ShapeElement | PictureElement | TableElement | ChartElement;
+export type LayoutElement = MapFrame | TextElement | SurroundElement | ShapeElement | PictureElement | TableElement | ChartElement | StatCardElement;
 
 /** Value rounded for display (stored values stay as they are). */
 export function rounded(v: number, decimals: number): number {

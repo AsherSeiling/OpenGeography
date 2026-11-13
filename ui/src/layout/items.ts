@@ -14,6 +14,7 @@ export const KIND_NAME: Record<string, string> = {
   picture: "Picture",
   table: "Table",
   chart: "Chart",
+  stat_card: "Statistics card",
 };
 
 /** The name shown for an element: the user's name, else the text of a Text element, else "<Kind> <id>". */
