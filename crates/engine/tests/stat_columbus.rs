@@ -61,21 +61,24 @@ fn columbus_weights_moran_ols_lag_and_error_match_the_published_values() {
     rel(cell(&o, "Coefficients", 0, "estimate"), 68.619, "OLS intercept");
     rel(cell(&o, "Coefficients", 1, "estimate"), -1.5973, "OLS INC");
     rel(cell(&o, "Coefficients", 2, "estimate"), -0.27393, "OLS HOVAL");
-    // Spatial lag and error with queen weights. The figures usually quoted for this data set (spdep: lag rho 0.43102, error lambda 0.56179;
-    // Moran's I 0.5111) belong to the neighbour file Anselin drew for the book (spdep's col.gal.nb), which is not the same as the polygons'
-    // queen contiguity (GeoDa's Moran's I for queen weights is 0.500, which this test does match). For the polygon queen weights the expected
-    // values were computed independently with numpy: contiguity from shared polygon vertices, the full log-likelihood with numpy's
-    // slogdet, maximised by grid and golden-section search, coefficients by least squares (script: tests/data/columbus/check_ml.py, needs numpy).
+    // Spatial lag and error with queen weights against the GeoDa workbook (Anselin 2005, "Exploring Spatial Data with GeoDa: A Workbook",
+    // Columbus ML lag and error with queen weights): lag rho 0.423346, CONSTANT 45.6033, INC -1.04873, HOVAL -0.266333; error lambda 0.546751,
+    // CONSTANT 60.2791, INC -0.9573, HOVAL -0.30456. (The spdep figures usually quoted, rho 0.43102 and lambda 0.56179, are for the book's own
+    // neighbour file, not polygon queen contiguity.) Tolerance 1e-4 relative: GeoDa prints rho to 6 digits from its own optimiser, ours differs
+    // from it by 2e-5. The independent numpy computation (tests/data/columbus/check_ml.py) gives the same values as this engine.
+    let wb = |got: f64, want: f64, what: &str| assert!((got - want).abs() <= 1e-4 * want.abs(), "{what}: got {got}, workbook {want}");
     let s = ok(&e, "stat_spatial_lag", json!({"dependent": "CRIME", "predictors": "INC,HOVAL", "weights": "queen"}), &l);
-    exact(cell(&s, "Spatial parameter", 0, "estimate"), 0.42333, "lag rho");
-    exact(cell(&s, "Coefficients", 0, "estimate"), 45.60325, "lag intercept");
-    exact(cell(&s, "Coefficients", 1, "estimate"), -1.04873, "lag INC");
-    exact(cell(&s, "Coefficients", 2, "estimate"), -0.26633, "lag HOVAL");
+    wb(cell(&s, "Spatial parameter", 0, "estimate"), 0.423346, "lag rho");
+    wb(cell(&s, "Coefficients", 0, "estimate"), 45.6033, "lag intercept");
+    wb(cell(&s, "Coefficients", 1, "estimate"), -1.04873, "lag INC");
+    wb(cell(&s, "Coefficients", 2, "estimate"), -0.266333, "lag HOVAL");
     let r = ok(&e, "stat_spatial_error", json!({"dependent": "CRIME", "predictors": "INC,HOVAL", "weights": "queen"}), &l);
-    exact(cell(&r, "Spatial parameter", 0, "estimate"), 0.54675, "error lambda");
-    exact(cell(&r, "Coefficients", 0, "estimate"), 60.27947, "error intercept");
-    exact(cell(&r, "Coefficients", 1, "estimate"), -0.95731, "error INC");
-    exact(cell(&r, "Coefficients", 2, "estimate"), -0.30456, "error HOVAL");
+    wb(cell(&r, "Spatial parameter", 0, "estimate"), 0.546751, "error lambda");
+    wb(cell(&r, "Coefficients", 0, "estimate"), 60.2791, "error intercept");
+    wb(cell(&r, "Coefficients", 1, "estimate"), -0.9573, "error INC");
+    wb(cell(&r, "Coefficients", 2, "estimate"), -0.30456, "error HOVAL");
+    exact(cell(&s, "Spatial parameter", 0, "estimate"), 0.42333, "lag rho (numpy)");
+    exact(cell(&r, "Spatial parameter", 0, "estimate"), 0.54675, "error lambda (numpy)");
     // Rook weights (200 links) likewise.
     let s = ok(&e, "stat_spatial_lag", json!({"dependent": "CRIME", "predictors": "INC,HOVAL", "weights": "rook"}), &l);
     exact(cell(&s, "Spatial parameter", 0, "estimate"), 0.42281, "lag rho (rook)");
