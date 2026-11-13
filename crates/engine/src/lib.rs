@@ -16,6 +16,8 @@ pub mod arcgis;
 pub mod raster_ops;
 pub mod spatial_stats;
 pub mod kriging;
+pub mod pointcloud;
+pub mod saga;
 pub mod whitebox;
 pub mod transform_report;
 pub mod grids;
@@ -322,6 +324,10 @@ impl Engine {
             task.detail("Copying raster and building overviews…");
             return Ok(vec![self.import_raster(path, None)?]);
         }
+        if pointcloud::is_pointcloud_path(path) {
+            task.detail("Reading the LAS/LAZ header…");
+            return Ok(vec![self.import_pointcloud(path)?]);
+        }
         let pool = self.pool.read();
         let conn = pool.get()?;
         let mut out = Vec::new();
@@ -337,6 +343,33 @@ impl Engine {
             out.push(info);
         }
         Ok(out)
+    }
+
+    /// Summary of a LAS/LAZ file: header, counts, bounds, CRS (never guessed) and, with `scan`, the points per class.
+    pub fn pointcloud_info(&self, path: &Path, scan: bool) -> Result<pointcloud::PointCloudInfo> {
+        pointcloud::inspect(path, scan)
+    }
+
+    /// Add a LAS/LAZ file as a one-polygon footprint layer in the file's own CRS (millions of points are not copied into the project; the
+    /// LiDAR tools read the file itself). The layer's attributes carry the header summary; a missing CRS leaves the layer without one.
+    pub fn import_pointcloud(&self, path: &Path) -> Result<LayerInfo> {
+        let pc = pointcloud::inspect(path, false)?;
+        let tmp = raster::new_store_path("las_footprint", "gpkg");
+        let pool = self.pool.read();
+        let conn = pool.get()?;
+        let built = (|| -> Result<LayerInfo> {
+            pointcloud::footprint_gpkg(&conn, &pc, &tmp)?;
+            let mut src = layers::sources_for_path(&conn, &tmp)?.into_iter().next().ok_or_else(|| anyhow::anyhow!("Could not read the footprint of {}", pc.name))?;
+            src.name = format!("{} (footprint)", path.file_stem().and_then(|s| s.to_str()).unwrap_or("points"));
+            src.warnings = pc.notes.clone();
+            let id = self.alloc_id();
+            let mut info = layers::build_layer(&conn, &id, &src)?;
+            info.source = Some(path.display().to_string());
+            self.save_meta(&conn, &info)?;
+            Ok(info)
+        })();
+        let _ = std::fs::remove_file(&tmp);
+        built
     }
 
     /// Add a raster file as a layer (copied into the raster store).

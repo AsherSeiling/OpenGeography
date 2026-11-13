@@ -63,11 +63,14 @@ pub struct NodeResult {
     pub layer: Option<LayerInfo>,
     pub reprojected: bool,
     pub millis: u64,
+    /// The full result of a statistics tool, when it reports one (see `Tool::reports_stat`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stat: Option<crate::stats::StatResult>,
 }
 
 impl NodeResult {
     fn new(id: &str, status: Status) -> Self {
-        Self { id: id.into(), status, error: None, rows: None, crs: None, output: None, message: None, layer: None, reprojected: false, millis: 0 }
+        Self { id: id.into(), status, error: None, rows: None, crs: None, output: None, message: None, layer: None, reprojected: false, millis: 0, stat: None }
     }
 }
 
@@ -479,6 +482,7 @@ pub fn run(
                 Output::Done(msg) => r.message = Some(msg),
             }
             r.reprojected = ctx.was_reprojected();
+            r.stat = ctx.take_stat();
             let notes = ctx.datum_notes();
             if !notes.is_empty() {
                 let n = notes.join(" ");

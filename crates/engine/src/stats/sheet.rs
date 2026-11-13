@@ -230,7 +230,14 @@ impl Engine {
             nodes.push(json!({ "id": node, "tool": "input_layer", "params": params }));
             edges.push(json!({ "source": node, "target": "card", "targetHandle": port.id }));
         }
-        nodes.push(json!({ "id": "card", "tool": card.tool, "params": card.options }));
+        let mut options = card.options.clone();
+        if tool.reports_stat() {
+            // The cache keeps only a tool's table, so a tool that reports its own StatResult runs fresh on a card: a changing value in the
+            // (ignored) options makes its cache key new.
+            let nonce = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+            options.insert("__run".into(), json!(nonce.to_string()));
+        }
+        nodes.push(json!({ "id": "card", "tool": card.tool, "params": options }));
         let graph: Graph = serde_json::from_value(json!({ "nodes": nodes, "edges": edges }))?;
         let results = self.run_graph(&graph, Some("card"), &mut |_| {})?;
         let r = results.iter().find(|r| r.id == "card").ok_or_else(|| anyhow!("The tool did not run"))?;
@@ -243,6 +250,20 @@ impl Engine {
             if self.layer(id).map(|l| l.version).ok() != Some(*v) {
                 bail!("A layer changed while the card was running, so the result would not match it. Run the card again.");
             }
+        }
+        // A tool that reports its own result (ST2 onward) gives method, n used, dropped rows and notes itself; the layers' versions and sources are
+        // added here, because only the sheet knows which layers fed the card.
+        if let Some(mut own) = r.stat.clone() {
+            own.data_version = versions.clone();
+            self.with_conn(|c| {
+                let entries = sources::list(c)?;
+                for e in entries.iter().filter(|e| e.uses.iter().any(|u| versions.contains_key(&u.layer_id))) {
+                    let ci = &e.citation;
+                    own.citations.push([ci.author.as_str(), ci.year.as_str(), ci.title.as_str(), ci.url.as_str()].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(". "));
+                }
+                Ok(())
+            })?;
+            return Ok(own);
         }
         let table_name = r.output.clone().ok_or_else(|| anyhow!("'{}' produced no table", spec.name))?;
         let mut notes = Vec::new();

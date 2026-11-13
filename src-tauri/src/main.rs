@@ -209,6 +209,7 @@ fn main() {
             commands::fs_inspect,
             commands::fs_stat,
             commands::plan_elevation,
+            commands::pointcloud_info,
             commands::arcgis_catalog,
             commands::earthquakes_import,
             commands::ssurgo_import,

@@ -3,6 +3,9 @@
 pub mod chart;
 pub mod chart_tools;
 pub mod charts;
+pub mod describe;
+pub mod dist;
+pub mod inference;
 pub mod result;
 pub mod sheet;
 pub mod share;

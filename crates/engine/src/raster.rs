@@ -247,17 +247,17 @@ fn strip_top_authority(wkt: &str) -> String {
 /// CRS of a raster as "AUTH:CODE" when it has one, else WKT.
 pub fn crs_of(ds: &Dataset) -> (Option<String>, Option<String>) {
     match ds.spatial_ref() {
-        Ok(sr) => {
-            let name = sr.name();
-            // The authority code only when it really is that CRS: a file can carry "EPSG:26915" on a definition whose parameters were
-            // changed, and the code would then hide the change (bug G6). Otherwise the file's own definition is kept.
-            let id = match (sr.auth_name(), sr.auth_code()) {
-                (Some(a), Ok(c)) if crs_is_its_code(&sr, &format!("{a}:{c}")) => Some(format!("{a}:{c}")),
-                _ => sr.to_wkt().ok(),
-            };
-            (id, name)
-        }
+        Ok(sr) => (crs_string(&sr), sr.name()),
         Err(_) => (None, None),
+    }
+}
+
+/// A CRS as "AUTH:CODE" when it really is that CRS, else its WKT. The authority code only when it is that CRS: a file can carry
+/// "EPSG:26915" on a definition whose parameters were changed, and the code would then hide the change (bug G6).
+pub fn crs_string(sr: &gdal::spatial_ref::SpatialRef) -> Option<String> {
+    match (sr.auth_name(), sr.auth_code()) {
+        (Some(a), Ok(c)) if crs_is_its_code(sr, &format!("{a}:{c}")) => Some(format!("{a}:{c}")),
+        _ => sr.to_wkt().ok(),
     }
 }
 

@@ -1368,3 +1368,42 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | ST7-8 | Export tab: Send to Layout > New layout, edit data, preview | the element is on the new layout; its preview has no statistics warning, then says the card is out of date | auto: `e2e/stats-share.spec.ts` |
 | ST7-9 | Export tab: the table to an existing layout; CSV, SVG, PNG and report buttons; buttons before the card has run | other elements untouched; the four files exist with the stated content; buttons are off until the card has run | auto: same file |
 | UX12-4 | Click the ? on a Buffer card, and open "About this tool" in Properties | a card with the description, a Before and After picture, inputs, settings with their help text, and the Karney citation with its link; a tool without a picture shows the reason | manual (not run in the app by the author; the project has no DOM component runner) |
+
+## T2. SAGA nodes (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T2-1 | MRVBF of a flat 400 m valley floor between 30 % walls (10 m cells); ridge-top result; result CRS | floor 1 or more, wall under 0.01, MRRTF 0 on the floor; CRS kept | auto: `crates/engine/tests/saga_tools.rs` (skips without `saga_cmd`; set `GIS_STUDIO_SAGA`) |
+| T2-2 | SAGA tools that need metres on a raster in degrees | refused with the project-first sentence | auto: same file |
+| T2-3 | TPI landforms on flat ground with one Gaussian hill; inner radius larger than outer | flat = class 5 (plains), summit class 8 to 10; a readable refusal | auto: same file |
+| T2-4 | Solar radiation at 35 N: flat 21 June total, 21 December south-facing vs flat vs north-facing slope, direct + diffuse = total, latitude note, bad day range | 6 to 11 kWh/m2; south > flat > north; sum within 1 %; note names the latitude; refusal | auto: same file |
+| T2-5 | Channel network on a V valley: axis has order 1+, wall cells no data; a threshold nothing reaches; geographic DEM | channel on the axis; "no channels" sentence; works in degrees | auto: same file |
+| T2-6 | All four SAGA tools are in the CRS matrix list and have an icon | | auto: `crs_matrix.rs`, `ui/src/nodes/toolIcon.tsx` |
+| T2-7 | Manual: Cancel during a long SAGA run (large DEM solar radiation) | the program stops, no partial result | manual, not run |
+| T2-8 | Manual: installer on Windows and Linux contains `resources/saga/` and a SAGA tool runs | | manual, not run (builds unverified, see `docs/SAGA_PLAN.md`) |
+
+## T8. Point clouds (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T8-1 | Header of a 3700-point LAS 1.4 with a compound WKT (UTM 14N + NAVD88): count, bounds, class counts, CRS | 3700; bounds equal the points; classes 2: 3600 and 5: 100; EPSG:32614 from "WKT record"; vertical NAVD88; unit metre | auto: `crates/engine/tests/lidar.rs` |
+| T8-2 | LAS 1.2 with GeoTIFF keys (EPSG:26914 + vertical 5703); LAZ vs LAS of the same points | EPSG:26914 from "GeoTIFF keys", NAVD88; same count and bounds, LAZ smaller | auto: same file |
+| T8-3 | A file with no CRS; a file that is not LAS | note "no coordinate system" and a layer with no CRS plus warning; a readable refusal | auto: same file |
+| T8-4 | Importing a LAS/LAZ adds a footprint layer in the file's CRS | one feature, CRS EPSG:32614, source is the file | auto: same file |
+| T8-5 | Bare-earth DEM (TIN and IDW) of a ground plane z = 100 + 0.1 x with 15 m trees over a 10 m block; source file bytes | open and under-tree cells equal the plane within 0.2 m; CRS 32614; NAVD88 label; file unchanged | auto: same file (skips without WhiteboxTools) |
+| T8-6 | DEM of an unclassified LAZ; with the slope filter | refusal naming "Never classified"; plane found within 0.3 m in the open | auto: same file |
+| T8-7 | CRS rules: missing, stated, conflicting; resolution 0 and a huge raster | refusal; stated CRS used; "differ" refusal; refusals in words | auto: same file |
+| T8-8 | DSM, point density, canopy height of the same scene | tree tops 17.5 m above datum; 1 and 2 points per square metre; 15 m and 0 m; no vertical datum on density or height | auto: same file |
+| T8-9 | Classify ground and normalise heights write new LAS; output equal to input refused | ground 3500 to 3600 of 3700; highest normalised 15 m; source unchanged | auto: same file |
+| T8-10 | All six LiDAR tools registered with category, description, keywords | | auto: same file |
+| T8-11 | Manual: a real 3DEP LAZ tile (several million points) through LAS to Bare-earth DEM; Cancel during it | DEM in the tile's UTM zone with NAVD88; cancel stops the program | manual, not run (no network test data) |
+
+## ST2. Statistics › Describe
+| # | Case | Expected | Status |
+|---|---|---|---|
+| ST2-1 | NIST StRD certified mean and standard deviation: Michelson, Mavro, NumAcc1-4, Lottery, Lew | mean 12+ correct digits; standard deviation 12+ digits (NumAcc3 9, NumAcc4 7.5: the limit of the stored doubles); n as certified | auto: `crates/engine/tests/stats_describe.rs` |
+| ST2-2 | Skewness and kurtosis of the Microsoft documentation data; quartiles type 7; mode; standard error and 95 % interval | 0.359543071 and -0.151799637; 3.25, 4, 5; 4; t(9) interval | auto: same file |
+| ST2-3 | Missing, empty, text and group-less rows in a grouped describe | per-group n and missing; every dropped row counted by reason; n used 9 of 10 | auto: same file |
+| ST2-4 | Weighted mean and standard deviation (reliability weights), a negative weight | 2.25 and sqrt(1.9) from the hand calculation; the weight is counted as dropped | auto: same file |
+| ST2-5 | Frequency table (counts, percent of all and of valid rows, cumulative) and cross-tabulation (counts, row percent, totals, rows with a missing field dropped) | counts and percentages by hand | auto: same file |
+| ST2-6 | A sheet card keeps the tool's own StatResult with the data versions, runs fresh each time, and the tools count as statistics tools | n used, data_version, no "does not report" note | auto: same file |
+| ST2-7 | Unknown field and identical row and column fields are refused in words | sentences | auto: same file |
+

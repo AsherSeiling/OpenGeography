@@ -253,12 +253,12 @@ pub fn keywords(id: &str) -> &'static [&'static str] {
     }
 }
 
-fn geo_refusal(name: &str) -> String {
+pub(super) fn geo_refusal(name: &str) -> String {
     format!("{name} measures distances or slopes in the raster's map units, and this raster is in degrees, so the result would be wrong (degrees read as metres). Project the raster to a metre-based coordinate system first (Warp or Project).")
 }
 
 /// The raster inputs of a tool, checked: they all exist, have a CRS, and sit on one grid in one CRS. Returns (path, crs) of the first.
-fn check_rasters<'a>(name: &str, ins: &[(&str, &'a Rel)]) -> Result<(&'a Path, &'a str)> {
+pub(super) fn check_rasters<'a>(name: &str, ins: &[(&str, &'a Rel)]) -> Result<(&'a Path, &'a str)> {
     let mut first: Option<(&Path, &str)> = None;
     for (label, rel) in ins {
         let p = Path::new(need_raster(rel).map_err(|_| anyhow!("{name}: the input '{label}' must be a raster"))?);
@@ -298,7 +298,7 @@ fn count_nodata(path: &Path) -> Option<(u64, u64)> {
 }
 
 /// A note on how many cells of the result have no data (the input's no-data cells and cells the program could not compute).
-fn nodata_note(ctx: &Ctx, name: &str, out: &Path) {
+pub(super) fn nodata_note(ctx: &Ctx, name: &str, out: &Path) {
     if let Some((n, bad)) = count_nodata(out) {
         if bad > 0 {
             ctx.add_note(format!("{name}: {bad} of {n} cells in the result have no data (no-data cells in the input, and cells at the edge or beside no-data that the method cannot compute)."));

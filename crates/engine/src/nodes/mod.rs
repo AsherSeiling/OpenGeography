@@ -26,6 +26,10 @@ mod qgis_raster;
 mod raster_ops_tools;
 mod stats_tools;
 mod hydrology_tools;
+pub mod lidar_tools;
+pub mod saga_tools;
+pub mod stat_describe;
+pub mod stat_support;
 pub mod whitebox_tools;
 pub mod gdal_tools;
 mod centrography;
@@ -107,6 +111,8 @@ pub enum ParamKind {
     /// A colour, "#rrggbb".
     Color,
     SavePath,
+    /// A file to read (a point cloud, for example), chosen with the open dialog.
+    OpenPath,
     /// A filter expression, edited with the query builder (Builder/Python/SQL).
     Query,
 }
@@ -216,11 +222,13 @@ pub struct Ctx<'a> {
     pub layers: &'a HashMap<String, LayerInfo>,
     reprojected: Cell<bool>,
     datum_notes: std::cell::RefCell<Vec<String>>,
+    /// The full result of a statistics tool (`reports_stat`), kept for the executor to hand to the caller.
+    stat: std::cell::RefCell<Option<crate::stats::StatResult>>,
 }
 
 impl<'a> Ctx<'a> {
     pub fn new(conn: &'a Connection, layers: &'a HashMap<String, LayerInfo>) -> Self {
-        Self { conn, layers, reprojected: Cell::new(false), datum_notes: Default::default() }
+        Self { conn, layers, reprojected: Cell::new(false), datum_notes: Default::default(), stat: Default::default() }
     }
 
     pub fn was_reprojected(&self) -> bool {
@@ -230,6 +238,15 @@ impl<'a> Ctx<'a> {
     /// Notes for the tool result (a datum change, features that could not be projected), without repeats.
     pub fn datum_notes(&self) -> Vec<String> {
         self.datum_notes.borrow().clone()
+    }
+
+    /// A statistics tool reports its full result here (method, citations, n used, dropped rows, notes) besides returning its first table.
+    pub fn set_stat(&self, r: crate::stats::StatResult) {
+        *self.stat.borrow_mut() = Some(r);
+    }
+
+    pub fn take_stat(&self) -> Option<crate::stats::StatResult> {
+        self.stat.borrow_mut().take()
     }
 
     pub fn add_note(&self, n: String) {
@@ -434,6 +451,11 @@ pub trait Tool: Sync + Send {
     /// How a raster this tool makes should look until the user styles it (see [`ResultLook`]). The one place that knowledge lives; the UI reads it from the specs.
     fn result_look(&self) -> ResultLook {
         ResultLook::Derived
+    }
+    /// True for a statistics tool that reports its own `StatResult` through `Ctx::set_stat`. A statistics sheet then runs it fresh (never from the
+    /// cache, which holds only its table) and keeps that result.
+    fn reports_stat(&self) -> bool {
+        false
     }
 }
 

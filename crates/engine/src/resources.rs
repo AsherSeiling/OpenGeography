@@ -254,6 +254,15 @@ pub fn whitebox_exe() -> Option<PathBuf> {
     candidates.into_iter().flatten().find(|p| p.is_file())
 }
 
+/// The SAGA GIS command-line program `saga_cmd` (GPL, https://saga-gis.sourceforge.io), shipped unmodified as a separate program in `saga/`
+/// (`scripts/build-saga.sh`); GIS Studio only starts it and exchanges files with it. `GIS_STUDIO_SAGA` points at a copy elsewhere (development, tests).
+/// Its tool libraries are in `tools/` beside it. None when it is not installed.
+pub fn saga_exe() -> Option<PathBuf> {
+    let name = format!("saga_cmd{}", std::env::consts::EXE_SUFFIX);
+    let candidates = [std::env::var_os("GIS_STUDIO_SAGA").map(PathBuf::from), dir().map(|d| d.join("saga").join(&name))];
+    candidates.into_iter().flatten().find(|p| p.is_file())
+}
+
 /// The Python program that runs user scripts (CPython 3.13 from python-build-standalone, `scripts/stage-resources.sh`), in its own process.
 /// Installed app: only `python/` in the resource folder. A build with the `dev-python` feature (the dev server and this crate's tests, never the
 /// shipped app) also honours `GIS_STUDIO_PYTHON`, and falls back to `python3` on the PATH. None when no interpreter is available.

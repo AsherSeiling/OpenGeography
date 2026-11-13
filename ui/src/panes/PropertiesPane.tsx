@@ -19,7 +19,7 @@ import {
   Textarea,
 } from "@fluentui/react-components";
 import { EyeRegular, FolderOpenRegular, GlobeRegular, Play16Regular } from "@fluentui/react-icons";
-import { save } from "../ipc/dialogs";
+import { open, save } from "../ipc/dialogs";
 import { useEffect, useState } from "react";
 import { previewAtNode } from "../nodes/nodePreview";
 import { ToolHelpBody } from "../nodes/ToolHelp";
@@ -647,6 +647,23 @@ function ParamField({ nodeId, param: p, value }: { nodeId: string; param: ToolPa
               onClick={async () => {
                 const path = await save({ title: p.label });
                 if (path) set(path);
+              }}
+            />
+          </div>
+        </Field>
+      );
+    case "openPath":
+      return (
+        <Field label={label} hint={p.help || undefined}>
+          <div className="crs-param">
+            <Input value={String(value ?? "")} onChange={(_, d) => set(d.value)} style={{ flex: 1 }} />
+            <Button
+              size="small"
+              icon={<FolderOpenRegular />}
+              aria-label="Choose a file"
+              onClick={async () => {
+                const path = await open({ title: p.label, multiple: false, filters: [{ name: "Point clouds", extensions: ["las", "laz"] }] });
+                if (typeof path === "string" && path) set(path);
               }}
             />
           </div>

@@ -1,7 +1,7 @@
 // Compact, Blender-style parameter controls drawn inside Model nodes.
 // Native inputs keep nodes light; "nodrag" stops React Flow from treating
 // clicks in them as node drags.
-import { save } from "../ipc/dialogs";
+import { open, save } from "../ipc/dialogs";
 import { ColorField } from "../theme/ColorField";
 import { useShallow } from "zustand/react/shallow";
 import { useDialog } from "../actions";
@@ -121,6 +121,22 @@ export function ParamControl({ nodeId, param: p, value }: { nodeId: string; para
               e.preventDefault();
               const path = await save({ title: p.label });
               if (path) set(path);
+            }}
+          >
+            …
+          </button>
+        </div>,
+      );
+    case "openPath":
+      return row(
+        <div className="bpath">
+          <input className="bctl" value={str} placeholder="Choose a file…" onChange={(e) => set(e.target.value)} />
+          <button
+            className="bctl bbtn"
+            onClick={async (e) => {
+              e.preventDefault();
+              const path = await open({ title: p.label, multiple: false, filters: [{ name: "Point clouds", extensions: ["las", "laz"] }] });
+              if (typeof path === "string" && path) set(path);
             }}
           >
             …

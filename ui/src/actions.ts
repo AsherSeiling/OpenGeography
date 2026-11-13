@@ -95,7 +95,7 @@ async function busy<T>(label: string, f: () => Promise<T>): Promise<T | undefine
 // ---------- data ----------
 
 const DATA_FILTERS = [
-  { name: "GIS data", extensions: ["shp", "gpkg", "geojson", "json", "kml", "kmz", "fgb", "gml", "gpx", "csv", "tsv", "txt", "parquet", "xlsx", "ods", "dbf", "ndjson", "jsonl", "zip", "tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2"] },
+  { name: "GIS data", extensions: ["shp", "gpkg", "geojson", "json", "kml", "kmz", "fgb", "gml", "gpx", "csv", "tsv", "txt", "parquet", "xlsx", "ods", "dbf", "ndjson", "jsonl", "zip", "tif", "tiff", "img", "asc", "vrt", "dem", "hgt", "jp2", "las", "laz"] },
   { name: "All files", extensions: ["*"] },
 ];
 
