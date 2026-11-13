@@ -155,8 +155,6 @@ import {
   CubeMultipleRegular,
   CubeRegular,
   CubeTreeRegular,
-  DataHistogramRegular,
-  DataWhiskerRegular,
   DocumentTableRegular,
   PlantGrassRegular,
   ScanObjectRegular,
