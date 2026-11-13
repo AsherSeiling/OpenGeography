@@ -1407,3 +1407,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | ST2-6 | A sheet card keeps the tool's own StatResult with the data versions, runs fresh each time, and the tools count as statistics tools | n used, data_version, no "does not report" note | auto: same file |
 | ST2-7 | Unknown field and identical row and column fields are refused in words | sentences | auto: same file |
 
+
+## ST4. Statistics › Tests
+| # | Case | Expected | How |
+|---|---|---|---|
+| ST4-1 | t-tests on R's sleep data: Welch, pooled, paired; one-sided interval half-infinite | t -1.8608, df 17.776, p 0.07939, CI -3.3654832..0.2054832; pooled df 18; paired t -4.0621, p 0.002833 | auto: `crates/engine/tests/stats_tests.rs` |
+| ST4-2 | PlantGrowth: ANOVA, eta-squared, Tukey HSD (own studentized range), Welch ANOVA, Levene, Kruskal-Wallis | F 4.846, p 0.01591; Tukey p adj 0.3908711, 0.1979960, 0.0120064; Welch F 5.181; Levene p 0.3412; H 7.9882 | auto: same file |
+| ST4-3 | Mann-Whitney (ties and exact), Wilcoxon signed-rank (exact), p adjustment (Holm, BH) | W 25.5 p 0.06933; W 35 p 0.1272; V 40 p 0.01953; p.adjust values | auto: same file, `stats/multiple.rs` |
+| ST4-4 | Shapiro-Wilk on mtcars mpg and n = 3 | W 0.94756, p 0.1229; W 0.9642857 | auto: same file |
+| ST4-5 | Pearson, Spearman, Kendall (tie-corrected and exact) on mtcars | r -0.8676594 with CI; rho -0.886422; tau -0.7278321, z -5.7981, p 6.706e-09 | auto: same file |
+| ST4-6 | Chi-square independence and goodness of fit, equal proportions, exact binomial and Clopper-Pearson, Wilson | X2 30.07 p 2.954e-07; 9.9901; 12.6; binom p 0.3825 CI 0.7076683..0.7654066 | auto: same file |
+| ST4-7 | The eight tools end to end: rows dropped are counted by reason, n used, citations, Shapiro notes, three-level group refused for a two-group test, Holm across pairs | as asserted | auto: `crates/engine/tests/stats_tools.rs` |
+| ST4-8 | A spatial layer gets the spatial-independence note on every test | note present | manual: run any test on a polygon layer |

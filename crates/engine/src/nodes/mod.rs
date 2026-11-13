@@ -30,6 +30,7 @@ pub mod lidar_tools;
 pub mod saga_tools;
 pub mod stat_describe;
 pub mod stat_support;
+pub mod stat_tests;
 pub mod whitebox_tools;
 pub mod gdal_tools;
 mod centrography;

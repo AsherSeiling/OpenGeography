@@ -692,3 +692,11 @@ Project templates set only the first map's coordinate system (blank, WGS 84, Web
 - Definitions fixed and stated in each result: sample SD and variance (n - 1), quantiles R type 7, skewness G1 and excess kurtosis G2, reliability weights.
 - NIST NumAcc3 and NumAcc4 cannot be matched beyond about 9 and 8 digits for the standard deviation with double-precision data; the tests say so.
 
+
+## Statistics tests (ST4, 2026-11-13)
+- Welch is the default two-sample t-test; pooled is an option with a Levene warning. Effect sizes sit beside every p: Hedges' g (Hedges-Olkin SE), eta-squared with a non-central F interval (Steiger 2004), omega-squared, Cramer's V and Cohen's w with a non-central chi-square interval, Cohen's h, rank-biserial (Hanley-McNeil interval) and epsilon-squared (no interval: none exists in closed form; the result says so).
+- The studentized range, non-central chi-square and F, and the exact Mann-Whitney, signed-rank and Kendall distributions are our own code (`stats/dist.rs`: Gauss-Legendre integrals and counting recursions) because statrs has none; Tukey p-values match R to 1e-4. Shapiro-Wilk is Royston's AS R94 written from the published constants.
+- Chi-square uses the plain Pearson statistic; Yates' correction is a checkbox (R applies it to 2 x 2 by default). Fisher's exact test is not offered; the result tells the user to combine sparse categories.
+- Spearman p uses the t approximation (R uses an exact algorithm for small n without ties); stated in the result.
+- Holm / Benjamini-Hochberg adjustment lives in the Correlation tool (across its pairs); Tukey adjusts its own family. An adjustment across unrelated sheet cards is not done: cards are independent analyses (one line, easy to add later).
+- Every test result adds the spatial-independence note when the input has geometry.

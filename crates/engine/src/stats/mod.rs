@@ -6,6 +6,7 @@ pub mod charts;
 pub mod describe;
 pub mod dist;
 pub mod inference;
+pub mod multiple;
 pub mod result;
 pub mod sheet;
 pub mod share;
