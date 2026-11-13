@@ -224,7 +224,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | [zustand](https://www.npmjs.com/package/zustand) | 4.5.7 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 5.0.15 | MIT |
 
-## Rust crates compiled into the app (661)
+## Rust crates compiled into the app (672)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
@@ -306,6 +306,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | cfg-expr | 0.15.8 | MIT OR Apache-2.0 | https://github.com/EmbarkStudios/cfg-expr |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 | https://github.com/rust-lang/cfg-if |
 | cfg_aliases | 0.2.2 | MIT | https://github.com/katharostech/cfg_aliases |
+| chacha20 | 0.10.2 | MIT OR Apache-2.0 | https://github.com/RustCrypto/stream-ciphers |
 | chrono | 0.4.45 | MIT OR Apache-2.0 | https://github.com/chronotope/chrono |
 | chunked_transfer | 1.5.0 | MIT OR Apache-2.0 | https://github.com/frewsxcv/rust-chunked-transfer |
 | cipher | 0.4.4 | MIT OR Apache-2.0 | https://github.com/RustCrypto/traits |
@@ -323,6 +324,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | core-graphics-types | 0.2.0 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core_maths | 0.1.1 | MIT | https://github.com/robertbastian/core_maths |
 | cpufeatures | 0.2.17 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
+| cpufeatures | 0.3.1 | MIT OR Apache-2.0 | https://github.com/RustCrypto/utils |
 | crc32fast | 1.5.3 | MIT OR Apache-2.0 | https://github.com/srijs/rust-crc32fast |
 | crossbeam-channel | 0.5.17 | MIT OR Apache-2.0 | https://github.com/crossbeam-rs/crossbeam |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 | https://github.com/crossbeam-rs/crossbeam |
@@ -422,6 +424,10 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | gif | 0.14.2 | MIT OR Apache-2.0 | https://github.com/image-rs/image-gif |
 | gio | 0.18.4 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | gio-sys | 0.18.1 | MIT | https://github.com/gtk-rs/gtk-rs-core |
+| glam | 0.30.10 | MIT OR Apache-2.0 | https://github.com/bitshifter/glam-rs |
+| glam | 0.31.1 | MIT OR Apache-2.0 | https://github.com/bitshifter/glam-rs |
+| glam | 0.32.1 | MIT OR Apache-2.0 | https://github.com/bitshifter/glam-rs |
+| glam | 0.33.12 | MIT OR Apache-2.0 | https://github.com/bitshifter/glam-rs |
 | glib | 0.18.5 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | glib-macros | 0.18.5 | MIT | https://github.com/gtk-rs/gtk-rs-core |
 | glib-sys | 0.18.1 | MIT | https://github.com/gtk-rs/gtk-rs-core |
@@ -526,6 +532,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | mio | 1.2.4 | MIT | https://github.com/tokio-rs/mio |
 | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/moxcms.git |
 | muda | 0.20.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/muda |
+| nalgebra | 0.35.0 | Apache-2.0 | https://github.com/dimforge/nalgebra |
 | ndarray | 0.17.2 | MIT OR Apache-2.0 | https://github.com/rust-ndarray/ndarray |
 | ndk | 0.9.0 | MIT OR Apache-2.0 | https://github.com/rust-mobile/ndk |
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rust-windowing/android-ndk-rs |
@@ -639,6 +646,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | rustversion | 1.0.23 | MIT OR Apache-2.0 | https://github.com/dtolnay/rustversion |
 | rustybuzz | 0.20.1 | MIT | https://github.com/harfbuzz/rustybuzz |
 | ryu | 1.0.23 | Apache-2.0 OR BSL-1.0 | https://github.com/dtolnay/ryu |
+| safe_arch | 1.2.0 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/safe_arch |
 | same-file | 1.0.6 | Unlicense/MIT | https://github.com/BurntSushi/same-file |
 | schemars | 0.8.22 | MIT | https://github.com/GREsau/schemars |
 | schemars | 0.9.0 | MIT | https://github.com/GREsau/schemars |
@@ -669,6 +677,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | shlex | 2.0.1 | MIT OR Apache-2.0 | https://github.com/comex/rust-shlex |
 | signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 | https://github.com/vorner/signal-hook |
+| simba | 0.10.2 | Apache-2.0 | https://github.com/dimforge/simba |
 | simd-adler32 | 0.3.10 | MIT | https://github.com/mcountryman/simd-adler32 |
 | simplecss | 0.2.2 | Apache-2.0 OR MIT | https://github.com/linebender/simplecss |
 | siphasher | 1.0.4 | MIT OR Apache-2.0 | https://github.com/jedisct1/rust-siphash |
@@ -685,6 +694,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | stable_deref_trait | 1.2.1 | MIT OR Apache-2.0 | https://github.com/storyyeller/stable_deref_trait |
 | static_assertions | 1.1.0 | MIT OR Apache-2.0 | https://github.com/nvzqz/static-assertions-rs |
 | static_vcruntime | 3.0.0 | MIT OR Apache-2.0 OR Zlib | https://github.com/ChrisDenton/static_vcruntime |
+| statrs | 0.19.1 | MIT | https://github.com/statrs-dev/statrs |
 | strict-num | 0.1.1 | MIT | https://github.com/RazrFalcon/strict-num |
 | string_cache | 0.9.0 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
 | string_cache_codegen | 0.6.1 | MIT OR Apache-2.0 | https://github.com/servo/string-cache |
@@ -803,6 +813,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | webview2-com-macros | 0.8.1 | MIT | https://github.com/wravery/webview2-rs |
 | webview2-com-sys | 0.39.1 | MIT | https://github.com/wravery/webview2-rs |
 | weezl | 0.1.12 | MIT OR Apache-2.0 | https://github.com/image-rs/weezl |
+| wide | 1.7.1 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/wide |
 | winapi | 0.3.9 | MIT/Apache-2.0 | https://github.com/retep998/winapi-rs |
 | winapi-i686-pc-windows-gnu | 0.4.0 | MIT/Apache-2.0 | https://github.com/retep998/winapi-rs |
 | winapi-util | 0.1.11 | Unlicense OR MIT | https://github.com/BurntSushi/winapi-util |

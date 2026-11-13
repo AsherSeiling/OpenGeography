@@ -753,6 +753,8 @@ export interface NodeResult {
   layer: LayerInfo | null;
   reprojected: boolean;
   millis: number;
+  /** The full result of a statistics tool, when it reports one (a sheet card uses runStatCard instead). */
+  stat?: StatResult;
 }
 
 export interface RowsQuery {

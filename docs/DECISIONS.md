@@ -684,3 +684,9 @@ Project templates set only the first map's coordinate system (blank, WGS 84, Web
 - WhiteboxTools reads LAS only here: a LAZ is unpacked into a work folder with the `las` crate first. Ground: the file's class 2, or the slope-based filter on request; a file with no class 2 is refused with the classes it does have. Ground classification and height normalisation write a new `.las` file (output must differ from the input) and are Output-role nodes.
 - Limits: a raster over 400 million cells is refused with advice to use a coarser cell size.
 
+## Statistics tools report their own result (ST2, 2026-11-12)
+- A statistics tool says `reports_stat()` and gives its full `StatResult` through `Ctx::set_stat`; the executor hands it back as `NodeResult.stat`, and its first table is the node's output table, so one `ToolSpec` works in a node tree and on a sheet card. A card runs such a tool fresh (a throwaway `__run` option changes the cache key), because the cache holds only the table; the sheet adds the layers' data versions and sources. Tools without it keep the old adapter and its "does not report n used" note.
+- Values are loaded into memory in one pass (limit 20 million rows, refused in words above). Missing means NULL or empty text; text that is not a number and non-finite numbers are counted separately; every dropped value is listed by field and reason.
+- Definitions fixed and stated in each result: sample SD and variance (n - 1), quantiles R type 7, skewness G1 and excess kurtosis G2, reliability weights.
+- NIST NumAcc3 and NumAcc4 cannot be matched beyond about 9 and 8 digits for the standard deviation with double-precision data; the tests say so.
+

@@ -1376,3 +1376,14 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T8-10 | All six LiDAR tools registered with category, description, keywords | | auto: same file |
 | T8-11 | Manual: a real 3DEP LAZ tile (several million points) through LAS to Bare-earth DEM; Cancel during it | DEM in the tile's UTM zone with NAVD88; cancel stops the program | manual, not run (no network test data) |
 
+## ST2. Statistics › Describe
+| # | Case | Expected | Status |
+|---|---|---|---|
+| ST2-1 | NIST StRD certified mean and standard deviation: Michelson, Mavro, NumAcc1-4, Lottery, Lew | mean 12+ correct digits; standard deviation 12+ digits (NumAcc3 9, NumAcc4 7.5: the limit of the stored doubles); n as certified | auto: `crates/engine/tests/stats_describe.rs` |
+| ST2-2 | Skewness and kurtosis of the Microsoft documentation data; quartiles type 7; mode; standard error and 95 % interval | 0.359543071 and -0.151799637; 3.25, 4, 5; 4; t(9) interval | auto: same file |
+| ST2-3 | Missing, empty, text and group-less rows in a grouped describe | per-group n and missing; every dropped row counted by reason; n used 9 of 10 | auto: same file |
+| ST2-4 | Weighted mean and standard deviation (reliability weights), a negative weight | 2.25 and sqrt(1.9) from the hand calculation; the weight is counted as dropped | auto: same file |
+| ST2-5 | Frequency table (counts, percent of all and of valid rows, cumulative) and cross-tabulation (counts, row percent, totals, rows with a missing field dropped) | counts and percentages by hand | auto: same file |
+| ST2-6 | A sheet card keeps the tool's own StatResult with the data versions, runs fresh each time, and the tools count as statistics tools | n used, data_version, no "does not report" note | auto: same file |
+| ST2-7 | Unknown field and identical row and column fields are refused in words | sentences | auto: same file |
+
