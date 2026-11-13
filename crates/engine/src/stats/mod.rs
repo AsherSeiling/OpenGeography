@@ -1,6 +1,8 @@
 //! The statistics workspace (docs/STATISTICS_WORKSPACE_PLAN.md): the result format, saved sheets of cards, and running a card.
 
 pub mod describe;
+pub mod dist;
+pub mod inference;
 pub mod result;
 pub mod sheet;
 
