@@ -112,10 +112,21 @@ fn all_marks(spec: &ChartSpec) -> impl Iterator<Item = &Mark> {
 }
 
 pub fn render_svg(spec: &ChartSpec, w: f64, h: f64, style: &ChartStyle) -> String {
+    render_into(spec, w, h, style, "")
+}
+
+/// The same drawing as a nested `<svg>` at (`x`, `y`) scaled to `out_w` x `out_h` (a layout page's millimetres). The chart is drawn in a `w` x `h`
+/// pixel space, so the page shows exactly what the sheet shows.
+pub fn render_nested(spec: &ChartSpec, w: f64, h: f64, style: &ChartStyle, at: (f64, f64, f64, f64)) -> String {
+    render_into(spec, w, h, style, &format!(r#" x="{}" y="{}" width="{}" height="{}" preserveAspectRatio="xMidYMid meet""#, at.0, at.1, at.2, at.3))
+}
+
+fn render_into(spec: &ChartSpec, w: f64, h: f64, style: &ChartStyle, placed: &str) -> String {
     let mut o = String::new();
+    let size = if placed.is_empty() { format!(r#" width="{w}" height="{h}""#) } else { placed.to_string() };
     let _ = write!(
         o,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" class="stat-chart" data-kind="{kind}" viewBox="0 0 {w} {h}" width="{w}" height="{h}" font-family="{font}" font-size="11" fill="{ink}" color="{ink}">"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" class="stat-chart" data-kind="{kind}" viewBox="0 0 {w} {h}"{size} font-family="{font}" font-size="11" fill="{ink}" color="{ink}">"#,
         kind = kind_name(spec.kind),
         font = esc(&style.font),
         ink = esc(&style.ink),
@@ -134,6 +145,10 @@ pub fn render_svg(spec: &ChartSpec, w: f64, h: f64, style: &ChartStyle) -> Strin
         let _ = write!(o, r#"<text class="note" x="8" y="{}" font-size="9" opacity="0.75">{}</text>"#, h - 6.0 - (spec.notes.len().min(3) - 1 - i) as f64 * 11.0, esc(&shorten(n, ((w - 16.0) / 4.8) as usize)));
     }
     o.push_str("</svg>");
+    // A fixed ink is written into every stroke, so a file opened in a drawing program or a PDF tool needs no CSS colour inheritance.
+    if style.ink != "currentColor" {
+        o = o.replace("currentColor", &esc(&style.ink));
+    }
     o
 }
 

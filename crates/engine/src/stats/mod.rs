@@ -5,6 +5,7 @@ pub mod chart_tools;
 pub mod charts;
 pub mod result;
 pub mod sheet;
+pub mod share;
 
 pub use result::{ChartKind, ChartSpec, ColumnKind, Dropped, StatColumn, StatResult, StatTable};
 pub use sheet::{CardInput, DataProfile, FieldProfile, StatCard, StatSheet, CATEGORY_PREFIX};
