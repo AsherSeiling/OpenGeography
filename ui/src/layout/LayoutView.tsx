@@ -10,6 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, errorText } from "../ipc/api";
 import { beginStep, useLayouts } from "../store/layout";
 import { useApp } from "../store/store";
+import { flushStatSaves, useStats } from "../stats/store";
 import { layoutRequest } from "./actions";
 import { dragged, withFeatureEdit, withoutDropped } from "./labelEdits";
 import { sameLabel, useLabelHits } from "./labelHits";
@@ -295,6 +296,8 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout.series, layout.id, indexVersion]);
   const dpi = Math.min(144, Math.max(96, Math.ceil((z * 25.4 * (window.devicePixelRatio || 1)) / 24) * 24));
+  // Statistics cards on the page (ST7): the page is drawn again when a sheet changes (a card run again), after the sheet is saved to the engine.
+  const statSheets = useStats((s) => (layout.elements.some((e) => e.kind === "stat_card") ? s.docs : null));
   const seq = useRef(0);
   useEffect(() => {
     const mine = ++seq.current;
@@ -302,6 +305,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
       setRendering(true);
       const t0 = performance.now();
       try {
+        if (statSheets) await flushStatSaves(); // the engine draws a statistics card from the saved sheet
         const res = await api.renderLayoutPreview(layoutRequest(layout), dpi);
         if (mine !== seq.current) return;
         setPreview({ src: `data:image/png;base64,${res.png}`, warnings: res.warnings, bytes: res.pngBytes, ms: Math.round(performance.now() - t0), dpi: res.dpi ?? dpi, labels: res.labels ?? [] });
@@ -321,7 +325,7 @@ function Canvas({ layout, selected }: { layout: Layout; selected: string[] }) {
     }, 150);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, styles, order, visible, maps, results, showOriginal, layers, dpi, seriesPage]);
+  }, [layout, styles, order, visible, maps, results, showOriginal, layers, dpi, seriesPage, statSheets]);
 
   // Selecting one element shows it in Properties; with nothing selected Properties shows the page.
   useEffect(() => {

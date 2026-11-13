@@ -6,6 +6,7 @@ import { useRun } from "../store/model";
 import { useApp } from "../store/store";
 import { runStatCard } from "./actions";
 import { cardState, staleSentence } from "./staleness";
+import { ChartView } from "./ChartView";
 import { cardKey, useStats } from "./store";
 import type { StatCard, StatResult, StatTable } from "./types";
 
@@ -79,7 +80,7 @@ function CardView({ sheetId, card }: { sheetId: string; card: StatCard }) {
         </div>
         {stale && <div className="stat-banner" role="status">{staleSentence(state, name)}</div>}
         {error && <div className="stat-banner error" role="alert">{error}</div>}
-        {card.result ? <ResultView result={card.result} /> : !error && <div className="stat-meta">{running ? "Running…" : "Not run yet. Run it to see the numbers."}</div>}
+        {card.result ? <ResultView result={card.result} card={card} /> : !error && <div className="stat-meta">{running ? "Running…" : "Not run yet. Run it to see the numbers."}</div>}
       </div>
     </div>
   );
@@ -93,7 +94,7 @@ function countsLine(r: StatResult): string[] {
   return out;
 }
 
-function ResultView({ result }: { result: StatResult }) {
+function ResultView({ result, card }: { result: StatResult; card: StatCard }) {
   return (
     <>
       <div className="stat-method">{result.method}</div>
@@ -102,10 +103,12 @@ function ResultView({ result }: { result: StatResult }) {
           <span key={t}>{t}</span>
         ))}
       </div>
+      {result.charts.map((c, i) => (
+        <ChartView key={i} card={card} spec={c} />
+      ))}
       {result.tables.map((t, i) => (
         <TableView key={i} table={t} />
       ))}
-      {result.charts.length > 0 && <div className="stat-meta">{result.charts.length} chart{result.charts.length === 1 ? "" : "s"} in this result: {result.charts.map((c) => c.title || c.kind).join(", ")}. Charts are drawn by a later step of the statistics workspace.</div>}
       {result.notes.length > 0 && (
         <ul className="stat-notes">
           {result.notes.map((n, i) => (

@@ -44,6 +44,7 @@ import { addChart, addGuide, addShape, addTable, addText, clearGuides, useLayout
 import { toggleLockSelected } from "../layout/clipboard";
 import { useLayoutView } from "../layout/view";
 import { deleteStatsSheet, newStatsSheet, renameStatsSheet, runAllStatCards, runStatCard } from "../stats/actions";
+import { exportCardChart, exportCardTable, exportSheetReport } from "../stats/share";
 import { useStats } from "../stats/store";
 import { defaultLayout, isPaneOpen, showPane, togglePane, type PaneId } from "../panes/panes";
 import { useApp, type MapTool } from "../store/store";
@@ -160,6 +161,11 @@ const list: Command[] = [
   { id: "statRemoveCard", label: "Remove Card", icon: <RIcon name="remove" />, enabled: () => !!pickedCard(), run: () => { const s = openSheet(), c = pickedCard(); if (s && c) useStats.getState().removeCard(s.id, c.id); }, tip: "Take the selected card off the sheet" },
   { id: "statCardUp", label: "Move Up", icon: <RIcon name="order" />, enabled: () => { const s = openSheet(), c = pickedCard(); return !!s && !!c && s.cards[0]?.id !== c.id; }, run: () => { const s = openSheet(), c = pickedCard(); if (s && c) useStats.getState().moveCard(s.id, c.id, -1); }, tip: "Move the selected card one place up the sheet" },
   { id: "statCardDown", label: "Move Down", icon: <RIcon name="order" />, enabled: () => { const s = openSheet(), c = pickedCard(); return !!s && !!c && s.cards[s.cards.length - 1]?.id !== c.id; }, run: () => { const s = openSheet(), c = pickedCard(); if (s && c) useStats.getState().moveCard(s.id, c.id, 1); }, tip: "Move the selected card one place down the sheet" },
+
+  { id: "statExportCsv", label: "Table as CSV", icon: <RIcon name="export-table" />, enabled: () => !!pickedCard()?.result?.tables.length, run: () => void exportCardTable(), tip: "Save the selected card's table as a CSV file: full precision, units in the column headings, empty cells for missing values" },
+  { id: "statExportSvg", label: "Chart as SVG", icon: <RIcon name="svg" />, enabled: () => !!pickedCard()?.result?.charts.length, run: () => void exportCardChart("svg"), tip: "Save the selected card's chart as an SVG drawing (dark ink on white, editable in a drawing program)" },
+  { id: "statExportPng", label: "Chart as PNG", icon: <RIcon name="export" />, enabled: () => !!pickedCard()?.result?.charts.length, run: () => void exportCardChart("png"), tip: "Save the selected card's chart as a PNG picture at twice its screen size" },
+  { id: "statExportReport", label: "Sheet Report", icon: <RIcon name="layout-sources" />, enabled: () => (openSheet()?.cards.length ?? 0) > 0, run: () => void exportSheetReport(), tip: "Save the whole sheet as one report page: every card's method, rows used and left out, tables, charts, notes, and the references and data sources. Print it to PDF from a browser" },
 
   // Insert tab (later milestones)
   { id: "newLayout", label: "New Layout", icon: <RIcon name="new-layout" />, run: () => newLayout(), tip: "Create a print layout (Letter landscape); more page sizes are in the Insert tab's gallery" },

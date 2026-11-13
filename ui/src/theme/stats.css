@@ -40,4 +40,12 @@
 .stat-fields .miss { color: var(--warn); }
 
 .stat-props-field { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--s-4); }
+/* Charts on a card: the engine's SVG inline; linked selection toggles classes, nothing redraws. */
+.stat-chart-wrap { max-width: 720px; }
+.stat-chart-host svg { width: 100%; height: auto; color: var(--text); display: block; }
+.stat-chart-host .mark { cursor: pointer; }
+.stat-chart-host svg.has-sel .mark:not(.sel):not(.part) { opacity: 0.35; }
+.stat-chart-host .mark.sel, .stat-chart-host .mark.part { stroke: var(--accent); stroke-width: 2.2; }
+.stat-chart-host g.mark.sel > rect, .stat-chart-host g.mark.part > rect { stroke: var(--accent); stroke-width: 2.4; }
+.stat-chart-host .mark.part { stroke-dasharray: 3 2; }
 .stat-ribbon-note { max-width: 240px; font: var(--type-small); color: var(--text-2); padding: var(--s-3) var(--s-4); line-height: 1.4; }

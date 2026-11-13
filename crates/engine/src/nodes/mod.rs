@@ -640,6 +640,7 @@ pub fn registry() -> Vec<Box<dyn Tool>> {
         Box::new(export::Export),
     ];
     tools.extend(lane_b::tools());
+    tools.extend(crate::stats::chart_tools::tools()); // Statistics › Charts (ST3): the chart cards of a statistics sheet, also usable as nodes
     tools
 }
 

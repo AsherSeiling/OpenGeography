@@ -21,13 +21,16 @@ export interface StatTable {
   rows: (number | string | boolean | null)[][];
 }
 
-export type ChartKind = "histogram" | "box" | "scatter" | "qq" | "bar" | "line" | "heatmap";
+export type ChartKind = "histogram" | "box" | "scatter" | "qq" | "bar" | "line" | "heatmap" | "scatter_matrix";
+export type SeriesStyle = "marks" | "line" | "line_and_marks";
 
 export interface Axis {
   label: string;
   unit?: string;
   min?: number;
   max?: number;
+  /** Names for the whole numbers 0, 1, 2 … along this axis. */
+  categories?: string[];
 }
 
 export interface Mark {
@@ -40,6 +43,11 @@ export interface Mark {
   fids?: number[];
   /** A density bin key, when the mark stands for too many features to list. */
   bin?: string;
+  /** Box plot: median and whisker ends (the box is y..y2). Heat map and density cell: the value or count. */
+  median?: number;
+  lo?: number;
+  hi?: number;
+  value?: number;
 }
 
 export interface ChartSpec {
@@ -47,7 +55,7 @@ export interface ChartSpec {
   title: string;
   x: Axis;
   y: Axis;
-  series: { name: string; marks: Mark[] }[];
+  series: { name: string; style?: SeriesStyle; marks: Mark[] }[];
   notes: string[];
 }
 

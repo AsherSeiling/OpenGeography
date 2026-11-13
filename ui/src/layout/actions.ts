@@ -11,6 +11,7 @@ import { useExportDpi } from "./exportDpi";
 import { useSeriesView } from "./series";
 import { useLayoutView } from "./view";
 import { useStats } from "../stats/store";
+import { flushStatSaves } from "../stats/store";
 import { addMapFrame, addPicture, addSurround, printBasemap, flushLayoutSaves, newLayoutId, useLayouts } from "../store/layout";
 import { effectiveStyle, useApp, type LayerStyle } from "../store/store";
 import { recolour } from "./themes";
@@ -386,6 +387,7 @@ export async function exportLayout(format: keyof typeof FORMATS, dpi = useExport
   }
   if (!path) return;
   await flushLayoutSaves();
+  await flushStatSaves(); // a statistics card on the page is drawn from the saved sheet
   status(`Exporting ${name}…`);
   try {
     const warnings = await api.exportLayout(layoutRequest(doc), format, dpi, path);

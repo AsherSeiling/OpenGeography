@@ -7,7 +7,7 @@ import { api, errorText } from "../ipc/api";
 import { moveInList } from "../layout/items";
 import { alignPatches, reorder, type AlignOp, type OrderOp } from "../layout/arrange";
 import { distributePatches, sizePatches, withGroupMates, type DistributeAxis } from "../layout/arrange";
-import { cleanPatch, nextId, normalizeLayout, type Guide, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
+import { cleanPatch, nextId, normalizeLayout, type Guide, type Layout, type LayoutElement, type MapFrame, type Page, type PictureElement, type SeriesSpec, type ShapeElement, type StatCardElement, type TableElement, type ChartElement, type SurroundElement, type TextElement } from "../layout/types";
 import { adoptStyles, setStylesPersister } from "../layout/namedStyles";
 import { reportError } from "../errors/store";
 import { useApp, type Basemap } from "./store";
@@ -463,6 +463,40 @@ export function addChart(layer = ""): string | null {
   const p = s.doc.page;
   const el: ChartElement = { kind: "chart", id: nextId(s.doc, "ch"), x: p.margin, y: p.height / 2, w: 80, h: 50, rotation: 0, locked: false, visible: true, layer, chartType: "bar", category: "", topN: 8 };
   s.addElement(el);
+  return el.id;
+}
+
+/**
+ * Put a statistics card's chart or table on a layout (ST7), the open one or a saved one. The element only points at the card (sheet id, card id,
+ * which part): the page always shows the card's last result, and the layout's other elements are untouched. Returns the element's id.
+ */
+export function addStatCardToLayout(layoutId: string, ref: { sheet: string; card: string; part: "chart" | "table"; index?: number }): string | null {
+  const s = useLayouts.getState();
+  const doc = s.id === layoutId ? s.doc : (s.docs[layoutId] ?? null);
+  if (!doc) return null;
+  const p = doc.page;
+  const chart = ref.part === "chart";
+  const el: StatCardElement = {
+    kind: "stat_card",
+    id: nextId(doc, "st"),
+    x: p.margin,
+    y: p.height / 2,
+    w: Math.min(120, Math.max(40, p.width - 2 * p.margin)),
+    h: chart ? 70 : 50,
+    rotation: 0,
+    locked: false,
+    visible: true,
+    sheet: ref.sheet,
+    card: ref.card,
+    ...(chart ? {} : { part: "table" as const }),
+    ...(ref.index ? { index: ref.index } : {}),
+  };
+  if (s.id === layoutId) {
+    s.addElement(el);
+  } else {
+    useLayouts.setState({ docs: { ...s.docs, [layoutId]: { ...doc, elements: [...doc.elements, el] } } });
+    scheduleSave(layoutId);
+  }
   return el.id;
 }
 

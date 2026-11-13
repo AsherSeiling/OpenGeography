@@ -6,7 +6,7 @@ import type { Layout, LayoutElement } from "./types";
 let held: LayoutElement[] = [];
 export const clipboardCount = () => held.length;
 
-const PREFIX: Record<string, string> = { map_frame: "f", text: "t", legend: "lg", scale_bar: "sb", north_arrow: "na", declination: "dc", sources: "src", shape: "s", picture: "p", table: "tb", chart: "ch" };
+const PREFIX: Record<string, string> = { map_frame: "f", text: "t", legend: "lg", scale_bar: "sb", north_arrow: "na", declination: "dc", sources: "src", shape: "s", picture: "p", table: "tb", chart: "ch", stat_card: "st" };
 
 /** Ids not used in `layout` yet, one per element, in the form the toolbar's inserts use ("f2", "lg3"). */
 export function freshIds(layout: Layout, kinds: string[]): string[] {

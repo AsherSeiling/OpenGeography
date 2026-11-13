@@ -521,6 +521,11 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "delete_stat_sheet" => json!(e.delete_stat_sheet(&s(a, "id")?)?),
         "rename_stat_sheet" => json!(e.rename_stat_sheet(&s(a, "id")?, &s(a, "name")?)?),
         "run_stat_card" => json!(e.run_stat_card(&de(a, "card")?)?),
+        "stat_chart_svg" => json!(engine::stats::chart::chart_svg(&de(a, "spec")?, f(a, "width")?, f(a, "height")?)),
+        "stat_chart_bin_fids" => json!(e.stat_chart_bin_fids(&de(a, "card")?, &s(a, "bin")?)?),
+        "stat_export_table" => json!(e.export_stat_table(&de(a, "card")?, de::<usize>(a, "index")?, &s(a, "path")?)?),
+        "stat_export_chart" => json!(e.export_stat_chart(&de(a, "card")?, de::<usize>(a, "index")?, &s(a, "format")?, f(a, "dpi")?, &s(a, "path")?)?),
+        "stat_export_report" => json!(e.export_stat_report(&de(a, "sheet")?, &s(a, "date")?, &s(a, "path")?)?),
         "stat_data_profile" => {
             let fids: Option<Vec<i64>> = de(a, "fids")?;
             json!(e.stat_data_profile(&s(a, "layer")?, fids.as_deref())?)

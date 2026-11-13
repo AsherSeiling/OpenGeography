@@ -208,6 +208,9 @@ impl Engine {
         if spec.inputs.is_empty() {
             bail!("'{}' takes no input, so it has nothing to run on a sheet", spec.name);
         }
+        if super::charts::CHART_TOOLS.contains(&card.tool.as_str()) {
+            return self.run_chart_card(card, spec.name);
+        }
         // Versions before the run, and again after: numbers computed while a layer changed would claim a version they are not from.
         let mut versions = BTreeMap::new();
         let mut nodes = Vec::new();
@@ -286,6 +289,57 @@ impl Engine {
             seed: None,
             data_version: versions,
         })
+    }
+}
+
+impl Engine {
+    /// The rows a chart card reads: its layer's features (definition query applied) or the stored selected ids. Returns the chart built from them.
+    fn build_chart_for(&self, card: &StatCard, cap: usize) -> Result<(super::charts::Built, BTreeMap<String, u64>, Vec<String>)> {
+        let input = card.inputs.get("in").ok_or_else(|| anyhow!("Choose a layer for Input"))?;
+        let info = self.layer(&input.layer).map_err(|_| anyhow!("The layer chosen for Input no longer exists"))?;
+        if info.raster.is_some() {
+            bail!("'{}' is a raster; statistics sheets work on layers and tables", info.name);
+        }
+        let versions = BTreeMap::from([(info.id.clone(), info.version)]);
+        let built = self.with_conn(|c| {
+            let src = super::charts::Source { conn: c, table: &info.table, cond: info.def_condition(), fids: input.fids.as_deref(), has_fid: true, cap };
+            super::charts::build(&card.tool, &src, &card.options)
+        })?;
+        if self.layer(&info.id).map(|l| l.version).ok() != Some(info.version) {
+            bail!("A layer changed while the chart was being built, so it would not match the layer. Run the card again.");
+        }
+        let mut citations = vec![];
+        self.with_conn(|c| {
+            for e in sources::list(c)?.iter().filter(|e| e.uses.iter().any(|u| u.layer_id == info.id)) {
+                let ci = &e.citation;
+                citations.push([ci.author.as_str(), ci.year.as_str(), ci.title.as_str(), ci.url.as_str()].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(". "));
+            }
+            Ok(())
+        })?;
+        Ok((built, versions, citations))
+    }
+
+    fn run_chart_card(&self, card: &StatCard, name: &str) -> Result<StatResult> {
+        let task = crate::progress::Task::start(format!("Building chart — {name}"));
+        let (b, versions, sources_) = self.build_chart_for(card, super::charts::FID_CAP)?;
+        task.set(1.0, None::<&str>);
+        let mut citations = b.citations;
+        citations.extend(sources_);
+        Ok(StatResult { method: b.method, citations, n_used: Some(b.n_used), dropped: b.dropped, tables: vec![b.table], charts: vec![b.chart], notes: b.notes, seed: None, data_version: versions })
+    }
+
+    /// Feature ids behind a chart mark, by its bin key (a density cell, a histogram bar with too many features to list). Rebuilt from the data with no limit on ids.
+    pub fn stat_chart_bin_fids(&self, card: &StatCard, bin: &str) -> Result<Vec<i64>> {
+        if !super::charts::CHART_TOOLS.contains(&card.tool.as_str()) {
+            bail!("'{}' is not a chart tool", card.tool);
+        }
+        let (b, _, _) = self.build_chart_for(card, usize::MAX)?;
+        for s in &b.chart.series {
+            if let Some(m) = s.marks.iter().find(|m| m.bin.as_deref() == Some(bin)) {
+                return Ok(m.fids.clone());
+            }
+        }
+        bail!("That part of the chart is no longer in the data. Run the card again.")
     }
 }
 
