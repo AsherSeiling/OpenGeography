@@ -2,6 +2,10 @@
 // `every_tool_has_its_own_icon` fails when a tool is added without a line here or when two tools share an icon.
 import {
   WrenchRegular,
+  ShareScreenPersonRegular,
+  GlobeRegular,
+  ArrowTrendingSettingsRegular,
+  ArrowTrendingWrenchRegular,
   MapRegular,
   LocationRippleRegular,
   GlobeSearchRegular,
@@ -303,6 +307,10 @@ export const TOOL_ICONS: Record<string, FluentIcon> = {
   stat_shapiro: CheckmarkCircleRegular,
   stat_levene: CheckmarkCircleSquareRegular,
   stat_correlation: ArrowTrendingCheckmarkRegular,
+  stat_mgwr: ShareScreenPersonRegular,
+  stat_gwr: GlobeRegular,
+  stat_spatial_error: ArrowTrendingSettingsRegular,
+  stat_spatial_lag: ArrowTrendingWrenchRegular,
   stat_lisa: MapRegular,
   stat_moran: LocationRippleRegular,
   stat_weights: GlobeSearchRegular,

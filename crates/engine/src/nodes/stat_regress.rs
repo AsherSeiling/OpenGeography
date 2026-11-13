@@ -33,17 +33,17 @@ pub fn keywords(id: &str) -> &'static [&'static str] {
     }
 }
 
-struct Design {
-    y: Vec<f64>,
-    names: Vec<String>,
-    cols: Vec<Vec<f64>>,
+pub(super) struct Design {
+    pub(super) y: Vec<f64>,
+    pub(super) names: Vec<String>,
+    pub(super) cols: Vec<Vec<f64>>,
     /// Table row of each used observation.
-    used: Vec<usize>,
-    total: usize,
-    dropped: Vec<Dropped>,
-    notes: Vec<String>,
+    pub(super) used: Vec<usize>,
+    pub(super) total: usize,
+    pub(super) dropped: Vec<Dropped>,
+    pub(super) notes: Vec<String>,
     /// Names of the numeric predictors and of the dummy columns of each categorical term, for the report.
-    levels: Vec<(String, Vec<String>)>,
+    pub(super) levels: Vec<(String, Vec<String>)>,
 }
 
 fn same_value(txt: &str, success: &str) -> bool {
@@ -52,7 +52,7 @@ fn same_value(txt: &str, success: &str) -> bool {
 }
 
 /// Load the outcome, numeric predictors and categorical terms; a row is used when every one of them has a value.
-fn build_design(ctx: &Ctx, rel: &Rel, y: &str, success: Option<&str>, preds: &[String], cats: &[String]) -> Result<Design> {
+pub(super) fn build_design(ctx: &Ctx, rel: &Rel, y: &str, success: Option<&str>, preds: &[String], cats: &[String]) -> Result<Design> {
     let mut all: Vec<&str> = vec![y];
     all.extend(preds.iter().map(|s| s.as_str()));
     all.extend(cats.iter().map(|s| s.as_str()));
@@ -142,7 +142,7 @@ fn coef_cols_ols() -> Vec<crate::stats::StatColumn> {
     c
 }
 
-fn moran_of(ctx: &Ctx, rel: &Rel, p: &Params, d: &Design, resid: &[f64], r: &mut crate::stats::StatResult) -> Result<()> {
+pub(super) fn moran_of(ctx: &Ctx, rel: &Rel, p: &Params, d: &Design, resid: &[f64], r: &mut crate::stats::StatResult) -> Result<()> {
     if !(rel.has_geom && rel.crs.is_some()) || p.str("residual_moran").as_deref() == Some("no") {
         return Ok(());
     }
