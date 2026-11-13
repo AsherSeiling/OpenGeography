@@ -111,8 +111,21 @@ fn residual_moran_flags_a_spatial_trend_and_the_output_layer_keeps_geometry() {
     }
     let gj = json!({"type": "FeatureCollection", "features": feats}).to_string();
     let l = import_file(&e, dir.path(), "grid.geojson", &gj);
+    let before = e.layer(&l).unwrap();
     let r = ok(&e, "stat_ols", json!({"dependent": "y", "predictors": "z", "weights": "knn", "k": 4}), &l);
     let st = r.stat.as_ref().unwrap();
+    // The result is a NEW table: it has the added fields, and the source layer is exactly as it was.
+    let info = e.node_table_info(r.output.as_ref().unwrap()).unwrap();
+    let names: Vec<&str> = info.fields.iter().map(|f| f.name.as_str()).collect();
+    for f in ["fitted", "residual", "std_residual", "leverage", "cooks_d"] {
+        assert!(names.contains(&f), "{f} in {names:?}");
+    }
+    assert!(info.has_geom && info.rows == 144);
+    let after = e.layer(&l).unwrap();
+    assert_eq!(before.fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>(), after.fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>(), "source fields unchanged");
+    assert_eq!(before.version, after.version, "source data version unchanged");
+    assert_eq!(before.feature_count, after.feature_count);
+    assert!(!after.fields.iter().any(|f| f.name == "fitted" || f.name == "residual"));
     assert_eq!(r.rows, Some(144));
     assert!(r.crs.as_deref().map_or(false, |c| c.contains("4326")), "geometry and CRS kept: {:?}", r.crs);
     assert!(st.tables.iter().any(|t| t.title == "Residual spatial autocorrelation"));

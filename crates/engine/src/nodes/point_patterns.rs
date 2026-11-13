@@ -212,6 +212,9 @@ impl Tool for RipleysK {
                 Param::new("seed", "Random seed", ParamKind::Number).default(12345),
             ] }
     }
+    fn reports_stat(&self) -> bool {
+        true
+    }
     fn build(&self, ctx: &Ctx, inputs: &Inputs, p: &Params) -> Result<Output> {
         let (i, a) = (&inputs["in"], &inputs["area"]);
         let crs = need_crs(i)?;
@@ -273,16 +276,57 @@ impl Tool for RipleysK {
             sims.push(k_values(&sp, &ds, area.area_m2, b.as_deref(), false)?);
         }
         let mut rows = vec![];
+        let mut curve: Vec<(f64, f64, f64, f64)> = vec![];
         for (k, d) in ds.iter().enumerate() {
             let col: Vec<f64> = sims.iter().map(|s| s[k]).filter(|v| v.is_finite()).collect();
             let (lo, hi, mean) = if col.is_empty() { (f64::NAN, f64::NAN, f64::NAN) } else { (col.iter().cloned().fold(f64::MAX, f64::min), col.iter().cloned().fold(f64::MIN, f64::max), col.iter().sum::<f64>() / col.len() as f64) };
             let l = |kv: f64| if kv.is_finite() && kv >= 0.0 { (kv / std::f64::consts::PI).sqrt() } else { f64::NAN };
             let verdict = if !obs[k].is_finite() { "no centres far enough from the edge" } else if !hi.is_finite() { "no envelope" } else if obs[k] > hi { "clustered" } else if obs[k] < lo { "dispersed" } else { "consistent with random" };
+            curve.push((*d, l(obs[k]) - d, l(lo) - d, l(hi) - d));
             let reduced = if border_on { bd.iter().filter(|b| **b >= *d).count() as i64 } else { n as i64 };
             rows.push(format!(
                 "({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, '{verdict}')",
                 sqlnum(*d), sqlnum(obs[k]), sqlnum(std::f64::consts::PI * d * d), sqlnum(l(obs[k])), sqlnum(l(obs[k]) - d), sqlnum(mean), sqlnum(lo), sqlnum(hi), sqlnum(l(lo) - d), sqlnum(l(hi) - d), reduced
             ));
+        }
+        {
+            use crate::stats::result::{Axis, ChartKind, ChartSeries, ChartSpec, ColumnKind as K, Mark, SeriesStyle, StatColumn, StatTable};
+            let mk = |f: &dyn Fn(&(f64, f64, f64, f64)) -> f64| -> Vec<Mark> { curve.iter().filter(|c| f(c).is_finite()).map(|c| Mark { x: Some(c.0), y: Some(f(c)), ..Default::default() }).collect() };
+            let mut series = vec![ChartSeries { name: "L(d) - d, observed".into(), style: SeriesStyle::LineAndMarks, marks: mk(&|c| c.1) }];
+            if perms > 0 {
+                series.push(ChartSeries { name: "Envelope: lowest of the random patterns".into(), style: SeriesStyle::Line, marks: mk(&|c| c.2) });
+                series.push(ChartSeries { name: "Envelope: highest of the random patterns".into(), style: SeriesStyle::Line, marks: mk(&|c| c.3) });
+            }
+            series.push(ChartSeries { name: "Complete spatial randomness".into(), style: SeriesStyle::Line, marks: curve.iter().map(|c| Mark { x: Some(c.0), y: Some(0.0), ..Default::default() }).collect() });
+            let table = StatTable {
+                title: "Ripley's L".into(),
+                columns: ["distance_m", "l_minus_d", "envelope_low", "envelope_high"].iter().map(|n| StatColumn { name: n.to_string(), unit: None, kind: K::Number }).collect(),
+                rows: curve.iter().map(|c| [c.0, c.1, c.2, c.3].iter().map(|v| if v.is_finite() { serde_json::json!(v) } else { serde_json::Value::Null }).collect()).collect(),
+            };
+            let mut notes = vec![
+                "Above the envelope: more clustered than random at that distance; below: more dispersed; inside: consistent with complete spatial randomness. The envelope is the pointwise minimum and maximum of the simulated patterns, so each distance has a 2/(patterns + 1) level; looking at many distances at once makes the overall level larger than that.".to_string(),
+                format!("{perms} random patterns of {n} points in the study area; seed {}. The same seed reproduces the envelope.", seed as u64),
+            ];
+            if border_on {
+                notes.push("Edge correction: border (reduced sample) method (Ripley 1977).".into());
+            }
+            let r = crate::stats::StatResult {
+                method: format!("Ripley's K / L function of {n} points with {}a Monte Carlo envelope", if perms > 0 { "" } else { "no envelope: " }),
+                citations: vec![
+                    "Ripley, B. D. (1976). The second-order analysis of stationary point processes. Journal of Applied Probability 13, 255-266.".into(),
+                    "Ripley, B. D. (1977). Modelling spatial patterns. Journal of the Royal Statistical Society B 39, 172-212.".into(),
+                    "Besag, J. (1977). Comment on Ripley's paper (the L function). Journal of the Royal Statistical Society B 39, 193-195.".into(),
+                    "Diggle, P. J. (2003). Statistical Analysis of Spatial Point Patterns, 2nd ed. Arnold.".into(),
+                ],
+                n_used: Some(n as u64),
+                dropped: vec![],
+                tables: vec![table],
+                charts: vec![ChartSpec { kind: ChartKind::Line, title: "Ripley's L(d) - d".into(), x: Axis { label: "Distance (m)".into(), ..Default::default() }, y: Axis { label: "L(d) - d".into(), ..Default::default() }, series, notes: vec![] }],
+                notes,
+                seed: Some(seed as u64),
+                data_version: Default::default(),
+            };
+            ctx.set_stat(r);
         }
         Ok(Output::Select {
             sql: format!(

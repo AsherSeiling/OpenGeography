@@ -10,6 +10,7 @@ pub fn tools() -> Vec<Box<dyn Tool>> {
     v.extend(stat_describe::tools());
     v.extend(stat_tests::tools());
     v.extend(stat_regress::tools());
+    v.extend(stat_spatial::tools());
     v.extend(gdal_tools::tools());
     v.extend(centrography::tools());
     v.extend(point_patterns::tools());
@@ -33,6 +34,7 @@ pub fn keywords(id: &str) -> &'static [&'static str] {
         stat_describe::keywords(id),
         stat_tests::keywords(id),
         stat_regress::keywords(id),
+        stat_spatial::keywords(id),
         gdal_tools::keywords(id),
         centrography::keywords(id),
         point_patterns::keywords(id),

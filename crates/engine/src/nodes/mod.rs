@@ -31,6 +31,7 @@ pub mod saga_tools;
 pub mod stat_describe;
 pub mod stat_geo;
 pub mod stat_regress;
+pub mod stat_spatial;
 pub mod stat_support;
 pub mod stat_tests;
 pub mod whitebox_tools;

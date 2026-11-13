@@ -115,7 +115,7 @@ fn recipes() -> Vec<Recipe> {
 }
 
 /// Tools that are not vector-in/vector-out shape tools, with the reason (and where they are tested instead).
-const EXCLUDED: [(&str, &str); 71] = [
+const EXCLUDED: [(&str, &str); 74] = [
     ("input_layer", "reads a layer; no CRS logic of its own"),
     ("usng_grid", "its squares are the UTM grid, so the result is deliberately in the UTM zone of the input, not in the input's CRS; tested in usng.rs"),
     ("usng_to_points", "reads text references, so its input has no coordinate system to vary; tested against GeoTrans/mgrs values in usng.rs"),
@@ -140,6 +140,9 @@ const EXCLUDED: [(&str, &str); 71] = [
     ("stat_levene", "tables only: no geometry is used (stat_tests.rs)"),
     ("stat_correlation", "tables only: no geometry is used (stat_tests.rs)"),
     ("stat_ols", "attribute regression; the residual Moran test builds weights from centroids and is checked in stat_spatial.rs"),
+    ("stat_weights", "needs a numeric field and builds weights from centroids; checked in stat_spatial.rs"),
+    ("stat_moran", "needs a numeric field and builds weights from centroids; checked in stat_spatial.rs"),
+    ("stat_lisa", "needs a numeric field and builds weights from centroids; checked in stat_spatial.rs"),
     ("stat_logistic", "attribute regression; the residual Moran test builds weights from centroids and is checked in stat_spatial.rs"),
     ("chart_histogram", "attribute values only; no geometry (stat_charts.rs)"),
     ("chart_box", "attribute values only; no geometry (stat_charts.rs)"),
