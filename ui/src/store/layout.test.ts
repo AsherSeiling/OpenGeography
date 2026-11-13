@@ -194,7 +194,7 @@ describe("layout stays open while other panels are active (U-5)", () => {
   });
 
   it("LP-3 activating another layout's tab opens it; closing the open layout's tab closes it", () => {
-    followActivePanel("b");
+    followActivePanel({ layoutId: "b" });
     expect(L.getState().id).toBe("b");
     layoutPanelClosed("a");
     expect(L.getState().id).toBe("b");

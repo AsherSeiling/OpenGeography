@@ -50,3 +50,26 @@ describe("ribbon reach", () => {
     expect(Object.keys(commands).filter((id) => /tools$/i.test(id) || /modelBuilder/.test(id))).toEqual([]);
   });
 });
+
+describe("statistics workspace tabs", () => {
+  it("has the six tabs of the statistics plan, each with a group", async () => {
+    const { STATS_LABELS, STATS_ORDER, STATS_TABS } = await import("./tabsDef");
+    expect(STATS_ORDER.map((t) => STATS_LABELS[t])).toEqual(["Explore", "Charts", "Tests", "Regression", "Spatial", "Export"]);
+    for (const t of STATS_ORDER) expect(STATS_TABS[t]?.length, t).toBeGreaterThan(0);
+  });
+
+  it("puts every statistics command on a tab, and New Statistics Sheet on Insert and Explore", async () => {
+    const { STATS_TABS } = await import("./tabsDef");
+    const onStats = new Set(commandsOnTabs(STATS_TABS));
+    for (const id of ["statNewSheet", "statRenameSheet", "statDeleteSheet", "statRun", "statRunAll", "statRemoveCard", "statCardUp", "statCardDown"]) expect(onStats.has(id), id).toBe(true);
+    expect(new Set(commandsOnTabs({ Insert: TABS.Insert })).has("statNewSheet")).toBe(true);
+  });
+
+  it("leaves the not-yet-built tabs with plain text only: no button that would do nothing", async () => {
+    const { STATS_TABS } = await import("./tabsDef");
+    for (const t of ["stats-charts", "stats-tests", "stats-regression", "stats-spatial", "stats-export"]) {
+      const cmds = STATS_TABS[t].flatMap((g) => g.items).filter((i) => "cmd" in i);
+      expect(cmds, t).toEqual([]);
+    }
+  });
+});

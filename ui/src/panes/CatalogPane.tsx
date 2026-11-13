@@ -11,6 +11,7 @@ import {
   ChevronRightRegular,
   CopyRegular,
   DatabaseRegular,
+  DataBarVerticalRegular,
   DeleteRegular,
   DocumentPdfRegular,
   DocumentRegular,
@@ -36,6 +37,8 @@ import { api, errorText, type FsEntry } from "../ipc/api";
 import { deleteLayout, duplicateLayout, newLayout, openLayout, renameLayout } from "../layout/actions";
 import { useShallow } from "zustand/react/shallow";
 import { useLayouts } from "../store/layout";
+import { deleteStatsSheet, newStatsSheet, openStatsSheet, renameStatsSheet } from "../stats/actions";
+import { useStats } from "../stats/store";
 import { useModel } from "../store/model";
 import { useApp } from "../store/store";
 import { deleteMap, duplicateMap, newMap, openMap, renameMap } from "../maps/mapActions";
@@ -156,7 +159,7 @@ function useProjectFiles() {
 }
 
 /** Branches that start expanded. */
-const DEFAULT_OPEN: Record<string, boolean> = { project: true, maps: true, layouts: true, layers: true, files: false, public: true };
+const DEFAULT_OPEN: Record<string, boolean> = { project: true, maps: true, layouts: true, stats: true, layers: true, files: false, public: true };
 
 interface RowProps {
   id: string;
@@ -217,6 +220,9 @@ export function CatalogPane() {
   useLayouts((s) => s.doc);
   const activeLayout = useLayouts((s) => s.id);
   const layouts = useLayouts.getState().list();
+  const sheetDocs = useStats((s) => s.docs);
+  const activeSheet = useStats((s) => s.id);
+  const sheets = useMemo(() => Object.values(sheetDocs).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)), [sheetDocs]);
   const maps = useApp((s) => s.maps);
   const activeMapId = useApp((s) => s.activeMapId);
   // Every layer of the project, whichever map shows it (imported ones included): the active map's first, then the rest in the project's order.
@@ -280,10 +286,12 @@ export function CatalogPane() {
         break;
       case "F2":
         if (key.startsWith("layout:")) renameLayout(key.slice(7));
+        if (key.startsWith("stats:")) renameStatsSheet(key.slice(6));
         if (key.startsWith("map:")) renameMap(key.slice(4));
         break;
       case "Delete":
         if (key.startsWith("layout:")) deleteLayout(key.slice(7));
+        if (key.startsWith("stats:")) deleteStatsSheet(key.slice(6));
         if (key.startsWith("map:")) deleteMap(key.slice(4));
         break;
       default:
@@ -440,6 +448,54 @@ export function CatalogPane() {
                         <CopyRegular />
                       </button>
                       <button title="Delete" aria-label={`Delete ${l.name}`} onClick={(e) => (e.stopPropagation(), deleteLayout(l.id))}>
+                        <DeleteRegular />
+                      </button>
+                    </span>
+                  }
+                />
+              ))}
+
+            <Row
+              id="stats"
+              level={2}
+              icon={<DataBarVerticalRegular />}
+              label="Statistics sheets"
+              open={isOpen("stats")}
+              onToggle={() => toggle("stats")}
+              trailing={
+                <>
+                  <span className="cat-meta">{sheets.length || ""}</span>
+                  <button
+                    className="linkbtn cat-new"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      newStatsSheet();
+                    }}
+                  >
+                    New
+                  </button>
+                </>
+              }
+            />
+            {isOpen("stats") && sheets.length === 0 && <div className="empty-hint cat-empty">No statistics sheets yet. New opens one for exploring and testing a layer's numbers.</div>}
+            {isOpen("stats") &&
+              sheets.map((sh) => (
+                <Row
+                  key={sh.id}
+                  id={`stats:${sh.id}`}
+                  level={3}
+                  icon={<DataBarVerticalRegular />}
+                  label={sh.name}
+                  className={`layout-row ${activeSheet === sh.id ? "active" : ""}`}
+                  selected={selected === `stats:${sh.id}`}
+                  onSelect={() => setSelected(`stats:${sh.id}`)}
+                  onActivate={() => openStatsSheet(sh.id)}
+                  trailing={
+                    <span className="row-actions">
+                      <button title="Rename" aria-label={`Rename ${sh.name}`} onClick={(e) => (e.stopPropagation(), renameStatsSheet(sh.id))}>
+                        <EditRegular />
+                      </button>
+                      <button title="Delete" aria-label={`Delete ${sh.name}`} onClick={(e) => (e.stopPropagation(), deleteStatsSheet(sh.id))}>
                         <DeleteRegular />
                       </button>
                     </span>

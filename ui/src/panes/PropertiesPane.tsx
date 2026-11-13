@@ -30,6 +30,7 @@ import { TopoSymbolPicker } from "../topo/TopoSymbolPicker";
 import { pickPicture } from "../layout/actions";
 import { LayoutElementProperties } from "../layout/ElementProperties";
 import { LayoutLabelProperties } from "../layout/LabelProperties";
+import { StatCardProperties } from "../stats/CardProperties";
 import { RAMPS, rampColors } from "../map/style";
 import { QueryEditor, type QueryLanguage } from "../query/QueryEditor";
 import { reviewScript, useScripts } from "../scripts/script";
@@ -44,6 +45,7 @@ export function PropertiesPane() {
   if (target?.kind === "node") return <NodeProperties id={target.id} />;
   if (target?.kind === "layer") return <LayerProperties id={target.id} />;
   if (target?.kind === "layoutElement") return <LayoutElementProperties layout={target.layout} id={target.id} />;
+  if (target?.kind === "statCard") return <StatCardProperties sheetId={target.sheet} id={target.id} />;
   if (target?.kind === "layoutLabel") return <LayoutLabelProperties layout={target.layout} frame={target.frame} layer={target.layer} fid={target.fid} />;
   return <div className="empty-hint pad">Select a layer in Map Layers or a step in Processing nodes to see its properties.</div>;
 }
