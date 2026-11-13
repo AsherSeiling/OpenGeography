@@ -515,6 +515,15 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
         "save_layout_template" => json!(e.save_layout_template(&s(a, "name")?, &de(a, "layout")?)?),
         "delete_layout_template" => json!(e.delete_layout_template(&s(a, "id")?)?),
         "delete_layout" => json!(e.delete_layout(&s(a, "id")?)?),
+        "list_stat_sheets" => json!(e.list_stat_sheets()?),
+        "save_stat_sheet" => json!(e.save_stat_sheet(&de(a, "sheet")?)?),
+        "delete_stat_sheet" => json!(e.delete_stat_sheet(&s(a, "id")?)?),
+        "rename_stat_sheet" => json!(e.rename_stat_sheet(&s(a, "id")?, &s(a, "name")?)?),
+        "run_stat_card" => json!(e.run_stat_card(&de(a, "card")?)?),
+        "stat_data_profile" => {
+            let fids: Option<Vec<i64>> = de(a, "fids")?;
+            json!(e.stat_data_profile(&s(a, "layer")?, fids.as_deref())?)
+        }
         "list_control_sets" => json!(e.list_control_sets()?),
         "save_control_set" => json!(e.save_control_set(&de(a, "set")?)?),
         "delete_control_set" => json!(e.delete_control_set(&s(a, "id")?)?),
