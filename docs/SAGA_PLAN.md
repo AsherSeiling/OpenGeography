@@ -47,7 +47,11 @@ It qualifies for the 2026-11-04 rule on all three platforms in principle (no fra
 
 SAGA is multi-threaded (OpenMP) and the sidecar process cost is negligible against the work: it is as fast as or faster than WhiteboxTools even counting two format conversions, so the "not much slower" test passes for grid terrain tools. Not measured: tools that are called many times on small inputs (those would be reimplemented, per the decision), and Linux/Windows speed.
 
-## 4. Open points for the lead before ToolSpecs
+## 4. Decisions (lead, 2026-11-12) and status
+
+Grid exchange through GDAL's SAGA driver (implemented: `saga.rs`); the empty wx html stand-in at build time is accepted; first tools MRVBF/MRRTF, TPI landforms, solar radiation, channel network (done, `nodes/saga_tools.rs`; TRI skipped, the `ruggedness` node covers it); no CI yet; Linux and Windows stay unverified. See `docs/DECISIONS.md`.
+
+## 5. Old open points (answered above)
 
 1. Confirm the grid exchange design: engine writes the DEM as `.sgrd/.sdat` (Float32, explicit NoData, cell size, origin) and reads the outputs back, re-applying the input CRS. A small `saga.rs` (like `whitebox.rs`) with `saga_exe()` in `resources.rs`.
 2. Which SAGA tools first (terrain morphometry, TPI, MRVBF/MRRTF, landform classification, wetness index, solar radiation, channel network and so on), and which overlap a WhiteboxTools tool already exposed (T1), so the Add menu does not offer two of the same.

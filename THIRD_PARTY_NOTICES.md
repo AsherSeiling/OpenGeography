@@ -1,6 +1,6 @@
 # Third-party notices
 
-GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-11-11 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
+GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-11-12 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
 
 ## Bundled data
 
@@ -11,6 +11,7 @@ GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source softwar
 | GDAL data files | MIT | https://gdal.org/ |
 | DuckDB spatial extension | MIT | https://github.com/duckdb/duckdb-spatial |
 | WhiteboxTools program (hydrology tools), © John Lindsay; built from release v2.4.0 and shipped as a separate program | MIT | https://github.com/jblindsay/whitebox-tools |
+| SAGA GIS 9.5.1 `saga_cmd` and tool libraries (SAGA User Group Association, O. Conrad et al.), built unmodified from commit 00530d3 and shipped as a separate program in `resources/saga/` with its licence texts and source offer; statically linked wxWidgets 3.3.4 base (wxWindows Licence) and libomp (Apache-2.0 with LLVM exceptions) beside it | GPL-2.0-or-later / GPL-3.0-or-later (programs), LGPL-2.1-or-later (saga_api) | https://saga-gis.sourceforge.io , https://github.com/saga-gis/saga-gis |
 | CPython 3.13.18 as built by python-build-standalone release 20261026 (Astral), shipped as a separate program for user scripts | PSF License (CPython); python-build-standalone MPL-2.0; its bundled libraries (OpenSSL, SQLite, zlib, libffi, …) under their own permissive terms | https://github.com/astral-sh/python-build-standalone , https://www.python.org/psf/license/ |
 | Blockly 13.4.0 (Google) | Apache-2.0 | https://github.com/google/blockly |
 | World Magnetic Model 2025 coefficients (via `geomagnetism`) | Public domain (NOAA NCEI / British Geological Survey) | https://www.ncei.noaa.gov/products/world-magnetic-model |

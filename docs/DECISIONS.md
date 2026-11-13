@@ -669,3 +669,10 @@ Python stays the default scripting language, but queries (Definition Query, Sele
 ## Start page templates and samples (UX2, lead, 2026-11-12)
 Project templates set only the first map's coordinate system (blank, WGS 84, Web Mercator, CONUS Albers). Sample data is the bundled world outline or 1,000 generated polygons or points, so the start page needs no network. Both are easy to extend later.
 - **ST0 (lead, 2026-11-12):** statrs (MIT) and nalgebra (Apache-2.0) for the statistics maths; tools return one StatResult with chart data, not SVG; marks carry data-mark indices for linked selection. Reason: permissive, maintained, and one renderer serves sheet, layout and export.
+
+## SAGA GIS as a separate program (T2, 2026-11-12)
+- SAGA 9.5.1 (commit 00530d3) `saga_cmd` is built unmodified without GUI, GDAL, PROJ, PDAL or Python by `scripts/build-saga.sh` and staged in `resources/saga/` (plan, licence duties and speed: `docs/SAGA_PLAN.md`); Linux and Windows steps are written but unverified; no CI jobs until the phases are done (lead, 2026-11-12).
+- Grids go in and out as `.sgrd/.sdat` through our own GDAL "SAGA" driver (no hand-written I/O); the `.prj` is removed so SAGA never needs its projection tools; the input's CRS is written into every result and a raster without a CRS is refused; vectors would go through shapefiles via GDAL/OGR as for WhiteboxTools. `saga.rs` mirrors `whitebox.rs` (`GIS_STUDIO_SAGA`, cancellable).
+- The empty wx "html" stand-in archive made at build time is fine: SAGA's source stays unmodified (its CMake asks for that GUI component though no source uses it).
+- First tools are only those no existing node covers: MRVBF/MRRTF, TPI landform classes, solar radiation, channel network. Terrain Ruggedness is skipped (the `ruggedness` node covers it). Solar radiation takes its latitude from the DEM centre transformed to WGS 84 by our code (stated in the result note), never from SAGA's CRS lookup.
+- `stage-resources.sh` builds SAGA unless `SAGA_SKIP=1`; a failed build warns and carries on (the SAGA tools then say the program is missing).

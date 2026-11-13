@@ -50,6 +50,9 @@ echo "Staged resources for $PLATFORM in $OUT ($(du -sh "$OUT" | cut -f1))"
 
 # WhiteboxTools program for the hydrology tools (MIT; built from a pinned release, see the script). WHITEBOX_SKIP=1 leaves it out.
 if [ -z "${WHITEBOX_SKIP:-}" ]; then "$ROOT/scripts/build-whitebox.sh"; fi
+# SAGA GIS saga_cmd for the SAGA terrain tools (GPL, a separate program; pinned source, see scripts/build-saga.sh and docs/SAGA_PLAN.md). SAGA_SKIP=1 leaves it out;
+# a failed build is reported loudly but does not stop the rest (the SAGA tools then say the program is missing).
+if [ -z "${SAGA_SKIP:-}" ]; then "$ROOT/scripts/build-saga.sh" || echo "WARNING: SAGA was not built; the SAGA tools will be unavailable in this build"; fi
 
 # CPython for user scripts (Batch D): python-build-standalone, an exact release pinned per platform and checked against a SHA-256 before it is
 # unpacked. Nothing is committed; the archive is cached outside the repo. PYTHON_SKIP=1 leaves it out (the Python script nodes then say so).

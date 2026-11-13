@@ -16,6 +16,7 @@ pub mod arcgis;
 pub mod raster_ops;
 pub mod spatial_stats;
 pub mod kriging;
+pub mod saga;
 pub mod whitebox;
 pub mod transform_report;
 pub mod grids;

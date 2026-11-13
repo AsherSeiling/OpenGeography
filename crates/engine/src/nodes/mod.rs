@@ -26,6 +26,7 @@ mod qgis_raster;
 mod raster_ops_tools;
 mod stats_tools;
 mod hydrology_tools;
+pub mod saga_tools;
 pub mod whitebox_tools;
 pub mod gdal_tools;
 mod centrography;

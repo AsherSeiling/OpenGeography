@@ -1332,3 +1332,15 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | UX12-2 | Help picture is the tool's real result on the sample: Buffer has an input layer before and a polygon result after; Clip also shows its overlay; asking twice gives the same picture; the project gets no layers or leftover tables | as stated | auto: `crates/engine/tests/tool_help.rs` |
 | UX12-3 | Raster tools and tools that need a field, layer or file say why they have no picture; an unknown id is an error; a tool that changes only attributes says the sample would look the same | as stated | auto: same file |
 | UX12-4 | Click the ? on a Buffer card, and open "About this tool" in Properties | a card with the description, a Before and After picture, inputs, settings with their help text, and the Karney citation with its link; a tool without a picture shows the reason | manual (not run in the app by the author; the project has no DOM component runner) |
+
+## T2. SAGA nodes (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T2-1 | MRVBF of a flat 400 m valley floor between 30 % walls (10 m cells); ridge-top result; result CRS | floor 1 or more, wall under 0.01, MRRTF 0 on the floor; CRS kept | auto: `crates/engine/tests/saga_tools.rs` (skips without `saga_cmd`; set `GIS_STUDIO_SAGA`) |
+| T2-2 | SAGA tools that need metres on a raster in degrees | refused with the project-first sentence | auto: same file |
+| T2-3 | TPI landforms on flat ground with one Gaussian hill; inner radius larger than outer | flat = class 5 (plains), summit class 8 to 10; a readable refusal | auto: same file |
+| T2-4 | Solar radiation at 35 N: flat 21 June total, 21 December south-facing vs flat vs north-facing slope, direct + diffuse = total, latitude note, bad day range | 6 to 11 kWh/m2; south > flat > north; sum within 1 %; note names the latitude; refusal | auto: same file |
+| T2-5 | Channel network on a V valley: axis has order 1+, wall cells no data; a threshold nothing reaches; geographic DEM | channel on the axis; "no channels" sentence; works in degrees | auto: same file |
+| T2-6 | All four SAGA tools are in the CRS matrix list and have an icon | | auto: `crs_matrix.rs`, `ui/src/nodes/toolIcon.tsx` |
+| T2-7 | Manual: Cancel during a long SAGA run (large DEM solar radiation) | the program stops, no partial result | manual, not run |
+| T2-8 | Manual: installer on Windows and Linux contains `resources/saga/` and a SAGA tool runs | | manual, not run (builds unverified, see `docs/SAGA_PLAN.md`) |

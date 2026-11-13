@@ -5,6 +5,7 @@ use super::*;
 
 pub fn tools() -> Vec<Box<dyn Tool>> {
     let mut v = whitebox_tools::tools();
+    v.extend(saga_tools::tools());
     v.extend(gdal_tools::tools());
     v.extend(centrography::tools());
     v.extend(point_patterns::tools());
@@ -23,6 +24,7 @@ pub fn tools() -> Vec<Box<dyn Tool>> {
 pub fn keywords(id: &str) -> &'static [&'static str] {
     for k in [
         whitebox_tools::keywords(id),
+        saga_tools::keywords(id),
         gdal_tools::keywords(id),
         centrography::keywords(id),
         point_patterns::keywords(id),
