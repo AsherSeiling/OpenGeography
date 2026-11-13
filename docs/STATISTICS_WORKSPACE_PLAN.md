@@ -45,6 +45,29 @@ Same style as the rest of the app: ribbon plus dockable panes.
 
 **Linked to the map.** Clicking a bar, box or point selects those features through the same selection store as the map and table (UX10), and a selection on the map highlights in the chart.
 
+## ST0 result (lead, 2026-11-12)
+
+**Libraries.** `statrs` 0.19.1 (MIT) for distributions (t, F, chi-square, normal, studentized range via its CDFs where present, otherwise our own code with a citation) and `nalgebra` 0.35.0 (Apache-2.0) for matrices (QR for OLS, never the normal equations). Both permissive, both need Rust 1.89+ (we build with 1.99). They're added by the first package that uses them (ST2 or ST4), with rows in `docs/OPEN_SOURCE.md` and `THIRD_PARTY_NOTICES.md`. Shapiro–Wilk is reimplemented from Royston (1995, AS R94) with a citation. No GPL code.
+
+**Result format.** Every statistics tool returns one `StatResult` (engine `stats/result.rs`, serde, mirrored in `api.ts`):
+
+| Field | Holds |
+|---|---|
+| `method` | One sentence naming the exact method ("Welch two-sample t-test, two-sided") |
+| `citations` | Method references as text, plus the input layers' sources |
+| `n_used`, `dropped` | Rows used, and `[{reason, count}]` for every dropped row; never empty when rows were dropped |
+| `tables` | `[{title, columns: [{name, unit?, kind}], rows}]`; numbers stay full precision, the UI rounds |
+| `charts` | `[ChartSpec]`: chart data, not SVG (kind, series, axes, and per mark the feature ids or a bin key) |
+| `notes` | Assumption checks, spatial-independence warning, multiple-testing note, density-binning note |
+| `seed` | Shown when a random method ran |
+| `data_version` | The input layers' version when computed; a sheet card compares it to mark itself out of date |
+
+In a node tree the tool's first table becomes its output table layer, so the same `ToolSpec` works in a tree and on a sheet card.
+
+**Charts.** `stats/chart.rs` renders a `ChartSpec` to SVG at a given size: one renderer for the sheet, layouts, PNG and PDF. The sheet asks for the SVG with `stats_chart_svg(spec, width, height)`.
+
+**Linked selection.** Each mark in the SVG carries `data-mark="<index>"`; the `ChartSpec` maps that index to feature ids (or, for a density bin, a bin key the engine turns into ids on click). The UI inserts the SVG inline (it's ours, but it's still parsed with DOMParser and scripts are stripped), finds the clicked mark with `closest("[data-mark]")`, and selects through the shared selection store. Highlighting a map selection only toggles a `sel` class on the matching marks; it never re-renders the chart.
+
 ## Packages
 
 | Task | Effort | Model | What |

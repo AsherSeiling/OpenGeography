@@ -668,3 +668,4 @@ Python stays the default scripting language, but queries (Definition Query, Sele
 
 ## Start page templates and samples (UX2, lead, 2026-11-12)
 Project templates set only the first map's coordinate system (blank, WGS 84, Web Mercator, CONUS Albers). Sample data is the bundled world outline or 1,000 generated polygons or points, so the start page needs no network. Both are easy to extend later.
+- **ST0 (lead, 2026-11-12):** statrs (MIT) and nalgebra (Apache-2.0) for the statistics maths; tools return one StatResult with chart data, not SVG; marks carry data-mark indices for linked selection. Reason: permissive, maintained, and one renderer serves sheet, layout and export.
