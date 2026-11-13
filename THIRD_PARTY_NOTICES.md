@@ -1,6 +1,6 @@
 # Third-party notices
 
-GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-11-12 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
+GIS Studio is MIT OR Apache-2.0 licensed. It is built on the open-source software listed below, whose authors we thank. Generated 2026-11-13 by `scripts/third_party_notices.py`; licenses are as declared by each package. Full license texts are in each package's source distribution (linked).
 
 ## Bundled data
 
@@ -224,7 +224,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | [zustand](https://www.npmjs.com/package/zustand) | 4.5.7 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 5.0.15 | MIT |
 
-## Rust crates compiled into the app (672)
+## Rust crates compiled into the app (673)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
@@ -533,6 +533,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/moxcms.git |
 | muda | 0.20.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/muda |
 | nalgebra | 0.35.0 | Apache-2.0 | https://github.com/dimforge/nalgebra |
+| nalgebra-macros | 0.3.0 | Apache-2.0 | https://github.com/dimforge/nalgebra |
 | ndarray | 0.17.2 | MIT OR Apache-2.0 | https://github.com/rust-ndarray/ndarray |
 | ndk | 0.9.0 | MIT OR Apache-2.0 | https://github.com/rust-mobile/ndk |
 | ndk-context | 0.1.1 | MIT OR Apache-2.0 | https://github.com/rust-windowing/android-ndk-rs |

@@ -166,7 +166,7 @@ pub fn table_sql(t: &StatTable) -> String {
 
 /// Report a finished result: hand it to the caller (a sheet card) and return the first table as the node's output.
 pub fn finish(ctx: &Ctx, rel: &Rel, mut r: StatResult, spatial: bool) -> Result<Output> {
-    if spatial && rel.has_geom {
+    if spatial && rel.has_geom && rel.crs.is_some() {
         r.notes.push(SPATIAL_NOTE.to_string());
     }
     let first = r.tables.first().cloned().ok_or_else(|| anyhow!("The tool produced no table"))?;

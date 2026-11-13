@@ -700,3 +700,10 @@ Project templates set only the first map's coordinate system (blank, WGS 84, Web
 - Spearman p uses the t approximation (R uses an exact algorithm for small n without ties); stated in the result.
 - Holm / Benjamini-Hochberg adjustment lives in the Correlation tool (across its pairs); Tukey adjusts its own family. An adjustment across unrelated sheet cards is not done: cards are independent analyses (one line, easy to add later).
 - Every test result adds the spatial-independence note when the input has geometry.
+
+## Regression (ST5, 2026-11-13)
+- Solved by QR (nalgebra 0.35, Apache-2.0, already a dependency of statrs), never the normal equations; rank deficiency is detected from the R diagonal and named in the error. The model always has an intercept.
+- Categorical terms use treatment coding with the first value (in numeric or alphabetical order) as the reference; the result says which. VIF is per dummy column (no generalised VIF).
+- Breusch-Pagan is Koenker's studentised form (the R `bptest` default). Logistic regression uses R's IRLS start and convergence rule; separation is reported, not fixed.
+- The node output is the input layer plus fitted value and diagnostics (a new layer; geometry and CRS kept; source never changed). Rows left out have empty values. Row alignment relies on DuckDB scan order, as the existing Hot Spot tool does.
+- Moran's I of the residuals uses the weights chosen on the tool (k nearest by default; geodesic distance for layers in degrees) and states the result in a note.

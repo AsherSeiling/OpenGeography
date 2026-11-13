@@ -41,6 +41,7 @@ spade = "2.15.1"
 smartcore = "0.7.0"
 las = { version = "0.11.2", features = ["laz"] }
 statrs = "0.19.1"
+nalgebra = "0.35"
 
 # Kills a script's whole process group on cancel and at the end of a run.
 [target.'cfg(unix)'.dependencies]
