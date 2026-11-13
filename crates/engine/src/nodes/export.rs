@@ -441,7 +441,7 @@ fn canonical(p: &std::path::Path) -> std::path::PathBuf {
 }
 
 /// Never overwrite source data: refuse an output path that is any layer's source file.
-fn refuse_source_file(ctx: &Ctx, path: &str) -> Result<()> {
+pub(super) fn refuse_source_file(ctx: &Ctx, path: &str) -> Result<()> {
     let target = canonical(std::path::Path::new(path));
     for l in ctx.layers.values() {
         let sources = l.source.iter().cloned().chain(l.raster.iter().map(|r| r.path.clone()));

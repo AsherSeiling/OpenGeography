@@ -1344,3 +1344,19 @@ Totals, macOS arm64 (before → after): `cargo test -p engine` 95 passed / 8 ign
 | T2-6 | All four SAGA tools are in the CRS matrix list and have an icon | | auto: `crs_matrix.rs`, `ui/src/nodes/toolIcon.tsx` |
 | T2-7 | Manual: Cancel during a long SAGA run (large DEM solar radiation) | the program stops, no partial result | manual, not run |
 | T2-8 | Manual: installer on Windows and Linux contains `resources/saga/` and a SAGA tool runs | | manual, not run (builds unverified, see `docs/SAGA_PLAN.md`) |
+
+## T8. Point clouds (Wave 1, Lane B)
+| # | Case | Expected | Status |
+|---|---|---|---|
+| T8-1 | Header of a 3700-point LAS 1.4 with a compound WKT (UTM 14N + NAVD88): count, bounds, class counts, CRS | 3700; bounds equal the points; classes 2: 3600 and 5: 100; EPSG:32614 from "WKT record"; vertical NAVD88; unit metre | auto: `crates/engine/tests/lidar.rs` |
+| T8-2 | LAS 1.2 with GeoTIFF keys (EPSG:26914 + vertical 5703); LAZ vs LAS of the same points | EPSG:26914 from "GeoTIFF keys", NAVD88; same count and bounds, LAZ smaller | auto: same file |
+| T8-3 | A file with no CRS; a file that is not LAS | note "no coordinate system" and a layer with no CRS plus warning; a readable refusal | auto: same file |
+| T8-4 | Importing a LAS/LAZ adds a footprint layer in the file's CRS | one feature, CRS EPSG:32614, source is the file | auto: same file |
+| T8-5 | Bare-earth DEM (TIN and IDW) of a ground plane z = 100 + 0.1 x with 15 m trees over a 10 m block; source file bytes | open and under-tree cells equal the plane within 0.2 m; CRS 32614; NAVD88 label; file unchanged | auto: same file (skips without WhiteboxTools) |
+| T8-6 | DEM of an unclassified LAZ; with the slope filter | refusal naming "Never classified"; plane found within 0.3 m in the open | auto: same file |
+| T8-7 | CRS rules: missing, stated, conflicting; resolution 0 and a huge raster | refusal; stated CRS used; "differ" refusal; refusals in words | auto: same file |
+| T8-8 | DSM, point density, canopy height of the same scene | tree tops 17.5 m above datum; 1 and 2 points per square metre; 15 m and 0 m; no vertical datum on density or height | auto: same file |
+| T8-9 | Classify ground and normalise heights write new LAS; output equal to input refused | ground 3500 to 3600 of 3700; highest normalised 15 m; source unchanged | auto: same file |
+| T8-10 | All six LiDAR tools registered with category, description, keywords | | auto: same file |
+| T8-11 | Manual: a real 3DEP LAZ tile (several million points) through LAS to Bare-earth DEM; Cancel during it | DEM in the tile's UTM zone with NAVD88; cancel stops the program | manual, not run (no network test data) |
+

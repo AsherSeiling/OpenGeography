@@ -224,7 +224,7 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | [zustand](https://www.npmjs.com/package/zustand) | 4.5.7 | MIT |
 | [zustand](https://www.npmjs.com/package/zustand) | 5.0.15 | MIT |
 
-## Rust crates compiled into the app (659)
+## Rust crates compiled into the app (661)
 
 | Crate | Version | License | Repository |
 |---|---|---|---|
@@ -493,6 +493,8 @@ Build the macOS app (`scripts/package-macos.sh`) and re-run this script to list 
 | keyring | 3.6.3 | MIT OR Apache-2.0 | https://github.com/hwchen/keyring-rs.git |
 | kurbo | 0.11.3 | Apache-2.0 OR MIT | https://github.com/linebender/kurbo |
 | kurbo | 0.13.1 | Apache-2.0 OR MIT | https://github.com/linebender/kurbo |
+| las | 0.11.2 | MIT | https://github.com/gadomski/las-rs |
+| laz | 0.13.0 | Apache-2.0 | https://github.com/tmontaigu/laz-rs |
 | lexical-core | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |
 | lexical-parse-float | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |
 | lexical-parse-integer | 1.0.6 | MIT/Apache-2.0 | https://github.com/Alexhuszagh/rust-lexical |

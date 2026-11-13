@@ -26,6 +26,7 @@ mod qgis_raster;
 mod raster_ops_tools;
 mod stats_tools;
 mod hydrology_tools;
+pub mod lidar_tools;
 pub mod saga_tools;
 pub mod whitebox_tools;
 pub mod gdal_tools;
@@ -108,6 +109,8 @@ pub enum ParamKind {
     /// A colour, "#rrggbb".
     Color,
     SavePath,
+    /// A file to read (a point cloud, for example), chosen with the open dialog.
+    OpenPath,
     /// A filter expression, edited with the query builder (Builder/Python/SQL).
     Query,
 }
