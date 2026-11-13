@@ -574,6 +574,27 @@ pub enum Element {
         #[serde(default)]
         size: f64,
     },
+    /// A chart or table of a statistics sheet's card (ST7). It points at the card and draws the card's last result, so a card that is run again
+    /// changes the page; one that is out of date is said so in the warnings.
+    StatCard {
+        #[serde(flatten)]
+        at: Placement,
+        /// Statistics sheet id.
+        #[serde(default)]
+        sheet: String,
+        /// Card id within the sheet.
+        #[serde(default)]
+        card: String,
+        /// "chart" (default) | "table".
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        part: String,
+        /// Which chart or table of the card's result (0 = the first).
+        #[serde(default, skip_serializing_if = "is_zero_usize")]
+        index: usize,
+        /// Table text size in points; 0 = 7.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        size: f64,
+    },
     /// A rectangle, ellipse, triangle, line or arrow.
     Shape {
         #[serde(flatten)]
@@ -624,6 +645,7 @@ impl Element {
             | Element::Shape { at, .. }
             | Element::Table { at, .. }
             | Element::Chart { at, .. }
+            | Element::StatCard { at, .. }
             | Element::Picture { at, .. } => at,
         }
     }
@@ -640,6 +662,7 @@ impl Element {
             Element::Shape { .. } => "shape",
             Element::Table { .. } => "table",
             Element::Chart { .. } => "chart",
+            Element::StatCard { .. } => "stat_card",
             Element::Picture { .. } => "picture",
         }
     }
@@ -685,6 +708,14 @@ impl Layout {
             }
             if let Element::Shape { shape, .. } = e {
                 super::shapes::check_shape(shape)?;
+            }
+            if let Element::StatCard { part, size, .. } = e {
+                if !matches!(part.as_str(), "" | "chart" | "table") {
+                    bail!("Unknown statistics card part '{part}' (chart or table)");
+                }
+                if !(size.is_finite() && *size >= 0.0 && *size <= 72.0) {
+                    bail!("A statistics table's text size must be between 0 and 72 pt");
+                }
             }
             if let Element::ScaleBar { length, .. } = e {
                 if !(length.is_finite() && *length >= 0.0) {
@@ -1113,6 +1144,10 @@ pub struct ContourLabels {
 
 fn is_zero(v: &f64) -> bool {
     *v == 0.0
+}
+
+fn is_zero_usize(v: &usize) -> bool {
+    *v == 0
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]

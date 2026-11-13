@@ -22,6 +22,7 @@ pub mod worldfile;
 pub mod svg;
 pub mod symbols;
 pub mod tabular;
+pub mod statcard;
 
 use crate::layers::LayerInfo;
 use crate::Engine;
@@ -308,6 +309,7 @@ pub fn render_svg(conn: &Connection, req: &RenderRequest, lookup: &dyn Fn(&str) 
                 layer,
                 &tabular::ChartSpec { kind: chart_type, category, value, agg, top_n: *top_n, title: &tokens(title, req, &drawn_info), size: *size },
             )?,
+            Element::StatCard { at, sheet, card, part, index, size } => statcard::draw(&mut s, &mut warnings, conn, lookup, at, &statcard::Spec { sheet, card, part, index: *index, size: *size })?,
             Element::Picture { at, source, fit, opacity } => shapes::picture(&mut s, &mut warnings, at, source, fit, *opacity),
             Element::MapFrame { at, .. } => s.push_str(&frames[at.id.as_str()].0),
             Element::Text { at, text, font, family, size, align, color, .. } => text_svg(&mut s, at, &tokens(text, req, &drawn_info), font, family.as_deref(), *size, align, color),

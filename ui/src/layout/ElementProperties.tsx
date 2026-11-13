@@ -12,10 +12,11 @@ import { crsName, loadCatalog } from "../crs/crs";
 import { useLayouts } from "../store/layout";
 import { displayInfo, useApp } from "../store/store";
 import { mapOf } from "../store/maps";
+import { useStats } from "../stats/store";
 import { withStyleOverride } from "./labelEdits";
 import { useLegendRows, withOverride } from "./legendRows";
 import { choosePicture, choosePictureFor, pickFrameCrs, setFrameFromMapView } from "./actions";
-import { fixedLayers, followedMap, rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type MapFrame, type NorthArrowElement, type DeclinationElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
+import { fixedLayers, followedMap, rounded, type GridSpec, type LayoutElement, type LegendElement, type TextStyle, type ChartElement, type StatCardElement, type MapFrame, type NorthArrowElement, type DeclinationElement, type TableElement, type PictureElement, type ScaleBarElement, type ShapeElement, type SourcesElement, type TextElement } from "./types";
 
 /** A number field that keeps what the user types until it parses. */
 /** `decimals` rounds what is shown (0.1 mm for sizes and positions, 0.01 for CRS coordinates); the stored value changes only when the user types. */
@@ -46,7 +47,7 @@ export function LayoutElementProperties({ layout, id }: { layout: string; id: st
   useEffect(() => void loadCatalog().catch(() => {}), []);
   if (id === PAGE_TARGET) return <PageProperties layout={layout} />;
   if (!el) return <div className="empty-hint pad">Element not found.</div>;
-  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", declination: "Declination Diagram", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart" }[el.kind];
+  const title = { map_frame: "Map Frame", text: "Text", legend: "Legend", scale_bar: "Scale Bar", north_arrow: "North Arrow", declination: "Declination Diagram", sources: "Sources", shape: "Shape", picture: "Picture", table: "Table", chart: "Chart", stat_card: "Statistics Card" }[el.kind];
   return (
     <div className="props">
       <div className="props-title">{title} <span className="muted">({el.id})</span></div>
@@ -121,6 +122,9 @@ function elementTabs(el: LayoutElement, set: Set, layout: string): InspectorTab[
       break;
     case "chart":
       tabs.push({ id: "data", label: "Data", body: <ChartFields el={el} set={set} /> }, { id: "text", label: "Text", body: text });
+      break;
+    case "stat_card":
+      tabs.push({ id: "data", label: "Data", body: <StatCardFields el={el} set={set} /> });
       break;
     case "shape":
       tabs.push({ id: "shape", label: "Shape", body: <ShapeFields el={el} set={set} /> });
@@ -594,6 +598,26 @@ function TableFields({ el, set }: { el: TableElement; set: Set }) {
       <Num label="Most rows" value={el.maxRows ?? 20} min={1} max={500} step={1} onChange={(maxRows) => set({ maxRows: Math.round(maxRows) }, "maxRows")} />
       <Num label="Text size (pt, 0 = 7)" value={el.size ?? 0} min={0} max={24} step={0.5} decimals={1} onChange={(size) => set({ size }, "size")} />
       <Checkbox label="Striped rows" checked={el.zebra !== false} onChange={(_, d) => set({ zebra: !!d.checked })} />
+    </>
+  );
+}
+
+/** A statistics card's chart or table on the page (ST7): which sheet and card, which part, and the table's text size. */
+function StatCardFields({ el, set }: { el: StatCardElement; set: Set }) {
+  const docs = useStats((s) => s.docs);
+  const sheets = Object.values(docs).sort((a, b) => a.name.localeCompare(b.name));
+  const sheet = docs[el.sheet];
+  const card = sheet?.cards.find((c) => c.id === el.card);
+  const part = el.part ?? "chart";
+  const count = part === "table" ? (card?.result?.tables.length ?? 0) : (card?.result?.charts.length ?? 0);
+  return (
+    <>
+      <Choice label="Sheet" value={el.sheet} options={[["", "Choose a sheet…"], ...sheets.map((s): [string, string] => [s.id, s.name])]} onPick={(v) => set({ sheet: v, card: "", index: 0 })} />
+      {sheet && <Choice label="Card" value={el.card} options={[["", "Choose a card…"], ...sheet.cards.map((c): [string, string] => [c.id, c.title || c.tool])]} onPick={(v) => set({ card: v, index: 0 })} />}
+      <Choice label="Show" value={part} options={[["chart", "Chart"], ["table", "Table"]]} onPick={(v) => set({ part: v, index: 0 })} />
+      {count > 1 && <Num label={`Which ${part} (1 to ${count})`} value={(el.index ?? 0) + 1} min={1} max={count} step={1} onChange={(n) => set({ index: Math.round(n) - 1 }, "index")} />}
+      {part === "table" && <Num label="Text size (pt, 0 = 7)" value={el.size ?? 0} min={0} max={24} step={0.5} decimals={1} onChange={(size) => set({ size }, "size")} />}
+      <div className="props-hint">The page shows this card's last result. Run the card again on its sheet to update the page; a card that is out of date is listed in the layout's warnings.</div>
     </>
   );
 }

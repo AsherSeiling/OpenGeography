@@ -81,6 +81,20 @@ export function addStatCard(toolId: string) {
   }
   const options: Record<string, unknown> = {};
   for (const p of spec.params) if (!p.hidden && p.default !== null && p.default !== undefined) options[p.id] = p.default;
+  // A required field starts on a field that suits it (the next unused number, or a text field for a category), so a new chart shows something at once.
+  if (pick) {
+    const isNum = (t: string) => /INT|DOUBLE|FLOAT|DECIMAL|REAL/i.test(t);
+    const used = new Set<string>();
+    for (const p of spec.params) {
+      if (p.kind !== "field" || p.optional || p.hidden) continue;
+      const wantText = p.id === "category" || p.id === "group";
+      const f = pick.fields.find((x) => !used.has(x.name) && (wantText ? !isNum(x.type) : isNum(x.type)));
+      if (f) {
+        options[p.id] = f.name;
+        used.add(f.name);
+      }
+    }
+  }
   useStats.getState().addCard(sheetId, { id: newStatId("c"), tool: toolId, title: null, inputs, options, result: null });
   status(pick ? `Added ${spec.name}. Check its settings in Properties, then run it.` : `Added ${spec.name}. There is no layer or table in the project yet to run it on.`);
 }

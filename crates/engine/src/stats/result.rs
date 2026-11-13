@@ -78,9 +78,11 @@ pub enum ChartKind {
     Bar,
     Line,
     Heatmap,
+    /// Panels of scatter plots, one per pair of variables (`Axis.categories` names them, series are named "<column>,<row>").
+    ScatterMatrix,
 }
 
-/// Chart data. Each mark of each series is drawn with `data-mark="<index>"` (index into that series' `marks`, series in order); a mark carries the
+/// Chart data. Each selectable mark is drawn with `data-mark="<index>"`: its position counting every mark of every series in order (series drawn as `Line` have none); a mark carries the
 /// feature ids it stands for, or a bin key the engine turns into ids on click (a density bin of a large scatter plot).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ChartSpec {
@@ -103,12 +105,27 @@ pub struct Axis {
     pub min: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max: Option<f64>,
+    /// Names for the whole numbers 0, 1, 2 … along this axis (box plot groups, bars, heat map rows and columns).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub categories: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ChartSeries {
     pub name: String,
+    #[serde(default)]
+    pub style: SeriesStyle,
     pub marks: Vec<Mark>,
+}
+
+/// How a series is drawn. `Line` joins its marks in order and draws no selectable marks (a trend line, a Q–Q reference line).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SeriesStyle {
+    #[default]
+    Marks,
+    Line,
+    LineAndMarks,
 }
 
 /// One drawn thing. `x`/`y` place it; `x2`/`y2` give its far corner (a histogram bar spans x..x2 up to y, a box spans y..y2).
@@ -127,7 +144,16 @@ pub struct Mark {
     /// Features this mark stands for (linked selection).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fids: Vec<i64>,
-    /// A density bin key, when the mark stands for too many features to list.
+    /// A key the engine turns into feature ids on click (`stat_chart_bin_fids`), when the mark stands for too many features to list.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bin: Option<String>,
+    /// Box plot: median, and the whisker ends (the box is y..y2). Heat map and density cell: the cell's value or count.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub median: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lo: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hi: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<f64>,
 }
