@@ -99,7 +99,7 @@ fn lag_and_error_tools_estimate_the_spatial_parameter_and_leave_the_source_alone
     assert!(cell(&r, "Model fit", 0, "lr_p") < 0.001);
     let st = r.stat.as_ref().unwrap();
     assert_eq!(st.n_used, Some(144));
-    assert!(st.notes.iter().any(|n| n.contains("no R (spdep")), "verification statement");
+    assert!(st.notes.iter().any(|n| n.contains("Columbus")), "verification statement");
     assert!(st.notes.iter().any(|n| n.contains("Features near each other")));
     let f = fields_of(&e, &r);
     for c in ["fitted", "residual", "innovation"] {
