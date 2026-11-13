@@ -34,6 +34,9 @@ import { ErrorDialog } from "./errors/ErrorDialog";
 import { PaneBoundary } from "./errors/PaneBoundary";
 import { LayoutView } from "./layout/LayoutView";
 import { followActivePanel, layoutPanelClosed } from "./layout/actions";
+import { DataPane } from "./stats/DataPane";
+import { StatsView } from "./stats/StatsView";
+import { statsPanelClosed } from "./stats/actions";
 import { Ribbon } from "./ribbon/Ribbon";
 import { StatusBar } from "./statusbar/StatusBar";
 import { GeoreferenceWindow } from "./georef/GeoreferenceWindow";
@@ -51,7 +54,7 @@ const guard = (pane: string, title: string, el: React.ReactNode) => (
   </PaneBoundary>
 );
 
-const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPanelProps>> = {
+const components: Record<PaneId | "layout" | "stats", React.FunctionComponent<IDockviewPanelProps>> = {
   layout: (p) => guard(`layout:${(p.params as { layoutId: string }).layoutId}`, "Layout", <LayoutView layoutId={(p.params as { layoutId: string }).layoutId} />),
   contents: () => guard("contents", "Map Layers", <ContentsPane />),
   catalog: () => guard("catalog", "Catalog", <CatalogPane />),
@@ -61,6 +64,8 @@ const components: Record<PaneId | "layout", React.FunctionComponent<IDockviewPan
   properties: () => guard("properties", "Properties", <PropertiesPane />),
   sources: () => guard("sources", "Sources", <SourcesPane />),
   items: () => guard("items", "Items", <ItemsPane />),
+  statdata: () => guard("statdata", "Statistics data", <DataPane />),
+  stats: (p) => guard(`stats:${(p.params as { statsId: string }).statsId}`, "Statistics sheet", <StatsView sheetId={(p.params as { statsId: string }).statsId} />),
 };
 
 /** The + at the end of a tab strip that holds a map: a new map, opened in that strip. */
@@ -184,12 +189,13 @@ export function App() {
     defaultLayout();
     // The Layout ribbon tab and Properties follow the active layout tab.
     e.api.onDidActivePanelChange((ev) => {
-      followActivePanel((ev.panel?.params as { layoutId?: string } | undefined)?.layoutId);
+      followActivePanel(ev.panel?.params as { layoutId?: string; statsId?: string } | undefined);
       // Focusing a map's tab makes it the active map (Map Layers, the status bar and the tools follow it).
       if (ev.panel && isMapPanelId(ev.panel.id)) useApp.getState().setActiveMap(ev.panel.id);
     });
     e.api.onDidRemovePanel((panel) => {
       layoutPanelClosed((panel.params as { layoutId?: string } | undefined)?.layoutId);
+      statsPanelClosed((panel.params as { statsId?: string } | undefined)?.statsId);
       if (isMapPanelId(panel.id) && !dockIsRebuilding()) rememberView(panel.id);
     });
     // Renaming, duplicating or deleting a map updates its tab; a deleted map's tab closes.

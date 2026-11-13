@@ -43,6 +43,8 @@ import { exportLayout, insertMapFrame, insertOverview, insertPicture, insertSurr
 import { addChart, addGuide, addShape, addTable, addText, clearGuides, useLayouts } from "../store/layout";
 import { toggleLockSelected } from "../layout/clipboard";
 import { useLayoutView } from "../layout/view";
+import { deleteStatsSheet, newStatsSheet, renameStatsSheet, runAllStatCards, runStatCard } from "../stats/actions";
+import { useStats } from "../stats/store";
 import { defaultLayout, isPaneOpen, showPane, togglePane, type PaneId } from "../panes/panes";
 import { useApp, type MapTool } from "../store/store";
 
@@ -71,6 +73,13 @@ const hasSelection = () => Object.values(app().selection).some((f) => f.length >
 const setTool = (t: MapTool) => () => app().setTool(t);
 const tool = (t: MapTool) => () => app().tool === t;
 const inLayout = () => !!useLayouts.getState().doc;
+/** The open statistics sheet and its selected card (the workspace's commands act on these). */
+const openSheet = () => (useStats.getState().id ? (useStats.getState().docs[useStats.getState().id!] ?? null) : null);
+const pickedCard = () => {
+  const st = useStats.getState();
+  const sheet = openSheet();
+  return sheet && st.selected ? (sheet.cards.find((c) => c.id === st.selected) ?? null) : null;
+};
 const hasFrame = () => !!useLayouts.getState().doc?.elements.some((e) => e.kind === "map_frame");
 
 /** A Windows button: pressed while the pane is open, a click opens or closes it. */
@@ -141,6 +150,16 @@ const list: Command[] = [
   { id: "runModel", label: "Run", icon: <RIcon name="run-model" />, run: () => runModel(), tip: "Run every step of the active layer's node tree" },
   paneToggle("paneModel", "model", "Processing nodes", <RIcon name="processing-nodes" />, "Show or hide the Processing nodes editor in the bottom panel"),
   paneToggle("paneTable", "table", "Attribute Table", <RIcon name="attribute-table" />, "Show or hide the Attribute Table in the bottom panel"),
+
+  // Statistics workspace (docs/STATISTICS_WORKSPACE_PLAN.md, ST1)
+  { id: "statNewSheet", label: "New Statistics Sheet", icon: <RIcon name="layout-chart" />, run: () => newStatsSheet(), tip: "Open a statistics sheet: cards that explore and test a layer's or table's numbers, kept in the project" },
+  { id: "statRenameSheet", label: "Rename Sheet", icon: <RIcon name="page-setup" />, enabled: () => !!openSheet(), run: () => { const s = openSheet(); if (s) renameStatsSheet(s.id); }, tip: "Rename the open statistics sheet" },
+  { id: "statDeleteSheet", label: "Delete Sheet", icon: <RIcon name="remove" />, enabled: () => !!openSheet(), run: () => { const s = openSheet(); if (s) deleteStatsSheet(s.id); }, tip: "Delete the open statistics sheet from the project" },
+  { id: "statRun", label: "Run Card", icon: <RIcon name="run-model" />, enabled: () => !!pickedCard(), run: () => { const s = openSheet(), c = pickedCard(); if (s && c) void runStatCard(s.id, c.id); }, tip: "Run the selected card on its layer. Nothing runs by itself: a card whose data changed is marked out of date until you run it" },
+  { id: "statRunAll", label: "Run All", icon: <RIcon name="run-model" />, enabled: () => (openSheet()?.cards.length ?? 0) > 0, run: () => void runAllStatCards(), tip: "Run every card of the sheet, top to bottom" },
+  { id: "statRemoveCard", label: "Remove Card", icon: <RIcon name="remove" />, enabled: () => !!pickedCard(), run: () => { const s = openSheet(), c = pickedCard(); if (s && c) useStats.getState().removeCard(s.id, c.id); }, tip: "Take the selected card off the sheet" },
+  { id: "statCardUp", label: "Move Up", icon: <RIcon name="order" />, enabled: () => { const s = openSheet(), c = pickedCard(); return !!s && !!c && s.cards[0]?.id !== c.id; }, run: () => { const s = openSheet(), c = pickedCard(); if (s && c) useStats.getState().moveCard(s.id, c.id, -1); }, tip: "Move the selected card one place up the sheet" },
+  { id: "statCardDown", label: "Move Down", icon: <RIcon name="order" />, enabled: () => { const s = openSheet(), c = pickedCard(); return !!s && !!c && s.cards[s.cards.length - 1]?.id !== c.id; }, run: () => { const s = openSheet(), c = pickedCard(); if (s && c) useStats.getState().moveCard(s.id, c.id, 1); }, tip: "Move the selected card one place down the sheet" },
 
   // Insert tab (later milestones)
   { id: "newLayout", label: "New Layout", icon: <RIcon name="new-layout" />, run: () => newLayout(), tip: "Create a print layout (Letter landscape); more page sizes are in the Insert tab's gallery" },

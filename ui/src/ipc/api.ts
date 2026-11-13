@@ -3,6 +3,7 @@ import type { RasterStyle } from "../store/store";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { track } from "../progress/progress";
 import type { Layout, LayoutPreview, RenderRequest } from "../layout/types";
+import type { DataProfile, StatCard, StatResult, StatSheet } from "../stats/types";
 import type { AdjustMethod, AdjustReport, AdjustRequest, AdjustResult, ControlSet, ErrorReport, ImageInfo, ParsedControlFile, Resampling, WarpMethod, WarpPreview, WarpRequest } from "../georef/types";
 
 /** True inside the desktop app; false when the UI runs in a browser against `cargo run -p devserver`. */
@@ -1060,6 +1061,13 @@ export const api = {
   listLayouts: () => invoke<Layout[]>("list_layouts"),
   saveLayout: (layout: Layout) => invoke<void>("save_layout", { layout }),
   deleteLayout: (id: string) => invoke<void>("delete_layout", { id }),
+  /** Statistics sheets saved in the project (ST1). A card runs through the node executor; its result keeps the data versions it came from. */
+  listStatSheets: () => invoke<StatSheet[]>("list_stat_sheets"),
+  saveStatSheet: (sheet: StatSheet) => invoke<void>("save_stat_sheet", { sheet }),
+  deleteStatSheet: (id: string) => invoke<void>("delete_stat_sheet", { id }),
+  renameStatSheet: (id: string, name: string) => invoke<void>("rename_stat_sheet", { id, name }),
+  runStatCard: (card: StatCard) => invoke<StatResult>("run_stat_card", { card }),
+  statDataProfile: (layer: string, fids: number[] | null = null) => invoke<DataProfile>("stat_data_profile", { layer, fids }),
   /** Georeferencing control point sets saved in the project (GR1). */
   listControlSets: () => invoke<ControlSet[]>("list_control_sets"),
   saveControlSet: (set: ControlSet) => invoke<void>("save_control_set", { set }),

@@ -11,7 +11,7 @@ import { create } from "zustand";
 import { activeMapOf, isMapPanelId, mapOf } from "../store/maps";
 import { useApp } from "../store/store";
 
-export type PaneId = "contents" | "catalog" | "map" | "table" | "model" | "properties" | "sources" | "items";
+export type PaneId = "contents" | "catalog" | "map" | "table" | "model" | "properties" | "sources" | "items" | "statdata";
 
 export const PANE_TITLES: Record<PaneId, string> = {
   contents: "Map Layers",
@@ -22,6 +22,7 @@ export const PANE_TITLES: Record<PaneId, string> = {
   properties: "Properties",
   sources: "Sources",
   items: "Items",
+  statdata: "Data",
 };
 
 /**
@@ -204,6 +205,7 @@ export function showPane(id: PaneId) {
     properties: dock.getPanel("sources") ? { referencePanel: "sources", direction: "above" } : { direction: "right" },
     // Items shares the Map Layers pane, which is the layout's list of what is on the page.
     items: dock.getPanel("contents") ? { referencePanel: "contents", direction: "within" } : { direction: "left" },
+    statdata: dock.getPanel("contents") ? { referencePanel: "contents", direction: "within" } : { direction: "left" },
     sources: dock.getPanel("properties") ? { referencePanel: "properties", direction: "below" } : { direction: "right" },
     table: other ? { referencePanel: other.id, direction: "within" } : map ? { referencePanel: map.id, direction: "below" } : undefined,
     model: other ? { referencePanel: other.id, direction: "within" } : map ? { referencePanel: map.id, direction: "below" } : undefined,
@@ -215,7 +217,7 @@ export function showPane(id: PaneId) {
 
 /** Close every layout tab (the project changed). */
 export function closeLayoutPanels() {
-  for (const p of [...(dock?.panels ?? [])]) if (p.id.startsWith("layout:")) p.api.close();
+  for (const p of [...(dock?.panels ?? [])]) if (p.id.startsWith("layout:") || p.id.startsWith("stats:")) p.api.close();
 }
 
 export function togglePane(id: PaneId) {
@@ -235,7 +237,7 @@ export function usableDock(saved: unknown): saved is { version: number; layout: 
   const d = saved as { version?: unknown; layout?: { panels?: Record<string, unknown> } } | null;
   if (!d || typeof d !== "object" || typeof d.version !== "number" || !READABLE_VERSIONS.includes(d.version) || !d.layout || typeof d.layout !== "object") return false;
   const ids = Object.keys(d.layout.panels ?? {});
-  return ids.some(isMapPanelId) && ids.every((id) => KNOWN.has(id) || id.startsWith("layout:") || isMapPanelId(id));
+  return ids.some(isMapPanelId) && ids.every((id) => KNOWN.has(id) || id.startsWith("layout:") || id.startsWith("stats:") || isMapPanelId(id));
 }
 
 /** Restore a saved layout, or fall back to the default when it is old, unknown, names a removed pane or cannot be read. */

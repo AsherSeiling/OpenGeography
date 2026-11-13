@@ -14,9 +14,11 @@ import * as mapActions from "./maps/mapActions";
 import * as editActions from "./edit/editActions";
 import { useClip, useEdit } from "./edit/editStore";
 import { useGeoref } from "./georef/store";
+import { useStats } from "./stats/store";
+import * as statsActions from "./stats/actions";
 
 if (import.meta.env.DEV) {
-  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap: mapController.getMap, mapController, useMapView, useLayouts, layoutActions, panes, edit: { ...editActions, useEdit, useClip }, mapActions, useGeoref, useSettings };
+  (window as unknown as { __gis: unknown }).__gis = { api, actions, useApp, useModel, useRun, getMap: mapController.getMap, mapController, useMapView, useLayouts, layoutActions, panes, edit: { ...editActions, useEdit, useClip }, mapActions, useGeoref, useSettings, useStats, statsActions };
   startLayoutTrace();
 }
 

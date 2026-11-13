@@ -1089,6 +1089,38 @@ pub async fn delete_layout(engine: Eng<'_>, id: String) -> Res<()> {
     blocking(&engine, move |e| e.delete_layout(&id)).await
 }
 
+// ---------- statistics sheets (ST1) ----------
+
+#[tauri::command]
+pub async fn list_stat_sheets(engine: Eng<'_>) -> Res<Vec<engine::stats::StatSheet>> {
+    blocking(&engine, |e| e.list_stat_sheets()).await
+}
+
+#[tauri::command]
+pub async fn save_stat_sheet(engine: Eng<'_>, sheet: engine::stats::StatSheet) -> Res<()> {
+    blocking(&engine, move |e| e.save_stat_sheet(&sheet)).await
+}
+
+#[tauri::command]
+pub async fn delete_stat_sheet(engine: Eng<'_>, id: String) -> Res<()> {
+    blocking(&engine, move |e| e.delete_stat_sheet(&id)).await
+}
+
+#[tauri::command]
+pub async fn rename_stat_sheet(engine: Eng<'_>, id: String, name: String) -> Res<()> {
+    blocking(&engine, move |e| e.rename_stat_sheet(&id, &name)).await
+}
+
+#[tauri::command]
+pub async fn run_stat_card(engine: Eng<'_>, card: engine::stats::StatCard) -> Res<engine::stats::StatResult> {
+    blocking(&engine, move |e| e.run_stat_card(&card)).await
+}
+
+#[tauri::command]
+pub async fn stat_data_profile(engine: Eng<'_>, layer: String, fids: Option<Vec<i64>>) -> Res<engine::stats::DataProfile> {
+    blocking(&engine, move |e| e.stat_data_profile(&layer, fids.as_deref())).await
+}
+
 // ---------- georeferencing: control points (GR1) ----------
 
 #[tauri::command]

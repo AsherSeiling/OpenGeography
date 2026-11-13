@@ -6,6 +6,7 @@ import { Shelf } from "./shelf";
 import { ToolMenus } from "./toolDropdowns";
 import { SwipeMenu } from "../map/SwipeUi";
 import { BookmarksMenu, FrameBookmarkMenu } from "../map/BookmarkMenu";
+import { AddCardMenu, ComingNote } from "../stats/ribbonControls";
 import type { Group } from "./tabs";
 
 export const TABS: Record<string, Group[]> = {
@@ -34,6 +35,7 @@ export const TABS: Record<string, Group[]> = {
   Insert: [
     { label: "Layouts", items: [{ custom: <NewLayoutGallery />, covers: ["newLayout"] }] },
     { label: "Maps", items: [{ cmd: "newMap" }, { cmd: "duplicateMap" }, { cmd: "topoMap" }] },
+    { label: "Statistics", items: [{ cmd: "statNewSheet" }] },
   ],
   View: [
     { label: "Zoom", when: "layout", items: [{ cmd: "layoutFit" }, { cmd: "layoutActual" }, { cmd: "layoutZoomIn", size: "small" }, { cmd: "layoutZoomOut", size: "small" }] },
@@ -91,6 +93,26 @@ export const TABS: Record<string, Group[]> = {
 };
 
 
+/**
+ * The statistics workspace's tabs (docs/STATISTICS_WORKSPACE_PLAN.md). Ids are prefixed so "Export" here is not the layout's Export tab; the tab shows
+ * `STATS_LABELS[id]`. Explore holds the sheet and card commands that work now. The other tabs say which package builds them (plain text, not a
+ * button), so there is no control that does nothing.
+ */
+export const STATS_ORDER = ["stats-explore", "stats-charts", "stats-tests", "stats-regression", "stats-spatial", "stats-export"];
+export const STATS_LABELS: Record<string, string> = { "stats-explore": "Explore", "stats-charts": "Charts", "stats-tests": "Tests", "stats-regression": "Regression", "stats-spatial": "Spatial", "stats-export": "Export" };
+export const STATS_TABS: Record<string, Group[]> = {
+  "stats-explore": [
+    { label: "Sheet", items: [{ cmd: "statNewSheet" }, { cmd: "statRenameSheet", size: "small" }, { cmd: "statDeleteSheet", size: "small" }] },
+    { label: "Cards", items: [{ custom: <AddCardMenu /> }, { cmd: "statRemoveCard", size: "small" }, { cmd: "statCardUp", size: "small" }, { cmd: "statCardDown", size: "small" }] },
+    { label: "Run", items: [{ cmd: "statRun" }, { cmd: "statRunAll" }] },
+  ],
+  "stats-charts": [{ label: "Charts", items: [{ custom: <ComingNote>Histogram, box plot, scatter plot, Q–Q plot, bar and line charts and a correlation heat map. Coming in ST3.</ComingNote> }] }],
+  "stats-tests": [{ label: "Tests", items: [{ custom: <ComingNote>t tests, ANOVA, chi-square, rank tests, normality and correlation. Coming in ST4.</ComingNote> }] }],
+  "stats-regression": [{ label: "Regression", items: [{ custom: <ComingNote>Linear and logistic regression with residual checks. Coming in ST5.</ComingNote> }] }],
+  "stats-spatial": [{ label: "Spatial", items: [{ custom: <ComingNote>Spatial weights, Moran scatter plot, LISA, GWR, spatial lag and error models. Coming in ST6.</ComingNote> }] }],
+  "stats-export": [{ label: "Export", items: [{ custom: <ComingNote>Send a card to a layout, export tables and charts, and a report of the sheet. Coming in ST7.</ComingNote> }] }],
+};
+
 /** The Insert rail beside the layout page (option B): what goes on the page, in the doc's four groups. Ribbon-style groups, shown as a column. */
 export const RAIL: Group[] = [
   { label: "Maps", items: [{ custom: <MapFrameInsert />, covers: ["layoutMapFrame"] }, { cmd: "layoutOverview" }] },
@@ -119,6 +141,6 @@ export const EDIT_GROUPS: Group[] = [
 
 export function commandsOnTabs(tabs: Record<string, Group[]> = TABS): Set<string> {
   const ids = new Set<string>();
-  for (const groups of [...Object.values(tabs), ...(tabs === TABS ? [RAIL, EDIT_GROUPS] : [])]) for (const g of groups) for (const it of g.items) if ("cmd" in it) ids.add(it.cmd); else for (const c of it.covers ?? []) ids.add(c);
+  for (const groups of [...Object.values(tabs), ...(tabs === TABS ? [RAIL, EDIT_GROUPS, ...Object.values(STATS_TABS)] : [])]) for (const g of groups) for (const it of g.items) if ("cmd" in it) ids.add(it.cmd); else for (const c of it.covers ?? []) ids.add(c);
   return ids;
 }
