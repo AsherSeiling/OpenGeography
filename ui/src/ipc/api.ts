@@ -252,6 +252,36 @@ export interface CrsGrid {
   tileSize: number;
 }
 
+/** Header summary of a LAS/LAZ point cloud (pointcloud::PointCloudInfo). `crs` is null when the file has none: it is never guessed. */
+export interface PointCloudInfo {
+  path: string;
+  name: string;
+  compressed: boolean;
+  version: string;
+  pointFormat: number;
+  pointCount: number;
+  /** xmin, ymin, zmin, xmax, ymax, zmax */
+  bounds: [number, number, number, number, number, number];
+  scale: [number, number, number];
+  offset: [number, number, number];
+  returns: number[];
+  hasRgb: boolean;
+  hasGpsTime: boolean;
+  hasNir: boolean;
+  systemIdentifier: string;
+  generatingSoftware: string;
+  creationDate: string | null;
+  crs: string | null;
+  crsName: string | null;
+  crsSource: string | null;
+  vertical: string | null;
+  verticalDatum: string | null;
+  unit: string | null;
+  classes: { code: number; name: string; count: number }[] | null;
+  vlrs: string[];
+  notes: string[];
+}
+
 /** What a 3DEP download of a box will be (tnm::ElevationPlan). */
 export interface ElevationPlan {
   requestedRes: number;
@@ -601,7 +631,7 @@ export interface LayerInfo {
 }
 
 export type PortKind = "vector" | "table" | "raster" | "any";
-export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "color" | "savePath" | "query";
+export type ParamKind = "number" | "text" | "expression" | "enum" | "field" | "layer" | "crs" | "bool" | "color" | "savePath" | "openPath" | "query";
 
 export interface ToolParam {
   id: string;
@@ -843,6 +873,7 @@ export const api = {
   arcgisCatalog: () => invoke<ArcgisEntry[]>("arcgis_catalog"),
   arcgisLayers: (url: string) => invoke<ArcgisServiceLayer[]>("arcgis_layers", { url }),
   arcgisImport: (spec: ArcgisSpec, bbox: Extent, label: string) => track(invoke<LayerInfo[]>("arcgis_import", { spec, bbox, label })),
+  pointcloudInfo: (path: string, scan = false) => track(invoke<PointCloudInfo>("pointcloud_info", { path, scan })),
   planElevation: (bbox: Extent, resolution: number) => invoke<ElevationPlan>("plan_elevation", { bbox, resolution }),
   downloadElevation: (bbox: Extent, resolution: number, label: string, confirmed = false) => track(invoke<LayerInfo>("download_elevation", { bbox, resolution, label, confirmed })),
   rasterRamps: () => invoke<RampInfo[]>("raster_ramps"),

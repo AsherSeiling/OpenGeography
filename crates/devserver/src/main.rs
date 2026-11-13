@@ -345,6 +345,7 @@ fn invoke(e: &Arc<Engine>, cmd: &str, a: &Value) -> Result<Value> {
             }
             json!(l)
         }
+        "pointcloud_info" => json!(e.pointcloud_info(std::path::Path::new(&s(a, "path")?), a["scan"].as_bool().unwrap_or(false))?),
         "plan_elevation" => json!(e.plan_elevation(de(a, "bbox")?, f(a, "resolution")?)?),
         "download_elevation" => {
             let l = e.download_elevation(de(a, "bbox")?, f(a, "resolution")?, &s(a, "label")?, a["confirmed"].as_bool().unwrap_or(false))?;

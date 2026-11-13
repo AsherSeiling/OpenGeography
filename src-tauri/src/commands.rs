@@ -953,6 +953,12 @@ pub async fn save_text(path: String, text: String) -> Res<()> {
 
 // ---------- rasters ----------
 
+/// Summary of a LAS/LAZ file (header, bounds, CRS, optionally points per class).
+#[tauri::command]
+pub async fn pointcloud_info(engine: Eng<'_>, path: String, scan: bool) -> Res<engine::pointcloud::PointCloudInfo> {
+    blocking(&engine, move |e| e.pointcloud_info(std::path::Path::new(&path), scan)).await
+}
+
 #[tauri::command]
 pub async fn plan_elevation(engine: Eng<'_>, bbox: [f64; 4], resolution: f64) -> Res<engine::tnm::ElevationPlan> {
     blocking(&engine, move |e| e.plan_elevation(bbox, resolution)).await
